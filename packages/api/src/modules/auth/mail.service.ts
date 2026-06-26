@@ -43,8 +43,9 @@ export class MailService {
           },
         };
 
-        // The proxy URL deployed explicitly for email handling
-        const proxyUrl = `https://web-chi-beige-80.vercel.app/api/internal/send-email`;
+        // If local, uses localhost. If on Render, uses the real Vercel URL
+        const webUrl = this.configService.get<string>('WEB_URL') || 'https://orderflow-web-iota.vercel.app';
+        const proxyUrl = `${webUrl}/api/internal/send-email`;
 
         const response = await fetch(proxyUrl, {
           method: 'POST',
