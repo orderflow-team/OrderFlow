@@ -89,7 +89,7 @@ export class AuthService {
 
     // Only surface the code in the response when it wasn't actually emailed,
     // so the frontend's "no email provider configured" banner is accurate.
-    const devOnly = !emailSent && process.env.NODE_ENV !== 'production' ? { devCode: code } : {};
+    const devOnly = !emailSent ? { devCode: code } : {};
     return { message: 'OTP sent', expiresInMinutes: OTP_EXPIRY_MINUTES, ...devOnly };
   }
 
