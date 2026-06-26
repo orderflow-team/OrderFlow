@@ -247,12 +247,12 @@ export default function TableDetailsPage() {
               </div>
             )}
           </>
-        ) : activeSession ? (
+        ) : !isAvailable ? (
           <Card className="mt-8 border border-emerald-100 shadow-sm overflow-hidden">
             <div className="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <Coffee className="w-5 h-5 text-slate-400" />
-                <h3 className="font-bold text-lg text-slate-800">{activeSession.customer_name}</h3>
+                <h3 className="font-bold text-lg text-slate-800">{activeSession?.customer_name || `Table ${table.name}`}</h3>
               </div>
               <div className="flex items-center gap-3">
                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700">active</span>
@@ -261,34 +261,40 @@ export default function TableDetailsPage() {
             
             <CardContent className="p-0">
               <div className="px-6 py-2">
-                {(activeSession?.items || []).map(item => (
-                  <div key={item.id} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0 group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-slate-400 font-medium w-6">{item.quantity}x</span>
-                      <span className="font-medium text-slate-700">{item.product?.name || item.custom_product_name || 'Item'}</span>
-                    </div>
-                    <div className="text-slate-500 font-medium">
-                      ₹{Number(item.subtotal).toFixed(2)}
-                    </div>
+                {(!activeSession || activeSession.items?.length === 0) ? (
+                  <div className="py-8 text-center text-slate-400 text-sm font-medium">
+                    No items ordered yet
                   </div>
-                ))}
+                ) : (
+                  (activeSession.items || []).map(item => (
+                    <div key={item.id} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0 group">
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-400 font-medium w-6">{item.quantity}x</span>
+                        <span className="font-medium text-slate-700">{item.product?.name || item.custom_product_name || 'Item'}</span>
+                      </div>
+                      <div className="text-slate-500 font-medium">
+                        ₹{Number(item.subtotal).toFixed(2)}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               <div className="bg-slate-50 p-6 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-500 mb-1">Running Total</p>
-                    <p className="text-3xl font-extrabold text-emerald-600">₹{Number(activeSession.total_amount).toFixed(2)}</p>
+                    <p className="text-3xl font-extrabold text-emerald-600">₹{Number(activeSession?.total_amount || 0).toFixed(2)}</p>
                   </div>
                   <div className="flex gap-3">
                     <Button onClick={() => setShowMenuModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 h-12 text-base">
                       <Plus className="w-4 h-4" /> Add Items
                     </Button>
                     <Button
-                      onClick={handleCloseAndPay}
-                      className={Number(activeSession.total_amount) <= 0 ? "bg-rose-500 hover:bg-rose-600 text-white gap-1.5 px-6 h-12 text-base" : "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 h-12 text-base"}
+                      onClick={(!activeSession || Number(activeSession.total_amount) <= 0) ? handleForceRelease : handleCloseAndPay}
+                      className={(!activeSession || Number(activeSession.total_amount) <= 0) ? "bg-rose-500 hover:bg-rose-600 text-white gap-1.5 px-6 h-12 text-base" : "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 h-12 text-base"}
                     >
-                      {Number(activeSession.total_amount) <= 0 ? (
+                      {(!activeSession || Number(activeSession.total_amount) <= 0) ? (
                         <><XCircle className="w-4 h-4" /> Cancel Session</>
                       ) : (
                         <><SplitSquareHorizontal className="w-4 h-4" /> Close & Pay</>
@@ -299,17 +305,6 @@ export default function TableDetailsPage() {
                 {billingError && <p className="text-sm text-rose-600 font-medium mt-3 text-right">{billingError}</p>}
               </div>
             </CardContent>
-          </Card>
-        ) : !isAvailable && !activeSession ? (
-          <Card className="h-[400px] flex flex-col items-center justify-center border border-slate-200 shadow-sm mt-8 bg-white">
-            <div className="w-20 h-20 rounded-full bg-rose-50 flex items-center justify-center mb-6 text-rose-400 border border-rose-100">
-              <AlertTriangle className="w-10 h-10 stroke-[1.5]" />
-            </div>
-            <h3 className="text-xl font-semibold text-slate-800 mb-2">Table is stuck in occupied state</h3>
-            <p className="text-slate-500 text-sm mb-8 text-center max-w-md">This table is marked as occupied but has no active orders. This can happen if an order was manually cancelled or deleted from the orders dashboard.</p>
-            <Button onClick={handleForceRelease} className="bg-rose-500 hover:bg-rose-600 text-white gap-2 px-8 py-6 text-base rounded-xl shadow-sm font-semibold">
-              Force Free Table
-            </Button>
           </Card>
         ) : null}
 

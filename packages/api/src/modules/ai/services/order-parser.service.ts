@@ -15,8 +15,12 @@ export class OrderParserService {
     private productsService: ProductsService,
     private restaurantService: RestaurantService,
   ) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY') || 'test-key';
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    if (apiKey && apiKey !== 'test-key') {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+    } else {
+      console.warn('GEMINI_API_KEY is not configured or is set to test-key. AI services will be unavailable.');
+    }
   }
 
   /**
@@ -45,6 +49,9 @@ export class OrderParserService {
     const catalog = available.map((p) => `${p.name} (₹${Number(p.selling_price)})`).join(', ');
     const tableNames = tables.map((t) => t.name);
 
+    if (!this.genAI) {
+      throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
+    }
     const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `
       You are an ordering assistant for a shop. The customer will describe what they want in plain
@@ -183,6 +190,9 @@ export class OrderParserService {
    * Extract structure from Hinglish transcript using Gemini
    */
   private async extractOrderStructure(transcript: string) {
+    if (!this.genAI) {
+      throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
+    }
     const model = this.genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
     const prompt = `
