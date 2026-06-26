@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, In, Raw } from 'typeorm';
 import { CustomersService } from '../customers/customers.service';
 import { ProductsService } from '../products/products.service';
@@ -67,13 +67,7 @@ export class DevToolsService {
     private dataSource: DataSource,
   ) {}
 
-  private assertDevEnvironment() {
-    if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException('Demo data tools are disabled in production');
-    }
-  }
-
-  private getCatalog(category: CategoryKey): SeedProduct[] {
+private getCatalog(category: CategoryKey): SeedProduct[] {
     switch (category) {
       case 'pharmacy':
         return [
@@ -144,7 +138,6 @@ export class DevToolsService {
   }
 
   async seedAll(businessId: string) {
-    this.assertDevEnvironment();
 
     const business = await this.dataSource.getRepository(Business).findOne({ where: { id: businessId } });
     if (!business) {
@@ -359,7 +352,6 @@ export class DevToolsService {
    * Every clear below deletes children before parents explicitly.
    */
   async clearModule(module: string, businessId: string) {
-    this.assertDevEnvironment();
     if (!DEV_MODULES.includes(module as DevModule)) {
       throw new BadRequestException(`Unknown module "${module}"`);
     }
