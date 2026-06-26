@@ -34,7 +34,8 @@ export class MailService {
         },
         connectionTimeout: 5000,
         socketTimeout: 5000,
-      });
+        family: 4, // Force IPv4
+      } as nodemailer.TransportOptions);
       this.logger.log(`Nodemailer initialized with SMTP host: ${host}`);
     } else {
       this.logger.warn('SMTP credentials not fully provided; emails will be logged instead of sent.');
