@@ -28,6 +28,8 @@ export class MailService {
           user,
           pass,
         },
+        connectionTimeout: 5000,
+        socketTimeout: 5000,
       });
       this.logger.log(`Nodemailer initialized with SMTP host: ${host}`);
     } else {
