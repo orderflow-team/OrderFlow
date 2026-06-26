@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api-proxy/:path*',
-        destination: 'http://localhost:3000/:path*' // Proxy to Backend
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com'}/:path*`
       }
     ];
   }
