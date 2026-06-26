@@ -1,11 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { resolve4 } from 'dns/promises';
 
 /**
- * Nodemailer is configured to send OTP emails.
- * If SMTP credentials are missing, it falls back to logging the OTP.
+ * MailService proxies email sending to the Vercel frontend.
+ * This bypasses Render's permanent hard firewall on SMTP ports (465, 587).
+ * Vercel's Edge network allows port 465, so Vercel safely establishes the Nodemailer TCP socket.
  */
 @Injectable()
 export class MailService {
@@ -29,36 +28,40 @@ export class MailService {
 
     if (host && port && user && pass) {
       try {
-        // Explicitly resolve IPv4 to bypass Docker/Render IPv6 ENETUNREACH issues
-        const addresses = await resolve4(host);
-        const ipv4Host = addresses[0];
-
-        const transporter = nodemailer.createTransport({
-          host: ipv4Host,
-          port: Number(port),
-          secure: Number(port) === 465,
-          auth: {
-            user,
-            pass,
-          },
-          tls: {
-            servername: host, // Crucial for SSL certificate validation when connecting via IP
-          },
-          connectionTimeout: 5000,
-          socketTimeout: 5000,
-        });
-
-        await transporter.sendMail({
-          from: this.fromEmail,
-          to: email,
+        const payload = {
+          email,
           subject: 'Your Login OTP Code',
           text: `Your OTP code is: ${code}. It is valid for 10 minutes.`,
           html: `<p>Your OTP code is: <strong>${code}</strong></p><p>It is valid for 10 minutes.</p>`,
+          secret: 'vrc_proxy_8f92a1_super_secure_internal',
+          smtp: {
+            host,
+            port,
+            user,
+            pass,
+            from: this.fromEmail,
+          },
+        };
+
+        // If local, uses localhost. If on Render, uses the real Vercel URL
+        const webUrl = this.configService.get<string>('WEB_URL') || 'https://orderflow-web-iota.vercel.app';
+        const proxyUrl = `${webUrl}/api/internal/send-email`;
+
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
-        this.logger.log(`OTP email sent to ${email}`);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Vercel Proxy returned ${response.status}: ${errorText}`);
+        }
+
+        this.logger.log(`OTP email securely proxied to Vercel and sent to ${email}`);
         return true;
       } catch (error) {
-        this.logger.error(`Failed to send OTP email to ${email}`, (error as Error).stack);
+        this.logger.error(`Failed to send OTP email to ${email} via proxy`, (error as Error).stack);
         this.logger.warn(`[DEV FALLBACK] OTP for ${email}: ${code}`);
         return false;
       }
