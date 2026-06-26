@@ -233,7 +233,7 @@ export default function ProductsPage() {
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <Package className="w-10 h-10 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">No {entityNamePlural.toLowerCase()} found</h2>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">No {entityNamePlural.toLowerCase()} found</h2>
                 <p className="text-slate-500 mb-8 text-sm">Add items to create a new {entityName.toLowerCase()}</p>
                 <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
                   <Plus className="w-4 h-4" /> New {entityName}

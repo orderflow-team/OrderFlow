@@ -49,7 +49,7 @@ function StatCard({ icon: Icon, label, value, sub, tint, valueClass }: {
       <CardContent className="p-5 flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className={`text-2xl font-bold mt-1.5 ${valueClass || 'text-slate-900'}`}>{value}</p>
+          <p className={`text-2xl font-bold mt-1.5 ${valueClass || 'text-slate-800'}`}>{value}</p>
           {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
         </div>
         <div className={`p-2.5 rounded-xl ${tint}`}>
@@ -133,10 +133,10 @@ export default function ReportsPage() {
                     <tbody className="divide-y divide-slate-100">
                       {tax.map((row) => (
                         <tr key={row.date} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="px-6 py-3 text-slate-900">{formatDate(row.date)}</td>
+                          <td className="px-6 py-3 text-slate-800">{formatDate(row.date)}</td>
                           <td className="px-6 py-3 text-right text-slate-600">{row.orderCount}</td>
                           <td className="px-6 py-3 text-right text-slate-600">{formatCurrency(row.totalSales)}</td>
-                          <td className="px-6 py-3 text-right font-semibold text-slate-900">{formatCurrency(row.totalTax)}</td>
+                          <td className="px-6 py-3 text-right font-semibold text-slate-800">{formatCurrency(row.totalTax)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -156,7 +156,7 @@ export default function ReportsPage() {
                   <div className="divide-y divide-slate-100">
                     {outstanding.map((c) => (
                       <div key={c.id} className="px-6 py-3 flex justify-between text-sm">
-                        <span className="text-slate-900 font-medium">{c.name}</span>
+                        <span className="text-slate-800 font-medium">{c.name}</span>
                         <span className="font-semibold text-rose-600">{formatCurrency(Number(c.outstanding_amount))}</span>
                       </div>
                     ))}

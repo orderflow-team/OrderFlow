@@ -117,7 +117,7 @@ export default function InvoiceDetailPage() {
             <div className="p-8">
             <div className="flex justify-between items-start mb-8">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Tax Invoice</h2>
+                <h2 className="text-xl font-bold text-slate-800">Tax Invoice</h2>
                 <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
               </div>
               <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString()}</p>
@@ -136,13 +136,13 @@ export default function InvoiceDetailPage() {
               <tbody className="divide-y divide-slate-100">
                 {invoice.items.map((item) => (
                   <tr key={item.id}>
-                    <td className="py-3 text-slate-900">{item.custom_product_name || item.product_id?.slice(0, 8) || '-'}</td>
+                    <td className="py-3 text-slate-800">{item.custom_product_name || item.product_id?.slice(0, 8) || '-'}</td>
                     <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
                     <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
                     <td className="py-3 text-right text-slate-600">
                       {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
                     </td>
-                    <td className="py-3 text-right text-slate-900 font-medium">
+                    <td className="py-3 text-right text-slate-800 font-medium">
                       {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
                     </td>
                   </tr>
@@ -160,7 +160,7 @@ export default function InvoiceDetailPage() {
                   <span>Tax (GST)</span>
                   <span>{Number(invoice.tax_amount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-base font-bold text-slate-900 border-t border-slate-200 pt-2">
+                <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
                   <span>Total</span>
                   <span>{Number(invoice.total_amount).toFixed(2)}</span>
                 </div>

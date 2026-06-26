@@ -180,7 +180,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     <AppShell>
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{isRestaurant ? 'Menu' : 'Products'}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">{isRestaurant ? 'Menu' : 'Products'}</h1>
           <p className="text-slate-500 font-medium mt-1">{isRestaurant ? 'Manage your menu items and categories' : 'Manage your products and categories'}</p>
         </div>
 
@@ -321,7 +321,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
             <Card key={p.id} className="overflow-hidden border-slate-200 hover:border-emerald-200 hover:shadow-md transition-all flex flex-col group">
               <CardContent className="p-5 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-slate-900 text-lg leading-tight">{p.name}</h3>
+                  <h3 className="font-bold text-slate-800 text-lg leading-tight">{p.name}</h3>
                   <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                     p.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
                   }`}>

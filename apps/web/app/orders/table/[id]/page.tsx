@@ -180,7 +180,7 @@ export default function TableDetailsPage() {
             </button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Table {table.name}</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-800">Table {table.name}</h1>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide capitalize ${
                   isAvailable ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200/50' : 
                   'bg-blue-50 text-blue-600 ring-1 ring-blue-200/50'
@@ -236,7 +236,7 @@ export default function TableDetailsPage() {
                     <div key={session.id} className="flex justify-between items-center py-4 px-5 rounded-lg border border-slate-200 bg-white">
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-slate-500">{new Date(session.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                        <span className="font-semibold text-slate-900">{session.customer_name}</span>
+                        <span className="font-semibold text-slate-800">{session.customer_name}</span>
                       </div>
                       <div className="font-semibold text-emerald-600">
                         ₹{Number(session.total_amount).toFixed(2)}
@@ -252,7 +252,7 @@ export default function TableDetailsPage() {
             <div className="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <Coffee className="w-5 h-5 text-slate-400" />
-                <h3 className="font-bold text-lg text-slate-900">{activeSession.customer_name}</h3>
+                <h3 className="font-bold text-lg text-slate-800">{activeSession.customer_name}</h3>
               </div>
               <div className="flex items-center gap-3">
                 <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700">active</span>

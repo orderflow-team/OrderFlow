@@ -55,13 +55,13 @@ export default function SignupPage() {
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mt-4">OrderFlow</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OrderFlow</h1>
           <p className="text-slate-600 text-sm font-medium">Create your account to get started</p>
         </div>
 
         <Card className="border-slate-200 bg-white shadow-xl p-2 rounded-3xl">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Create account</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight text-slate-800">Create account</CardTitle>
             <CardDescription className="text-slate-600 font-medium">
               You'll set up your business workspace right after.
             </CardDescription>
@@ -73,7 +73,7 @@ export default function SignupPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+                className="bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
               />
               <Input
                 placeholder="name@example.com"
@@ -81,7 +81,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+                className="bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
               />
               <div className="relative">
                 <Input
@@ -91,7 +91,7 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="peer pr-10 bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+                  className="peer pr-10 bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
                 />
                 <button
                   type="button"

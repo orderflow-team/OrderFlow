@@ -202,7 +202,7 @@ export default function SalesmanPage() {
                     {(visits[selectedSalesman] || []).map((v) => (
                       <div key={v.id} className="px-6 py-3 flex justify-between items-center text-sm">
                         <div>
-                          <p className="text-slate-900 font-medium">{customers.find((c) => c.id === v.customer_id)?.name || 'No customer'}</p>
+                          <p className="text-slate-800 font-medium">{customers.find((c) => c.id === v.customer_id)?.name || 'No customer'}</p>
                           <p className="text-slate-400 text-xs">{new Date(v.check_in_time).toLocaleString()}</p>
                         </div>
                         {v.check_out_time ? (

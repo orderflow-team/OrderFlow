@@ -140,7 +140,7 @@ function RestaurantPageContent() {
       <AppShell>
         <div className="p-6 md:p-10 max-w-3xl mx-auto">
           <div className="flex flex-col gap-1 mb-10">
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">New Order</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">New Order</h1>
             <p className="text-slate-500 mt-1">How is this order being served?</p>
           </div>
 
@@ -152,7 +152,7 @@ function RestaurantPageContent() {
               <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100">
                 <UtensilsCrossed className="w-8 h-8 text-emerald-600" />
               </div>
-              <div className="text-xl font-bold text-slate-900">Dine In</div>
+              <div className="text-xl font-bold text-slate-800">Dine In</div>
               <p className="text-sm text-slate-500 text-center">Seat a guest at a table</p>
             </button>
 
@@ -163,7 +163,7 @@ function RestaurantPageContent() {
               <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center group-hover:bg-amber-100">
                 <ShoppingBag className="w-8 h-8 text-amber-600" />
               </div>
-              <div className="text-xl font-bold text-slate-900">Takeaway</div>
+              <div className="text-xl font-bold text-slate-800">Takeaway</div>
               <p className="text-sm text-slate-500 text-center">Add items directly, get a token number</p>
             </button>
           </div>
@@ -185,7 +185,7 @@ function RestaurantPageContent() {
             >
               ← Change order type
             </button>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Takeaway</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Takeaway</h1>
             <p className="text-slate-500 mt-1">Add items directly and track orders by token number</p>
           </div>
 
@@ -214,7 +214,7 @@ function RestaurantPageContent() {
                 <div key={order.id} className="flex justify-between items-center py-4 px-5 rounded-lg border border-slate-200 bg-white">
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-slate-500">{new Date(order.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                    <span className="font-semibold text-slate-900">Token #{order.token_number ?? '—'}</span>
+                    <span className="font-semibold text-slate-800">Token #{order.token_number ?? '—'}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold capitalize ${
                       order.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
                     }`}>
@@ -274,7 +274,7 @@ function RestaurantPageContent() {
               >
                 ← Change order type
               </button>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Tables</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-slate-800">Tables</h1>
               <p className="text-slate-500 mt-1">Manage your restaurant tables and sessions</p>
             </div>
             <div className="flex items-center gap-3">

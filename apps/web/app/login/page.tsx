@@ -22,13 +22,13 @@ export default function LoginPage() {
               <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mt-4">OrderFlow</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OrderFlow</h1>
           <p className="text-slate-600 text-sm font-medium">Sign in to manage your business</p>
         </div>
 
         <Card className="border-slate-200 bg-white shadow-xl p-2 rounded-3xl">
           <CardHeader className="space-y-1 pb-2">
-            <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</CardTitle>
+            <CardTitle className="text-2xl font-bold tracking-tight text-slate-800">Welcome back</CardTitle>
             <CardDescription className="text-slate-600 font-medium">
               {mode === 'password' ? 'Enter your credentials to access your account' : "We'll email you a one-time code"}
             </CardDescription>
@@ -39,7 +39,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setMode('password')}
                 className={`py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer touch-manipulation ${
-                  mode === 'password' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  mode === 'password' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Password
@@ -48,7 +48,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setMode('otp')}
                 className={`py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer touch-manipulation ${
-                  mode === 'otp' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  mode === 'otp' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Email OTP
@@ -102,7 +102,7 @@ function PasswordLoginForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
-        className="bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+        className="bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
       />
       <div className="relative">
         <Input
@@ -111,7 +111,7 @@ function PasswordLoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="pr-10 bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+          className="pr-10 bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
         />
         <button
           type="button"
@@ -199,7 +199,7 @@ function OtpLoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="bg-slate-50 border-slate-300 text-slate-900 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
+          className="bg-slate-50 border-slate-300 text-slate-800 font-medium placeholder:text-slate-500 focus-visible:ring-emerald-600 focus-visible:border-emerald-600 focus-visible:bg-white h-12 rounded-xl transition-all shadow-sm"
         />
         {error && (
           <div className="flex items-center space-x-2 text-rose-700 bg-rose-100 p-3 rounded-xl border border-rose-200 text-sm">

@@ -104,7 +104,7 @@ function StatCard({
           </div>
         </div>
         <div className="mt-3 sm:mt-4">
-          <p className="text-xl sm:text-2xl font-bold text-slate-900 truncate tracking-tight">{value}</p>
+          <p className="text-xl sm:text-2xl font-bold text-slate-800 truncate tracking-tight">{value}</p>
         </div>
       </CardContent>
     </Card>
@@ -250,7 +250,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {data.lowStockProducts.map((p) => (
                       <div key={p.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                        <p className="text-slate-900">{p.name}</p>
+                        <p className="text-slate-800">{p.name}</p>
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                             p.stock_quantity === 0 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {data.expiringProducts.map((p) => (
                       <div key={p.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                        <p className="text-slate-900">{p.name}</p>
+                        <p className="text-slate-800">{p.name}</p>
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
                           {new Date(p.expiry_date).toLocaleDateString([], { month: 'short', day: '2-digit' })}
                         </span>
@@ -310,10 +310,10 @@ export default function DashboardPage() {
                   {data.topCustomers.map((c) => (
                     <div key={c.customerId} className="flex justify-between items-center text-sm">
                       <div>
-                        <p className="font-medium text-slate-900">{c.customerName}</p>
+                        <p className="font-medium text-slate-800">{c.customerName}</p>
                         <p className="text-slate-400">{c.orderCount} orders</p>
                       </div>
-                      <p className="font-semibold text-slate-900">{formatCurrency(c.totalSpent)}</p>
+                      <p className="font-semibold text-slate-800">{formatCurrency(c.totalSpent)}</p>
                     </div>
                   ))}
                 </div>
@@ -336,9 +336,9 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {data.topProducts.map((p) => (
                     <div key={p.productId} className="flex justify-between items-center text-sm">
-                      <p className="font-medium text-slate-900">{p.productName}</p>
+                      <p className="font-medium text-slate-800">{p.productName}</p>
                       <div className="text-right">
-                        <p className="font-medium text-slate-900">{p.totalQuantity} units</p>
+                        <p className="font-medium text-slate-800">{p.totalQuantity} units</p>
                         <p className="text-slate-400">{formatCurrency(p.totalRevenue)}</p>
                       </div>
                     </div>

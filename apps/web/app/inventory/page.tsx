@@ -151,7 +151,7 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 {lowStock.map((p) => (
                   <div key={p.id} className="flex justify-between text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                    <span className="text-slate-900">{p.name}</span>
+                    <span className="text-slate-800">{p.name}</span>
                     <span className="text-amber-600 font-semibold">{p.stock_quantity} left</span>
                   </div>
                 ))}
@@ -161,7 +161,7 @@ export default function InventoryPage() {
         </Card>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Suppliers</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Suppliers</h2>
           <Button variant="outline" onClick={() => setShowSupplierForm((s) => !s)} className="gap-1.5">
             {showSupplierForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             {showSupplierForm ? 'Cancel' : 'Add Supplier'}
@@ -185,7 +185,7 @@ export default function InventoryPage() {
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <Warehouse className="w-10 h-10 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">No suppliers found</h2>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">No suppliers found</h2>
                 <p className="text-slate-500 mb-8 text-sm">Add a supplier to manage your supply chain</p>
                 <Button onClick={() => setShowSupplierForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
                   <Plus className="w-4 h-4" /> Add Supplier
@@ -195,7 +195,7 @@ export default function InventoryPage() {
               <div className="divide-y divide-slate-100">
                 {suppliers.map((s) => (
                   <div key={s.id} className="px-6 py-3 text-sm flex justify-between">
-                    <span className="font-medium text-slate-900">{s.name}</span>
+                    <span className="font-medium text-slate-800">{s.name}</span>
                     <span className="text-slate-500">{s.phone || '-'}</span>
                   </div>
                 ))}
@@ -205,7 +205,7 @@ export default function InventoryPage() {
         </Card>
 
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Purchase Orders</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Purchase Orders</h2>
           <Button variant="outline" onClick={() => setShowPoForm((s) => !s)} className="gap-1.5">
             {showPoForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
             {showPoForm ? 'Cancel' : 'New Purchase Order'}
@@ -288,7 +288,7 @@ export default function InventoryPage() {
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <Warehouse className="w-10 h-10 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">No purchase orders</h2>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">No purchase orders</h2>
                 <p className="text-slate-500 mb-8 text-sm">Create a purchase order to restock items</p>
                 <Button onClick={() => setShowPoForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
                   <Plus className="w-4 h-4" /> New Purchase Order
@@ -312,8 +312,8 @@ export default function InventoryPage() {
                         <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>
                           {expandedPo === po.id ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
                         </td>
-                        <td className="px-6 py-4 font-medium text-slate-900 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>{po.order_number}</td>
-                        <td className="px-6 py-4 text-right font-semibold text-slate-900">{Number(po.total_amount).toFixed(2)}</td>
+                        <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>{po.order_number}</td>
+                        <td className="px-6 py-4 text-right font-semibold text-slate-800">{Number(po.total_amount).toFixed(2)}</td>
                         <td className="px-6 py-4"><StatusBadge status={po.status} /></td>
                         <td className="px-6 py-4 text-right">
                           {po.status !== 'received' && (

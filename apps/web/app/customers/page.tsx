@@ -189,7 +189,7 @@ export default function CustomersPage() {
                 <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <Users className="w-10 h-10 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2">No customers found</h2>
+                <h2 className="text-xl font-bold text-slate-800 mb-2">No customers found</h2>
                 <p className="text-slate-500 mb-8 text-sm">Add details to create a new customer</p>
                 <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
                   <Plus className="w-4 h-4" /> New Customer
@@ -214,7 +214,7 @@ export default function CustomersPage() {
                           <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
                             {c.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-slate-900">{c.name}</span>
+                          <span className="font-medium text-slate-800">{c.name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-slate-600">{c.phone || '-'}</td>

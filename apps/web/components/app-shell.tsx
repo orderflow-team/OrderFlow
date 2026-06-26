@@ -214,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile top bar */}
       <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white border-b border-slate-200 px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
-          <span className="text-base font-bold text-slate-900 tracking-tight">OrderFlow</span>
+          <span className="text-base font-bold text-slate-800 tracking-tight">OrderFlow</span>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
             <LogOut className="w-5 h-5" />
           </button>
@@ -270,7 +270,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="absolute inset-0 bg-black/30" onClick={() => setMoreOpen(false)} />
           <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl p-4 pb-8 animate-in slide-in-from-bottom-4 duration-200">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-base font-bold text-slate-900">More</span>
+              <span className="text-base font-bold text-slate-800">More</span>
               <button onClick={() => setMoreOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>

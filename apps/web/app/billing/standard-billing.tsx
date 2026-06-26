@@ -200,10 +200,10 @@ export function StandardBilling() {
                 <tbody className="divide-y divide-slate-100">
                   {orders.map((o) => (
                     <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-6 py-4 font-medium text-slate-900">{o.order_number}</td>
+                      <td className="px-6 py-4 font-medium text-slate-800">{o.order_number}</td>
                       <td className="px-6 py-4 text-slate-600">{o.customer_name}</td>
                       <td className="px-6 py-4"><StatusBadge status={o.status} /></td>
-                      <td className="px-6 py-4 text-right font-semibold text-slate-900">{Number(o.total_amount).toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-slate-800">{Number(o.total_amount).toFixed(2)}</td>
                       <td className="px-6 py-4 text-right">
                         {invoiceByOrderId.has(o.id) ? (
                           <a
@@ -239,7 +239,7 @@ export function StandardBilling() {
                   <div key={p.id} className="px-6 py-3 flex justify-between items-center text-sm">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">{p.payment_method}</span>
                     <span className="text-slate-500">{new Date(p.created_at).toLocaleString()}</span>
-                    <span className="font-semibold text-slate-900">{Number(p.amount).toFixed(2)}</span>
+                    <span className="font-semibold text-slate-800">{Number(p.amount).toFixed(2)}</span>
                   </div>
                 ))}
               </div>

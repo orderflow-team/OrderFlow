@@ -194,7 +194,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                   className={`p-5 rounded-xl border bg-white cursor-pointer transition-all space-y-2 ${qty > 0 ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}
                   onClick={() => updateCart(p, 1)}
                 >
-                  <h4 className="font-medium text-slate-900 leading-snug">{p.name}</h4>
+                  <h4 className="font-medium text-slate-800 leading-snug">{p.name}</h4>
                   <div className="text-emerald-600 font-semibold">₹{Number(p.selling_price).toFixed(2)}</div>
                   {qty > 0 && <div className="text-emerald-600 text-xs font-medium pt-1">{qty} in cart</div>}
                 </div>
@@ -237,9 +237,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
           <div className="flex justify-between items-end">
             <div>
-              <p className="text-sm font-semibold text-slate-900 text-xl">Total</p>
+              <p className="text-sm font-semibold text-slate-800 text-xl">Total</p>
             </div>
-            <p className="font-bold text-xl text-slate-900">₹{cartTotal.toFixed(2)}</p>
+            <p className="font-bold text-xl text-slate-800">₹{cartTotal.toFixed(2)}</p>
           </div>
           
           <Button 
