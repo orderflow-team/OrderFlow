@@ -35,6 +35,7 @@ export class MailService {
         connectionTimeout: 5000,
         socketTimeout: 5000,
         family: 4, // Force IPv4
+        localAddress: '0.0.0.0', // Force IPv4 local socket bind
       } as nodemailer.TransportOptions);
       this.logger.log(`Nodemailer initialized with SMTP host: ${host}`);
     } else {

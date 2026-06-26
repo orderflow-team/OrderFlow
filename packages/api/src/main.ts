@@ -1,4 +1,9 @@
 import { NestFactory } from '@nestjs/core';
+import * as dns from 'dns';
+
+// Force IPv4 globally before any other imports
+dns.setDefaultResultOrder('ipv4first');
+
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
