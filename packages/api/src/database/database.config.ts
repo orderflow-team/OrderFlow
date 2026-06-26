@@ -1,5 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import * as path from 'path';
+import * as entities from './entities';
 
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
@@ -8,9 +8,8 @@ export const databaseConfig: TypeOrmModuleOptions = {
   username: process.env.DB_USER || 'orderflow_user',
   password: process.env.DB_PASSWORD || 'password123',
   database: process.env.DB_NAME || 'orderflow_dev',
-  entities: [path.join(__dirname, '../**/*.entity{.ts,.js}')],
-  migrations: [path.join(__dirname, '../migrations/**/*{.ts,.js}')],
-  synchronize: process.env.NODE_ENV === 'development',
-  logging: process.env.NODE_ENV === 'development',
-  dropSchema: false,
+  entities: Object.values(entities),
+  synchronize: true, // Forces TypeORM to auto-create tables
+  logging: true,
+  dropSchema: false, // Prevents DB from wiping on every file save
 };

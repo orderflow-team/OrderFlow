@@ -27,4 +27,9 @@ export class AiController {
       };
     }
   }
+
+  @Post('chat-order')
+  async chatOrder(@Body() body: { businessId: string; message: string }) {
+    return this.parserService.parseChatOrder(body.businessId, body.message);
+  }
 }

@@ -23,6 +23,12 @@ export class Business {
   @Column({ type: 'text', nullable: true })
   logo_url: string;
 
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone: string;
+
   @CreateDateColumn()
   created_at: Date;
 

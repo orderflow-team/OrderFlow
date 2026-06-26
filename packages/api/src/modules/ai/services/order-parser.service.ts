@@ -1,14 +1,154 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
+import { OrdersService } from '../../orders/orders.service';
+import { ProductsService } from '../../products/products.service';
+import { RestaurantService } from '../../restaurant/restaurant.service';
 
 @Injectable()
 export class OrderParserService {
   private genAI: GoogleGenerativeAI;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private ordersService: OrdersService,
+    private productsService: ProductsService,
+    private restaurantService: RestaurantService,
+  ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY') || 'test-key';
     this.genAI = new GoogleGenerativeAI(apiKey);
+  }
+
+  /**
+   * Chat-based ordering: matches free-text item requests against the
+   * business's real product catalog (so prices/names are trustworthy).
+   * For restaurants, the customer can also say which table it's for
+   * ("for table 3...") or "takeaway" explicitly; defaults to takeaway
+   * (with a token number) when no table is mentioned or matched.
+   * Unmatched items are surfaced back to the user instead of guessing a price.
+   */
+  async parseChatOrder(businessId: string, message: string) {
+    if (!message || message.trim().length === 0) {
+      throw new BadRequestException('Message cannot be empty');
+    }
+
+    const [products, tables] = await Promise.all([
+      this.productsService.findAll(businessId),
+      this.restaurantService.findAllTables(businessId),
+    ]);
+    const available = products.filter((p) => p.is_available);
+
+    if (available.length === 0) {
+      return { reply: "You don't have any menu items set up yet — add some products first.", order: null };
+    }
+
+    const catalog = available.map((p) => `${p.name} (₹${Number(p.selling_price)})`).join(', ');
+    const tableNames = tables.map((t) => t.name);
+
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const prompt = `
+      You are an ordering assistant for a shop. The customer will describe what they want in plain
+      English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
+      ignore minor spelling differences): ${catalog}
+
+      ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
+      The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
+      "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
+      to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
+      at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
+
+      Customer message: "${message}"
+
+      Return ONLY JSON in this exact shape, no other text:
+      {
+        "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
+        "unmatched": ["raw text for anything you couldn't confidently match"],
+        "orderType": "dine_in" | "take_away",
+        "tableName": "exact table name from the list above, or null"
+      }
+    `;
+
+    let parsed: {
+      matched: { menuName: string; quantity: number }[];
+      unmatched: string[];
+      orderType?: string;
+      tableName?: string | null;
+    };
+    try {
+      const text = await this.generateWithRetry(model, prompt);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in model response');
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      throw new BadRequestException(`Could not understand the order: ${error.message}`);
+    }
+
+    const matchedItems = (parsed.matched || [])
+      .map((m) => {
+        const product = available.find((p) => p.name.toLowerCase() === m.menuName?.toLowerCase());
+        return product ? { productId: product.id, quantity: Number(m.quantity) || 1 } : null;
+      })
+      .filter((i): i is { productId: string; quantity: number } => i !== null);
+
+    if (matchedItems.length === 0) {
+      return {
+        reply: `I couldn't match that to anything on the menu. Could you try naming an item directly? Available: ${available.map((p) => p.name).join(', ')}`,
+        order: null,
+      };
+    }
+
+    const wantsDineIn = parsed.orderType === 'dine_in' && !!parsed.tableName;
+    const table = wantsDineIn
+      ? tables.find((t) => t.name.toLowerCase() === parsed.tableName!.toLowerCase())
+      : undefined;
+
+    if (wantsDineIn && !table) {
+      return {
+        reply: `I couldn't find table "${parsed.tableName}". Available tables: ${tableNames.join(', ') || 'none'}. Say "takeaway" if this isn't for a table.`,
+        order: null,
+      };
+    }
+
+    const order = await this.ordersService.create({
+      businessId,
+      customerName: table ? `Table ${table.name}` : 'Chat Order',
+      orderType: table ? 'dine_in' : 'take_away',
+      tableId: table?.id,
+      items: matchedItems,
+    } as any);
+
+    const summary = matchedItems
+      .map((i) => {
+        const product = available.find((p) => p.id === i.productId)!;
+        return `${i.quantity}x ${product.name}`;
+      })
+      .join(', ');
+
+    const unmatchedNote = parsed.unmatched?.length
+      ? ` (couldn't find: ${parsed.unmatched.join(', ')})`
+      : '';
+
+    const placementNote = table ? `for Table ${table.name}` : `— Token #${order.token_number}`;
+
+    return {
+      reply: `Order placed! ${summary} ${placementNote}.${unmatchedNote}`,
+      order,
+    };
+  }
+
+  /** Gemini's free tier intermittently returns 503 "high demand" — worth a couple of quick retries. */
+  private async generateWithRetry(model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>, prompt: string, attempts = 3) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+      } catch (error) {
+        const isOverloaded = error.message?.includes('503') || error.message?.includes('overloaded');
+        if (!isOverloaded || attempt === attempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    throw new Error('Unreachable');
   }
 
   /**

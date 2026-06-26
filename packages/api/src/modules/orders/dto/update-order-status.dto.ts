@@ -1,0 +1,16 @@
+import { IsIn } from 'class-validator';
+
+export const ORDER_STATUSES = [
+  'draft',
+  'confirmed',
+  'packed',
+  'dispatched',
+  'delivered',
+  'paid',
+  'cancelled',
+] as const;
+
+export class UpdateOrderStatusDto {
+  @IsIn(ORDER_STATUSES)
+  status: (typeof ORDER_STATUSES)[number];
+}

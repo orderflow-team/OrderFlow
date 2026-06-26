@@ -1,0 +1,34 @@
+import { IsString, IsOptional, IsNumber, IsUUID, Min } from 'class-validator';
+
+export class CreateCustomerDto {
+  @IsUUID()
+  businessId: string;
+
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
+  gstNumber?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  creditLimit?: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

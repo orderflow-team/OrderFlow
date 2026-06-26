@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const isBrowser = typeof window !== 'undefined';
+const API_BASE_URL = isBrowser 
+  ? '/api-proxy' 
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -24,7 +27,8 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token');
-      window.location.href = '/login';
+      // Temporarily removed the window.location.href redirect entirely
+      // to prevent ANY possible forced page reloads.
     }
     return Promise.reject(error);
   },
