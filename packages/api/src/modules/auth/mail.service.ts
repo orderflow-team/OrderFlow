@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
+
+// Fix for Render/Docker IPv6 ENETUNREACH issues with Gmail
+dns.setDefaultResultOrder('ipv4first');
 
 /**
  * Nodemailer is configured to send OTP emails.
