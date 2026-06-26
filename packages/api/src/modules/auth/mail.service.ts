@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import * as dns from 'dns';
-
-// Fix for Render/Docker IPv6 ENETUNREACH issues with Gmail
-dns.setDefaultResultOrder('ipv4first');
+import { resolve4 } from 'dns/promises';
 
 /**
  * Nodemailer is configured to send OTP emails.
@@ -13,41 +10,45 @@ dns.setDefaultResultOrder('ipv4first');
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter | null = null;
   private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASSWORD');
     this.fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'noreply@example.com';
-
-    if (host && port && user && pass) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: Number(port),
-        secure: Number(port) === 465,
-        auth: {
-          user,
-          pass,
-        },
-        connectionTimeout: 5000,
-        socketTimeout: 5000,
-        family: 4, // Force IPv4
-        localAddress: '0.0.0.0', // Force IPv4 local socket bind
-      } as nodemailer.TransportOptions);
-      this.logger.log(`Nodemailer initialized with SMTP host: ${host}`);
-    } else {
+    const host = this.configService.get<string>('SMTP_HOST');
+    if (!host) {
       this.logger.warn('SMTP credentials not fully provided; emails will be logged instead of sent.');
     }
   }
 
   /** Returns true if the OTP was actually emailed, false if it was only logged (no SMTP / send failure). */
   async sendOtpEmail(email: string, code: string): Promise<boolean> {
-    if (this.transporter) {
+    const host = this.configService.get<string>('SMTP_HOST');
+    const port = this.configService.get<number>('SMTP_PORT');
+    const user = this.configService.get<string>('SMTP_USER');
+    const pass = this.configService.get<string>('SMTP_PASSWORD');
+
+    if (host && port && user && pass) {
       try {
-        await this.transporter.sendMail({
+        // Explicitly resolve IPv4 to bypass Docker/Render IPv6 ENETUNREACH issues
+        const addresses = await resolve4(host);
+        const ipv4Host = addresses[0];
+
+        const transporter = nodemailer.createTransport({
+          host: ipv4Host,
+          port: Number(port),
+          secure: Number(port) === 465,
+          auth: {
+            user,
+            pass,
+          },
+          tls: {
+            servername: host, // Crucial for SSL certificate validation when connecting via IP
+          },
+          connectionTimeout: 5000,
+          socketTimeout: 5000,
+        });
+
+        await transporter.sendMail({
           from: this.fromEmail,
           to: email,
           subject: 'Your Login OTP Code',
