@@ -28,7 +28,7 @@ interface Product {
   category: string | null;
 }
 
-const emptyForm = { name: '', sku: '', unit: 'piece', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '' };
+const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '' };
 
 export default function ProductsPage() {
   const { businessId, ready } = useBusiness();
@@ -174,7 +174,7 @@ export default function ProductsPage() {
                 />
                 <Input placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
                 <input 
-                  placeholder="Unit (kg, piece, packet...)" 
+                  placeholder="Unit (e.g. 350 ml, kg...)" 
                   value={form.unit} 
                   onChange={(e) => setForm({ ...form, unit: e.target.value })} 
                   list="unit-options"
