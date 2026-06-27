@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Business } from '../../database/entities/business.entity';
 import { User } from '../../database/entities/user.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
@@ -40,7 +40,18 @@ export class BusinessesService {
   }
 
   /** Lists every business this user owns, for the post-login workspace picker. */
-  findMine(userId: string) {
+  async findMine(userId: string) {
+    // Businesses created before multi-business support has owner_user_id
+    // unset. The user's current active workspace is unambiguously theirs, so
+    // backfill ownership the first time they hit the picker.
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (user?.business_id) {
+      await this.businessesRepository.update(
+        { id: user.business_id, owner_user_id: IsNull() },
+        { owner_user_id: userId },
+      );
+    }
+
     return this.businessesRepository.find({
       where: { owner_user_id: userId },
       order: { created_at: 'ASC' },

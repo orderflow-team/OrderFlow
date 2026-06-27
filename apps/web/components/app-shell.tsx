@@ -17,7 +17,7 @@ import {
   LogOut,
   X,
   Bell,
-  Repeat,
+  ChevronDown,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
@@ -54,6 +54,14 @@ interface NotificationItem {
   created_at: string;
 }
 
+interface BusinessOption {
+  id: string;
+  name: string;
+  category: string | null;
+}
+
+const NEW_BUSINESS_OPTION = '__new__';
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -63,6 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [businessName, setBusinessName] = useState<string>('');
   const [businessCategory, setBusinessCategory] = useState<string>('');
+  const [myBusinesses, setMyBusinesses] = useState<BusinessOption[]>([]);
+  const [switching, setSwitching] = useState(false);
 
   // localStorage isn't available during SSR, so getCurrentUser() would return
   // a different value on the server (null) vs. the client's first render
@@ -95,6 +105,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         // Keep whatever we had (cached or "show everything") if the lookup fails.
       });
   }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    apiClient
+      .get<BusinessOption[]>('/api/businesses/mine')
+      .then((res) => setMyBusinesses(res.data))
+      .catch(() => {});
+  }, [businessId]);
+
+  const handleSwitchBusiness = (value: string) => {
+    if (value === NEW_BUSINESS_OPTION) {
+      router.push('/select-business');
+      return;
+    }
+    if (value === businessId) return;
+    setSwitching(true);
+    apiClient
+      .post(`/api/businesses/${value}/select`)
+      .then((res) => {
+        localStorage.setItem('access_token', res.data.access_token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        setBusinessId(value);
+      })
+      .catch(() => {})
+      .finally(() => setSwitching(false));
+  };
 
   useEffect(() => {
     if (!businessId) return;
@@ -165,9 +201,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
           {businessName && (
-            <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700/50 flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-white truncate">{businessName}</span>
-              <span className="text-xs text-emerald-400 font-medium tracking-wide uppercase">{businessCategory}</span>
+            <div className="relative">
+              <select
+                value={businessId ?? ''}
+                onChange={(e) => handleSwitchBusiness(e.target.value)}
+                disabled={switching}
+                className="w-full appearance-none bg-slate-800/50 rounded-lg p-3 pr-8 border border-slate-700/50 text-sm font-medium text-white truncate cursor-pointer disabled:opacity-60"
+              >
+                {myBusinesses.length === 0 && businessId && (
+                  <option value={businessId}>
+                    {businessName} ({businessCategory || 'no category'})
+                  </option>
+                )}
+                {myBusinesses.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.category || 'no category'})
+                  </option>
+                ))}
+                <option value={NEW_BUSINESS_OPTION}>+ Add new business</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           )}
         </div>
@@ -203,13 +256,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <Link
-          href="/select-business"
-          className="flex items-center gap-3 mx-3 mt-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-        >
-          <Repeat className="w-4 h-4" />
-          Switch business
-        </Link>
         <button
           onClick={logout}
           className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white text-left"
