@@ -23,6 +23,7 @@ interface Product {
   purchase_price: string | number | null;
   tax_percentage: string | number;
   stock_quantity: number;
+  is_draft?: boolean;
   description: string | null;
   is_available: boolean;
   category: string | null;
@@ -50,7 +51,7 @@ export default function ProductsPage() {
   const load = async (bizId: string, q?: string) => {
     setLoading(true);
     try {
-      const res = await apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, search: q } });
+      const res = await apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, search: q, isDraft: 'all' } });
       setProducts(res.data);
     } catch (err: any) {
       setError(err.response?.data?.message || `Failed to load ${entityNamePlural.toLowerCase()}`);
@@ -279,6 +280,7 @@ export default function ProductsPage() {
                       <div className="flex-1 mt-2">
                         <h3 className="font-bold text-slate-800 line-clamp-2 leading-snug">
                           {p.name} {p.unit && <span className="text-slate-500 font-normal">({p.unit})</span>}
+                          {p.is_draft && <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20 align-middle">Draft</span>}
                         </h3>
                         {p.sku && <p className="text-xs font-mono text-slate-400 mt-1">{p.sku}</p>}
                       </div>

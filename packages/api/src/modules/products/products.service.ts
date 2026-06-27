@@ -94,9 +94,9 @@ export class ProductsService {
       .createQueryBuilder('product')
       .where('product.business_id = :businessId', { businessId });
 
-    if (isDraft !== undefined) {
+    if (isDraft !== undefined && isDraft !== 'all') {
       query.andWhere('product.is_draft = :isDraft', { isDraft: isDraft === 'true' });
-    } else {
+    } else if (isDraft === undefined) {
       query.andWhere('product.is_draft = false'); // default to non-drafts
     }
 
