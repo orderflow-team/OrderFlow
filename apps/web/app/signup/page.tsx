@@ -25,7 +25,7 @@ export default function SignupPage() {
       const response = await apiClient.post('/auth/signup', { fullName, email, password });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push('/dashboard');
+      router.push('/select-business');
     } catch (err: any) {
       if (!err.response) {
         setError('Network error: Could not connect to the server');

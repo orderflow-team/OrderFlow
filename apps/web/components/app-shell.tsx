@@ -17,6 +17,7 @@ import {
   LogOut,
   X,
   Bell,
+  Repeat,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
@@ -202,6 +203,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <Link
+          href="/select-business"
+          className="flex items-center gap-3 mx-3 mt-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+        >
+          <Repeat className="w-4 h-4" />
+          Switch business
+        </Link>
         <button
           onClick={logout}
           className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white text-left"

@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, setCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
@@ -26,61 +25,6 @@ interface DashboardData {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
-}
-
-function OnboardingForm({ onComplete }: { onComplete: () => void }) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('grocery');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const response = await apiClient.post('/api/businesses/onboard', { name, category });
-      localStorage.setItem('access_token', response.data.access_token);
-      setCurrentUser(response.data.user);
-      onComplete();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not create business');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 p-6">
-      <Card className="w-full max-w-md ring-slate-200/70 shadow-xl shadow-slate-200/60">
-        <CardHeader>
-          <CardTitle className="text-xl">Set up your business</CardTitle>
-          <CardDescription>One last step before you can start taking orders.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm"
-            >
-              <option value="grocery">Grocery Store</option>
-              <option value="restaurant">Restaurant</option>
-              <option value="pharmacy">Pharmacy</option>
-              <option value="wholesale">Wholesale</option>
-              <option value="salesman">Salesman Order Collection</option>
-              <option value="others">Others</option>
-            </select>
-            {error && <p className="text-sm text-rose-600">{error}</p>}
-            <Button type="submit" className="w-full h-11 rounded-xl" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Business'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
 }
 
 function StatCard({
@@ -158,7 +102,7 @@ export default function DashboardPage() {
 
     const user = getCurrentUser();
     if (!user?.businessId) {
-      setLoading(false);
+      router.push('/select-business');
       return;
     }
 
@@ -187,17 +131,7 @@ export default function DashboardPage() {
   }
 
   if (!businessId) {
-    return (
-      <OnboardingForm
-        onComplete={() => {
-          const user = getCurrentUser();
-          if (user?.businessId) {
-            setBusinessId(user.businessId);
-            loadDashboard(user.businessId);
-          }
-        }}
-      />
-    );
+    return null;
   }
 
   if (error) {

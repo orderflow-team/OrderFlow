@@ -5,6 +5,9 @@ export class Business {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  owner_user_id: string;
+
   @Column({ type: 'varchar', length: 255 })
   name: string;
 

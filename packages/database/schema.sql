@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Businesses table
 CREATE TABLE IF NOT EXISTS businesses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id UUID REFERENCES users(id),
   name VARCHAR(255) NOT NULL,
   category VARCHAR(50),
   gst_number VARCHAR(20),

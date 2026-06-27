@@ -24,6 +24,20 @@ export class BusinessesController {
     return { business, ...tokens };
   }
 
+  /** Lists the businesses owned by the signed-in user, for the post-login workspace picker. */
+  @Get('mine')
+  findMine(@Req() req: any) {
+    return this.businessesService.findMine(req.user.userId);
+  }
+
+  /** Switches the signed-in user's active workspace and reissues tokens carrying it. */
+  @Post(':id/select')
+  async select(@Req() req: any, @Param('id') id: string) {
+    const business = await this.businessesService.selectActive(req.user.userId, id);
+    const tokens = await this.authService.reissueTokensForUser(req.user.userId);
+    return { business, ...tokens };
+  }
+
   @Post()
   create(@Body() dto: CreateBusinessDto) {
     return this.businessesService.create(dto);
