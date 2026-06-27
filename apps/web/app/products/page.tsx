@@ -137,6 +137,10 @@ export default function ProductsPage() {
 
   if (!ready) return null;
 
+  const commonUnits = ['kg', 'gram', 'litre', 'ml', 'piece', 'packet', 'box', 'dozen', 'carton', 'pallet', 'strip', 'bottle', 'vial', 'tube', 'roll', 'bundle', 'pair', 'set', 'meter', 'inch'];
+  const existingUnits = products.map((p) => p.unit).filter(Boolean);
+  const availableUnits = Array.from(new Set([...commonUnits, ...existingUnits]));
+
   return (
     <AppShell>
       <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-6">
@@ -169,7 +173,12 @@ export default function ProductsPage() {
                   className="sm:col-span-2"
                 />
                 <Input placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-                <Input placeholder="Unit (kg, piece, packet...)" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                <Input placeholder="Unit (kg, piece, packet...)" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} list="unit-options" />
+                <datalist id="unit-options">
+                  {availableUnits.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
+                </datalist>
                 <Input
                   placeholder="Selling price"
                   type="number"
