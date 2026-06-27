@@ -277,7 +277,9 @@ export default function ProductsPage() {
                       </div>
                       
                       <div className="flex-1 mt-2">
-                        <h3 className="font-bold text-slate-800 line-clamp-2 leading-snug">{p.name}</h3>
+                        <h3 className="font-bold text-slate-800 line-clamp-2 leading-snug">
+                          {p.name} {p.unit && <span className="text-slate-500 font-normal">({p.unit})</span>}
+                        </h3>
                         {p.sku && <p className="text-xs font-mono text-slate-400 mt-1">{p.sku}</p>}
                       </div>
                       
