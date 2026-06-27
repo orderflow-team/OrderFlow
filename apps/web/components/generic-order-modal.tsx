@@ -102,6 +102,19 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     });
   };
 
+  const updateCartPrice = (productId: string, newPrice: string) => {
+    setCart(prev => {
+      const newCart = { ...prev };
+      if (newCart[productId]) {
+        newCart[productId] = {
+          ...newCart[productId],
+          product: { ...newCart[productId].product, selling_price: newPrice }
+        };
+      }
+      return newCart;
+    });
+  };
+
   const handleSubmit = async () => {
     const items = Object.values(cart);
     if (items.length === 0) return;
@@ -245,9 +258,24 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
-                  <span className="font-semibold text-slate-800 w-16 text-right">
-                    ₹{(Number(item.product.selling_price) * item.quantity).toFixed(2)}
-                  </span>
+                  <div className="flex flex-col items-end w-24">
+                    <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 focus-within:ring-1 focus-within:ring-emerald-500 bg-white overflow-hidden transition-all">
+                      <span className="text-slate-400 text-xs font-semibold">₹</span>
+                      <input
+                        type="number"
+                        className="w-14 h-7 text-right text-sm font-semibold text-slate-800 bg-transparent outline-none p-0"
+                        value={item.product.selling_price}
+                        onChange={(e) => updateCartPrice(item.product.id, e.target.value)}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    {item.quantity > 1 && (
+                      <span className="text-[10px] text-slate-500 font-medium mt-1">
+                        Sub: ₹{(Number(item.product.selling_price) * item.quantity).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

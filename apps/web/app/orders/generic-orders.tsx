@@ -86,6 +86,7 @@ export function GenericOrders() {
           productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
           customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
           quantity: Number(it.quantity),
+          unitPrice: Number(it.product.selling_price),
         })),
       });
       setShowForm(false);
