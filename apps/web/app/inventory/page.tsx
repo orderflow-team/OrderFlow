@@ -61,7 +61,7 @@ export default function InventoryPage() {
     try {
       const [suppliersRes, productsRes, poRes, lowStockRes] = await Promise.all([
         apiClient.get<Supplier[]>('/api/suppliers', { params: { businessId: bizId } }),
-        apiClient.get<Product[]>('/api/products', { params: { businessId: bizId } }),
+        apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, isDraft: 'all' } }),
         apiClient.get<PurchaseOrder[]>('/api/inventory/purchase-orders', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/inventory/low-stock', { params: { businessId: bizId } }),
       ]);
