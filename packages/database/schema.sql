@@ -43,11 +43,12 @@ CREATE TABLE IF NOT EXISTS customers (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Products table
+-- Products table (master product: generic, tenant-scoped details only)
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id UUID NOT NULL REFERENCES businesses(id),
   name VARCHAR(255) NOT NULL,
+  brand VARCHAR(100),
   sku VARCHAR(100),
   barcode VARCHAR(100),
   category VARCHAR(100),
@@ -138,18 +139,27 @@ CREATE TABLE IF NOT EXISTS categories (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Product Variants table
+-- Product Variants table (one product -> many packaging/pricing variants,
+-- e.g. 350ml / 1Ltr / 5Ltr of the same oil). business_id is denormalized
+-- from the parent product so tenant-scoped queries don't need a join.
 CREATE TABLE IF NOT EXISTS product_variants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
+  volume_value DECIMAL(10, 3),
+  uom VARCHAR(20),
   sku VARCHAR(100),
   barcode VARCHAR(100),
+  cost_price DECIMAL(15, 2),
+  mrp DECIMAL(15, 2) NOT NULL,
   selling_price DECIMAL(15, 2) NOT NULL,
   stock_quantity INT DEFAULT 0,
+  is_available BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+CREATE INDEX idx_product_variants_business_id ON product_variants(business_id);
 
 -- Stocks table
 CREATE TABLE IF NOT EXISTS stocks (

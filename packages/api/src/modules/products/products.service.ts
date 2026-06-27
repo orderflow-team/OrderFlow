@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from '../../database/entities/product.entity';
+import { ProductVariant } from '../../database/entities/product-variant.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
+import { enforceMrpCeiling } from './utils/pricing.util';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product) private productsRepository: Repository<Product>,
+    private dataSource: DataSource,
   ) {}
 
   create(dto: CreateProductDto) {
@@ -29,6 +33,59 @@ export class ProductsService {
       is_available: dto.isAvailable ?? true,
     });
     return this.productsRepository.save(product);
+  }
+
+  /**
+   * Quick-Add: creates a master product together with its packaging/pricing
+   * variants (e.g. 350ml / 1Ltr / 5Ltr of the same oil) in a single
+   * transaction. If any variant fails to save, the whole product creation —
+   * including the master row — rolls back.
+   */
+  async createWithVariants(dto: CreateProductWithVariantsDto) {
+    return this.dataSource.transaction(async (manager) => {
+      // MRP ceiling guardrail applied per-variant before anything is persisted.
+      const variantInputs = dto.variants.map((v) => ({
+        ...v,
+        sellingPrice: enforceMrpCeiling(v.sellingPrice, v.mrp),
+      }));
+
+      const product = manager.create(Product, {
+        business_id: dto.businessId,
+        name: dto.name,
+        brand: dto.brand,
+        category: dto.category,
+        tax_percentage: dto.taxPercentage ?? 0,
+        description: dto.description,
+        // The master product keeps a representative price (from the first
+        // variant) for legacy single-price flows; the real price matrix
+        // lives on product_variants.
+        purchase_price: variantInputs[0].costPrice,
+        selling_price: variantInputs[0].sellingPrice,
+        stock_quantity: variantInputs.reduce((sum, v) => sum + (v.stockQuantity ?? 0), 0),
+        is_available: true,
+      });
+      const savedProduct = await manager.save(Product, product);
+
+      const variants = variantInputs.map((v) =>
+        manager.create(ProductVariant, {
+          business_id: dto.businessId,
+          product_id: savedProduct.id,
+          name: v.name,
+          volume_value: v.volumeValue,
+          uom: v.uom,
+          sku: v.sku,
+          barcode: v.barcode,
+          cost_price: v.costPrice,
+          mrp: v.mrp,
+          selling_price: v.sellingPrice,
+          stock_quantity: v.stockQuantity ?? 0,
+          is_available: v.isAvailable ?? true,
+        }),
+      );
+      const savedVariants = await manager.save(ProductVariant, variants);
+
+      return { ...savedProduct, variants: savedVariants };
+    });
   }
 
   findAll(businessId: string, search?: string) {
