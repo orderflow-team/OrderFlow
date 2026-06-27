@@ -29,6 +29,7 @@ interface Invoice {
   total_amount: string | number;
   tax_amount: string | number;
   created_at: string;
+  order_status?: string;
   items: InvoiceItem[];
 }
 
@@ -120,7 +121,15 @@ export default function InvoiceDetailPage() {
                 <h2 className="text-xl font-bold text-slate-800">Tax Invoice</h2>
                 <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
               </div>
-              <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString()}</p>
+              <div className="text-right">
+                <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN')}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                {invoice.order_status && (
+                  <div className="mt-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 uppercase tracking-wider">
+                    Status: {invoice.order_status}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left mb-6 min-w-[800px]">

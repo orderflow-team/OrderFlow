@@ -68,6 +68,7 @@ export class InvoicesService {
       throw new NotFoundException('Invoice not found');
     }
     const items = await this.invoiceItemsRepository.find({ where: { invoice_id: id } });
-    return { ...invoice, items };
+    const order = invoice.order_id ? await this.ordersRepository.findOne({ where: { id: invoice.order_id } }) : null;
+    return { ...invoice, items, order_status: order?.status };
   }
 }

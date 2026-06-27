@@ -13,6 +13,7 @@ export function renderInvoiceHtml(
   items: InvoiceItem[],
   business: Business | null,
   customer: Customer | null,
+  order: any | null,
 ) {
   const rows = items
     .map(
@@ -55,7 +56,8 @@ export function renderInvoiceHtml(
     <div>
       <div class="muted">Invoice No.</div>
       <div><strong>${invoice.invoice_number}</strong></div>
-      <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN')}</div>
+      <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN')} ${new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+      ${order ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${order.status}</div>` : ''}
     </div>
   </div>
 
@@ -85,6 +87,7 @@ export function renderThermalReceiptHtml(
   items: InvoiceItem[],
   business: Business | null,
   customer: Customer | null,
+  order: any | null,
 ) {
   const line = '-'.repeat(32);
   const rows = items
@@ -110,6 +113,7 @@ ${business?.gst_number ? `GSTIN: ${business.gst_number}` : ''}
 ${line}
 Invoice: ${invoice.invoice_number}
 Date: ${new Date(invoice.created_at).toLocaleString('en-IN')}
+${order ? `Status: ${order.status.toUpperCase()}\n` : ''}
 Customer: ${customer?.name ?? 'Walk-in'}
 ${line}
 ${rows}

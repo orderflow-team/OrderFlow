@@ -41,7 +41,7 @@ export class PdfService {
       ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
       : null;
 
-    return { invoice, items, business, customer };
+    return { invoice, items, business, customer, order };
   }
 
   /** Generates (or returns the cached) PDF for an invoice and updates invoice.pdf_url. */
@@ -56,8 +56,8 @@ export class PdfService {
       return filePath;
     }
 
-    const { items, business, customer } = await this.loadInvoiceContext(invoiceId, businessId);
-    const html = renderInvoiceHtml(invoice, items, business, customer);
+    const { items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
+    const html = renderInvoiceHtml(invoice, items, business, customer, order);
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -79,8 +79,8 @@ export class PdfService {
   }
 
   async getThermalReceiptHtml(invoiceId: string, businessId: string): Promise<string> {
-    const { invoice, items, business, customer } = await this.loadInvoiceContext(invoiceId, businessId);
-    return renderThermalReceiptHtml(invoice, items, business, customer);
+    const { invoice, items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
+    return renderThermalReceiptHtml(invoice, items, business, customer, order);
   }
 
   /** Short-lived signed token so WhatsApp (opened in its own client) can fetch the PDF without an auth header. */
