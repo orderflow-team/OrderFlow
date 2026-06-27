@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS products (
   stock_quantity INT DEFAULT 0,
   batch_number VARCHAR(100),
   expiry_date DATE,
+  is_draft BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

@@ -55,6 +55,9 @@ export class Product {
   @Column({ type: 'boolean', default: true })
   is_available: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  is_draft: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 
