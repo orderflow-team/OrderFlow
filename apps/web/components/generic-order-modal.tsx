@@ -200,6 +200,27 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 </div>
               );
             })}
+            
+            {search.trim().length > 0 && !products.some(p => p.name.toLowerCase() === search.trim().toLowerCase()) && (
+               <div
+                  className="p-5 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 cursor-pointer transition-all hover:bg-emerald-50 space-y-2 flex flex-col items-center justify-center text-center"
+                  onClick={() => {
+                    const tempProduct: Product = {
+                      id: 'draft-' + Date.now(),
+                      name: search.trim(),
+                      selling_price: 0,
+                      category: null,
+                      is_available: true
+                    };
+                    updateCart(tempProduct, 1);
+                    setSearch('');
+                  }}
+               >
+                 <Plus className="w-8 h-8 text-emerald-600 mb-1" />
+                 <h4 className="font-medium text-emerald-800 leading-snug">Add "{search.trim()}"</h4>
+                 <div className="text-emerald-600/70 text-xs">Create as draft product (₹0)</div>
+               </div>
+            )}
           </div>
         </div>
 

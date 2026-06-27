@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
@@ -64,6 +65,10 @@ export default function DashboardPage() {
   const [seeding, setSeeding] = useState(false);
   const [hasInventory, setHasInventory] = useState(false);
 
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [draftPrice, setDraftPrice] = useState('');
+  const [savingDraft, setSavingDraft] = useState(false);
+
   const handleSeedDemoData = async () => {
     if (!businessId) return;
     if (!confirm('Load demo data into every module? This adds sample customers, products, orders, invoices, etc.')) return;
@@ -82,14 +87,36 @@ export default function DashboardPage() {
     setLoading(true);
     setError('');
     try {
-      const response = await apiClient.get<DashboardData>('/api/reports/dashboard', {
-        params: { businessId: bizId },
-      });
+      const [response, draftsRes] = await Promise.all([
+        apiClient.get<DashboardData>('/api/reports/dashboard', {
+          params: { businessId: bizId },
+        }),
+        apiClient.get<any[]>('/api/products', { params: { businessId: bizId, isDraft: 'true' } }),
+      ]);
       setData(response.data);
+      setDrafts(draftsRes.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async (id: string) => {
+    if (!businessId) return;
+    setSavingDraft(true);
+    try {
+      await apiClient.patch(
+        `/api/products/${id}`,
+        { sellingPrice: Number(draftPrice), isDraft: false },
+        { params: { businessId } }
+      );
+      setDrafts((prev) => prev.filter((d) => d.id !== id));
+      setDraftPrice('');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to save draft');
+    } finally {
+      setSavingDraft(false);
     }
   };
 
@@ -159,6 +186,67 @@ export default function DashboardPage() {
             </Button>
           }
         />
+
+        {drafts.length > 0 && (
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-500" /> Review Draft Products ({drafts.length})
+            </h2>
+            <div className="relative w-full max-w-sm h-[320px]">
+              {drafts.slice(0, 3).map((draft, index) => {
+                const isTop = index === 0;
+                return (
+                  <Card
+                    key={draft.id}
+                    className={`absolute inset-0 w-full bg-white transition-all duration-500 shadow-xl border-emerald-100 ${
+                      isTop
+                        ? 'z-30 scale-100 opacity-100 translate-y-0'
+                        : index === 1
+                        ? 'z-20 scale-95 translate-y-4 opacity-80'
+                        : 'z-10 scale-90 translate-y-8 opacity-50'
+                    }`}
+                  >
+                    <CardHeader className="text-center pb-2 bg-emerald-50/50 rounded-t-xl border-b border-emerald-100/50">
+                      <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm ring-4 ring-white">
+                        <Package className="w-7 h-7" />
+                      </div>
+                      <CardTitle className="text-2xl font-black text-slate-800 tracking-tight">{draft.name}</CardTitle>
+                      <CardDescription className="text-emerald-600 font-medium">Quick Parchi Item</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      {isTop ? (
+                        <div className="space-y-5">
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 uppercase tracking-wider text-center block">Set Selling Price (₹)</label>
+                            <Input
+                              type="number"
+                              autoFocus
+                              placeholder="e.g. 150"
+                              value={draftPrice}
+                              onChange={(e) => setDraftPrice(e.target.value)}
+                              className="text-2xl text-center font-black h-14 bg-slate-50 border-slate-200 focus:bg-white focus:ring-emerald-500 focus:border-emerald-500 transition-all rounded-xl shadow-inner placeholder:text-slate-300"
+                            />
+                          </div>
+                          <Button
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-14 text-lg font-bold rounded-xl shadow-md transition-all active:scale-[0.98]"
+                            disabled={!draftPrice || savingDraft}
+                            onClick={() => handleSaveDraft(draft.id)}
+                          >
+                            {savingDraft ? 'Saving...' : 'Approve & Save'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-slate-300 font-medium">
+                          Next up...
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-blue-50 text-blue-600" />

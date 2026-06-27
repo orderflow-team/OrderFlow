@@ -31,6 +31,7 @@ export class ProductsService {
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
       description: dto.description,
       is_available: dto.isAvailable ?? true,
+      is_draft: dto.isDraft ?? false,
     });
     return this.productsRepository.save(product);
   }
@@ -88,10 +89,16 @@ export class ProductsService {
     });
   }
 
-  findAll(businessId: string, search?: string) {
+  findAll(businessId: string, search?: string, isDraft?: string) {
     const query = this.productsRepository
       .createQueryBuilder('product')
       .where('product.business_id = :businessId', { businessId });
+
+    if (isDraft !== undefined) {
+      query.andWhere('product.is_draft = :isDraft', { isDraft: isDraft === 'true' });
+    } else {
+      query.andWhere('product.is_draft = false'); // default to non-drafts
+    }
 
     if (search) {
       query.andWhere(
@@ -129,6 +136,7 @@ export class ProductsService {
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : product.expiry_date,
       description: dto.description !== undefined ? dto.description : product.description,
       is_available: dto.isAvailable !== undefined ? dto.isAvailable : product.is_available,
+      is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,
     });
     return this.productsRepository.save(product);
   }

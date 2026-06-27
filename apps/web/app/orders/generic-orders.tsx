@@ -83,7 +83,8 @@ export function GenericOrders() {
         customerName: selectedCustomer?.name || customerName || 'Walk-in',
         orderType: 'regular',
         items: cartItems.map((it) => ({
-          productId: it.product.id,
+          productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
+          customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
           quantity: Number(it.quantity),
         })),
       });

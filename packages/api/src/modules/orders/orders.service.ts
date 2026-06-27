@@ -254,6 +254,7 @@ export class OrdersService {
       selling_price: unitPrice,
       tax_percentage: taxPercentage,
       stock_quantity: 0,
+      is_draft: true,
     });
     const saved = await manager.save(Product, created);
     return saved.id;
