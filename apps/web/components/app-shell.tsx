@@ -18,6 +18,9 @@ import {
   X,
   Bell,
   ChevronDown,
+  Store,
+  Plus,
+  Check,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
@@ -73,6 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [businessCategory, setBusinessCategory] = useState<string>('');
   const [myBusinesses, setMyBusinesses] = useState<BusinessOption[]>([]);
   const [switching, setSwitching] = useState(false);
+  const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
 
   // localStorage isn't available during SSR, so getCurrentUser() would return
   // a different value on the server (null) vs. the client's first render
@@ -115,6 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [businessId]);
 
   const handleSwitchBusiness = (value: string) => {
+    setBusinessMenuOpen(false);
     if (value === NEW_BUSINESS_OPTION) {
       router.push('/select-business');
       return;
@@ -202,25 +207,74 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {businessName && (
             <div className="relative">
-              <select
-                value={businessId ?? ''}
-                onChange={(e) => handleSwitchBusiness(e.target.value)}
+              <button
+                type="button"
+                onClick={() => setBusinessMenuOpen((v) => !v)}
                 disabled={switching}
-                className="w-full appearance-none bg-slate-800/50 rounded-lg p-3 pr-8 border border-slate-700/50 text-sm font-medium text-white truncate cursor-pointer disabled:opacity-60"
+                className={`w-full flex items-center gap-2.5 bg-slate-800/50 hover:bg-slate-800 rounded-lg p-3 border transition-colors disabled:opacity-60 ${
+                  businessMenuOpen ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'border-slate-700/50'
+                }`}
               >
-                {myBusinesses.length === 0 && businessId && (
-                  <option value={businessId}>
-                    {businessName} ({businessCategory || 'no category'})
-                  </option>
-                )}
-                {myBusinesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.category || 'no category'})
-                  </option>
-                ))}
-                <option value={NEW_BUSINESS_OPTION}>+ Add new business</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Store className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-white truncate leading-tight">{businessName}</p>
+                  <p className="text-[11px] text-emerald-400 font-medium tracking-wide uppercase truncate">
+                    {switching ? 'Switching...' : businessCategory || 'No category'}
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${businessMenuOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {businessMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setBusinessMenuOpen(false)} />
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-slate-800 border border-slate-700 rounded-xl p-1.5 shadow-xl shadow-black/30 max-h-72 overflow-y-auto">
+                    {myBusinesses.length === 0 && businessId && (
+                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
+                        <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium text-white truncate">{businessName}</p>
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">{businessCategory || 'No category'}</p>
+                        </div>
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      </div>
+                    )}
+                    {myBusinesses.map((b) => {
+                      const active = b.id === businessId;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => handleSwitchBusiness(b.id)}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${
+                            active ? 'bg-emerald-500/10' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <Store className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-slate-400'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{b.name}</p>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">{b.category || 'No category'}</p>
+                          </div>
+                          {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+                    <div className="my-1 border-t border-slate-700" />
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchBusiness(NEW_BUSINESS_OPTION)}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5 shrink-0" />
+                      <span className="text-sm font-medium">Add new business</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
