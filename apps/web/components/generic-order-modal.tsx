@@ -61,7 +61,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId } }),
+        apiClient.get<Product[]>('/api/products', { params: { businessId, isDraft: 'all' } }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
       ]);
       setProducts(prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started'));
