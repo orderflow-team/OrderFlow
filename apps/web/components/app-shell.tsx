@@ -77,6 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [myBusinesses, setMyBusinesses] = useState<BusinessOption[]>([]);
   const [switching, setSwitching] = useState(false);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
+  const [mobileBusinessMenuOpen, setMobileBusinessMenuOpen] = useState(false);
 
   // localStorage isn't available during SSR, so getCurrentUser() would return
   // a different value on the server (null) vs. the client's first render
@@ -328,11 +329,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         {businessName && (
-          <div className="flex items-center gap-1.5 mt-0.5">
+          <button
+            onClick={() => setMobileBusinessMenuOpen(true)}
+            disabled={switching}
+            className="flex items-center gap-1.5 mt-0.5 text-left active:opacity-70 transition-opacity"
+          >
             <span className="text-xs font-medium text-slate-700 truncate">{businessName}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">{businessCategory}</span>
-          </div>
+            <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider shrink-0">
+              {switching ? 'Switching...' : businessCategory}
+            </span>
+            <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+          </button>
         )}
       </header>
 
@@ -398,6 +406,68 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile "Business" sheet */}
+      {mobileBusinessMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileBusinessMenuOpen(false)} />
+          <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl p-4 pb-8 animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-base font-bold text-slate-800">Switch Business</span>
+              <button onClick={() => setMobileBusinessMenuOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-full">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {myBusinesses.length === 0 && businessId && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <Store className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{businessName}</p>
+                    <p className="text-[10px] text-emerald-600 uppercase font-medium">{businessCategory || 'No category'}</p>
+                  </div>
+                  <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+                </div>
+              )}
+              {myBusinesses.map((b) => {
+                const active = b.id === businessId;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      setMobileBusinessMenuOpen(false);
+                      handleSwitchBusiness(b.id);
+                    }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
+                      active ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50 hover:bg-slate-100 border border-transparent'
+                    }`}
+                  >
+                    <Store className={`w-5 h-5 shrink-0 ${active ? 'text-emerald-600' : 'text-slate-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold truncate ${active ? 'text-slate-800' : 'text-slate-700'}`}>{b.name}</p>
+                      <p className={`text-[10px] uppercase font-medium ${active ? 'text-emerald-600' : 'text-slate-500'}`}>{b.category || 'No category'}</p>
+                    </div>
+                    {active && <Check className="w-5 h-5 text-emerald-600 shrink-0" />}
+                  </button>
+                );
+              })}
+              <div className="my-2 border-t border-slate-100" />
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileBusinessMenuOpen(false);
+                  handleSwitchBusiness(NEW_BUSINESS_OPTION);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl text-left bg-emerald-50/50 hover:bg-emerald-50 transition-colors text-emerald-600 border border-emerald-100/50"
+              >
+                <Plus className="w-5 h-5 shrink-0" />
+                <span className="text-sm font-bold">Add new business</span>
+              </button>
             </div>
           </div>
         </div>
