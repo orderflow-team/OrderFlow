@@ -232,7 +232,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {businessMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setBusinessMenuOpen(false)} />
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-slate-800 border border-slate-700 rounded-xl p-1.5 shadow-xl shadow-black/30 max-h-72 overflow-y-auto">
+                  <div className="scrollbar-dark absolute left-0 right-0 top-full mt-1.5 z-20 bg-slate-800 border border-slate-700 rounded-xl p-1.5 shadow-xl shadow-black/30 max-h-72 overflow-y-auto">
                     {myBusinesses.length === 0 && businessId && (
                       <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
                         <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -279,7 +279,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
         {notifOpen && (
-          <div className="mx-3 mb-2 bg-slate-800 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
+          <div className="scrollbar-dark mx-3 mb-2 bg-slate-800 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
             {notifications.length === 0 && <p className="text-xs text-slate-400">No new notifications</p>}
             {notifications.map((n) => (
               <button

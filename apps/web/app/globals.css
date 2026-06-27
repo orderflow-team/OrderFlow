@@ -154,3 +154,21 @@
     letter-spacing: -0.006em;
   }
 }
+
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.4 0.01 250) transparent;
+}
+.scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: oklch(0.4 0.01 250);
+  border-radius: 9999px;
+}
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.5 0.01 250);
+}
