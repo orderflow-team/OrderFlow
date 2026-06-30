@@ -16,7 +16,7 @@ import {
   Pencil, Minus, Check,
 } from 'lucide-react';
 
-interface Customer { id: string; name: string; }
+interface Customer { id: string; name: string; phone?: string; }
 interface Product { id: string; name: string; selling_price: string | number; unit: string; }
 interface OrderItem {
   quantity: string | number;
@@ -29,6 +29,7 @@ interface Order {
   id: string;
   order_number: string;
   customer_name: string;
+  customer_id?: string;
   status: string;
   total_amount: string | number;
   created_at: string;
@@ -73,6 +74,7 @@ export function GenericOrders() {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Credit'>('Cash');
 
   // Edit-items state
   type EditLine = { name: string; qty: string; price: string; productId?: string; unit?: string };
@@ -106,6 +108,7 @@ export function GenericOrders() {
     setDeleteConfirm(false);
     setInvoiceId(null);
     setEditMode(false);
+    setPaymentMethod('Cash');
     // Check for existing invoice
     if (businessId) {
       try {
@@ -122,6 +125,7 @@ export function GenericOrders() {
   const closeDrawer = () => {
     setDrawerOrder(null);
     setDeleteConfirm(false);
+    setPaymentMethod('Cash');
   };
 
   const handleStatusSave = async () => {
@@ -143,6 +147,16 @@ export function GenericOrders() {
     setStatusSaving(true);
     try {
       await apiClient.patch(`/api/orders/${drawerOrder.id}/status`, { status: 'paid' }, { params: { businessId } });
+      const amount = Number(drawerOrder.total_amount);
+      if (amount > 0) {
+        await apiClient.post('/api/billing/payments', {
+          businessId,
+          orderId: drawerOrder.id,
+          customerId: drawerOrder.customer_id || undefined,
+          amount,
+          paymentMethod,
+        });
+      }
       setDrawerOrder({ ...drawerOrder, status: 'paid' });
       setDrawerStatus('paid');
       setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'paid' } : o));
@@ -232,7 +246,7 @@ export function GenericOrders() {
     }
   };
 
-  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string) => {
+  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string, phone?: string) => {
     if (!businessId) return;
     setSaving(true);
     setError('');
@@ -242,6 +256,7 @@ export function GenericOrders() {
         businessId,
         customerId: customerId || undefined,
         customerName: selectedCustomer?.name || customerName || 'Walk-in',
+        phone: phone || undefined,
         orderType: 'regular',
         items: cartItems.map((it) => ({
           productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
@@ -518,14 +533,31 @@ export function GenericOrders() {
 
               {/* Mark as Paid */}
               {drawerOrder.status !== 'paid' && drawerOrder.status !== 'cancelled' && (
-                <Button
-                  onClick={handleMarkPaid}
-                  disabled={statusSaving}
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-                >
-                  <IndianRupee className="w-4 h-4" />
-                  Mark as Paid
-                </Button>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['Cash', 'UPI', 'Bank Transfer', 'Credit'] as const).map(m => (
+                      <button
+                        key={m}
+                        onClick={() => setPaymentMethod(m)}
+                        className={`h-8 rounded-lg text-xs font-semibold border transition-colors ${
+                          paymentMethod === m
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    onClick={handleMarkPaid}
+                    disabled={statusSaving}
+                    className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                  >
+                    <IndianRupee className="w-4 h-4" />
+                    Mark as Paid · {paymentMethod}
+                  </Button>
+                </div>
               )}
 
               {/* Invoice */}

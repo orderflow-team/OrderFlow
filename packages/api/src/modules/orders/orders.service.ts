@@ -91,6 +91,13 @@ export class OrdersService {
       const orderNumber = `ORD-${Date.now()}`;
 
       let resolvedCustomerId = dto.customerId;
+      // If phone provided, look up customer by phone first (phone is unique identifier)
+      if (dto.phone && !resolvedCustomerId) {
+        const byPhone = await manager.findOne(Customer, {
+          where: { business_id: dto.businessId, phone: dto.phone }
+        });
+        if (byPhone) resolvedCustomerId = byPhone.id;
+      }
       if (!resolvedCustomerId && dto.customerName && dto.customerName.toLowerCase() !== 'guest' && dto.customerName.toLowerCase() !== 'take away guest' && !dto.customerName.toLowerCase().startsWith('table')) {
         let customer = await manager.findOne(Customer, {
           where: { business_id: dto.businessId, name: dto.customerName }
@@ -99,10 +106,22 @@ export class OrdersService {
           customer = manager.create(Customer, {
             business_id: dto.businessId,
             name: dto.customerName,
+            phone: dto.phone,
           });
           customer = await manager.save(Customer, customer);
+        } else if (dto.phone && !customer.phone) {
+          // Save phone to existing customer if they didn't have one
+          customer.phone = dto.phone;
+          await manager.save(Customer, customer);
         }
         resolvedCustomerId = customer.id;
+      } else if (resolvedCustomerId && dto.phone) {
+        // Customer matched by phone or ID — ensure phone is saved on their record
+        const existing = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
+        if (existing && !existing.phone) {
+          existing.phone = dto.phone;
+          await manager.save(Customer, existing);
+        }
       }
 
       let totalAmount = 0;
@@ -297,11 +316,11 @@ export class OrdersService {
         throw new NotFoundException('Order not found');
       }
 
-      if (dto.status === 'confirmed' && order.status === 'draft') {
-        const items = await manager.find(OrderItem, { where: { order_id: id } });
-
-        if (order.customer_id) {
-          const historyRows = items.map((item) =>
+      const savePriceHistory = async (items: OrderItem[]) => {
+        if (!order.customer_id || !items.length) return;
+        const historyRows = items
+          .filter(item => item.product_id || item.custom_product_name)
+          .map(item =>
             manager.create(PriceHistory, {
               business_id: businessId,
               customer_id: order.customer_id,
@@ -310,10 +329,14 @@ export class OrdersService {
               price: item.unit_price,
             }),
           );
-          if (historyRows.length) {
-            await manager.save(PriceHistory, historyRows);
-          }
+        if (historyRows.length) await manager.save(PriceHistory, historyRows);
+      };
 
+      if (dto.status === 'confirmed' && order.status === 'draft') {
+        const items = await manager.find(OrderItem, { where: { order_id: id } });
+        await savePriceHistory(items);
+
+        if (order.customer_id) {
           await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', Number(order.total_amount));
           await manager.save(
             Ledger,
@@ -326,6 +349,13 @@ export class OrdersService {
             }),
           );
         }
+      }
+
+      // Save price history whenever an order is marked paid (from any prior status:
+      // draft, pending, confirmed) so the next order shows the prices they paid.
+      if (dto.status === 'paid' && order.status !== 'paid') {
+        const items = await manager.find(OrderItem, { where: { order_id: id } });
+        await savePriceHistory(items);
       }
 
       if (dto.status === 'paid' && order.table_id) {
@@ -513,11 +543,55 @@ export class OrdersService {
       );
       await manager.save(OrderItem, orderItems);
 
+      // Record updated prices in price_history so next order reflects edited prices
+      if (order.customer_id) {
+        const historyRows = orderItems
+          .filter(oi => oi.product_id || oi.custom_product_name)
+          .map(oi =>
+            manager.create(PriceHistory, {
+              business_id: businessId,
+              customer_id: order.customer_id,
+              product_id: oi.product_id,
+              custom_product_name: oi.custom_product_name,
+              price: oi.unit_price,
+            }),
+          );
+        if (historyRows.length) await manager.save(PriceHistory, historyRows);
+      }
+
       order.total_amount = totalAmount;
       order.tax_amount = totalTax;
       const savedOrder = await manager.save(order);
 
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: order.id }, relations: { product: true } }) };
     });
+  }
+
+  /**
+   * Returns the most-recent price this customer paid per product, as a map
+   * { productId → price }. Queries actual order items (not just price_history)
+   * so existing historical orders are included even before price_history was populated.
+   */
+  async customerPrices(businessId: string, customerId: string): Promise<Record<string, number>> {
+    // Pull all paid/confirmed order items for this customer, newest first
+    const items = await this.orderItemsRepository
+      .createQueryBuilder('oi')
+      .innerJoin('oi.order', 'o')
+      .where('o.business_id = :businessId', { businessId })
+      .andWhere('o.customer_id = :customerId', { customerId })
+      .andWhere('o.status IN (:...statuses)', { statuses: ['paid', 'confirmed', 'delivered'] })
+      .andWhere('oi.product_id IS NOT NULL')
+      .orderBy('o.created_at', 'DESC')
+      .select(['oi.product_id', 'oi.unit_price'])
+      .getMany();
+
+    // Keep only the most recent price per product
+    const map: Record<string, number> = {};
+    for (const item of items) {
+      if (item.product_id && !(item.product_id in map)) {
+        map[item.product_id] = Number(item.unit_price);
+      }
+    }
+    return map;
   }
 }

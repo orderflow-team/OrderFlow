@@ -58,6 +58,10 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 
   @IsArray()

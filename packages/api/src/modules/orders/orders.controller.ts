@@ -34,6 +34,24 @@ export class OrdersController {
     return this.ordersService.findAll(businessId, status);
   }
 
+  // Static routes MUST come before @Get(':id') or NestJS will match them as the id param
+  @Get('customer-prices')
+  customerPrices(
+    @Query('businessId') businessId: string,
+    @Query('customerId') customerId: string,
+  ) {
+    return this.ordersService.customerPrices(businessId, customerId);
+  }
+
+  @Post('suggest-price')
+  suggestPrice(
+    @Query('businessId') businessId: string,
+    @Query('customerId') customerId: string,
+    @Body() item: CreateOrderItemDto,
+  ) {
+    return this.ordersService.suggestPrice(businessId, customerId, item);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.ordersService.findOne(id, businessId);
@@ -64,14 +82,5 @@ export class OrdersController {
     @Body() dto: AddOrderItemsDto,
   ) {
     return this.ordersService.replaceItems(id, businessId, dto);
-  }
-
-  @Post('suggest-price')
-  suggestPrice(
-    @Query('businessId') businessId: string,
-    @Query('customerId') customerId: string,
-    @Body() item: CreateOrderItemDto,
-  ) {
-    return this.ordersService.suggestPrice(businessId, customerId, item);
   }
 }
