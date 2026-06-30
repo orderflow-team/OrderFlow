@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Body,
   Param,
@@ -54,6 +55,15 @@ export class OrdersController {
     @Body() dto: AddOrderItemsDto,
   ) {
     return this.ordersService.addItems(id, businessId, dto);
+  }
+
+  @Put(':id/items')
+  replaceItems(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Body() dto: AddOrderItemsDto,
+  ) {
+    return this.ordersService.replaceItems(id, businessId, dto);
   }
 
   @Post('suggest-price')

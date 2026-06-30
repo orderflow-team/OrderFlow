@@ -196,58 +196,90 @@ export default function CustomersPage() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[800px]">
-                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3">Name</th>
-                    <th className="px-6 py-3">Phone</th>
-                    <th className="px-6 py-3 text-right">Credit Limit</th>
-                    <th className="px-6 py-3 text-right">Outstanding</th>
-                    <th className="px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+              <>
+                {/* ── Mobile card list ── */}
+                <div className="sm:hidden divide-y divide-slate-100">
                   {customers.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
-                            {c.name.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-slate-800">{c.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600">{c.phone || '-'}</td>
-                      <td className="px-6 py-4 text-right text-slate-600">{Number(c.credit_limit).toFixed(2)}</td>
-                      <td
-                        className={`px-6 py-4 text-right font-semibold ${
-                          Number(c.outstanding_amount) > 0 ? 'text-rose-600' : 'text-slate-500'
-                        }`}
-                      >
-                        {Number(c.outstanding_amount).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openEditForm(c)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                            aria-label="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(c.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <div key={c.id} className="flex items-center gap-3 px-4 py-3 bg-white">
+                      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-bold shrink-0">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">{c.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{c.phone || 'No phone'}</p>
+                      </div>
+                      <div className="text-right shrink-0 mr-1">
+                        {Number(c.outstanding_amount) > 0 && (
+                          <p className="text-xs font-bold text-rose-600">₹{Number(c.outstanding_amount).toFixed(0)} due</p>
+                        )}
+                        {Number(c.credit_limit) > 0 && (
+                          <p className="text-[11px] text-slate-400">Limit ₹{Number(c.credit_limit).toFixed(0)}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => openEditForm(c)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
+                          aria-label="Edit"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c.id)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 transition-colors"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table></div>
+                </div>
+
+                {/* ── Desktop table ── */}
+                <div className="hidden sm:block overflow-x-auto w-full">
+                  <table className="w-full text-sm text-left min-w-[600px]">
+                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3">Name</th>
+                        <th className="px-6 py-3">Phone</th>
+                        <th className="px-6 py-3 text-right">Credit Limit</th>
+                        <th className="px-6 py-3 text-right">Outstanding</th>
+                        <th className="px-6 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {customers.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                {c.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-medium text-slate-800">{c.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600">{c.phone || '-'}</td>
+                          <td className="px-6 py-4 text-right text-slate-600">{Number(c.credit_limit).toFixed(2)}</td>
+                          <td className={`px-6 py-4 text-right font-semibold ${Number(c.outstanding_amount) > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                            {Number(c.outstanding_amount).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => openEditForm(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" aria-label="Edit">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors" aria-label="Delete">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

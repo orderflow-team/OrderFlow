@@ -457,4 +457,67 @@ export class OrdersService {
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: order.id }, relations: { product: true } }) };
     });
   }
+
+  async replaceItems(id: string, businessId: string, dto: AddOrderItemsDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, { where: { id, business_id: businessId } });
+      if (!order) throw new NotFoundException('Order not found');
+
+      // Remove existing items
+      await manager.delete(OrderItem, { order_id: order.id });
+
+      let totalAmount = 0;
+      let totalTax = 0;
+      const resolvedItems: Array<{ item: CreateOrderItemDto; unitPrice: number; subtotal: number; taxPercentage: number; taxAmount: number }> = [];
+
+      const newlyCreatedProductIds = new Map<string, string>();
+
+      for (const item of dto.items) {
+        if (!item.productId && !item.customProductName) {
+          throw new BadRequestException('Each item needs either productId or customProductName');
+        }
+        const { unitPrice, taxPercentage } = await this.resolveItemPricing(businessId, order.customer_id, item);
+        const subtotal = Number(unitPrice) * Number(item.quantity);
+        const taxAmount = subtotal * (taxPercentage / 100);
+        totalAmount += subtotal + taxAmount;
+        totalTax += taxAmount;
+
+        // Save new free-text items as draft products so they appear in the product master
+        const nameKey = item.customProductName?.trim().toLowerCase();
+        if (!item.productId && item.customProductName && nameKey !== TABLE_SESSION_PLACEHOLDER_ITEM) {
+          let linkedProductId = newlyCreatedProductIds.get(nameKey);
+          if (!linkedProductId) {
+            linkedProductId = await this.findOrCreateProductFromCustomName(
+              manager, businessId, item.customProductName, item.unit, unitPrice, taxPercentage,
+            );
+            newlyCreatedProductIds.set(nameKey, linkedProductId);
+          }
+          item.productId = linkedProductId;
+        }
+
+        resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
+      }
+
+      const orderItems = resolvedItems.map(({ item, unitPrice, subtotal, taxPercentage, taxAmount }) =>
+        manager.create(OrderItem, {
+          order_id: order.id,
+          product_id: item.productId,
+          custom_product_name: item.customProductName,
+          quantity: item.quantity,
+          unit: item.unit,
+          unit_price: unitPrice,
+          subtotal,
+          tax_percentage: taxPercentage,
+          tax_amount: taxAmount,
+        }),
+      );
+      await manager.save(OrderItem, orderItems);
+
+      order.total_amount = totalAmount;
+      order.tax_amount = totalTax;
+      const savedOrder = await manager.save(order);
+
+      return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: order.id }, relations: { product: true } }) };
+    });
+  }
 }
