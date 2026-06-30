@@ -311,7 +311,7 @@ export default function TableDetailsPage() {
                   className={`flex-1 h-11 gap-1.5 text-sm font-semibold ${
                     isZeroBill
                       ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-red-600 hover:bg-red-700 text-white'
                   }`}
                 >
                   {isZeroBill ? (
