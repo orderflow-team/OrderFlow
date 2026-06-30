@@ -286,7 +286,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           </div>
 
           {/* Product grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pb-4">
+          <div className="grid grid-cols-2 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
               return (
