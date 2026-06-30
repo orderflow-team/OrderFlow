@@ -146,8 +146,9 @@ export function GenericOrders() {
     if (!businessId || !drawerOrder) return;
     setStatusSaving(true);
     try {
-      await apiClient.patch(`/api/orders/${drawerOrder.id}/status`, { status: 'paid' }, { params: { businessId } });
       const amount = Number(drawerOrder.total_amount);
+      // Create payment BEFORE marking paid so the service sees the original status
+      // and correctly posts the debit to outstanding_amount
       if (amount > 0) {
         await apiClient.post('/api/billing/payments', {
           businessId,
@@ -157,6 +158,7 @@ export function GenericOrders() {
           paymentMethod,
         });
       }
+      await apiClient.patch(`/api/orders/${drawerOrder.id}/status`, { status: 'paid' }, { params: { businessId } });
       setDrawerOrder({ ...drawerOrder, status: 'paid' });
       setDrawerStatus('paid');
       setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'paid' } : o));
