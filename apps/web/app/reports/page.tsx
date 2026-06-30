@@ -46,14 +46,14 @@ function StatCard({ icon: Icon, label, value, sub, tint, valueClass }: {
 }) {
   return (
     <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
-      <CardContent className="p-5 flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">{label}</p>
-          <p className={`text-2xl font-bold mt-1.5 ${valueClass || 'text-slate-800'}`}>{value}</p>
-          {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+      <CardContent className="p-4 flex flex-col gap-2">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tint}`}>
+          <Icon className="w-4 h-4" />
         </div>
-        <div className={`p-2.5 rounded-xl ${tint}`}>
-          <Icon className="w-5 h-5" />
+        <div>
+          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className={`text-lg font-bold mt-0.5 ${valueClass || 'text-slate-800'}`}>{value}</p>
+          {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
         </div>
       </CardContent>
     </Card>
@@ -99,7 +99,7 @@ export default function ReportsPage() {
           <p className="text-sm text-slate-400">Loading...</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 gap-4">
               <StatCard icon={IndianRupee} label="Revenue" value={formatCurrency(profit?.revenue || 0)} tint="bg-blue-50 text-blue-600" />
               <StatCard icon={TrendingDown} label="Cost of Goods" value={formatCurrency(profit?.cost || 0)} tint="bg-slate-100 text-slate-600" />
               <StatCard
@@ -121,26 +121,20 @@ export default function ReportsPage() {
                 {tax.length === 0 ? (
                   <p className="p-10 text-center text-slate-400 text-sm">No tax data yet.</p>
                 ) : (
-                  <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[800px]">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-6 py-3">Date</th>
-                        <th className="px-6 py-3 text-right">Orders</th>
-                        <th className="px-6 py-3 text-right">Sales</th>
-                        <th className="px-6 py-3 text-right">Tax</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {tax.map((row) => (
-                        <tr key={row.date} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="px-6 py-3 text-slate-800">{formatDate(row.date)}</td>
-                          <td className="px-6 py-3 text-right text-slate-600">{row.orderCount}</td>
-                          <td className="px-6 py-3 text-right text-slate-600">{formatCurrency(row.totalSales)}</td>
-                          <td className="px-6 py-3 text-right font-semibold text-slate-800">{formatCurrency(row.totalTax)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table></div>
+                  <div className="divide-y divide-slate-100">
+                    {tax.map((row) => (
+                      <div key={row.date} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/60 transition-colors gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800">{formatDate(row.date)}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{row.orderCount} order{row.orderCount !== 1 ? 's' : ''} · Sales {formatCurrency(row.totalSales)}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-slate-400 uppercase tracking-wide">Tax</p>
+                          <p className="font-bold text-slate-800">{formatCurrency(row.totalTax)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </CardContent>
             </Card>

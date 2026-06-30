@@ -187,41 +187,34 @@ export function StandardBilling() {
                 <p className="text-slate-400 text-sm">No orders yet.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[800px]">
-                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3">Order #</th>
-                    <th className="px-6 py-3">Customer</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3 text-right">Total</th>
-                    <th className="px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {orders.map((o) => (
-                    <tr key={o.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="px-6 py-4 font-medium text-slate-800">{o.order_number}</td>
-                      <td className="px-6 py-4 text-slate-600">{o.customer_name}</td>
-                      <td className="px-6 py-4"><StatusBadge status={o.status} /></td>
-                      <td className="px-6 py-4 text-right font-semibold text-slate-800">{Number(o.total_amount).toFixed(2)}</td>
-                      <td className="px-6 py-4 text-right">
-                        {invoiceByOrderId.has(o.id) ? (
-                          <a
-                            href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
-                            className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
-                          >
-                            View Invoice
-                          </a>
-                        ) : (
-                          <button onClick={() => handleGenerateInvoice(o.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
-                            Generate Invoice
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table></div>
+              <div className="divide-y divide-slate-100">
+                {orders.map((o) => (
+                  <div key={o.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-semibold text-slate-500">{o.order_number}</span>
+                        <StatusBadge status={o.status} />
+                      </div>
+                      <p className="text-sm font-medium text-slate-800 truncate mt-0.5">{o.customer_name}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className="font-bold text-slate-800">₹{Number(o.total_amount).toFixed(2)}</span>
+                      {invoiceByOrderId.has(o.id) ? (
+                        <a
+                          href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
+                          className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
+                        >
+                          View Invoice
+                        </a>
+                      ) : (
+                        <button onClick={() => handleGenerateInvoice(o.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
+                          + Invoice
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
