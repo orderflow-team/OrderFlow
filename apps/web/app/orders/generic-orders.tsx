@@ -284,7 +284,7 @@ export function GenericOrders() {
           title="Orders"
           description="Quick Parchi mode: items can be a saved product or just free text."
           action={
-            <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-3 pb-4">
               {businessId && <ClearModuleButton module="orders" businessId={businessId} />}
               <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
                 {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
