@@ -154,18 +154,22 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           </div>
 
           {/* Menu Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
               return (
                 <div
                   key={p.id}
-                  className={`p-5 rounded-xl border bg-white cursor-pointer transition-all space-y-2 ${qty > 0 ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}
+                  className={`relative p-3 rounded-xl border bg-white cursor-pointer transition-all ${qty > 0 ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}
                   onClick={() => updateCart(p, 1)}
                 >
-                  <h4 className="font-medium text-slate-800 leading-snug">{p.name}</h4>
-                  <div className="text-emerald-600 font-semibold">₹{Number(p.selling_price).toFixed(2)}</div>
-                  {qty > 0 && <div className="text-emerald-600 text-xs font-medium pt-1">{qty} in cart</div>}
+                  {qty > 0 && (
+                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {qty}
+                    </span>
+                  )}
+                  <h4 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 pr-4">{p.name}</h4>
+                  <div className="text-emerald-600 font-bold text-sm mt-2">₹{Number(p.selling_price).toFixed(2)}</div>
                 </div>
               );
             })}

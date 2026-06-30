@@ -4,10 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Coffee, ArrowLeft, Settings, SplitSquareHorizontal, Plus, AlertTriangle, XCircle } from 'lucide-react';
+import { Coffee, ArrowLeft, Plus, XCircle, SplitSquareHorizontal, Clock, Users } from 'lucide-react';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 
 interface Table {
@@ -38,21 +37,25 @@ interface OrderItem {
   product?: { name: string };
 }
 
-
 export default function TableDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
   const { businessId, ready } = useBusiness();
   const router = useRouter();
-  
+
   const [table, setTable] = useState<Table | null>(null);
   const [activeSession, setActiveSession] = useState<Order | null>(null);
   const [previousSessions, setPreviousSessions] = useState<Order[]>([]);
-  
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState('');
   const [billingError, setBillingError] = useState('');
   const [showMenuModal, setShowMenuModal] = useState(false);
+
+  // Lock page scroll — this page is a single-screen layout
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
 
   useEffect(() => {
     if (ready && businessId) loadTableData();
@@ -61,33 +64,23 @@ export default function TableDetailsPage() {
   const loadTableData = async () => {
     setLoading(true);
     try {
-      // Fetch table details
       const tableRes = await apiClient.get<Table[]>(`/api/restaurant/tables`, { params: { businessId } });
       const currentTable = tableRes.data.find(t => t.id === id);
       if (currentTable) setTable(currentTable);
-      
-      // Fetch orders for this table (we filter out the active one and previous ones)
+
       const ordersRes = await apiClient.get<Order[]>('/api/orders', { params: { businessId } });
-      // Currently backend doesn't filter by tableId on /api/orders, so we do it client side for now.
-      // Wait, Order doesn't expose table_id in the /api/orders payload if we didn't update the Entity mapping, but we added the column.
-      // Since it's a new column, TypeORM includes it automatically! Let's hope it's exposed as table_id.
-      // Let's just fetch all orders and filter.
-      // We will actually just use the ones mapped.
       const tableOrders = ordersRes.data.filter((o: any) => o.table_id === id && o.order_type === 'dine_in');
-      
+
       const active = tableOrders.find(o => o.status === 'draft' || o.status === 'pending' || o.status === 'confirmed');
       const previous = tableOrders.filter(o => o.status === 'paid');
-      
+
       if (active) {
-        // Fetch detailed order items
         const detailedOrderRes = await apiClient.get<Order>(`/api/orders/${active.id}`, { params: { businessId } });
         setActiveSession(detailedOrderRes.data);
       } else {
         setActiveSession(null);
       }
-      
       setPreviousSessions(previous);
-
     } catch (err) {
       console.error(err);
     } finally {
@@ -100,23 +93,19 @@ export default function TableDetailsPage() {
       const payloadItems = items.map(i => ({
         productId: i.product.id,
         quantity: i.quantity,
-        unitPrice: Number(i.product.selling_price)
+        unitPrice: Number(i.product.selling_price),
       }));
-
       if (activeSession) {
-        await apiClient.post(`/api/orders/${activeSession.id}/items`, {
-          items: payloadItems
-        }, { params: { businessId } });
+        await apiClient.post(`/api/orders/${activeSession.id}/items`, { items: payloadItems }, { params: { businessId } });
       } else {
         await apiClient.post('/api/orders', {
           businessId,
           customerName: `Table ${table?.name}`,
           tableId: table?.id,
           orderType: 'dine_in',
-          items: payloadItems
+          items: payloadItems,
         });
       }
-
       loadTableData();
     } catch (err) {
       console.error(err);
@@ -126,19 +115,12 @@ export default function TableDetailsPage() {
   const handleCloseAndPay = async () => {
     if (!activeSession) return;
     setBillingError('');
-    
     try {
-      if (Number(activeSession.total_amount) <= 0) {
-        // If it's a 0 bill, just cancel the order and free the table instead of throwing an error.
-        await apiClient.patch(`/api/orders/${activeSession.id}/status`, { status: 'cancelled' }, { params: { businessId } });
-      } else {
-        // In a real flow, this opens a payment modal. For now, mark as paid.
-        await apiClient.patch(`/api/orders/${activeSession.id}/status`, { status: 'paid' }, { params: { businessId } });
-      }
+      const status = Number(activeSession.total_amount) <= 0 ? 'cancelled' : 'paid';
+      await apiClient.patch(`/api/orders/${activeSession.id}/status`, { status }, { params: { businessId } });
       await apiClient.post(`/api/restaurant/tables/${id}/release`, {}, { params: { businessId } });
       loadTableData();
     } catch (err: any) {
-      console.error(err);
       setBillingError(err.response?.data?.message || 'Failed to close session');
     }
   };
@@ -154,7 +136,10 @@ export default function TableDetailsPage() {
 
   if (!ready || loading || (!table && !loadingError)) return (
     <AppShell>
-      <div className="p-6 text-center text-slate-400">Loading table...</div>
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-slate-400">
+        <Coffee className="w-8 h-8 animate-pulse" />
+        <span className="text-sm">Loading table...</span>
+      </div>
     </AppShell>
   );
 
@@ -167,157 +152,189 @@ export default function TableDetailsPage() {
   if (!table) return null;
 
   const isAvailable = table.status === 'available' && !activeSession;
+  const isEmpty = !activeSession || !activeSession.items?.length;
+  const isZeroBill = !activeSession || Number(activeSession.total_amount) <= 0;
 
   return (
     <AppShell>
-      <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-6">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/orders?view=dine_in')} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors">
-              <ArrowLeft className="w-5 h-5 text-slate-600" />
-            </button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold tracking-tight text-slate-800">Table {table.name}</h1>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide capitalize ${
-                  isAvailable ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200/50' : 
-                  'bg-blue-50 text-blue-600 ring-1 ring-blue-200/50'
-                }`}>
-                  {isAvailable ? 'Available' : 'Occupied'}
+      {/*
+        main in AppShell has pt-[60px] pb-16 on mobile = 60+64=124px used.
+        So we constrain this page to exactly 100dvh-124px, no page scroll.
+      */}
+      <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 124px)' }}>
+
+        {/* ── Top bar ── */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 flex-shrink-0">
+          <button
+            onClick={() => router.push('/orders?view=dine_in')}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-600" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-800 truncate">Table {table.name}</h1>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${
+                isAvailable
+                  ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                  : 'bg-amber-50 text-amber-600 ring-1 ring-amber-200'
+              }`}>
+                {isAvailable ? 'Available' : 'Occupied'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{table.capacity} seats</span>
+              {activeSession && (
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(activeSession.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-slate-500 text-sm">
-                <span>{table.capacity} seats</span>
-                <Settings className="w-3.5 h-3.5" />
-                {!isAvailable && activeSession && (
-                  <span>· 1 active session</span>
-                )}
-              </div>
+              )}
             </div>
           </div>
-          
-          <div className="flex gap-2">
-            {isAvailable ? (
-              <Button onClick={() => setShowMenuModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white h-10 gap-1.5 px-6">
+          {isAvailable && (
+            <Button
+              onClick={() => setShowMenuModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-1.5 text-sm flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Add Items
+            </Button>
+          )}
+        </div>
+
+        {/* ── Body ── */}
+        {isAvailable ? (
+          /* Available state — centred CTA, previous sessions below */
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col items-center justify-center py-10 px-8 gap-4">
+              <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+                <Coffee className="w-8 h-8 text-slate-300 stroke-[1.5]" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-base font-semibold text-slate-700 mb-1">Table is free</h3>
+                <p className="text-slate-400 text-sm">Tap below to start taking orders</p>
+              </div>
+              <Button
+                onClick={() => setShowMenuModal(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-8 h-11 text-sm rounded-xl shadow-sm"
+              >
                 <Plus className="w-4 h-4" /> Add Items
               </Button>
-            ) : null}
-          </div>
-        </div>
+            </div>
 
-        {/* Main Content Area */}
-        <div className="bg-slate-100 p-2 text-xs font-mono">
-          DEBUG: isAvailable={String(isAvailable)}, activeSession={activeSession ? 'exists' : 'null'}, tableStatus={table.status}, activeSessionItems={activeSession?.items ? 'exists' : 'undefined'}
-        </div>
-        {isAvailable ? (
-          <>
-            <Card className="h-[400px] flex flex-col items-center justify-center border border-slate-200 shadow-sm mt-8">
-              <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6 text-slate-400 border border-slate-100">
-                <Coffee className="w-10 h-10 stroke-[1.5]" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-800 mb-2">Table is available</h3>
-              <p className="text-slate-500 text-sm mb-8">Add items to start taking orders</p>
-              <Button onClick={() => setShowMenuModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-8 py-6 text-lg rounded-xl shadow-sm">
-                <Plus className="w-5 h-5" /> Add Items
-              </Button>
-            </Card>
-
-            {/* Previous Sessions list... */}
             {previousSessions.length > 0 && (
-              <div className="mt-12">
-                <div className="flex items-center gap-2 text-slate-500 text-sm font-medium mb-4">
-                  <span className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[10px]">L</span>
-                  Previous Sessions ({previousSessions.length})
-                </div>
+              <div className="px-4 pb-4">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Previous Sessions</p>
                 <div className="space-y-2">
                   {previousSessions.map(session => (
-                    <div key={session.id} className="flex justify-between items-center py-4 px-5 rounded-lg border border-slate-200 bg-white">
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-slate-500">{new Date(session.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                        <span className="font-semibold text-slate-800">{session.customer_name}</span>
+                    <div key={session.id} className="flex justify-between items-center py-3 px-4 rounded-xl border border-slate-100 bg-white shadow-sm">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{session.customer_name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {new Date(session.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                      <div className="font-semibold text-emerald-600">
-                        ₹{Number(session.total_amount).toFixed(2)}
-                      </div>
+                      <span className="font-bold text-emerald-600">₹{Number(session.total_amount).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </>
-        ) : !isAvailable ? (
-          <Card className="mt-8 border border-emerald-100 shadow-sm overflow-hidden">
-            <div className="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <Coffee className="w-5 h-5 text-slate-400" />
-                <h3 className="font-bold text-lg text-slate-800">{activeSession?.customer_name || `Table ${table.name}`}</h3>
+          </div>
+        ) : (
+          /* Occupied state — items list + sticky bottom bar, all within the container */
+          <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* Order # label */}
+            {activeSession && (
+              <div className="px-4 pt-3 pb-1 flex items-center justify-between flex-shrink-0">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Current Order</span>
+                <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  #{activeSession.order_number}
+                </span>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700">active</span>
+            )}
+
+            {/* Items — scrollable zone */}
+            <div className="flex-1 overflow-y-auto px-4 pb-3">
+              {isEmpty ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
+                  <Coffee className="w-10 h-10 stroke-[1.5] opacity-25" />
+                  <p className="text-sm">No items ordered yet</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                  {activeSession!.items.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center justify-between px-4 py-3.5 ${
+                        idx !== activeSession!.items.length - 1 ? 'border-b border-slate-50' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {item.quantity}
+                        </span>
+                        <span className="text-sm font-medium text-slate-700 truncate">
+                          {item.product?.name || item.custom_product_name || 'Item'}
+                        </span>
+                      </div>
+                      <span className="text-sm font-semibold text-slate-600 ml-3 flex-shrink-0">
+                        ₹{Number(item.subtotal).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom action bar — flex-shrink-0 so it stays at bottom */}
+            <div className="flex-shrink-0 bg-white border-t border-slate-100 px-4 pt-3 pb-3 shadow-[0_-6px_20px_-6px_rgba(0,0,0,0.08)]">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-slate-500">Running Total</span>
+                <span className="text-xl font-extrabold text-slate-800">
+                  ₹{Number(activeSession?.total_amount || 0).toFixed(2)}
+                </span>
+              </div>
+              {billingError && (
+                <p className="text-xs text-rose-500 font-medium mb-2 text-center">{billingError}</p>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowMenuModal(true)}
+                  className="flex-1 h-11 gap-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <Plus className="w-4 h-4" /> Add Items
+                </Button>
+                <Button
+                  onClick={isZeroBill ? handleForceRelease : handleCloseAndPay}
+                  className={`flex-1 h-11 gap-1.5 text-sm font-semibold ${
+                    isZeroBill
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {isZeroBill ? (
+                    <><XCircle className="w-4 h-4" /> Cancel</>
+                  ) : (
+                    <><SplitSquareHorizontal className="w-4 h-4" /> Close &amp; Pay</>
+                  )}
+                </Button>
               </div>
             </div>
-            
-            <CardContent className="p-0">
-              <div className="px-6 py-2">
-                {(!activeSession || activeSession.items?.length === 0) ? (
-                  <div className="py-8 text-center text-slate-400 text-sm font-medium">
-                    No items ordered yet
-                  </div>
-                ) : (
-                  (activeSession.items || []).map(item => (
-                    <div key={item.id} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0 group">
-                      <div className="flex items-center gap-3">
-                        <span className="text-slate-400 font-medium w-6">{item.quantity}x</span>
-                        <span className="font-medium text-slate-700">{item.product?.name || item.custom_product_name || 'Item'}</span>
-                      </div>
-                      <div className="text-slate-500 font-medium">
-                        ₹{Number(item.subtotal).toFixed(2)}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
 
-              <div className="bg-slate-50 p-6 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-500 mb-1">Running Total</p>
-                    <p className="text-3xl font-extrabold text-emerald-600">₹{Number(activeSession?.total_amount || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button onClick={() => setShowMenuModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 h-12 text-base">
-                      <Plus className="w-4 h-4" /> Add Items
-                    </Button>
-                    <Button
-                      onClick={(!activeSession || Number(activeSession.total_amount) <= 0) ? handleForceRelease : handleCloseAndPay}
-                      className={(!activeSession || Number(activeSession.total_amount) <= 0) ? "bg-rose-500 hover:bg-rose-600 text-white gap-1.5 px-6 h-12 text-base" : "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 px-6 h-12 text-base"}
-                    >
-                      {(!activeSession || Number(activeSession.total_amount) <= 0) ? (
-                        <><XCircle className="w-4 h-4" /> Cancel Session</>
-                      ) : (
-                        <><SplitSquareHorizontal className="w-4 h-4" /> Close & Pay</>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {billingError && <p className="text-sm text-rose-600 font-medium mt-3 text-right">{billingError}</p>}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* Add Items Menu Modal */}
-        <MenuSelectionModal
-          businessId={businessId!}
-          isOpen={showMenuModal}
-          guestName={activeSession?.customer_name || `Table ${table.name}`}
-          onClose={() => setShowMenuModal(false)}
-          onSubmit={handleAddItems}
-        />
+          </div>
+        )}
 
       </div>
+
+      <MenuSelectionModal
+        businessId={businessId!}
+        isOpen={showMenuModal}
+        guestName={activeSession?.customer_name || `Table ${table.name}`}
+        onClose={() => setShowMenuModal(false)}
+        onSubmit={handleAddItems}
+      />
     </AppShell>
   );
 }
