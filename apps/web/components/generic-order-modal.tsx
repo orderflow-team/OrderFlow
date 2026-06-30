@@ -286,7 +286,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           </div>
 
           {/* Product grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
               return (
@@ -302,7 +302,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       {qty}
                     </span>
                   )}
-                  <h4 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 pr-5">{p.name}</h4>
+                  <h4 className="font-semibold text-slate-800 text-sm leading-snug pr-5">{p.name}</h4>
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="font-bold text-sm text-emerald-600">
                       ₹{Number(p.selling_price).toFixed(2)}
