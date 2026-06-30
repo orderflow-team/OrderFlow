@@ -85,6 +85,7 @@ export function GenericOrders() {
         items: cartItems.map((it) => ({
           productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
           customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
+          unit: it.product.id.startsWith('draft-') ? it.product.unit : undefined,
           quantity: Number(it.quantity),
           unitPrice: Number(it.product.selling_price),
         })),

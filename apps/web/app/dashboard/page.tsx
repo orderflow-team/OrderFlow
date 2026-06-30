@@ -10,6 +10,7 @@ import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } 
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
+import { DraftReviewStack } from '@/components/draft-review-stack';
 import { ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock } from 'lucide-react';
 
 interface DashboardData {
@@ -160,6 +161,8 @@ export default function DashboardPage() {
             </Button>
           }
         />
+
+        <DraftReviewStack businessId={businessId} />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
           <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-blue-50 text-blue-600" />

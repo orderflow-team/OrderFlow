@@ -121,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleSwitchBusiness = (value: string) => {
     setBusinessMenuOpen(false);
+    setMobileBusinessMenuOpen(false);
     if (value === NEW_BUSINESS_OPTION) {
       router.push('/select-business');
       return;
@@ -132,10 +133,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((res) => {
         localStorage.setItem('access_token', res.data.access_token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
-        setBusinessId(value);
+        // Full navigation so every page re-mounts and picks up the new businessId
+        window.location.href = '/dashboard';
       })
-      .catch(() => {})
-      .finally(() => setSwitching(false));
+      .catch(() => setSwitching(false));
   };
 
   useEffect(() => {

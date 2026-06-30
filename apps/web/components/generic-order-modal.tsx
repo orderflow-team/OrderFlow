@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
-import { ShoppingCart, Plus, Minus, Search } from 'lucide-react';
+import { parseQuantityUnit } from '@/lib/parse-quantity-unit';
+import { ShoppingCart, Plus, Minus, Search, Trash2 } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -14,6 +15,7 @@ interface Product {
   selling_price: string | number;
   category: string | null;
   is_available: boolean;
+  unit?: string;
 }
 
 interface Category {
@@ -214,26 +216,33 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               );
             })}
             
-            {search.trim().length > 0 && !products.some(p => p.name.toLowerCase() === search.trim().toLowerCase()) && (
-               <div
-                  className="p-5 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 cursor-pointer transition-all hover:bg-emerald-50 space-y-2 flex flex-col items-center justify-center text-center"
-                  onClick={() => {
-                    const tempProduct: Product = {
-                      id: 'draft-' + Date.now(),
-                      name: search.trim(),
-                      selling_price: 0,
-                      category: null,
-                      is_available: true
-                    };
-                    updateCart(tempProduct, 1);
-                    setSearch('');
-                  }}
-               >
-                 <Plus className="w-8 h-8 text-emerald-600 mb-1" />
-                 <h4 className="font-medium text-emerald-800 leading-snug">Add "{search.trim()}"</h4>
-                 <div className="text-emerald-600/70 text-xs">Create as draft product (₹0)</div>
-               </div>
-            )}
+            {search.trim().length > 0 && !products.some(p => p.name.toLowerCase() === search.trim().toLowerCase()) && (() => {
+               const parsed = parseQuantityUnit(search.trim());
+               return (
+                 <div
+                    className="p-5 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 cursor-pointer transition-all hover:bg-emerald-50 space-y-2 flex flex-col items-center justify-center text-center"
+                    onClick={() => {
+                      const tempProduct: Product = {
+                        id: 'draft-' + Date.now(),
+                        name: search.trim(),
+                        selling_price: 0,
+                        category: null,
+                        is_available: true,
+                        unit: parsed?.unit,
+                      };
+                      updateCart(tempProduct, 1);
+                      setSearch('');
+                    }}
+                 >
+                   <Plus className="w-8 h-8 text-emerald-600 mb-1" />
+                   <h4 className="font-medium text-emerald-800 leading-snug">Add "{search.trim()}"</h4>
+                   <div className="text-emerald-600/70 text-xs">
+                     Create as draft product
+                     {parsed ? ` · ${parsed.quantity} ${parsed.unit}` : ' (₹0)'}
+                   </div>
+                 </div>
+               );
+            })()}
           </div>
         </div>
 
@@ -258,6 +267,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
+                  <button
+                    onClick={() => setCart(prev => { const n = { ...prev }; delete n[item.product.id]; return n; })}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 transition-colors"
+                    aria-label="Remove item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <div className="flex flex-col items-end w-24">
                     <div className="flex items-center gap-1 border border-slate-200 rounded px-1.5 focus-within:ring-1 focus-within:ring-emerald-500 bg-white overflow-hidden transition-all">
                       <span className="text-slate-400 text-xs font-semibold">₹</span>
