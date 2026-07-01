@@ -354,7 +354,14 @@ export function GenericOrders() {
   return (
     <AppShell>
       <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
+          {!showForm && (
+            <Button onClick={() => setShowForm(true)} className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
+              <Plus className="w-4 h-4" /> New Order
+            </Button>
+          )}
+        </div>
 
         <div className="relative">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -464,14 +471,6 @@ export function GenericOrders() {
           </div>
         )}
       </div>
-
-      <button
-        onClick={() => setShowForm(true)}
-        aria-label="New Order"
-        className="fixed z-30 bottom-20 right-5 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-accent-orange text-white shadow-lg shadow-slate-900/25 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
 
       {/* ── Order Detail Drawer ── */}
       {drawerOrder && (

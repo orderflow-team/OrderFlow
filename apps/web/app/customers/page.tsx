@@ -124,7 +124,7 @@ function CustomersPageContent() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Clients</h1>
           {!showForm && (
-            <Button onClick={openCreateForm} variant="outline" className="gap-1.5 hidden sm:inline-flex">
+            <Button onClick={openCreateForm} className="gap-1.5 bg-tile-sky-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add Customer
             </Button>
           )}
@@ -265,13 +265,6 @@ function CustomersPageContent() {
         )}
       </div>
 
-      <button
-        onClick={openCreateForm}
-        aria-label="Add Customer"
-        className="fixed z-30 bottom-20 right-5 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-tile-sky-fg text-white shadow-lg shadow-slate-900/25 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"
-      >
-        <UserPlus className="w-6 h-6" />
-      </button>
     </AppShell>
   );
 }

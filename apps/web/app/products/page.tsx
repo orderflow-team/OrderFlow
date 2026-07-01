@@ -150,7 +150,7 @@ function ProductsPageContent() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">{entityNamePlural}</h1>
           {!showForm && (
-            <Button onClick={openCreateForm} variant="outline" className="gap-1.5 hidden sm:inline-flex">
+            <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add {entityName}
             </Button>
           )}
@@ -310,13 +310,6 @@ function ProductsPageContent() {
         )}
       </div>
 
-      <button
-        onClick={openCreateForm}
-        aria-label="Add Product"
-        className="fixed z-30 bottom-20 right-5 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-tile-lavender-fg text-white shadow-lg shadow-slate-900/25 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
     </AppShell>
   );
 }
