@@ -34,6 +34,12 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const openAssistant = () => setOpen(true);
+    window.addEventListener('open-order-assistant', openAssistant);
+    return () => window.removeEventListener('open-order-assistant', openAssistant);
+  }, []);
+
+  useEffect(() => {
     if (businessCategory) {
       setMessages((prev) =>
         prev.length === 1 && prev[0].role === 'assistant'

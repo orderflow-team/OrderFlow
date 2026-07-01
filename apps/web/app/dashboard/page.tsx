@@ -11,7 +11,11 @@ import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
-import { ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock } from 'lucide-react';
+import Link from 'next/link';
+import {
+  ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
+  Users, Receipt, Mic, UserPlus, Plus,
+} from 'lucide-react';
 
 interface DashboardData {
   todaysOrders: number;
@@ -27,6 +31,85 @@ interface DashboardData {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
+}
+
+const HOME_TILES = [
+  { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
+  { href: '/products', label: 'Products', icon: Package, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
+  { href: '/orders', label: 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
+  { href: '/billing', label: 'Ledger', icon: Receipt, bg: 'bg-tile-mint', iconBg: 'bg-tile-mint-icon', fg: 'text-tile-mint-fg' },
+];
+
+function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: (typeof HOME_TILES)[number]) {
+  return (
+    <Link
+      href={href}
+      className={`${bg} rounded-3xl p-5 flex flex-col items-center justify-center gap-4 aspect-square hover:brightness-[0.98] active:scale-[0.98] transition-all duration-150`}
+    >
+      <div className={`${iconBg} ${fg} w-16 h-16 rounded-2xl flex items-center justify-center`}>
+        <Icon className="w-7 h-7" strokeWidth={2.25} />
+      </div>
+      <span className="font-bold tracking-wide text-slate-800 uppercase text-sm">{label}</span>
+    </Link>
+  );
+}
+
+const QUICK_ACTIONS = [
+  {
+    href: '/orders?new=1',
+    title: 'New Order',
+    subtitle: 'Record a sale',
+    icon: Plus,
+    iconBg: 'bg-tile-peach-icon',
+    iconFg: 'text-tile-peach-fg',
+    micBg: 'bg-accent-orange',
+    onMic: () => window.dispatchEvent(new CustomEvent('open-order-assistant')),
+  },
+  {
+    href: '/products?new=1',
+    title: 'Add Product',
+    subtitle: 'Add to inventory',
+    icon: Package,
+    iconBg: 'bg-tile-lavender-icon',
+    iconFg: 'text-tile-lavender-fg',
+    micBg: 'bg-tile-lavender-fg',
+  },
+  {
+    href: '/customers?new=1',
+    title: 'Add Client',
+    subtitle: 'Register shop owner',
+    icon: UserPlus,
+    iconBg: 'bg-tile-sky-icon',
+    iconFg: 'text-tile-sky-fg',
+    micBg: 'bg-tile-sky-fg',
+  },
+] as const;
+
+function QuickActionRow({ action }: { action: (typeof QUICK_ACTIONS)[number] }) {
+  const Icon = action.icon;
+  return (
+    <div className="flex items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5">
+      <Link href={action.href} className="flex-1 flex items-center gap-3 min-w-0">
+        <div className={`${action.iconBg} ${action.iconFg} w-11 h-11 rounded-xl flex items-center justify-center shrink-0`}>
+          <Icon className="w-5 h-5" strokeWidth={2.25} />
+        </div>
+        <div className="min-w-0">
+          <p className="font-bold text-slate-800 text-sm truncate">{action.title}</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide truncate">{action.subtitle}</p>
+        </div>
+      </Link>
+      <button
+        type="button"
+        onClick={() => {
+          if ('onMic' in action) action.onMic();
+        }}
+        className={`${action.micBg} w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0 hover:brightness-95 active:scale-95 transition-all`}
+        aria-label={`Voice ${action.title}`}
+      >
+        <Mic className="w-5 h-5" />
+      </button>
+    </div>
+  );
 }
 
 function StatCard({
@@ -164,11 +247,23 @@ export default function DashboardPage() {
 
         <DraftReviewStack businessId={businessId} />
 
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-md lg:max-w-none">
+          {HOME_TILES.map((tile) => (
+            <HomeTile key={tile.href} {...tile} />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {QUICK_ACTIONS.map((action) => (
+            <QuickActionRow key={action.href} action={action} />
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-          <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-blue-50 text-blue-600" />
-          <StatCard icon={IndianRupee} label="Today's Sales" value={formatCurrency(data.todaysSales)} tint="bg-emerald-50 text-emerald-600" />
-          <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-amber-50 text-amber-600" />
-          <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-rose-50 text-rose-600" />
+          <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-tile-sky-icon text-tile-sky-fg" />
+          <StatCard icon={IndianRupee} label="Today's Sales" value={formatCurrency(data.todaysSales)} tint="bg-tile-mint-icon text-tile-mint-fg" />
+          <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" />
+          <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" />
         </div>
 
         {hasInventory && (

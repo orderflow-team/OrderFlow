@@ -289,8 +289,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="grid grid-cols-2 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
-              const hasCustomPrice = customerPrices[p.id] !== undefined;
-              const originalPrice = hasCustomPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
+              const originalPrice = customerPrices[p.id] !== undefined ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
+              const hasCustomPrice = originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
               return (
                 <div
                   key={p.id}

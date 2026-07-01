@@ -46,6 +46,21 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  --color-tile-peach: var(--tile-peach);
+  --color-tile-peach-icon: var(--tile-peach-icon);
+  --color-tile-peach-fg: var(--tile-peach-fg);
+  --color-tile-lavender: var(--tile-lavender);
+  --color-tile-lavender-icon: var(--tile-lavender-icon);
+  --color-tile-lavender-fg: var(--tile-lavender-fg);
+  --color-tile-sky: var(--tile-sky);
+  --color-tile-sky-icon: var(--tile-sky-icon);
+  --color-tile-sky-fg: var(--tile-sky-fg);
+  --color-tile-mint: var(--tile-mint);
+  --color-tile-mint-icon: var(--tile-mint-icon);
+  --color-tile-mint-fg: var(--tile-mint-fg);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-orange-foreground: var(--accent-orange-foreground);
 }
 
 :root {
@@ -81,6 +96,21 @@
   --sidebar-ring: oklch(0.55 0.13 165);
   --background: oklch(0.985 0.003 250);
   --foreground: oklch(0.24 0.012 250);
+
+  --tile-peach: oklch(0.93 0.045 55);
+  --tile-peach-icon: oklch(0.97 0.03 55);
+  --tile-peach-fg: oklch(0.6 0.16 45);
+  --tile-lavender: oklch(0.92 0.035 300);
+  --tile-lavender-icon: oklch(0.97 0.025 300);
+  --tile-lavender-fg: oklch(0.5 0.19 295);
+  --tile-sky: oklch(0.93 0.035 235);
+  --tile-sky-icon: oklch(0.97 0.025 235);
+  --tile-sky-fg: oklch(0.55 0.16 245);
+  --tile-mint: oklch(0.93 0.04 165);
+  --tile-mint-icon: oklch(0.97 0.03 165);
+  --tile-mint-fg: oklch(0.55 0.13 165);
+  --accent-orange: oklch(0.75 0.16 60);
+  --accent-orange-foreground: oklch(0.99 0 0);
 }
 
 .dark {

@@ -1,19 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/app-shell';
-import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import {
-  Plus, X, ShoppingCart, ChevronRight, FileText, Trash2,
+  Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
-  Pencil, Minus, Check,
+  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer,
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
@@ -39,7 +38,7 @@ interface Order {
 const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'cancelled'];
 
 const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
-  draft:      { color: 'bg-slate-100 text-slate-600',   icon: Clock },
+  draft:      { color: 'bg-orange-50 text-orange-600',  icon: Clock },
   confirmed:  { color: 'bg-blue-100 text-blue-700',     icon: CheckCircle2 },
   packed:     { color: 'bg-indigo-100 text-indigo-700', icon: Package },
   dispatched: { color: 'bg-purple-100 text-purple-700', icon: Truck },
@@ -60,12 +59,19 @@ function StatusBadge({ status }: { status: string }) {
 export function GenericOrders() {
   const { businessId, ready } = useBusiness();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'NEW' | 'UNPAID' | 'PAID'>('ALL');
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setShowForm(true);
+  }, [searchParams]);
 
   // Drawer state
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null);
@@ -166,6 +172,66 @@ export function GenericOrders() {
       setError(err.response?.data?.message || 'Failed to mark as paid');
     } finally {
       setStatusSaving(false);
+    }
+  };
+
+  const orderBucket = (status: string): 'NEW' | 'UNPAID' | 'PAID' | null => {
+    if (status === 'draft') return 'NEW';
+    if (status === 'paid') return 'PAID';
+    if (status === 'cancelled') return null;
+    return 'UNPAID';
+  };
+
+  const quickSetStatus = async (order: Order, status: string) => {
+    if (!businessId) return;
+    try {
+      await apiClient.patch(`/api/orders/${order.id}/status`, { status }, { params: { businessId } });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)));
+      if (drawerOrder?.id === order.id) {
+        setDrawerOrder({ ...drawerOrder, status });
+        setDrawerStatus(status);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update status');
+    }
+  };
+
+  const quickMarkPaid = async (order: Order) => {
+    if (!businessId) return;
+    try {
+      const amount = Number(order.total_amount);
+      if (amount > 0) {
+        await apiClient.post('/api/billing/payments', {
+          businessId,
+          orderId: order.id,
+          customerId: order.customer_id || undefined,
+          amount,
+          paymentMethod: 'Cash',
+        });
+      }
+      await apiClient.patch(`/api/orders/${order.id}/status`, { status: 'paid' }, { params: { businessId } });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status: 'paid' } : o)));
+      if (drawerOrder?.id === order.id) {
+        setDrawerOrder({ ...drawerOrder, status: 'paid' });
+        setDrawerStatus('paid');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to mark as paid');
+    }
+  };
+
+  const quickInvoice = async (order: Order) => {
+    if (!businessId) return;
+    try {
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
+      if (existing.data.length > 0) {
+        router.push(`/billing/invoices/${existing.data[0].id}`);
+        return;
+      }
+      const created = await apiClient.post<{ id: string }>(`/api/billing/invoices/from-order/${order.id}`, {}, { params: { businessId } });
+      if (created.data?.id) router.push(`/billing/invoices/${created.data.id}`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to open invoice');
     }
   };
 
@@ -279,22 +345,41 @@ export function GenericOrders() {
 
   if (!ready) return null;
 
+  const filteredOrders = orders.filter((o) => {
+    if (statusFilter !== 'ALL' && orderBucket(o.status) !== statusFilter) return false;
+    if (search.trim() && !o.customer_name.toLowerCase().includes(search.trim().toLowerCase())) return false;
+    return true;
+  });
+
   return (
     <AppShell>
-      <div className="p-4 md:p-10 max-w-6xl mx-auto space-y-6">
-        <PageHeader
-          title="Orders"
-          description="Quick Parchi mode: items can be a saved product or just free text."
-          action={
-        <div className="grid grid-cols-2 gap-3 pb-4">
-              {businessId && <ClearModuleButton module="orders" businessId={businessId} />}
-              <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
-                {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showForm ? 'Cancel' : 'New Order'}
-              </Button>
-            </div>
-          }
-        />
+      <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
+
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by client name..."
+            className="w-full h-11 pl-10 pr-4 rounded-full bg-white ring-1 ring-slate-200/70 shadow-sm text-sm placeholder:text-slate-400 outline-none focus:ring-accent-orange/40"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+          {(['ALL', 'NEW', 'UNPAID', 'PAID'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`px-4 h-9 rounded-full text-xs font-bold uppercase tracking-wide shrink-0 transition-colors ${
+                statusFilter === f ? 'bg-accent-orange text-white shadow-sm' : 'bg-white ring-1 ring-slate-200 text-slate-500'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+          {businessId && <ClearModuleButton module="orders" businessId={businessId} />}
+        </div>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
@@ -308,80 +393,85 @@ export function GenericOrders() {
           />
         )}
 
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
-          <CardContent className="p-0">
-            {loading ? (
-              <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-            ) : orders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                  <ShoppingCart className="w-10 h-10 text-slate-400" />
-                </div>
-                <h2 className="text-xl font-bold text-slate-800 mb-2">No active orders</h2>
-                <p className="text-slate-500 mb-8 text-sm">Add items to create a new order</p>
-                <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
-                  <Plus className="w-4 h-4" /> New Order
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Mobile list */}
-                <div className="sm:hidden divide-y divide-slate-100">
-                  {orders.map((o) => (
-                    <button
-                      key={o.id}
-                      className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-slate-50 transition-colors"
-                      onClick={() => openDrawer(o)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm truncate">{o.order_number}</p>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">{o.customer_name}</p>
+        {loading ? (
+          <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
+        ) : orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl ring-1 ring-slate-200/70">
+            <div className="w-24 h-24 bg-tile-peach rounded-full flex items-center justify-center mb-6">
+              <ShoppingCart className="w-10 h-10 text-tile-peach-fg" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">No active orders</h2>
+            <p className="text-slate-500 mb-8 text-sm">Add items to create a new order</p>
+            <Button onClick={() => setShowForm(true)} className="bg-accent-orange hover:brightness-95 text-white gap-2 px-6 h-11 shadow-sm">
+              <Plus className="w-4 h-4" /> New Order
+            </Button>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <p className="p-10 text-center text-slate-400 text-sm">No orders match this filter.</p>
+        ) : (
+          <div className="space-y-3">
+            {filteredOrders.map((o) => {
+              const bucket = orderBucket(o.status);
+              return (
+                <div key={o.id} className="bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5 space-y-3">
+                  <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left">
+                    <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
+                      {o.customer_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-800 text-sm truncate">{o.customer_name}</p>
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />&mdash;</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(o.created_at).toLocaleDateString('en-IN', { month: 'short', day: '2-digit', year: '2-digit' })}
+                        </span>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="font-bold text-slate-800 text-sm">₹{Number(o.total_amount).toFixed(2)}</p>
-                        <div className="mt-1"><StatusBadge status={o.status} /></div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
-                    </button>
-                  ))}
-                </div>
-
-                {/* Desktop table */}
-                <div className="hidden sm:block overflow-x-auto w-full">
-                  <table className="w-full text-sm text-left min-w-[600px]">
-                    <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-6 py-3">Order #</th>
-                        <th className="px-6 py-3">Customer</th>
-                        <th className="px-6 py-3">Date</th>
-                        <th className="px-6 py-3 text-right">Total</th>
-                        <th className="px-6 py-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {orders.map((o) => (
-                        <tr
-                          key={o.id}
-                          className="hover:bg-slate-50/60 transition-colors cursor-pointer"
-                          onClick={() => openDrawer(o)}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <StatusBadge status={o.status} />
+                      <p className="font-black text-accent-orange text-base mt-1">&#8377;{Number(o.total_amount).toFixed(2)}</p>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {(['NEW', 'UNPAID', 'PAID'] as const).map((b) => {
+                      const active = bucket === b;
+                      const BucketIcon = b === 'NEW' ? Clock : b === 'UNPAID' ? AlertCircle : CheckCircle2;
+                      return (
+                        <button
+                          key={b}
+                          onClick={() => (b === 'PAID' ? quickMarkPaid(o) : quickSetStatus(o, b === 'NEW' ? 'draft' : 'confirmed'))}
+                          className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                            active ? 'bg-accent-orange text-white' : 'bg-white ring-1 ring-slate-200 text-slate-500'
+                          }`}
                         >
-                          <td className="px-6 py-4 font-medium text-slate-800">{o.order_number}</td>
-                          <td className="px-6 py-4 text-slate-600">{o.customer_name}</td>
-                          <td className="px-6 py-4 text-slate-500 text-xs">
-                            {new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </td>
-                          <td className="px-6 py-4 text-right font-semibold text-slate-800">₹{Number(o.total_amount).toFixed(2)}</td>
-                          <td className="px-6 py-4"><StatusBadge status={o.status} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          <BucketIcon className="w-3 h-3" />
+                          {b}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => quickInvoice(o)}
+                      className="w-8 h-8 rounded-full bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0"
+                      aria-label="Invoice"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      <button
+        onClick={() => setShowForm(true)}
+        aria-label="New Order"
+        className="fixed z-30 bottom-20 right-5 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-accent-orange text-white shadow-lg shadow-slate-900/25 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       {/* ── Order Detail Drawer ── */}
       {drawerOrder && (

@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppShell } from '@/components/app-shell';
-import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Trash2, Package, Search, ChevronRight, Tag } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 
 interface Product {
@@ -31,7 +31,8 @@ interface Product {
 
 const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '' };
 
-export default function ProductsPage() {
+function ProductsPageContent() {
+  const searchParams = useSearchParams();
   const { businessId, ready } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +45,10 @@ export default function ProductsPage() {
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setShowForm(true);
+  }, [searchParams]);
 
   const entityName = 'Product';
   const entityNamePlural = 'Products';
@@ -61,17 +66,14 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    if (!isRestaurant && ready && businessId) load(businessId);
-  }, [ready, businessId, isRestaurant]);
+    if (isRestaurant || !ready || !businessId) return;
+    const t = setTimeout(() => load(businessId, search), 250);
+    return () => clearTimeout(t);
+  }, [search, ready, businessId, isRestaurant]);
 
   if (isRestaurant && businessId) {
     return <MenuGrid businessId={businessId} />;
   }
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (businessId) load(businessId, search);
-  };
 
   const openCreateForm = () => {
     setEditingId(null);
@@ -144,25 +146,48 @@ export default function ProductsPage() {
 
   return (
     <AppShell>
-      <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-6">
-        <PageHeader
-          title={entityNamePlural}
-          description="Product master is optional — orders work fine without it too."
-          action={
-            <div className="flex gap-2">
-              {businessId && <ClearModuleButton module="products" businessId={businessId} />}
-              <Button onClick={openCreateForm} className="gap-1.5">
-                <Plus className="w-4 h-4" />
-                {showForm && !editingId ? 'Cancel' : `Add ${entityName}`}
-              </Button>
-            </div>
-          }
-        />
+      <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">{entityNamePlural}</h1>
+          {!showForm && (
+            <Button onClick={openCreateForm} variant="outline" className="gap-1.5 hidden sm:inline-flex">
+              <Plus className="w-4 h-4" /> Add {entityName}
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products..."
+              className="w-full h-11 pl-10 pr-4 rounded-full bg-white ring-1 ring-slate-200/70 shadow-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-lavender-fg/40"
+            />
+          </div>
+          {businessId && <ClearModuleButton module="products" businessId={businessId} />}
+        </div>
+
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          {`Total: ${products.length} • Recent`}
+        </p>
 
         {showForm && (
           <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">{editingId ? `Edit ${entityName}` : `New ${entityName}`}</CardTitle>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(emptyForm);
+                  setShowForm(false);
+                }}
+                className="text-xs font-medium text-slate-400 hover:text-slate-600"
+              >
+                Cancel
+              </button>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -235,125 +260,72 @@ export default function ProductsPage() {
           </Card>
         )}
 
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <Input placeholder="Search by name, SKU, barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Button type="submit" variant="outline">Search</Button>
-        </form>
-
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
-          <CardContent className="p-0">
-            {loading ? (
-              <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-            ) : products.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                  <Package className="w-10 h-10 text-slate-400" />
+        {loading ? (
+          <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl ring-1 ring-slate-200/70">
+            <div className="w-24 h-24 bg-tile-lavender rounded-full flex items-center justify-center mb-6">
+              <Package className="w-10 h-10 text-tile-lavender-fg" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">No {entityNamePlural.toLowerCase()} found</h2>
+            <p className="text-slate-500 mb-8 text-sm">Add items to create a new {entityName.toLowerCase()}</p>
+            <Button onClick={() => setShowForm(true)} className="bg-tile-lavender-fg hover:brightness-95 text-white gap-2 px-6 h-11 shadow-sm">
+              <Plus className="w-4 h-4" /> New {entityName}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {products.map((p) => {
+              const stockTone =
+                p.stock_quantity === 0 ? 'bg-rose-50 text-rose-600' : p.stock_quantity <= 10 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500';
+              return (
+                <div key={p.id} className="flex items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5">
+                  <button onClick={() => openEditForm(p)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
+                    <div className="w-11 h-11 rounded-xl bg-tile-lavender-fg text-white flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-800 text-sm truncate">
+                        {p.name}
+                        {p.unit ? ` (${p.unit})` : ''}
+                        {p.is_draft && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1">
+                        <Tag className="w-3 h-3 shrink-0" />
+                        {`Base Price ₹${Number(p.selling_price).toFixed(2)}${p.unit ? ` / ${p.unit}` : ''}`}
+                      </p>
+                    </div>
+                  </button>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${stockTone}`}>{p.stock_quantity} left</span>
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 text-slate-300 hover:text-rose-600 shrink-0 transition-colors" aria-label="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-800 mb-2">No {entityNamePlural.toLowerCase()} found</h2>
-                <p className="text-slate-500 mb-8 text-sm">Add items to create a new {entityName.toLowerCase()}</p>
-                <Button onClick={() => setShowForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
-                  <Plus className="w-4 h-4" /> New {entityName}
-                </Button>
-              </div>
-            ) : (
-              <div className="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 bg-slate-50/50">
-                {products.map((p) => (
-                  <Card key={p.id} className="group border-slate-200 hover:border-emerald-300 transition-all hover:shadow-md bg-white overflow-hidden">
-                    <CardContent className="p-0">
-                      {/* Mobile: 2-col vertical card */}
-                      <div className="flex flex-col sm:hidden p-3 gap-2">
-                        {/* Top: name + unit + badges */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-800 text-[13px] leading-snug line-clamp-2">
-                            {p.name}
-                            {p.unit && <span className="text-slate-400 font-normal"> ({p.unit})</span>}
-                          </h3>
-                          {p.category && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{p.category}</p>}
-                          {p.is_draft && (
-                            <span className="mt-1 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">Draft</span>
-                          )}
-                        </div>
-
-                        {/* Bottom: price + stock + actions */}
-                        <div className="flex items-end justify-between pt-2 border-t border-slate-100 gap-1">
-                          <div>
-                            <p className="text-emerald-600 font-black text-sm">₹{Number(p.selling_price).toFixed(2)}</p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mt-1 inline-block ${
-                              p.stock_quantity === 0 ? 'bg-rose-50 text-rose-600' :
-                              p.stock_quantity <= 10 ? 'bg-amber-50 text-amber-600' :
-                              'bg-slate-100 text-slate-500'
-                            }`}>{p.stock_quantity} left</span>
-                          </div>
-                          <div className="flex gap-0.5 shrink-0">
-                            <button onClick={() => openEditForm(p)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 active:bg-emerald-50 transition-colors" aria-label="Edit">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 active:bg-rose-50 transition-colors" aria-label="Delete">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Desktop: vertical card layout */}
-                      <div className="hidden sm:flex flex-col h-full p-4">
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-lg p-1 backdrop-blur-sm shadow-sm">
-                          <button
-                            onClick={() => openEditForm(p)}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                            aria-label="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            aria-label="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="flex-1 mt-2">
-                          <h3 className="font-bold text-slate-800 line-clamp-2 leading-snug">
-                            {p.name}{' '}
-                            {p.unit && <span className="text-slate-500 font-normal">({p.unit})</span>}
-                            {p.is_draft && (
-                              <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20 align-middle">
-                                Draft
-                              </span>
-                            )}
-                          </h3>
-                          {p.category && <p className="text-xs text-slate-400 mt-0.5">{p.category}</p>}
-                          {p.sku && <p className="text-xs font-mono text-slate-400 mt-1">{p.sku}</p>}
-                        </div>
-
-                        <div className="mt-4 pt-4 border-t border-slate-100 flex items-end justify-between gap-2">
-                          <div>
-                            <div className="text-emerald-600 font-black text-lg">
-                              ₹{Number(p.selling_price).toFixed(2)}
-                            </div>
-                            {p.unit && <div className="text-xs font-medium text-slate-400">per {p.unit}</div>}
-                          </div>
-                          <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                            p.stock_quantity === 0
-                              ? 'bg-rose-50 text-rose-600'
-                              : p.stock_quantity <= 10
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {p.stock_quantity} left
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      <button
+        onClick={openCreateForm}
+        aria-label="Add Product"
+        className="fixed z-30 bottom-20 right-5 md:bottom-8 md:right-8 w-14 h-14 rounded-full bg-tile-lavender-fg text-white shadow-lg shadow-slate-900/25 flex items-center justify-center hover:brightness-95 active:scale-95 transition-all"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
     </AppShell>
   );
 }
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-slate-500">Loading...</div>}>
+      <ProductsPageContent />
+    </Suspense>
+  );
+}
+
