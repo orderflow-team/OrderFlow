@@ -137,7 +137,7 @@ export default function InventoryPage() {
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
@@ -168,7 +168,7 @@ export default function InventoryPage() {
           </Button>
         </div>
         {showSupplierForm && (
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardContent className="pt-6">
               <form onSubmit={handleCreateSupplier} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input placeholder="Name" value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} required />
@@ -178,7 +178,7 @@ export default function InventoryPage() {
             </CardContent>
           </Card>
         )}
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">
             {suppliers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl">
@@ -212,7 +212,7 @@ export default function InventoryPage() {
           </Button>
         </div>
         {showPoForm && (
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardContent className="pt-6 space-y-4">
               <form onSubmit={handleCreatePo} className="space-y-4">
                 <select
@@ -279,7 +279,7 @@ export default function InventoryPage() {
             </CardContent>
           </Card>
         )}
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">
             {loading ? (
               <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>

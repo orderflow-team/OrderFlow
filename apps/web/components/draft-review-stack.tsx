@@ -139,7 +139,7 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
   const rotate = translateX / 18;
 
   return (
-    <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40 overflow-hidden">
+    <Card className="ring-white/50 glass-sheen-sm overflow-hidden">
       <CardContent className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-4 h-4 text-amber-600" />

@@ -124,7 +124,7 @@ function StatCard({
   tint: string;
 }) {
   return (
-    <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40 hover:shadow-md transition-all duration-200 overflow-hidden">
+    <Card className="ring-white/50 glass-sheen-sm hover:shadow-md transition-all duration-200 overflow-hidden">
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <p className="text-xs sm:text-sm font-medium text-slate-500 truncate mr-2">{label}</p>
@@ -233,14 +233,20 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
+      <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
         <PageHeader
           title="Dashboard"
           description="Here's what's happening with your business today."
           action={
-            <Button onClick={handleSeedDemoData} disabled={seeding} variant="outline" className="gap-1.5">
+            <Button
+              onClick={handleSeedDemoData}
+              disabled={seeding}
+              size="sm"
+              className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
+            >
               <Sparkles className="w-4 h-4" />
-              {seeding ? 'Loading demo data...' : 'Load Demo Data'}
+              <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
+              <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
             </Button>
           }
         />
@@ -268,7 +274,7 @@ export default function DashboardPage() {
 
         {hasInventory && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
@@ -298,7 +304,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CalendarClock className="w-4 h-4 text-amber-600" />
@@ -327,7 +333,7 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
@@ -354,7 +360,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-emerald-600" />

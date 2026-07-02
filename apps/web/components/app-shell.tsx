@@ -49,6 +49,14 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+const NAV_TINTS = [
+  { chip: 'bg-tile-peach/50', fg: 'text-tile-peach-fg', activeBg: 'bg-tile-peach/40', ring: 'ring-tile-peach-fg/25' },
+  { chip: 'bg-tile-lavender/50', fg: 'text-tile-lavender-fg', activeBg: 'bg-tile-lavender/40', ring: 'ring-tile-lavender-fg/25' },
+  { chip: 'bg-tile-sky/50', fg: 'text-tile-sky-fg', activeBg: 'bg-tile-sky/40', ring: 'ring-tile-sky-fg/25' },
+  { chip: 'bg-tile-mint/50', fg: 'text-tile-mint-fg', activeBg: 'bg-tile-mint/40', ring: 'ring-tile-mint-fg/25' },
+] as const;
+
+
 interface NotificationItem {
   id: string;
   type: string;
@@ -186,22 +194,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-slate-50 relative isolate">
+      {/* Ambient glass backdrop */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-emerald-300/25 blur-3xl" />
+        <div className="absolute top-1/3 -left-24 w-72 h-72 rounded-full bg-teal-300/20 blur-3xl" />
+        <div className="absolute -bottom-32 right-0 w-96 h-96 rounded-full bg-violet-300/15 blur-3xl" />
+      </div>
+
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 bg-gradient-to-b from-slate-900 to-slate-950 text-slate-200 flex-col">
-        <div className="px-5 py-6 flex flex-col gap-5 border-b border-slate-800/60 mb-2">
+      <aside className="hidden md:flex w-64 bg-white/60 backdrop-blur-2xl border-r border-white/60 shadow-[8px_0_30px_-20px_rgba(15,23,42,0.25)] flex-col">
+        <div className="px-5 py-6 flex flex-col gap-5 border-b border-white/50 mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-lg flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/30">
               <ShoppingCart className="w-4 h-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-white tracking-tight">OrderFlow</span>
+            <span className="text-lg font-bold text-slate-800 tracking-tight">OrderFlow</span>
             <button
               onClick={() => setNotifOpen((v) => !v)}
-              className="relative ml-auto text-slate-400 hover:text-white transition-colors"
+              className="relative ml-auto text-slate-400 hover:text-slate-700 transition-colors"
             >
               <Bell className="w-5 h-5" />
               {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center border-2 border-slate-900">
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">
                   {notifications.length}
                 </span>
               )}
@@ -213,16 +228,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => setBusinessMenuOpen((v) => !v)}
                 disabled={switching}
-                className={`w-full flex items-center gap-2.5 bg-slate-800/50 hover:bg-slate-800 rounded-lg p-3 border transition-colors disabled:opacity-60 ${
-                  businessMenuOpen ? 'border-emerald-500/60 ring-1 ring-emerald-500/30' : 'border-slate-700/50'
+                className={`w-full flex items-center gap-2.5 bg-white/50 hover:bg-white/80 backdrop-blur-md rounded-xl p-3 ring-1 transition-colors disabled:opacity-60 ${
+                  businessMenuOpen ? 'ring-emerald-300/70' : 'ring-white/60'
                 }`}
               >
-                <div className="w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-700 flex items-center justify-center shrink-0">
                   <Store className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-medium text-white truncate leading-tight">{businessName}</p>
-                  <p className="text-[11px] text-emerald-400 font-medium tracking-wide uppercase truncate">
+                  <p className="text-sm font-bold text-slate-800 truncate leading-tight">{businessName}</p>
+                  <p className="text-[11px] text-emerald-700 font-bold tracking-wide uppercase truncate">
                     {switching ? 'Switching...' : businessCategory || 'No category'}
                   </p>
                 </div>
@@ -234,15 +249,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {businessMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setBusinessMenuOpen(false)} />
-                  <div className="scrollbar-dark absolute left-0 right-0 top-full mt-1.5 z-20 bg-slate-800 border border-slate-700 rounded-xl p-1.5 shadow-xl shadow-black/30 max-h-72 overflow-y-auto">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white/80 backdrop-blur-xl ring-1 ring-white/60 rounded-xl p-1.5 shadow-xl shadow-slate-200/60 max-h-72 overflow-y-auto">
                     {myBusinesses.length === 0 && businessId && (
-                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/5">
-                        <Store className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-white/50">
+                        <Store className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="text-sm font-medium text-white truncate">{businessName}</p>
+                          <p className="text-sm font-bold text-slate-800 truncate">{businessName}</p>
                           <p className="text-[10px] text-slate-400 uppercase tracking-wide">{businessCategory || 'No category'}</p>
                         </div>
-                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                       </div>
                     )}
                     {myBusinesses.map((b) => {
@@ -253,26 +268,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           type="button"
                           onClick={() => handleSwitchBusiness(b.id)}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${
-                            active ? 'bg-emerald-500/10' : 'hover:bg-white/5'
+                            active ? 'bg-emerald-500/10' : 'hover:bg-white/60'
                           }`}
                         >
-                          <Store className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-emerald-400' : 'text-slate-400'}`} />
+                          <Store className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-emerald-700' : 'text-slate-400'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{b.name}</p>
+                            <p className="text-sm font-bold text-slate-800 truncate">{b.name}</p>
                             <p className="text-[10px] text-slate-400 uppercase tracking-wide">{b.category || 'No category'}</p>
                           </div>
-                          {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                          {active && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
                         </button>
                       );
                     })}
-                    <div className="my-1 border-t border-slate-700" />
+                    <div className="my-1 border-t border-white/60" />
                     <button
                       type="button"
                       onClick={() => handleSwitchBusiness(NEW_BUSINESS_OPTION)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-emerald-700 hover:bg-emerald-500/10 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5 shrink-0" />
-                      <span className="text-sm font-medium">Add new business</span>
+                      <span className="text-sm font-bold">Add new business</span>
                     </button>
                   </div>
                 </>
@@ -281,32 +296,39 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
         {notifOpen && (
-          <div className="scrollbar-dark mx-3 mb-2 bg-slate-800 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
+          <div className="mx-3 mb-2 bg-white/60 backdrop-blur-md ring-1 ring-white/60 rounded-xl p-3 max-h-64 overflow-y-auto space-y-2">
             {notifications.length === 0 && <p className="text-xs text-slate-400">No new notifications</p>}
             {notifications.map((n) => (
               <button
                 key={n.id}
                 onClick={() => markNotificationRead(n.id)}
-                className="block w-full text-left text-xs text-slate-200 bg-slate-900/60 hover:bg-slate-900 rounded-lg p-2"
+                className="block w-full text-left text-xs text-slate-700 bg-white/70 hover:bg-white rounded-lg p-2 shadow-sm"
               >
                 {n.message}
               </button>
             ))}
           </div>
         )}
-        <nav className="flex-1 px-3 space-y-1 mt-2">
-          {allNav.map((item) => {
+        <nav className="flex-1 px-3 space-y-1.5 mt-2 overflow-y-auto">
+          {allNav.map((item, index) => {
             const active = isActive(pathname, item.href);
             const Icon = item.icon;
+            const tint = NAV_TINTS[index % NAV_TINTS.length];
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  active ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                  active
+                    ? `${tint.activeBg} backdrop-blur-md ring-1 ${tint.ring} shadow-sm ${tint.fg}`
+                    : 'text-slate-600 hover:bg-white/40'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <div
+                  className={`${tint.chip} ${tint.fg} backdrop-blur-md w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]`}
+                >
+                  <Icon className="w-4 h-4" strokeWidth={2.25} />
+                </div>
                 {item.label}
               </Link>
             );
@@ -314,15 +336,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <button
           onClick={logout}
-          className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white text-left"
+          className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-2xl text-sm font-bold text-slate-600 hover:bg-rose-500/10 hover:text-rose-600 text-left transition-colors"
         >
-          <LogOut className="w-4 h-4" />
+          <div className="bg-rose-500/10 text-rose-500 w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+            <LogOut className="w-4 h-4" strokeWidth={2.25} />
+          </div>
           Log out
         </button>
       </aside>
 
       {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white border-b border-slate-200 px-4 py-2 flex flex-col justify-center min-h-[60px]">
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/60 px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
           <span className="text-base font-bold text-slate-800 tracking-tight">OrderFlow</span>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
@@ -352,32 +376,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 flex">
-        {CORE_PRIMARY_NAV.map((item) => {
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/70 backdrop-blur-xl border-t border-white/60 flex px-1 py-1">
+        {CORE_PRIMARY_NAV.map((item, index) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
           const label = item.href === '/products' && isRestaurant ? 'Menu' : item.label;
+          const tint = NAV_TINTS[index % NAV_TINTS.length];
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium ${
-                active ? 'text-emerald-600' : 'text-slate-400'
-              }`}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
             >
-              <Icon className="w-5 h-5" />
-              {label}
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                  active
+                    ? `${tint.chip} ${tint.fg} shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]`
+                    : 'text-slate-400'
+                }`}
+              >
+                <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
+              </div>
+              <span className={active ? tint.fg : 'text-slate-400'}>{label}</span>
             </Link>
           );
         })}
         <button
           onClick={() => setMoreOpen(true)}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium ${
-            moreNav.some((item) => isActive(pathname, item.href)) ? 'text-emerald-600' : 'text-slate-400'
-          }`}
+          className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
         >
-          <MoreHorizontal className="w-5 h-5" />
-          More
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+              moreNav.some((item) => isActive(pathname, item.href))
+                ? 'bg-slate-900/10 text-slate-700 shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]'
+                : 'text-slate-400'
+            }`}
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </div>
+          <span className={moreNav.some((item) => isActive(pathname, item.href)) ? 'text-slate-700' : 'text-slate-400'}>
+            More
+          </span>
         </button>
       </nav>
 

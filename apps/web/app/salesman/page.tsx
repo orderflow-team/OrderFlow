@@ -134,7 +134,7 @@ export default function SalesmanPage() {
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
         {showForm && (
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardContent className="pt-6">
               <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -165,7 +165,7 @@ export default function SalesmanPage() {
               ))}
             </select>
 
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-emerald-600" />
@@ -190,7 +190,7 @@ export default function SalesmanPage() {
               </CardContent>
             </Card>
 
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <CardTitle className="text-base">Visit History</CardTitle>
               </CardHeader>

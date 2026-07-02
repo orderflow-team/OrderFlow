@@ -5,6 +5,7 @@ import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
+import { Customer } from '../../database/entities/customer.entity';
 
 @Injectable()
 export class InvoicesService {
@@ -13,6 +14,7 @@ export class InvoicesService {
     @InjectRepository(InvoiceItem) private invoiceItemsRepository: Repository<InvoiceItem>,
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
+    @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     private dataSource: DataSource,
   ) {}
 
@@ -67,8 +69,14 @@ export class InvoicesService {
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
     }
-    const items = await this.invoiceItemsRepository.find({ where: { invoice_id: id } });
+    const items = await this.invoiceItemsRepository.find({
+      where: { invoice_id: id },
+      relations: { product: true },
+    });
     const order = invoice.order_id ? await this.ordersRepository.findOne({ where: { id: invoice.order_id } }) : null;
-    return { ...invoice, items, order_status: order?.status };
+    const customer = order?.customer_id
+      ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
+      : null;
+    return { ...invoice, items, order_status: order?.status, customer };
   }
 }

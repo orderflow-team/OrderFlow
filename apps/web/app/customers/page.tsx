@@ -155,7 +155,7 @@ function CustomersPageContent() {
         </div>
 
         {showForm && (
-          <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">{editingId ? 'Edit Customer' : 'New Customer'}</CardTitle>
               <button

@@ -134,7 +134,7 @@ export function StandardBilling() {
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Receipt className="w-4 h-4 text-emerald-600" />
@@ -174,7 +174,7 @@ export function StandardBilling() {
           </CardContent>
         </Card>
 
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <CardTitle className="text-base">Orders</CardTitle>
           </CardHeader>
@@ -219,7 +219,7 @@ export function StandardBilling() {
           </CardContent>
         </Card>
 
-        <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+        <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <CardTitle className="text-base">Payment History</CardTitle>
           </CardHeader>

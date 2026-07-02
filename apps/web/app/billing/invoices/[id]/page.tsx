@@ -14,6 +14,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 interface InvoiceItem {
   id: string;
   product_id: string | null;
+  product?: { name: string } | null;
   custom_product_name: string | null;
   quantity: string | number;
   unit_price: string | number;
@@ -30,6 +31,7 @@ interface Invoice {
   tax_amount: string | number;
   created_at: string;
   order_status?: string;
+  customer?: { name: string; phone?: string | null } | null;
   items: InvoiceItem[];
 }
 
@@ -51,36 +53,70 @@ export default function InvoiceDetailPage() {
 
   const subtotal = invoice ? Number(invoice.total_amount) - Number(invoice.tax_amount) : 0;
 
+  const extractErrorMessage = async (err: any, fallback: string) => {
+    const data = err?.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await data.text());
+        return parsed?.message || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    return data?.message || fallback;
+  };
+
   const downloadPdf = async () => {
-    const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
-      params: { businessId },
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${invoice?.invoice_number || 'invoice'}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      setError('');
+      const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
+        params: { businessId },
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${invoice?.invoice_number || 'invoice'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setError(await extractErrorMessage(err, 'Failed to download invoice PDF'));
+    }
   };
 
   const thermalPrint = async () => {
-    const res = await apiClient.get(`/api/billing/invoices/${params.id}/receipt`, {
-      params: { businessId },
-      responseType: 'text',
-    });
-    const win = window.open('', '_blank');
-    win?.document.write(res.data);
-    win?.document.close();
+    try {
+      setError('');
+      const res = await apiClient.get(`/api/billing/invoices/${params.id}/receipt`, {
+        params: { businessId },
+        responseType: 'text',
+      });
+      const win = window.open('', '_blank');
+      if (!win) {
+        setError('Pop-up blocked — please allow pop-ups to print the receipt.');
+        return;
+      }
+      win.document.write(res.data);
+      win.document.close();
+    } catch (err) {
+      setError(await extractErrorMessage(err, 'Failed to open thermal receipt'));
+    }
   };
 
   const shareOnWhatsapp = async () => {
-    const res = await apiClient.get<{ url: string }>(`/api/billing/invoices/${params.id}/share-link`, {
-      params: { businessId },
-    });
-    const pdfUrl = `${API_BASE_URL}${res.data.url}`;
-    const text = `Invoice ${invoice?.invoice_number}: ${pdfUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    try {
+      setError('');
+      const res = await apiClient.get<{ url: string }>(`/api/billing/invoices/${params.id}/share-link`, {
+        params: { businessId },
+      });
+      const pdfUrl = `${API_BASE_URL}${res.data.url}`;
+      const text = `Invoice ${invoice?.invoice_number}: ${pdfUrl}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    } catch (err) {
+      setError(await extractErrorMessage(err, 'Failed to create share link'));
+    }
   };
 
   return (
@@ -94,15 +130,15 @@ export default function InvoiceDetailPage() {
                 <div className="flex gap-2">
                   <Button onClick={downloadPdf} variant="outline" className="gap-1.5">
                     <Download className="w-4 h-4" />
-                    Download PDF
+                    <span className="hidden sm:inline">Download PDF</span>
                   </Button>
                   <Button onClick={thermalPrint} variant="outline" className="gap-1.5">
                     <Printer className="w-4 h-4" />
-                    Thermal Print
+                    <span className="hidden sm:inline">Thermal Print</span>
                   </Button>
                   <Button onClick={shareOnWhatsapp} className="gap-1.5">
                     <MessageCircle className="w-4 h-4" />
-                    Share on WhatsApp
+                    <span className="hidden sm:inline">Share on WhatsApp</span>
                   </Button>
                 </div>
               )
@@ -132,6 +168,12 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
 
+            <div className="mb-6">
+              <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
+              <p className="text-slate-800 font-semibold">{invoice.customer?.name || 'Walk-in Customer'}</p>
+              {invoice.customer?.phone && <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>}
+            </div>
+
             <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left mb-6 min-w-[800px]">
               <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">
                 <tr>
@@ -145,7 +187,7 @@ export default function InvoiceDetailPage() {
               <tbody className="divide-y divide-slate-100">
                 {invoice.items.map((item) => (
                   <tr key={item.id}>
-                    <td className="py-3 text-slate-800">{item.custom_product_name || item.product_id?.slice(0, 8) || '-'}</td>
+                    <td className="py-3 text-slate-800">{item.product?.name || item.custom_product_name || '-'}</td>
                     <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
                     <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
                     <td className="py-3 text-right text-slate-600">

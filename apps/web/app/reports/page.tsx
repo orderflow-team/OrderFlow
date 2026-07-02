@@ -45,7 +45,7 @@ function StatCard({ icon: Icon, label, value, sub, tint, valueClass }: {
   valueClass?: string;
 }) {
   return (
-    <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+    <Card className="ring-white/50 glass-sheen-sm">
       <CardContent className="p-4 flex flex-col gap-2">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tint}`}>
           <Icon className="w-4 h-4" />
@@ -113,7 +113,7 @@ export default function ReportsPage() {
               <StatCard icon={Receipt} label="GST Collected" value={formatCurrency(totalTaxCollected)} tint="bg-violet-50 text-violet-600" />
             </div>
 
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <CardTitle className="text-base">Tax Report (by day)</CardTitle>
               </CardHeader>
@@ -139,7 +139,7 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            <Card className="ring-slate-200/70 shadow-sm shadow-slate-200/40">
+            <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <CardTitle className="text-base">Outstanding by Customer</CardTitle>
               </CardHeader>
