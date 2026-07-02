@@ -567,18 +567,29 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Returns the most-recent price this customer paid per product, as a map
+   * { productId → price }. Queries actual order items (not just price_history)
+   * so existing historical orders are included even before price_history was populated.
+   */
   async customerPrices(businessId: string, customerId: string): Promise<Record<string, number>> {
-    const history = await this.priceHistoryRepository
-      .createQueryBuilder('ph')
-      .where('ph.business_id = :businessId', { businessId })
-      .andWhere('ph.customer_id = :customerId', { customerId })
-      .orderBy('ph.created_at', 'DESC')
+    // Pull all paid/confirmed order items for this customer, newest first
+    const items = await this.orderItemsRepository
+      .createQueryBuilder('oi')
+      .innerJoin('oi.order', 'o')
+      .where('o.business_id = :businessId', { businessId })
+      .andWhere('o.customer_id = :customerId', { customerId })
+      .andWhere('o.status IN (:...statuses)', { statuses: ['paid', 'confirmed', 'delivered'] })
+      .andWhere('oi.product_id IS NOT NULL')
+      .orderBy('o.created_at', 'DESC')
+      .select(['oi.id', 'oi.product_id', 'oi.unit_price'])
       .getMany();
 
+    // Keep only the most recent price per product
     const map: Record<string, number> = {};
-    for (const item of history) {
+    for (const item of items) {
       if (item.product_id && !(item.product_id in map)) {
-        map[item.product_id] = Number(item.price);
+        map[item.product_id] = Number(item.unit_price);
       }
     }
     return map;
