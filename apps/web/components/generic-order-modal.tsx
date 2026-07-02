@@ -116,9 +116,20 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     loadCustomerPrices(c.id);
   };
 
-  // Name field: free text only — phone is the sole identifier for customer matching
+  // Name field: match customer by name as well
   const handleNameChange = (val: string) => {
     setCustomerName(val);
+    const existing = customers.find(c => c.name.toLowerCase() === val.toLowerCase());
+    if (existing) {
+      setCustomerId(existing.id);
+      if (existing.phone && !phone) setPhone(existing.phone);
+      loadCustomerPrices(existing.id);
+    } else {
+      // Don't clear phone if they are just editing name, but clear the special prices
+      setCustomerId('');
+      setCustomerPrices({});
+      priceLoadRef.current = '';
+    }
   };
 
   // Phone field: sole source of customer identity
