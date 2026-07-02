@@ -32,6 +32,7 @@ interface Invoice {
   created_at: string;
   order_status?: string;
   customer?: { name: string; phone?: string | null } | null;
+  order_customer_name?: string | null;
   items: InvoiceItem[];
 }
 
@@ -170,7 +171,7 @@ export default function InvoiceDetailPage() {
 
             <div className="mb-6">
               <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
-              <p className="text-slate-800 font-semibold">{invoice.customer?.name || 'Walk-in Customer'}</p>
+              <p className="text-slate-800 font-semibold">{invoice.customer?.name || invoice.order_customer_name || 'Walk-in Customer'}</p>
               {invoice.customer?.phone && <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>}
             </div>
 

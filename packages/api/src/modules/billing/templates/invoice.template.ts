@@ -62,7 +62,7 @@ export function renderInvoiceHtml(
   </div>
 
   <div class="muted">Billed To</div>
-  <div><strong>${customer?.name ?? 'Walk-in Customer'}</strong></div>
+  <div><strong>${customer?.name ?? order?.customer_name ?? 'Walk-in Customer'}</strong></div>
   <div class="muted">${customer?.phone ?? ''}</div>
   <div class="muted">${customer?.gst_number ? `GSTIN: ${customer.gst_number}` : ''}</div>
 
@@ -114,7 +114,7 @@ ${line}
 Invoice: ${invoice.invoice_number}
 Date: ${new Date(invoice.created_at).toLocaleString('en-IN')}
 ${order?.status ? `Status: ${String(order.status).toUpperCase()}\n` : ''}
-Customer: ${customer?.name ?? 'Walk-in'}
+Customer: ${customer?.name ?? order?.customer_name ?? 'Walk-in'}
 ${line}
 ${rows}
 ${line}
