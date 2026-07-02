@@ -33,8 +33,8 @@ export class BillingController {
 
   @UseGuards(JwtAuthGuard)
   @Get('invoices')
-  findAllInvoices(@Query('businessId') businessId: string) {
-    return this.invoicesService.findAll(businessId);
+  findAllInvoices(@Query('businessId') businessId: string, @Query('orderId') orderId?: string) {
+    return this.invoicesService.findAll(businessId, orderId);
   }
 
   @UseGuards(JwtAuthGuard)

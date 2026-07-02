@@ -60,8 +60,10 @@ export class InvoicesService {
     });
   }
 
-  findAll(businessId: string) {
-    return this.invoicesRepository.find({ where: { business_id: businessId }, order: { created_at: 'DESC' } });
+  findAll(businessId: string, orderId?: string) {
+    const where: any = { business_id: businessId };
+    if (orderId) where.order_id = orderId;
+    return this.invoicesRepository.find({ where, order: { created_at: 'DESC' } });
   }
 
   async findOne(id: string, businessId: string) {
