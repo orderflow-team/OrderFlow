@@ -114,17 +114,17 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-white overflow-hidden rounded-xl">
+      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
         <DialogHeader className="p-5 border-b border-slate-100 flex-shrink-0">
           <DialogTitle className="text-xl">Add Items — {guestName}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5 bg-slate-50 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto p-5 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-5 relative z-0">
           {/* Categories */}
           <div className="flex flex-wrap gap-2">
             <div 
-              className={`px-4 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${
-                selectedCategory === null ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              className={`px-4 py-2 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
               }`}
               onClick={() => setSelectedCategory(null)}
             >
@@ -133,8 +133,8 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
             {categories.map(c => (
               <div 
                 key={c.id} 
-                className={`px-4 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${
-                  selectedCategory === c.name ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                className={`px-4 py-2 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                  selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
                 }`}
                 onClick={() => setSelectedCategory(c.name)}
               >
@@ -146,7 +146,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input 
-              className="pl-9 h-10 bg-white" 
+              className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55" 
               placeholder="Search dishes..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -160,7 +160,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
               return (
                 <div
                   key={p.id}
-                  className={`relative p-3 rounded-xl border bg-white cursor-pointer transition-all ${qty > 0 ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-slate-200 hover:border-emerald-300'}`}
+                  className={`relative p-3 rounded-2xl border cursor-pointer transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 ring-1 ring-white/50 hover:bg-white/60'}`}
                   onClick={() => updateCart(p, 1)}
                 >
                   {qty > 0 && (
@@ -177,7 +177,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
         </div>
 
         {/* Cart Bottom Sheet */}
-        <div className="flex-shrink-0 bg-white border-t border-slate-200 p-5 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] z-10">
+        <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 p-5 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
           <div className="flex items-center gap-2 mb-4 font-semibold text-slate-800">
             <ShoppingCart className="w-5 h-5" />
             Cart ({cartItems.length} items)
@@ -188,7 +188,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
               <div key={item.product.id} className="flex justify-between items-center text-sm">
                 <span className="text-slate-700 truncate pr-4 flex-1">{item.product.name}</span>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1">
+                  <div className="flex items-center gap-2 bg-white/50 border border-white/60 ring-1 ring-white/50 rounded-xl p-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
                     <button onClick={() => updateCart(item.product, -1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
                       <Minus className="w-3 h-3" />
                     </button>

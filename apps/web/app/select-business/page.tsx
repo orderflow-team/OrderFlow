@@ -63,7 +63,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm"
+            className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
           >
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -140,8 +140,13 @@ export default function SelectBusinessPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-slate-50 to-slate-100 p-6">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 relative overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-40 -left-32 w-[28rem] h-[28rem] rounded-full bg-emerald-300/50 blur-3xl" />
+        <div className="absolute top-1/4 -right-32 w-[28rem] h-[28rem] rounded-full bg-teal-300/50 blur-3xl" />
+        <div className="absolute -bottom-40 left-1/3 w-[28rem] h-[28rem] rounded-full bg-sky-300/50 blur-3xl" />
+      </div>
+      <div className="w-full max-w-md space-y-6 relative z-10 animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-slate-800">Choose a business</h1>
           <p className="text-sm text-slate-500">Pick a workspace to continue, or add a new category.</p>
@@ -162,7 +167,7 @@ export default function SelectBusinessPage() {
                   key={b.id}
                   onClick={() => handleSelect(b.id)}
                   disabled={selecting !== null}
-                  className="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors disabled:opacity-50"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-white/40 ring-1 ring-white/50 bg-white/40 hover:bg-white/60 px-4 py-3 text-left transition-all disabled:opacity-50 glass-sheen-sm"
                 >
                   <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
                     <Store className="w-4 h-4" />
@@ -178,7 +183,7 @@ export default function SelectBusinessPage() {
               <button
                 onClick={() => setShowNewForm(true)}
                 disabled={selecting !== null}
-                className="w-full flex items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-left hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors disabled:opacity-50"
+                className="w-full flex items-center gap-3 rounded-2xl border border-dashed border-white/60 bg-white/20 hover:bg-white/40 px-4 py-3 text-left transition-all disabled:opacity-50 mt-2"
               >
                 <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
                   <Plus className="w-4 h-4" />

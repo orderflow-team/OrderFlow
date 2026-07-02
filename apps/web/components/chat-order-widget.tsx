@@ -110,7 +110,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
       {/* ── Chat panel ── */}
       <div
         className={[
-          'fixed z-[70] flex flex-col bg-white transition-transform duration-300 ease-out',
+          'fixed z-[70] flex flex-col bg-white/40 backdrop-blur-3xl backdrop-saturate-150 glass-sheen-sm transition-transform duration-300 ease-out',
           // Mobile: full-width bottom sheet, slides up
           'inset-x-0 bottom-0 rounded-t-2xl shadow-2xl',
           open ? 'translate-y-0' : 'translate-y-full',
@@ -119,7 +119,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
           // Desktop: floating panel, always positioned, visibility toggled
           'md:inset-x-auto md:bottom-24 md:right-6',
           'md:w-[380px] md:h-[500px] md:max-h-[80vh]',
-          'md:rounded-2xl md:ring-1 md:ring-slate-200',
+          'md:rounded-[2rem] md:ring-1 md:ring-white/50',
           open ? 'md:opacity-100 md:pointer-events-auto' : 'md:opacity-0 md:pointer-events-none md:translate-y-4',
         ].join(' ')}
       >
@@ -129,7 +129,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
         </div>
 
         {/* Header */}
-        <div className="shrink-0 bg-emerald-600 text-white px-4 py-3 flex items-center gap-3 md:rounded-t-2xl">
+        <div className="shrink-0 bg-emerald-600/80 backdrop-blur-xl text-white px-4 py-3 flex items-center gap-3 md:rounded-t-[2rem]">
           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
             <Bot className="w-4 h-4" />
           </div>
@@ -146,7 +146,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.map((m, i) => (
             <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
@@ -157,8 +157,8 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
               <div
                 className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   m.role === 'user'
-                    ? 'bg-emerald-600 text-white rounded-br-sm'
-                    : 'bg-white text-slate-700 ring-1 ring-slate-200 rounded-bl-sm'
+                    ? 'bg-emerald-600/90 backdrop-blur-md text-white rounded-br-sm shadow-sm ring-1 ring-emerald-500/50'
+                    : 'bg-white/60 backdrop-blur-md text-slate-800 ring-1 ring-white/60 rounded-bl-sm shadow-sm'
                 }`}
               >
                 {m.text}
@@ -170,7 +170,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
               <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mb-0.5">
                 <Bot className="w-3.5 h-3.5 text-emerald-600" />
               </div>
-              <div className="bg-white ring-1 ring-slate-200 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center">
+              <div className="bg-white/60 backdrop-blur-md ring-1 ring-white/60 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center shadow-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
@@ -182,7 +182,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
         {/* Input */}
         <form
           onSubmit={handleSend}
-          className="shrink-0 bg-white border-t border-slate-100 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex gap-2"
+          className="shrink-0 bg-white/20 border-t border-white/30 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex gap-2"
         >
           <input
             ref={inputRef}
@@ -190,14 +190,14 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
             onChange={(e) => setInput(e.target.value)}
             placeholder="What would you like to order?"
             // 16px prevents iOS keyboard zoom
-            className="flex-1 h-11 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-[16px] md:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white focus:border-transparent transition-colors"
+            className="flex-1 h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-[16px] md:text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
             disabled={sending}
             autoComplete="off"
           />
           <button
             type="submit"
             disabled={sending || !input.trim()}
-            className="h-11 w-11 flex items-center justify-center rounded-xl bg-emerald-600 text-white disabled:opacity-40 shrink-0 transition-opacity"
+            className="h-11 w-11 flex items-center justify-center rounded-full bg-emerald-600/90 backdrop-blur-md text-white disabled:opacity-40 shrink-0 transition-opacity ring-1 ring-emerald-500/50 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6)]"
           >
             <Send className="w-4 h-4" />
           </button>

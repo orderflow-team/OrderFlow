@@ -151,7 +151,7 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
           {drafts.slice(1, 3).reverse().map((d, i) => (
             <div
               key={d.id}
-              className="absolute inset-x-0 top-0 rounded-2xl border border-slate-200 bg-slate-50"
+              className="absolute inset-x-0 top-0 rounded-[2rem] border border-white/50 bg-white/20 backdrop-blur-md"
               style={{
                 height: '100%',
                 transform: `scale(${0.94 + i * 0.03}) translateY(${(1 - i) * 10}px)`,
@@ -161,7 +161,7 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
           ))}
 
           <div
-            className="absolute inset-x-0 top-0 h-full rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/60 p-5 flex flex-col cursor-grab active:cursor-grabbing touch-none"
+            className="absolute inset-x-0 top-0 h-full rounded-[2rem] border border-white/60 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 glass-sheen shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-5 flex flex-col cursor-grab active:cursor-grabbing touch-none"
             style={{
               transform: `translateX(${translateX}px) rotate(${rotate}deg)`,
               transition: dragStartX.current === null ? 'transform 180ms ease-out' : 'none',
@@ -173,13 +173,13 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
             onPointerLeave={handlePointerUp}
           >
             <div
-              className="absolute top-4 left-4 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-600 text-xs font-bold border border-rose-200 transition-opacity"
+              className="absolute top-4 left-4 px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-700 text-xs font-bold border border-rose-500/30 backdrop-blur-md transition-opacity shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]"
               style={{ opacity: dragX < 0 ? Math.min(-dragX / SWIPE_THRESHOLD, 1) : 0 }}
             >
               DISCARD
             </div>
             <div
-              className="absolute top-4 right-4 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold border border-emerald-200 transition-opacity"
+              className="absolute top-4 right-4 px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-700 text-xs font-bold border border-emerald-500/30 backdrop-blur-md transition-opacity shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]"
               style={{ opacity: dragX > 0 ? Math.min(dragX / SWIPE_THRESHOLD, 1) : 0 }}
             >
               KEEP
@@ -220,7 +220,7 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
           <button
             onClick={() => resolveDraft('reject')}
             disabled={busy}
-            className="w-12 h-12 rounded-full border border-rose-200 bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors disabled:opacity-50"
+            className="w-14 h-14 rounded-full border border-rose-500/30 bg-rose-500/10 backdrop-blur-md text-rose-600 flex items-center justify-center hover:bg-rose-500/20 transition-all disabled:opacity-50 ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
             aria-label="Discard"
           >
             <X className="w-5 h-5" />
@@ -228,7 +228,7 @@ export function DraftReviewStack({ businessId }: { businessId: string | null }) 
           <button
             onClick={() => resolveDraft('approve')}
             disabled={busy}
-            className="w-12 h-12 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors disabled:opacity-50"
+            className="w-14 h-14 rounded-full border border-emerald-500/30 bg-emerald-500/10 backdrop-blur-md text-emerald-600 flex items-center justify-center hover:bg-emerald-500/20 transition-all disabled:opacity-50 ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6)]"
             aria-label="Keep and save"
           >
             <Check className="w-5 h-5" />

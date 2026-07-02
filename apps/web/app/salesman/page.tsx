@@ -149,7 +149,7 @@ export default function SalesmanPage() {
         {loading ? (
           <p className="text-sm text-slate-400">Loading...</p>
         ) : salesmen.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-2xl ring-1 ring-slate-200/70">
+          <div className="p-12 text-center bg-white/40 backdrop-blur-xl backdrop-saturate-150 rounded-3xl ring-1 ring-white/50 glass-sheen-sm">
             <UserRound className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="text-slate-400 text-sm">No salesmen yet.</p>
           </div>
@@ -158,7 +158,7 @@ export default function SalesmanPage() {
             <select
               value={selectedSalesman}
               onChange={(e) => setSelectedSalesman(e.target.value)}
-              className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm"
+              className="h-10 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
             >
               {salesmen.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}{s.route ? ` - ${s.route}` : ''}</option>
@@ -177,7 +177,7 @@ export default function SalesmanPage() {
                   <select
                     value={visitCustomerId}
                     onChange={(e) => setVisitCustomerId(e.target.value)}
-                    className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm"
+                    className="h-10 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
                   >
                     <option value="">No customer</option>
                     {customers.map((c) => (

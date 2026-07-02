@@ -346,7 +346,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/60 px-4 py-2 flex flex-col justify-center min-h-[60px]">
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
           <span className="text-base font-bold text-slate-800 tracking-tight">OrderFlow</span>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
@@ -376,7 +376,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/70 backdrop-blur-xl border-t border-white/60 flex px-1 py-1">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/50 shadow-[0_-4px_30px_-5px_rgba(0,0,0,0.1)] flex px-1 py-1 pb-[env(safe-area-inset-bottom)]">
         {CORE_PRIMARY_NAV.map((item, index) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
@@ -424,7 +424,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {moreOpen && (
         <div className="md:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMoreOpen(false)} />
-          <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl p-4 pb-8 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200">
             <div className="flex items-center justify-between mb-4">
               <span className="text-base font-bold text-slate-800">More</span>
               <button onClick={() => setMoreOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -439,7 +439,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMoreOpen(false)}
-                    className="flex flex-col items-center justify-center gap-2 py-4 rounded-xl bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    className="flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white/40 backdrop-blur-xl ring-1 ring-white/50 glass-sheen-sm text-slate-800 hover:bg-white/60 transition-all"
                   >
                     <Icon className="w-5 h-5" />
                     <span className="text-xs font-medium">{item.label}</span>
@@ -455,7 +455,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileBusinessMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileBusinessMenuOpen(false)} />
-          <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl p-4 pb-8 animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
+          <div className="absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <span className="text-base font-bold text-slate-800">Switch Business</span>
               <button onClick={() => setMobileBusinessMenuOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-full">
@@ -483,8 +483,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       setMobileBusinessMenuOpen(false);
                       handleSwitchBusiness(b.id);
                     }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
-                      active ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50 hover:bg-slate-100 border border-transparent'
+                    className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all ${
+                      active ? 'bg-emerald-500/15 border border-emerald-500/20' : 'bg-white/40 hover:bg-white/60 border border-white/40 ring-1 ring-white/50 glass-sheen-sm'
                     }`}
                   >
                     <Store className={`w-5 h-5 shrink-0 ${active ? 'text-emerald-600' : 'text-slate-500'}`} />
@@ -503,7 +503,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setMobileBusinessMenuOpen(false);
                   handleSwitchBusiness(NEW_BUSINESS_OPTION);
                 }}
-                className="w-full flex items-center gap-3 p-3 rounded-xl text-left bg-emerald-50/50 hover:bg-emerald-50 transition-colors text-emerald-600 border border-emerald-100/50"
+                className="w-full flex items-center gap-3 p-3 rounded-2xl text-left bg-emerald-500/10 hover:bg-emerald-500/20 transition-all text-emerald-700 border border-emerald-500/20 ring-1 ring-white/50 glass-sheen-sm"
               >
                 <Plus className="w-5 h-5 shrink-0" />
                 <span className="text-sm font-bold">Add new business</span>
