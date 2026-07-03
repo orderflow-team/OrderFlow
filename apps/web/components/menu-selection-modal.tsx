@@ -24,6 +24,8 @@ interface Category {
 export interface CartItem {
   product: Product;
   quantity: number;
+  original_unit?: string;
+  original_price?: number;
 }
 
 interface MenuSelectionModalProps {
