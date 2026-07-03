@@ -150,7 +150,7 @@ export default function InvoiceDetailPage() {
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
         {invoice && (
-          <div className="bg-white ring-1 ring-slate-200/70 rounded-2xl overflow-hidden shadow-sm shadow-slate-200/40 print:ring-0 print:shadow-none">
+          <div className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
             <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400 print:hidden" />
             <div className="p-8">
             <div className="flex justify-between items-start mb-8">
@@ -162,7 +162,7 @@ export default function InvoiceDetailPage() {
                 <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN')}</p>
                 <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
                 {invoice.order_status && (
-                  <div className="mt-2 inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 uppercase tracking-wider">
+                  <div className="mt-2 inline-flex items-center rounded-full bg-emerald-500/10 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 uppercase tracking-wider">
                     Status: {invoice.order_status}
                   </div>
                 )}

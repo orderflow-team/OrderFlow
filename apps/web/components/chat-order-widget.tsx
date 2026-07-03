@@ -150,7 +150,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
           {messages.map((m, i) => (
             <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
-                <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mb-0.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/15 backdrop-blur-sm flex items-center justify-center shrink-0 mb-0.5">
                   <Bot className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
               )}
@@ -167,7 +167,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
           ))}
           {sending && (
             <div className="flex items-end gap-2 justify-start">
-              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mb-0.5">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/15 backdrop-blur-sm flex items-center justify-center shrink-0 mb-0.5">
                 <Bot className="w-3.5 h-3.5 text-emerald-600" />
               </div>
               <div className="bg-white/60 backdrop-blur-md ring-1 ring-white/60 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center shadow-sm">
@@ -209,7 +209,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
         onClick={() => setOpen((v) => !v)}
         aria-label="Order Assistant"
         className={[
-          'fixed z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white',
+          'fixed z-50 w-14 h-14 rounded-full bg-emerald-500/85 backdrop-blur-md ring-1 ring-white/30 glass-sheen-sm hover:bg-emerald-500/95 text-white',
           'shadow-lg shadow-emerald-900/30 flex items-center justify-center transition-all duration-200',
           'bottom-20 right-4 md:bottom-6 md:right-6',
           // Hide FAB on mobile while sheet is open (X is in header)

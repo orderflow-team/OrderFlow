@@ -151,7 +151,7 @@ export function StandardBilling() {
                   const order = orders.find((o) => o.id === orderId);
                   setPayAmount(order ? Number(order.total_amount).toFixed(2) : '');
                 }}
-                className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm"
+                className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
                 required
               >
                 <option value="">Select order</option>
@@ -163,7 +163,7 @@ export function StandardBilling() {
               <select
                 value={payMethod}
                 onChange={(e) => setPayMethod(e.target.value)}
-                className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm"
+                className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
               >
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m} value={m}>{m}</option>
@@ -189,7 +189,7 @@ export function StandardBilling() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {orders.map((o) => (
-                  <div key={o.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/60 transition-colors">
+                  <div key={o.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-semibold text-slate-500">{o.order_number}</span>
@@ -230,7 +230,7 @@ export function StandardBilling() {
               <div className="divide-y divide-slate-100">
                 {payments.map((p) => (
                   <div key={p.id} className="px-6 py-3 flex justify-between items-center text-sm">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">{p.payment_method}</span>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600">{p.payment_method}</span>
                     <span className="text-slate-500">{new Date(p.created_at).toLocaleString()}</span>
                     <span className="font-semibold text-slate-800">{Number(p.amount).toFixed(2)}</span>
                   </div>

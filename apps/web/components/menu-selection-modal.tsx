@@ -216,7 +216,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           </div>
           
           <Button 
-            className="w-full mt-4 h-12 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white" 
+            className="w-full mt-4 h-12 text-base font-semibold" 
             disabled={cartItems.length === 0 || submitting}
             onClick={handleSubmit}
           >

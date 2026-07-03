@@ -44,9 +44,9 @@ function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: (typeof HOME_TILE
   return (
     <Link
       href={href}
-      className={`${bg} rounded-3xl p-5 flex flex-col items-center justify-center gap-4 aspect-square hover:brightness-[0.98] active:scale-[0.98] transition-all duration-150`}
+      className={`${bg} rounded-3xl p-5 flex flex-col items-center justify-center gap-4 aspect-square ring-1 ring-white/70 shadow-[0_10px_25px_-10px_rgba(15,23,42,0.3),inset_0_1px_1px_rgba(255,255,255,0.6)] hover:brightness-[0.98] active:scale-[0.98] transition-all duration-150`}
     >
-      <div className={`${iconBg} ${fg} w-16 h-16 rounded-2xl flex items-center justify-center`}>
+      <div className={`${iconBg} ${fg} w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm`}>
         <Icon className="w-7 h-7" strokeWidth={2.25} />
       </div>
       <span className="font-bold tracking-wide text-slate-800 uppercase text-sm">{label}</span>
@@ -88,7 +88,7 @@ const QUICK_ACTIONS = [
 function QuickActionRow({ action }: { action: (typeof QUICK_ACTIONS)[number] }) {
   const Icon = action.icon;
   return (
-    <div className="flex items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5">
+    <div className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm p-3.5">
       <Link href={action.href} className="flex-1 flex items-center gap-3 min-w-0">
         <div className={`${action.iconBg} ${action.iconFg} w-11 h-11 rounded-xl flex items-center justify-center shrink-0`}>
           <Icon className="w-5 h-5" strokeWidth={2.25} />
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                         <p className="text-slate-800">{p.name}</p>
                         <span
                           className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            p.stock_quantity === 0 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'
+                            p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20' : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
                           }`}
                         >
                           {p.stock_quantity} left
@@ -320,7 +320,7 @@ export default function DashboardPage() {
                     {data.expiringProducts.map((p) => (
                       <div key={p.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                         <p className="text-slate-800">{p.name}</p>
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20">
                           {new Date(p.expiry_date).toLocaleDateString([], { month: 'short', day: '2-digit' })}
                         </span>
                       </div>

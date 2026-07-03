@@ -137,7 +137,7 @@ function CustomersPageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, area or phone"
-              className="w-full h-11 pl-10 pr-4 rounded-full bg-white ring-1 ring-slate-200/70 shadow-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-sky-fg/40"
+              className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-sky-fg/40"
             />
           </div>
           {businessId && <ClearModuleButton module="customers" businessId={businessId} />}
@@ -148,7 +148,7 @@ function CustomersPageContent() {
             <Users className="w-3.5 h-3.5" /> {`${customers.length} client${customers.length === 1 ? '' : 's'} • Recent`}
           </p>
           {totalOutstanding > 0 && (
-            <span className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-500/10 backdrop-blur-sm ring-1 ring-rose-500/20 px-2.5 py-1 rounded-full">
               <AlertTriangle className="w-3 h-3" /> &#8377;{totalOutstanding.toFixed(2)}
             </span>
           )}
@@ -227,7 +227,7 @@ function CustomersPageContent() {
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
         ) : customers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl ring-1 ring-slate-200/70">
+          <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
             <div className="w-24 h-24 bg-tile-sky rounded-full flex items-center justify-center mb-6">
               <Users className="w-10 h-10 text-tile-sky-fg" />
             </div>
@@ -242,7 +242,7 @@ function CustomersPageContent() {
         ) : (
           <div className="space-y-3">
             {filteredCustomers.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5">
+              <div key={c.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
                 <button onClick={() => openEditForm(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
                   <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">
                     <Users className="w-5 h-5" />

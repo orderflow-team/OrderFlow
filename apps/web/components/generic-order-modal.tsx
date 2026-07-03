@@ -324,7 +324,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               const parsed = parseQuantityUnit(search.trim());
               return (
                 <div
-                  className="p-3 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 cursor-pointer hover:bg-emerald-50 flex flex-col items-center justify-center text-center gap-1"
+                  className="p-3 rounded-xl border border-dashed border-emerald-400/50 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 flex flex-col items-center justify-center text-center gap-1"
                   onClick={() => {
                     const tempProduct: Product = {
                       id: 'draft-' + Date.now(),
@@ -372,7 +372,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                   </div>
                   <button
                     onClick={() => setCart(prev => { const n = { ...prev }; delete n[item.product.id]; return n; })}
-                    className="w-6 h-6 flex items-center justify-center rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50"
+                    className="w-6 h-6 flex items-center justify-center rounded text-rose-400 hover:text-rose-600 hover:bg-rose-500/10"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -402,7 +402,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           </div>
 
           <Button
-            className="w-full h-11 text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="w-full h-11 text-base font-semibold"
             disabled={cartItems.length === 0 || submitting}
             onClick={handleSubmit}
           >

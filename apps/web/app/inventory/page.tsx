@@ -181,13 +181,13 @@ export default function InventoryPage() {
         <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">
             {suppliers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+              <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
+                <div className="w-24 h-24 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-full flex items-center justify-center mb-6">
                   <Warehouse className="w-10 h-10 text-slate-400" />
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 mb-2">No suppliers found</h2>
                 <p className="text-slate-500 mb-8 text-sm">Add a supplier to manage your supply chain</p>
-                <Button onClick={() => setShowSupplierForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
+                <Button onClick={() => setShowSupplierForm(true)} className="gap-2 px-6 h-11">
                   <Plus className="w-4 h-4" /> Add Supplier
                 </Button>
               </div>
@@ -218,7 +218,7 @@ export default function InventoryPage() {
                 <select
                   value={poSupplierId}
                   onChange={(e) => setPoSupplierId(e.target.value)}
-                  className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm w-full sm:w-64"
+                  className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm w-full sm:w-64"
                 >
                   <option value="">No supplier</option>
                   {suppliers.map((s) => (
@@ -226,13 +226,13 @@ export default function InventoryPage() {
                   ))}
                 </select>
                 {poLines.map((line, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center bg-slate-50 rounded-xl p-3">
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-3">
                     <select
                       value={line.productId}
                       onChange={(e) =>
                         setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, productId: e.target.value } : l)))
                       }
-                      className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm"
+                      className="h-10 rounded-lg bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
                       required
                     >
                       <option value="">Select product</option>
@@ -284,19 +284,19 @@ export default function InventoryPage() {
             {loading ? (
               <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
             ) : purchaseOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl">
-                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+              <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
+                <div className="w-24 h-24 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-full flex items-center justify-center mb-6">
                   <Warehouse className="w-10 h-10 text-slate-400" />
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 mb-2">No purchase orders</h2>
                 <p className="text-slate-500 mb-8 text-sm">Create a purchase order to restock items</p>
-                <Button onClick={() => setShowPoForm(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-6 h-11 shadow-sm">
+                <Button onClick={() => setShowPoForm(true)} className="gap-2 px-6 h-11">
                   <Plus className="w-4 h-4" /> New Purchase Order
                 </Button>
               </div>
             ) : (
               <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[800px]">
-                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                <thead className="text-xs text-slate-500 uppercase bg-white/30 border-b border-white/40">
                   <tr>
                     <th className="px-6 py-3 w-10"></th>
                     <th className="px-6 py-3">PO #</th>
@@ -308,7 +308,7 @@ export default function InventoryPage() {
                 <tbody className="divide-y divide-slate-100">
                   {purchaseOrders.map((po) => (
                     <Fragment key={po.id}>
-                      <tr className="hover:bg-slate-50/60 transition-colors">
+                      <tr className="hover:bg-white/40 transition-colors">
                         <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>
                           {expandedPo === po.id ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
                         </td>
@@ -328,11 +328,11 @@ export default function InventoryPage() {
                         </td>
                       </tr>
                       {expandedPo === po.id && po.items && po.items.length > 0 && (
-                        <tr className="bg-slate-50/50">
+                        <tr className="bg-white/20">
                           <td colSpan={5} className="px-14 py-4">
-                            <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+                            <div className="rounded-2xl ring-1 ring-white/50 overflow-hidden bg-white/30 backdrop-blur-md">
                               <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-slate-500 bg-slate-50 border-b border-slate-200 uppercase">
+                                <thead className="text-xs text-slate-500 bg-white/30 border-b border-white/40 uppercase">
                                   <tr>
                                     <th className="px-4 py-2">Item</th>
                                     <th className="px-4 py-2 text-right">Qty</th>

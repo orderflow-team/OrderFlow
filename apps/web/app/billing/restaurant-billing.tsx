@@ -157,7 +157,7 @@ export function RestaurantBilling() {
         
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-emerald-100 bg-emerald-50/30 shadow-sm">
+          <Card className="ring-emerald-300/40 bg-emerald-500/10">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-emerald-800 mb-1">Total Revenue Today</p>
               <h2 className="text-4xl font-black text-emerald-600 mb-1">₹{totalRevenueToday.toFixed(2)}</h2>
@@ -165,7 +165,7 @@ export function RestaurantBilling() {
             </CardContent>
           </Card>
           
-          <Card className="border-slate-200 shadow-sm bg-white">
+          <Card className="ring-white/50">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-slate-500 mb-1">Awaiting Payment</p>
               <h2 className="text-4xl font-black text-amber-500 mb-1">{awaitingPaymentOrders.length}</h2>
@@ -173,7 +173,7 @@ export function RestaurantBilling() {
             </CardContent>
           </Card>
 
-          <Card className="border-slate-200 shadow-sm bg-white">
+          <Card className="ring-white/50">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-slate-500 mb-1">Active Tables</p>
               <h2 className="text-4xl font-black text-blue-500 mb-1">{activeBills.length}</h2>
@@ -185,8 +185,8 @@ export function RestaurantBilling() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           
           {/* Left Column: Cashier Terminal */}
-          <Card className="lg:col-span-2 shadow-sm border-slate-200 min-h-[500px] flex flex-col">
-            <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <Card className="lg:col-span-2 ring-white/50 min-h-[500px] flex flex-col">
+            <div className="p-5 border-b border-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <span className="text-amber-500">🧾</span> Cashier Checkout Terminal
               </h2>
@@ -194,7 +194,7 @@ export function RestaurantBilling() {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <Input 
                   placeholder="Search table or name..." 
-                  className="pl-9 bg-slate-50 border-slate-200 h-9"
+                  className="pl-9 bg-white/40 backdrop-blur-md ring-1 ring-white/50 h-9"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -211,24 +211,24 @@ export function RestaurantBilling() {
                 </h3>
                 <div className="space-y-3">
                   {filteredAwaiting.map(order => (
-                    <div key={order.id} className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between hover:border-amber-200 transition-colors shadow-sm">
+                    <div key={order.id} className="p-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-amber-300/50 transition-colors">
                       <div>
                         <h4 className="font-bold text-slate-800 text-lg">{order.table?.name || 'Take Away'}</h4>
                         <p className="text-xs font-medium text-slate-500 mt-0.5">Customer: {order.customer_name} {order.guest_count ? `- ${order.guest_count} guests` : ''}</p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-xl font-bold text-emerald-600">₹{Number(order.total_amount).toFixed(2)}</div>
-                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 border-slate-200">
+                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600">
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button onClick={() => handleOpenPayment(order)} className="bg-amber-50 hover:bg-amber-100 text-amber-700 hover:text-amber-800 border border-amber-200 h-9 font-semibold">
+                        <Button onClick={() => handleOpenPayment(order)} className="bg-amber-500/15 backdrop-blur-md hover:bg-amber-500/25 text-amber-700 ring-1 ring-amber-500/25 h-9 font-semibold">
                           Close Bill
                         </Button>
                       </div>
                     </div>
                   ))}
                   {filteredAwaiting.length === 0 && (
-                    <div className="p-6 border border-dashed border-slate-200 rounded-xl text-center text-sm text-slate-400 font-medium">
+                    <div className="p-6 border border-dashed border-white/60 rounded-2xl bg-white/20 text-center text-sm text-slate-400 font-medium">
                       No tables currently awaiting payment
                     </div>
                   )}
@@ -243,24 +243,24 @@ export function RestaurantBilling() {
                 </h3>
                 <div className="space-y-3">
                   {filteredActive.map(order => (
-                    <div key={order.id} className="p-4 rounded-xl border border-slate-200 bg-white flex items-center justify-between hover:border-blue-200 transition-colors shadow-sm">
+                    <div key={order.id} className="p-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-blue-300/50 transition-colors">
                       <div>
                         <h4 className="font-bold text-slate-800 text-lg">{order.table?.name || 'Take Away'}</h4>
                         <p className="text-xs font-medium text-slate-500 mt-0.5">Customer: {order.customer_name} {order.guest_count ? `- ${order.guest_count} guests` : ''}</p>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-xl font-bold text-emerald-600">₹{Number(order.total_amount).toFixed(2)}</div>
-                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 border-slate-200">
+                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600">
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button onClick={() => handleOpenPayment(order)} className="bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-100 h-9 font-semibold">
+                        <Button onClick={() => handleOpenPayment(order)} className="bg-rose-500/15 backdrop-blur-md hover:bg-rose-500/25 text-rose-600 ring-1 ring-rose-500/25 h-9 font-semibold">
                           Close Bill
                         </Button>
                       </div>
                     </div>
                   ))}
                   {filteredActive.length === 0 && (
-                    <div className="p-6 border border-dashed border-slate-200 rounded-xl text-center text-sm text-slate-400 font-medium">
+                    <div className="p-6 border border-dashed border-white/60 rounded-2xl bg-white/20 text-center text-sm text-slate-400 font-medium">
                       No active tables right now
                     </div>
                   )}
@@ -271,15 +271,15 @@ export function RestaurantBilling() {
           </Card>
 
           {/* Right Column: Settlement Log */}
-          <Card className="shadow-sm border-slate-200 min-h-[500px] max-h-[500px] flex flex-col overflow-hidden">
-            <div className="p-5 border-b border-slate-100 shrink-0">
+          <Card className="ring-white/50 min-h-[500px] max-h-[500px] flex flex-col overflow-hidden">
+            <div className="p-5 border-b border-white/40 shrink-0">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Transactions Settle Log
               </h2>
             </div>
             <div className="p-5 space-y-3 overflow-y-auto flex-1">
               {settleLog.map(log => (
-                <div key={log.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 flex justify-between items-center hover:bg-white transition-colors hover:shadow-sm hover:border-slate-200">
+                <div key={log.id} className="p-3 rounded-xl bg-white/25 backdrop-blur-sm ring-1 ring-white/40 flex justify-between items-center transition-colors hover:bg-white/40">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-emerald-400 rounded-full"></div>
                     <div>
@@ -331,7 +331,7 @@ export function RestaurantBilling() {
               <select
                 value={payMethod}
                 onChange={(e) => setPayMethod(e.target.value)}
-                className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                className="w-full h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
               >
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m} value={m}>{m}</option>
@@ -341,7 +341,7 @@ export function RestaurantBilling() {
             {paymentError && <p className="text-sm text-rose-600 font-medium">{paymentError}</p>}
             <DialogFooter className="mt-6">
               <Button type="button" variant="ghost" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving || Number(payAmount) <= 0} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6">
+              <Button type="submit" disabled={saving || Number(payAmount) <= 0} className="font-bold px-6">
                 {saving ? 'Processing...' : 'Confirm Payment'}
               </Button>
             </DialogFooter>

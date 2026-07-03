@@ -164,10 +164,10 @@ export default function TableDetailsPage() {
       <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100dvh - 124px)' }}>
 
         {/* ── Top bar ── */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white/50 backdrop-blur-xl border-white/40 flex-shrink-0">
           <button
             onClick={() => router.push('/orders?view=dine_in')}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/40 transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
@@ -176,8 +176,8 @@ export default function TableDetailsPage() {
               <h1 className="text-lg font-bold text-slate-800 truncate">Table {table.name}</h1>
               <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold flex-shrink-0 ${
                 isAvailable
-                  ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
-                  : 'bg-amber-50 text-amber-600 ring-1 ring-amber-200'
+                  ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
               }`}>
                 {isAvailable ? 'Available' : 'Occupied'}
               </span>
@@ -195,7 +195,7 @@ export default function TableDetailsPage() {
           {isAvailable && (
             <Button
               onClick={() => setShowMenuModal(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 px-4 gap-1.5 text-sm flex-shrink-0"
+              className="text-white h-9 px-4 gap-1.5 text-sm flex-shrink-0"
             >
               <Plus className="w-4 h-4" /> Add Items
             </Button>
@@ -207,7 +207,7 @@ export default function TableDetailsPage() {
           /* Available state — centred CTA, previous sessions below */
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col items-center justify-center py-10 px-8 gap-4">
-              <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
                 <Coffee className="w-8 h-8 text-slate-300 stroke-[1.5]" />
               </div>
               <div className="text-center">
@@ -216,7 +216,7 @@ export default function TableDetailsPage() {
               </div>
               <Button
                 onClick={() => setShowMenuModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 px-8 h-11 text-sm rounded-xl shadow-sm"
+                className="text-white gap-2 px-8 h-11 text-sm rounded-full"
               >
                 <Plus className="w-4 h-4" /> Add Items
               </Button>
@@ -227,7 +227,7 @@ export default function TableDetailsPage() {
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Previous Sessions</p>
                 <div className="space-y-2">
                   {previousSessions.map(session => (
-                    <div key={session.id} className="flex justify-between items-center py-3 px-4 rounded-xl border border-slate-100 bg-white shadow-sm">
+                    <div key={session.id} className="flex justify-between items-center py-3 px-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm">
                       <div>
                         <p className="text-sm font-medium text-slate-700">{session.customer_name}</p>
                         <p className="text-xs text-slate-400 mt-0.5">
@@ -249,7 +249,7 @@ export default function TableDetailsPage() {
             {activeSession && (
               <div className="px-4 pt-3 pb-1 flex items-center justify-between flex-shrink-0">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Current Order</span>
-                <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                <span className="text-[11px] font-mono font-semibold text-slate-500 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 px-2 py-0.5 rounded-full">
                   #{activeSession.order_number}
                 </span>
               </div>
@@ -263,7 +263,7 @@ export default function TableDetailsPage() {
                   <p className="text-sm">No items ordered yet</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="bg-white/40 backdrop-blur-md rounded-3xl ring-1 ring-white/50 glass-sheen-sm overflow-hidden">
                   {activeSession!.items.map((item, idx) => (
                     <div
                       key={item.id}
@@ -272,7 +272,7 @@ export default function TableDetailsPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        <span className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20 text-xs font-bold flex items-center justify-center flex-shrink-0">
                           {item.quantity}
                         </span>
                         <span className="text-sm font-medium text-slate-700 truncate">
@@ -289,7 +289,7 @@ export default function TableDetailsPage() {
             </div>
 
             {/* Bottom action bar — flex-shrink-0 so it stays at bottom */}
-            <div className="flex-shrink-0 bg-white border-t border-slate-100 px-4 pt-3 pb-3 shadow-[0_-6px_20px_-6px_rgba(0,0,0,0.08)]">
+            <div className="flex-shrink-0 bg-white/50 backdrop-blur-xl border-white/40 px-4 pt-3 pb-3 shadow-[0_-6px_20px_-6px_rgba(0,0,0,0.08)]">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-medium text-slate-500">Running Total</span>
                 <span className="text-xl font-extrabold text-slate-800">
@@ -302,7 +302,7 @@ export default function TableDetailsPage() {
               <div className="flex gap-3">
                 <Button
                   onClick={() => setShowMenuModal(true)}
-                  className="flex-1 h-11 gap-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="flex-1 h-11 gap-1.5 text-sm"
                 >
                   <Plus className="w-4 h-4" /> Add Items
                 </Button>
@@ -311,7 +311,7 @@ export default function TableDetailsPage() {
                   className={`flex-1 h-11 gap-1.5 text-sm font-semibold ${
                     isZeroBill
                       ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : ''
                   }`}
                 >
                   {isZeroBill ? (

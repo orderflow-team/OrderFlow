@@ -206,7 +206,7 @@ export default function SalesmanPage() {
                           <p className="text-slate-400 text-xs">{new Date(v.check_in_time).toLocaleString()}</p>
                         </div>
                         {v.check_out_time ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Checked out</span>
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-500 backdrop-blur-sm ring-1 ring-slate-500/20">Checked out</span>
                         ) : (
                           <button onClick={() => handleCheckOut(v.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
                             Check Out

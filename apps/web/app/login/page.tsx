@@ -27,9 +27,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4 selection:bg-sky-500/30 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-32 w-[28rem] h-[28rem] rounded-full bg-orange-300/50 blur-3xl" />
-        <div className="absolute top-1/4 -right-32 w-[28rem] h-[28rem] rounded-full bg-violet-300/50 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-[28rem] h-[28rem] rounded-full bg-sky-300/50 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[75vh] max-w-[70rem] max-h-[45rem] min-w-[36rem] min-h-[28rem] rounded-full bg-sky-300/55 blur-3xl" />
+        <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-orange-300/60 blur-3xl" />
+        <div className="absolute -top-1/4 -right-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-violet-300/60 blur-3xl" />
       </div>
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">

@@ -100,17 +100,17 @@ export default function ReportsPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-4">
-              <StatCard icon={IndianRupee} label="Revenue" value={formatCurrency(profit?.revenue || 0)} tint="bg-blue-50 text-blue-600" />
-              <StatCard icon={TrendingDown} label="Cost of Goods" value={formatCurrency(profit?.cost || 0)} tint="bg-slate-100 text-slate-600" />
+              <StatCard icon={IndianRupee} label="Revenue" value={formatCurrency(profit?.revenue || 0)} tint="bg-blue-500/10 text-blue-600" />
+              <StatCard icon={TrendingDown} label="Cost of Goods" value={formatCurrency(profit?.cost || 0)} tint="bg-slate-500/10 text-slate-600" />
               <StatCard
                 icon={TrendingUp}
                 label="Gross Profit"
                 value={formatCurrency(profit?.grossProfit || 0)}
                 sub={`${(profit?.marginPercent || 0).toFixed(1)}% margin`}
-                tint="bg-emerald-50 text-emerald-600"
+                tint="bg-emerald-500/10 text-emerald-600"
                 valueClass="text-emerald-600"
               />
-              <StatCard icon={Receipt} label="GST Collected" value={formatCurrency(totalTaxCollected)} tint="bg-violet-50 text-violet-600" />
+              <StatCard icon={Receipt} label="GST Collected" value={formatCurrency(totalTaxCollected)} tint="bg-violet-500/10 text-violet-600" />
             </div>
 
             <Card className="ring-white/50 glass-sheen-sm">
@@ -123,7 +123,7 @@ export default function ReportsPage() {
                 ) : (
                   <div className="divide-y divide-slate-100">
                     {tax.map((row) => (
-                      <div key={row.date} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/60 transition-colors gap-4">
+                      <div key={row.date} className="flex items-center justify-between px-4 py-3 hover:bg-white/40 transition-colors gap-4">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-800">{formatDate(row.date)}</p>
                           <p className="text-xs text-slate-400 mt-0.5">{row.orderCount} order{row.orderCount !== 1 ? 's' : ''} · Sales {formatCurrency(row.totalSales)}</p>

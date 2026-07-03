@@ -147,9 +147,9 @@ function RestaurantPageContent() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <button
               onClick={() => setView('dine_in')}
-              className="group flex flex-col items-center justify-center gap-4 p-10 rounded-2xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:shadow-md transition-all"
+              className="group flex flex-col items-center justify-center gap-4 p-10 rounded-3xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm hover:ring-emerald-400/50 transition-all"
             >
-              <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center group-hover:bg-emerald-100">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 backdrop-blur-sm flex items-center justify-center group-hover:bg-emerald-500/20">
                 <UtensilsCrossed className="w-8 h-8 text-emerald-600" />
               </div>
               <div className="text-xl font-bold text-slate-800">Dine In</div>
@@ -158,9 +158,9 @@ function RestaurantPageContent() {
 
             <button
               onClick={() => setView('take_away')}
-              className="group flex flex-col items-center justify-center gap-4 p-10 rounded-2xl border-2 border-slate-200 bg-white hover:border-amber-400 hover:shadow-md transition-all"
+              className="group flex flex-col items-center justify-center gap-4 p-10 rounded-3xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm hover:ring-amber-400/50 transition-all"
             >
-              <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center group-hover:bg-amber-100">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 backdrop-blur-sm flex items-center justify-center group-hover:bg-amber-500/20">
                 <ShoppingBag className="w-8 h-8 text-amber-600" />
               </div>
               <div className="text-xl font-bold text-slate-800">Takeaway</div>
@@ -191,13 +191,13 @@ function RestaurantPageContent() {
 
           {error && <p className="text-sm text-rose-600 mb-6">{error}</p>}
 
-          <Card className="h-[300px] flex flex-col items-center justify-center border border-slate-200 shadow-sm mb-12">
-            <div className="w-20 h-20 rounded-full bg-amber-50 flex items-center justify-center mb-6 text-amber-500 border border-amber-100">
+          <Card className="h-[300px] flex flex-col items-center justify-center ring-white/50 glass-sheen-sm mb-12">
+            <div className="w-20 h-20 rounded-full bg-amber-500/10 backdrop-blur-sm flex items-center justify-center mb-6 text-amber-600 ring-1 ring-amber-500/20">
               <ShoppingBag className="w-10 h-10 stroke-[1.5]" />
             </div>
             <h3 className="text-xl font-semibold text-slate-800 mb-2">Ready for a new takeaway</h3>
             <p className="text-slate-500 text-sm mb-8">Add items to generate a token number</p>
-            <Button onClick={() => setShowTakeAwayMenuModal(true)} className="bg-amber-500 hover:bg-amber-600 text-white gap-2 px-8 py-6 text-lg rounded-xl shadow-sm">
+            <Button onClick={() => setShowTakeAwayMenuModal(true)} className="bg-amber-500/85 backdrop-blur-md hover:bg-amber-500/95 text-white gap-2 px-8 py-6 text-lg rounded-full ring-1 ring-white/30">
               <Plus className="w-5 h-5" /> Add Items
             </Button>
           </Card>
@@ -211,12 +211,12 @@ function RestaurantPageContent() {
           ) : (
             <div className="space-y-2">
               {previousTakeaways.map(order => (
-                <div key={order.id} className="flex justify-between items-center py-4 px-5 rounded-lg border border-slate-200 bg-white">
+                <div key={order.id} className="flex justify-between items-center py-4 px-5 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm">
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-slate-500">{new Date(order.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                     <span className="font-semibold text-slate-800">Token #{order.token_number ?? '—'}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-semibold capitalize ${
-                      order.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
                     }`}>
                       {order.status}
                     </span>
@@ -245,7 +245,7 @@ function RestaurantPageContent() {
             mounting it in the same tick as the menu modal's unmount confuses base-ui's dialog stack. */}
         {takeAwayToken !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10">
-            <div className="bg-white rounded-xl ring-1 ring-foreground/10 p-6 w-full max-w-[360px] text-center mx-4">
+            <div className="bg-white/50 backdrop-blur-2xl backdrop-saturate-150 rounded-3xl ring-1 ring-white/50 glass-sheen-sm p-6 w-full max-w-[360px] text-center mx-4">
               <div className="flex items-center justify-center gap-2 font-medium mb-4">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Order Placed
               </div>
@@ -314,10 +314,10 @@ function RestaurantPageContent() {
               
               return (
                 <Link key={t.id} href={`/orders/table/${t.id}`}>
-                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 border ${isAvailable ? 'border-emerald-200 bg-white' : isOccupied ? 'border-blue-200 bg-white' : 'border-slate-200 bg-white'}`}>
+                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
                     <button
                       onClick={(e) => handleDeleteTable(e, t.id)}
-                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full text-slate-300 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 z-10 p-1.5 rounded-full text-slate-300 hover:text-rose-600 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Delete table"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -328,10 +328,10 @@ function RestaurantPageContent() {
                           <span className="text-2xl font-bold text-slate-800">{t.name}</span>
                           <span className={`w-2 h-2 rounded-full mt-1 ${isAvailable ? 'bg-emerald-500' : isOccupied ? 'bg-blue-500' : 'bg-slate-300'}`}></span>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide capitalize ${
-                          isAvailable ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200/50' :
-                          isOccupied ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-200/50' :
-                          'bg-slate-100 text-slate-600'
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide capitalize backdrop-blur-sm ${
+                          isAvailable ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' :
+                          isOccupied ? 'bg-blue-500/10 text-blue-700 ring-1 ring-blue-500/20' :
+                          'bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20'
                         }`}>
                           {t.status}
                         </span>
@@ -357,7 +357,7 @@ function RestaurantPageContent() {
 
             {/* Add Table Card */}
             {showAddForm ? (
-              <Card className="h-36 border border-slate-200 bg-slate-50 overflow-hidden">
+              <Card className="h-36 ring-white/50 overflow-hidden">
                 <CardContent className="p-4 h-full flex flex-col justify-center">
                   <form onSubmit={handleCreateTable} className="space-y-2">
                     <div className="flex gap-2">
@@ -372,7 +372,7 @@ function RestaurantPageContent() {
                 </CardContent>
               </Card>
             ) : (
-              <button onClick={() => setShowAddForm(true)} className="h-36 rounded-xl border-2 border-dashed border-slate-200 bg-transparent flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors hover:bg-slate-50/50">
+              <button onClick={() => setShowAddForm(true)} className="h-36 rounded-3xl border-2 border-dashed border-white/60 bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 hover:border-white/80 transition-colors hover:bg-white/25">
                 <Plus className="w-6 h-6 mb-2" />
                 <span className="text-sm font-medium">Add Table</span>
               </button>

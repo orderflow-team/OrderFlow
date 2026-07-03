@@ -38,19 +38,19 @@ interface Order {
 const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'cancelled'];
 
 const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
-  draft:      { color: 'bg-orange-50 text-orange-600',  icon: Clock },
-  confirmed:  { color: 'bg-blue-100 text-blue-700',     icon: CheckCircle2 },
-  packed:     { color: 'bg-indigo-100 text-indigo-700', icon: Package },
-  dispatched: { color: 'bg-purple-100 text-purple-700', icon: Truck },
-  delivered:  { color: 'bg-teal-100 text-teal-700',     icon: CheckCircle2 },
-  paid:       { color: 'bg-emerald-100 text-emerald-700', icon: IndianRupee },
-  cancelled:  { color: 'bg-rose-100 text-rose-600',     icon: XCircle },
+  draft:      { color: 'bg-orange-500/10 text-orange-700 ring-1 ring-orange-500/20',  icon: Clock },
+  confirmed:  { color: 'bg-blue-500/10 text-blue-700 ring-1 ring-blue-500/20',     icon: CheckCircle2 },
+  packed:     { color: 'bg-indigo-500/10 text-indigo-700 ring-1 ring-indigo-500/20', icon: Package },
+  dispatched: { color: 'bg-purple-500/10 text-purple-700 ring-1 ring-purple-500/20', icon: Truck },
+  delivered:  { color: 'bg-teal-500/10 text-teal-700 ring-1 ring-teal-500/20', icon: CheckCircle2 },
+  paid:       { color: 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20', icon: IndianRupee },
+  cancelled:  { color: 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20',     icon: XCircle },
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? { color: 'bg-slate-100 text-slate-600', icon: Clock };
+  const meta = STATUS_META[status] ?? { color: 'bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20', icon: Clock };
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${meta.color}`}>
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full backdrop-blur-sm ${meta.color}`}>
       {status}
     </span>
   );
@@ -369,7 +369,7 @@ export function GenericOrders() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by client name..."
-            className="w-full h-11 pl-10 pr-4 rounded-full bg-white ring-1 ring-slate-200/70 shadow-sm text-sm placeholder:text-slate-400 outline-none focus:ring-accent-orange/40"
+            className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-accent-orange/40"
           />
         </div>
 
@@ -379,7 +379,7 @@ export function GenericOrders() {
               key={f}
               onClick={() => setStatusFilter(f)}
               className={`px-4 h-9 rounded-full text-xs font-bold uppercase tracking-wide shrink-0 transition-colors ${
-                statusFilter === f ? 'bg-accent-orange text-white shadow-sm' : 'bg-white ring-1 ring-slate-200 text-slate-500'
+                statusFilter === f ? 'bg-accent-orange text-white shadow-sm' : 'bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-slate-500'
               }`}
             >
               {f}
@@ -403,7 +403,7 @@ export function GenericOrders() {
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl ring-1 ring-slate-200/70">
+          <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
             <div className="w-24 h-24 bg-tile-peach rounded-full flex items-center justify-center mb-6">
               <ShoppingCart className="w-10 h-10 text-tile-peach-fg" />
             </div>
@@ -420,7 +420,7 @@ export function GenericOrders() {
             {filteredOrders.map((o) => {
               const bucket = orderBucket(o.status);
               return (
-                <div key={o.id} className="bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5 space-y-3">
+                <div key={o.id} className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3">
                   <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left">
                     <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
                       {o.customer_name.charAt(0).toUpperCase()}
@@ -449,7 +449,7 @@ export function GenericOrders() {
                           key={b}
                           onClick={() => (b === 'PAID' ? quickMarkPaid(o) : quickSetStatus(o, b === 'NEW' ? 'draft' : 'confirmed'))}
                           className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors ${
-                            active ? 'bg-accent-orange text-white' : 'bg-white ring-1 ring-slate-200 text-slate-500'
+                            active ? 'bg-accent-orange text-white' : 'bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-slate-500'
                           }`}
                         >
                           <BucketIcon className="w-3 h-3" />
@@ -479,7 +479,7 @@ export function GenericOrders() {
           <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={closeDrawer} />
 
           {/* Panel: bottom sheet on mobile, right panel on desktop */}
-          <div className="fixed z-50 bg-white flex flex-col
+          <div className="fixed z-50 bg-white/60 backdrop-blur-2xl backdrop-saturate-150 flex flex-col
             inset-x-0 bottom-0 rounded-t-2xl max-h-[92dvh]
             md:inset-x-auto md:inset-y-0 md:right-0 md:rounded-none md:rounded-l-2xl md:w-[420px] md:max-h-none md:h-full
             shadow-2xl">
@@ -490,7 +490,7 @@ export function GenericOrders() {
             </div>
 
             {/* Header */}
-            <div className="shrink-0 px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+            <div className="shrink-0 px-5 py-4 border-b border-white/40 flex items-start justify-between gap-4">
               <div>
                 <p className="font-bold text-slate-800 text-base">{drawerOrder.order_number}</p>
                 <p className="text-sm text-slate-500 mt-0.5">{drawerOrder.customer_name}</p>
@@ -498,7 +498,7 @@ export function GenericOrders() {
                   {new Date(drawerOrder.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               </div>
-              <button onClick={closeDrawer} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors shrink-0">
+              <button onClick={closeDrawer} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/40 hover:bg-white/60 backdrop-blur-sm transition-colors shrink-0">
                 <X className="w-4 h-4 text-slate-500" />
               </button>
             </div>
@@ -507,7 +507,7 @@ export function GenericOrders() {
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
               {/* Total */}
-              <div className="bg-emerald-50 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div className="bg-emerald-500/10 backdrop-blur-sm ring-1 ring-emerald-500/20 rounded-2xl px-4 py-3 flex items-center justify-between">
                 <span className="text-sm text-emerald-700 font-medium">Order Total</span>
                 <span className="text-xl font-black text-emerald-700">₹{Number(drawerOrder.total_amount).toFixed(2)}</span>
               </div>
@@ -531,7 +531,7 @@ export function GenericOrders() {
                 </div>
 
                 {!editMode ? (
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="rounded-2xl bg-white/30 backdrop-blur-md ring-1 ring-white/50 overflow-hidden">
                     {(drawerOrder.items ?? []).map((item, idx) => (
                       <div key={idx} className="flex items-center justify-between px-4 py-3 border-b border-slate-100 last:border-0">
                         <div className="flex-1 min-w-0">
@@ -547,7 +547,7 @@ export function GenericOrders() {
                 ) : (
                   <div className="space-y-2">
                     {editLines.map((line, idx) => (
-                      <div key={idx} className="flex gap-2 items-center bg-slate-50 rounded-xl p-2">
+                      <div key={idx} className="flex gap-2 items-center bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-2">
                         <div className="flex-1 min-w-0">
                           <input
                             value={line.name}
@@ -556,7 +556,7 @@ export function GenericOrders() {
                             className="w-full text-sm font-medium text-slate-800 bg-transparent outline-none placeholder:text-slate-400 mb-1"
                           />
                           <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                            <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-2 py-1">
                               <button onClick={() => updateLine(idx, 'qty', String(Math.max(1, Number(line.qty) - 1)))} className="text-slate-400 hover:text-slate-600">
                                 <Minus className="w-3 h-3" />
                               </button>
@@ -569,7 +569,7 @@ export function GenericOrders() {
                                 <Plus className="w-3 h-3" />
                               </button>
                             </div>
-                            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                            <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-2 py-1">
                               <span className="text-slate-400 text-xs">₹</span>
                               <input
                                 value={line.price}
@@ -604,14 +604,14 @@ export function GenericOrders() {
                   <select
                     value={drawerStatus}
                     onChange={(e) => setDrawerStatus(e.target.value)}
-                    className="flex-1 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 capitalize"
+                    className="flex-1 h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm font-medium text-slate-700 capitalize"
                   >
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <Button
                     onClick={handleStatusSave}
                     disabled={statusSaving || drawerStatus === drawerOrder.status}
-                    className="h-10 bg-slate-800 hover:bg-slate-700 text-white"
+                    className="h-10 bg-slate-800/85 backdrop-blur-md hover:bg-slate-800/95 text-white"
                   >
                     {statusSaving ? 'Saving…' : 'Save'}
                   </Button>
@@ -620,7 +620,7 @@ export function GenericOrders() {
             </div>
 
             {/* Footer actions */}
-            <div className="shrink-0 px-5 py-4 border-t border-slate-100 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div className="shrink-0 px-5 py-4 border-t border-white/40 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
 
               {/* Mark as Paid */}
               {drawerOrder.status !== 'paid' && drawerOrder.status !== 'cancelled' && (
@@ -630,10 +630,10 @@ export function GenericOrders() {
                       <button
                         key={m}
                         onClick={() => setPaymentMethod(m)}
-                        className={`h-8 rounded-lg text-xs font-semibold border transition-colors ${
+                        className={`h-8 rounded-lg text-xs font-semibold transition-colors ${
                           paymentMethod === m
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300'
+                            ? 'bg-emerald-500/85 backdrop-blur-md ring-1 ring-white/30 text-white'
+                            : 'bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600 hover:bg-white/60'
                         }`}
                       >
                         {m}
@@ -643,7 +643,7 @@ export function GenericOrders() {
                   <Button
                     onClick={handleMarkPaid}
                     disabled={statusSaving}
-                    className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                    className="w-full h-11 gap-2"
                   >
                     <IndianRupee className="w-4 h-4" />
                     Mark as Paid · {paymentMethod}
@@ -656,7 +656,7 @@ export function GenericOrders() {
                 onClick={handleGenerateInvoice}
                 disabled={invoiceLoading}
                 variant="outline"
-                className="w-full h-11 gap-2 border-slate-200"
+                className="w-full h-11 gap-2"
               >
                 <FileText className="w-4 h-4" />
                 {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Generate Invoice'}
@@ -666,7 +666,7 @@ export function GenericOrders() {
               {!deleteConfirm ? (
                 <button
                   onClick={() => setDeleteConfirm(true)}
-                  className="w-full h-11 flex items-center justify-center gap-2 rounded-xl text-rose-500 hover:bg-rose-50 active:bg-rose-100 transition-colors text-sm font-medium"
+                  className="w-full h-11 flex items-center justify-center gap-2 rounded-xl text-rose-500 hover:bg-rose-500/10 active:bg-rose-500/15 transition-colors text-sm font-medium"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Order
@@ -675,13 +675,13 @@ export function GenericOrders() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setDeleteConfirm(false)}
-                    className="flex-1 h-11 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors"
+                    className="flex-1 h-11 rounded-xl bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600 text-sm font-medium hover:bg-white/60 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDelete}
-                    className="flex-1 h-11 rounded-xl bg-rose-600 text-white text-sm font-semibold hover:bg-rose-700 transition-colors"
+                    className="flex-1 h-11 rounded-xl bg-rose-500/85 backdrop-blur-md ring-1 ring-white/30 text-white text-sm font-semibold hover:bg-rose-500/95 transition-colors"
                   >
                     Confirm Delete
                   </button>

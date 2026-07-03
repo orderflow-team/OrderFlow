@@ -189,7 +189,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
           <div className="relative flex-1">
             <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <Input 
-              className="pl-9 h-11 bg-white" 
+              className="pl-9 h-11" 
               placeholder={isRestaurant ? "Search menu items..." : "Search products..."} 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -197,7 +197,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
           </div>
           <div className="flex gap-2">
             <select 
-              className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm min-w-[140px]"
+              className="h-11 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm min-w-[140px]"
               value={selectedCategory || ''}
               onChange={(e) => setSelectedCategory(e.target.value || null)}
             >
@@ -209,7 +209,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowCategoryForm(!showCategoryForm)}>
               <FolderPlus className="h-4 w-4" /> Category
             </Button>
-            <Button className="h-11 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={openCreate}>
+            <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Item
             </Button>
           </div>
@@ -217,7 +217,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
         {/* Category Form Dialog */}
         <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
-          <DialogContent className="sm:max-w-[400px] p-6 bg-white">
+          <DialogContent className="sm:max-w-[400px] p-6">
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">Add New Category</DialogTitle>
             </DialogHeader>
@@ -226,9 +226,9 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 <label className="text-sm font-medium text-slate-700">Category Name</label>
                 <Input className="h-11" value={categoryName} onChange={e => setCategoryName(e.target.value)} placeholder="e.g. Starters" required />
               </div>
-              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/40">
                 <Button type="button" variant="ghost" onClick={() => setShowCategoryForm(false)}>Cancel</Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">Save Category</Button>
+                <Button type="submit" className="">Save Category</Button>
               </div>
             </form>
           </DialogContent>
@@ -236,7 +236,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
         {/* Item Form Dialog */}
         <Dialog open={showItemForm} onOpenChange={setShowItemForm}>
-          <DialogContent className="sm:max-w-[500px] p-6 bg-white">
+          <DialogContent className="sm:max-w-[500px] p-6">
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">{editingItem ? (isRestaurant ? 'Edit Menu Item' : 'Edit Product') : (isRestaurant ? 'Add Menu Item' : 'Add Product')}</DialogTitle>
             </DialogHeader>
@@ -252,7 +252,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Category</label>
                 <select 
-                  className="w-full h-11 rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  className="w-full h-11 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
                   value={form.category}
                   onChange={(e) => setForm({...form, category: e.target.value})}
                 >
@@ -266,7 +266,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 <label className="text-sm font-medium text-slate-700">Description</label>
                 <Input className="h-11" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="e.g. Aromatic lamb curry with Kashmiri spices" />
               </div>
-              <div className="md:col-span-2 flex items-center gap-2 mt-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <div className="md:col-span-2 flex items-center gap-2 mt-2 bg-white/30 backdrop-blur-sm p-3 rounded-xl ring-1 ring-white/40">
                 <input 
                   type="checkbox" 
                   id="avail" 
@@ -276,9 +276,9 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 />
                 <label htmlFor="avail" className="text-sm font-medium text-slate-700">Item is available for ordering</label>
               </div>
-              <div className="md:col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div className="md:col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-white/40">
                 <Button type="button" variant="ghost" onClick={() => setShowItemForm(false)}>Cancel</Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-6">
+                <Button type="submit" className="px-6">
                   {editingItem ? 'Update Item' : 'Save Item'}
                 </Button>
               </div>
@@ -288,10 +288,10 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
         {/* Categories Tabs */}
         <div className="flex flex-wrap gap-2">
-          <div 
-            className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border cursor-pointer transition-colors ${
-              selectedCategory === null ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
-            }`} 
+          <div
+            className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
+              selectedCategory === null ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
+            }`}
             onClick={() => setSelectedCategory(null)}
           >
             All <span className="text-slate-400">({products.length})</span>
@@ -300,12 +300,12 @@ export function MenuGrid({ businessId }: { businessId: string }) {
             const count = products.filter(p => p.category === c.name).length;
             const isSel = selectedCategory === c.name;
             return (
-              <div key={c.id} className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border cursor-pointer transition-colors ${
-                isSel ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
+              <div key={c.id} className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
+                isSel ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
               }`} onClick={() => setSelectedCategory(isSel ? null : c.name)}>
                 {c.name} <span className="text-slate-400">({count})</span>
-                <button 
-                  className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full hover:bg-slate-200 text-slate-400 hover:text-rose-500 absolute -right-2 -top-2 bg-white border border-slate-200 shadow-sm"
+                <button
+                  className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full hover:bg-slate-500/10 text-slate-400 hover:text-rose-500 absolute -right-2 -top-2 bg-white/60 ring-1 ring-white/50 backdrop-blur-sm"
                   onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }}
                 >
                   <Trash2 className="w-3 h-3" />
@@ -318,12 +318,12 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         {/* Product Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map(p => (
-            <Card key={p.id} className="overflow-hidden border-slate-200 hover:border-emerald-200 hover:shadow-md transition-all flex flex-col group">
+            <Card key={p.id} className="overflow-hidden hover:ring-emerald-300/50 transition-all flex flex-col group">
               <CardContent className="p-5 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-slate-800 text-lg leading-tight">{p.name}</h3>
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                    p.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm ${
+                    p.is_available ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
                   }`}>
                     {p.is_available ? 'Available' : 'Sold Out'}
                   </span>
@@ -334,10 +334,10 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 {p.description && (
                   <p className="text-sm text-slate-500 mb-4 flex-1 line-clamp-2">{p.description}</p>
                 )}
-                <div className="mt-auto pt-4 border-t border-slate-100">
+                <div className="mt-auto pt-4 border-t border-white/40">
                   <div className="flex items-center justify-between mb-4">
                     {p.category && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 px-2 py-1 rounded-full">
                         <Tag className="w-3 h-3" /> {p.category}
                       </span>
                     )}
@@ -346,7 +346,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                     <Button variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs font-semibold" onClick={() => openEdit(p)}>
                       <Pencil className="w-3.5 h-3.5" /> Edit
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-100" onClick={() => deleteItem(p.id)}>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => deleteItem(p.id)}>
                       <Trash2 className="w-3.5 h-3.5" /> Delete
                     </Button>
                   </div>

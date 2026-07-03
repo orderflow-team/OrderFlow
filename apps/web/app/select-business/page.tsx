@@ -52,7 +52,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   };
 
   return (
-    <Card className="ring-slate-200/70 shadow-xl shadow-slate-200/60">
+    <Card className="ring-white/50 glass-sheen-sm">
       <CardHeader>
         <CardTitle className="text-xl">Add a new business</CardTitle>
         <CardDescription>Set up another workspace for a different category.</CardDescription>
@@ -141,10 +141,10 @@ export default function SelectBusinessPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 relative overflow-hidden">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-32 w-[28rem] h-[28rem] rounded-full bg-emerald-300/50 blur-3xl" />
-        <div className="absolute top-1/4 -right-32 w-[28rem] h-[28rem] rounded-full bg-teal-300/50 blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-[28rem] h-[28rem] rounded-full bg-sky-300/50 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[75vh] max-w-[70rem] max-h-[45rem] min-w-[36rem] min-h-[28rem] rounded-full bg-sky-300/55 blur-3xl" />
+        <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-emerald-300/50 blur-3xl" />
+        <div className="absolute -top-1/4 -right-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-teal-300/50 blur-3xl" />
       </div>
       <div className="w-full max-w-md space-y-6 relative z-10 animate-in fade-in zoom-in-95 duration-700">
         <div className="text-center space-y-1">
@@ -160,7 +160,7 @@ export default function SelectBusinessPage() {
             onCancel={() => setShowNewForm(false)}
           />
         ) : (
-          <Card className="ring-slate-200/70 shadow-xl shadow-slate-200/60">
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardContent className="p-4 space-y-2">
               {businesses.map((b) => (
                 <button
@@ -169,7 +169,7 @@ export default function SelectBusinessPage() {
                   disabled={selecting !== null}
                   className="w-full flex items-center gap-3 rounded-2xl border border-white/40 ring-1 ring-white/50 bg-white/40 hover:bg-white/60 px-4 py-3 text-left transition-all disabled:opacity-50 glass-sheen-sm"
                 >
-                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                  <div className="p-2 rounded-full bg-emerald-500/15 backdrop-blur-sm text-emerald-600">
                     <Store className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
@@ -185,7 +185,7 @@ export default function SelectBusinessPage() {
                 disabled={selecting !== null}
                 className="w-full flex items-center gap-3 rounded-2xl border border-dashed border-white/60 bg-white/20 hover:bg-white/40 px-4 py-3 text-left transition-all disabled:opacity-50 mt-2"
               >
-                <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
+                <div className="p-2 rounded-full bg-white/40 backdrop-blur-sm text-slate-600">
                   <Plus className="w-4 h-4" />
                 </div>
                 <p className="font-medium text-slate-800">Add new business</p>

@@ -163,7 +163,7 @@ function ProductsPageContent() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products..."
-              className="w-full h-11 pl-10 pr-4 rounded-full bg-white ring-1 ring-slate-200/70 shadow-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-lavender-fg/40"
+              className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-lavender-fg/40"
             />
           </div>
           {businessId && <ClearModuleButton module="products" businessId={businessId} />}
@@ -263,7 +263,7 @@ function ProductsPageContent() {
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
         ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl ring-1 ring-slate-200/70">
+          <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
             <div className="w-24 h-24 bg-tile-lavender rounded-full flex items-center justify-center mb-6">
               <Package className="w-10 h-10 text-tile-lavender-fg" />
             </div>
@@ -277,9 +277,9 @@ function ProductsPageContent() {
           <div className="space-y-3">
             {products.map((p) => {
               const stockTone =
-                p.stock_quantity === 0 ? 'bg-rose-50 text-rose-600' : p.stock_quantity <= 10 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500';
+                p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= 10 ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
               return (
-                <div key={p.id} className="flex items-center gap-3 bg-white rounded-2xl ring-1 ring-slate-200/70 shadow-sm p-3.5">
+                <div key={p.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
                   <button onClick={() => openEditForm(p)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
                     <div className="w-11 h-11 rounded-xl bg-tile-lavender-fg text-white flex items-center justify-center shrink-0">
                       <Package className="w-5 h-5" />
@@ -289,7 +289,7 @@ function ProductsPageContent() {
                         {p.name}
                         {p.unit ? ` (${p.unit})` : ''}
                         {p.is_draft && (
-                          <span className="ml-2 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
                         )}
                       </p>
                       <p className="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1">
