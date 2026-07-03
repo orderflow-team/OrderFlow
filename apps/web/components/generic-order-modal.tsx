@@ -25,6 +25,8 @@ interface Category {
 export interface CartItem {
   product: Product;
   quantity: number;
+  original_unit?: string;
+  original_price?: number;
 }
 
 export interface Customer {
@@ -166,7 +168,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       if (next <= 0) {
         delete newCart[product.id];
       } else {
-        newCart[product.id] = { product: nextProduct, quantity: next };
+        const existingItem = newCart[product.id];
+        newCart[product.id] = { 
+          product: nextProduct, 
+          quantity: next,
+          original_unit: existingItem ? existingItem.original_unit : product.unit,
+          original_price: existingItem ? existingItem.original_price : Number(product.selling_price)
+        };
       }
       return newCart;
     });
@@ -175,7 +183,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const setCartQuantity = (product: Product, quantity: number) => {
     setCart(prev => {
       const newCart = { ...prev };
-      newCart[product.id] = { product, quantity };
+      const existingItem = newCart[product.id];
+      newCart[product.id] = { 
+        product, 
+        quantity,
+        original_unit: existingItem ? existingItem.original_unit : product.unit,
+        original_price: existingItem ? existingItem.original_price : Number(product.selling_price)
+      };
       return newCart;
     });
   };
@@ -198,8 +212,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       const newCart = { ...prev };
       const item = newCart[productId];
       if (item) {
-        const currentUnit = item.product.unit || 'pcs';
-        let newPrice = Number(item.product.selling_price);
+        const originalUnit = item.original_unit || item.product.unit || 'pcs';
+        const originalPrice = item.original_price ?? Number(item.product.selling_price);
+        let newPrice = originalPrice;
 
         const normalize = (u: string) => {
           const lower = (u || '').toLowerCase();
@@ -210,18 +225,18 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           return lower;
         };
 
-        const parsedCurrent = parseQuantityUnit(currentUnit) || { quantity: 1, unit: currentUnit };
+        const parsedOriginal = parseQuantityUnit(originalUnit) || { quantity: 1, unit: originalUnit };
         const parsedNew = parseQuantityUnit(newUnit) || { quantity: 1, unit: newUnit };
 
-        const normCurrent = normalize(parsedCurrent.unit);
+        const normOriginal = normalize(parsedOriginal.unit);
         const normNew = normalize(parsedNew.unit);
         const isMass = (u: string) => u === 'kg' || u === 'g';
         const isVol = (u: string) => u === 'L' || u === 'ml';
 
-        if (normCurrent && normNew && ((isMass(normCurrent) && isMass(normNew)) || (isVol(normCurrent) && isVol(normNew)))) {
+        if (normOriginal && normNew && ((isMass(normOriginal) && isMass(normNew)) || (isVol(normOriginal) && isVol(normNew)))) {
           // Calculate price per 1 basic unit (g or ml)
-          let pricePerBasicUnit = newPrice / parsedCurrent.quantity;
-          if (normCurrent === 'kg' || normCurrent === 'L') {
+          let pricePerBasicUnit = originalPrice / parsedOriginal.quantity;
+          if (normOriginal === 'kg' || normOriginal === 'L') {
             pricePerBasicUnit = pricePerBasicUnit / 1000;
           }
 
