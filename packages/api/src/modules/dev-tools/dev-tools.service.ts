@@ -71,10 +71,10 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     switch (category) {
       case 'pharmacy':
         return [
-          { name: 'Crocin 650mg (10 tab)', category: 'Pharmacy', unit: 'strip', purchasePrice: 12, sellingPrice: 18, taxPercentage: 12, stockQuantity: 6, batchNumber: 'CR2024A', expiryDate: this.daysFromNow(20) },
-          { name: 'Dolo 650mg (15 tab)', category: 'Pharmacy', unit: 'strip', purchasePrice: 14, sellingPrice: 20, taxPercentage: 12, stockQuantity: 50, batchNumber: 'DL2024B', expiryDate: this.daysFromNow(180) },
-          { name: 'ORS Powder Sachet', category: 'Pharmacy', unit: 'sachet', purchasePrice: 8, sellingPrice: 12, taxPercentage: 12, stockQuantity: 40, batchNumber: 'ORS24', expiryDate: this.daysFromNow(300) },
-          { name: 'Vicks Vaporub 50ml', category: 'Pharmacy', unit: 'jar', purchasePrice: 65, sellingPrice: 85, taxPercentage: 18, stockQuantity: 5 },
+          { name: 'Crocin', category: 'Pharmacy', unit: 'pcs', purchasePrice: 12, sellingPrice: 18, taxPercentage: 12, stockQuantity: 6, batchNumber: 'CR2024A', expiryDate: this.daysFromNow(20) },
+          { name: 'Dolo', category: 'Pharmacy', unit: 'pcs', purchasePrice: 14, sellingPrice: 20, taxPercentage: 12, stockQuantity: 50, batchNumber: 'DL2024B', expiryDate: this.daysFromNow(180) },
+          { name: 'ORS Powder Sachet', category: 'Pharmacy', unit: 'pkt', purchasePrice: 8, sellingPrice: 12, taxPercentage: 12, stockQuantity: 40, batchNumber: 'ORS24', expiryDate: this.daysFromNow(300) },
+          { name: 'Vicks Vaporub', category: 'Pharmacy', unit: 'pcs', purchasePrice: 65, sellingPrice: 85, taxPercentage: 18, stockQuantity: 5 },
         ];
       case 'restaurant':
         return [
@@ -83,37 +83,37 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
           { name: 'Paneer Butter Masala', category: 'Main Course', description: 'Rich and creamy curry made with paneer, spices, onions, tomatoes, and butter.', unit: 'plate', purchasePrice: 80, sellingPrice: 220, taxPercentage: 5, stockQuantity: 100 },
           { name: 'Dal Makhani', category: 'Main Course', description: 'Classic North Indian dish made with whole urad dal, rajma, butter and spices.', unit: 'plate', purchasePrice: 50, sellingPrice: 160, taxPercentage: 5, stockQuantity: 80 },
           { name: 'Veg Biryani', category: 'Main Course', description: 'Aromatic basmati rice cooked with mixed vegetables and traditional spices.', unit: 'plate', purchasePrice: 60, sellingPrice: 190, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Butter Naan', category: 'Breads & Rice', description: 'Soft, buttery Indian flatbread baked in a tandoor.', unit: 'piece', purchasePrice: 8, sellingPrice: 35, taxPercentage: 5, stockQuantity: 200 },
-          { name: 'Garlic Naan', category: 'Breads & Rice', description: 'Tandoori naan infused with fresh garlic and cilantro.', unit: 'piece', purchasePrice: 10, sellingPrice: 45, taxPercentage: 5, stockQuantity: 150 },
+          { name: 'Butter Naan', category: 'Breads & Rice', description: 'Soft, buttery Indian flatbread baked in a tandoor.', unit: 'pcs', purchasePrice: 8, sellingPrice: 35, taxPercentage: 5, stockQuantity: 200 },
+          { name: 'Garlic Naan', category: 'Breads & Rice', description: 'Tandoori naan infused with fresh garlic and cilantro.', unit: 'pcs', purchasePrice: 10, sellingPrice: 45, taxPercentage: 5, stockQuantity: 150 },
           { name: 'Jeera Rice', category: 'Breads & Rice', description: 'Basmati rice flavored with cumin seeds.', unit: 'plate', purchasePrice: 30, sellingPrice: 110, taxPercentage: 5, stockQuantity: 120 },
-          { name: 'Tandoori Roti', category: 'Tandoori Specials', description: 'Traditional whole wheat flatbread baked in tandoor.', unit: 'piece', purchasePrice: 6, sellingPrice: 25, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Gulab Jamun', category: 'Desserts', description: 'Deep-fried sweet dumplings soaked in sugar syrup.', unit: 'piece', purchasePrice: 10, sellingPrice: 40, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Masala Chai', category: 'Beverages', description: 'Indian tea brewed with milk, sugar, and aromatic spices.', unit: 'cup', purchasePrice: 5, sellingPrice: 20, taxPercentage: 5, stockQuantity: 200 },
-          { name: 'Sweet Lassi', category: 'Beverages', description: 'Traditional creamy yogurt-based sweet drink.', unit: 'glass', purchasePrice: 15, sellingPrice: 60, taxPercentage: 5, stockQuantity: 80 },
+          { name: 'Tandoori Roti', category: 'Tandoori Specials', description: 'Traditional whole wheat flatbread baked in tandoor.', unit: 'pcs', purchasePrice: 6, sellingPrice: 25, taxPercentage: 5, stockQuantity: 100 },
+          { name: 'Gulab Jamun', category: 'Desserts', description: 'Deep-fried sweet dumplings soaked in sugar syrup.', unit: 'pcs', purchasePrice: 10, sellingPrice: 40, taxPercentage: 5, stockQuantity: 100 },
+          { name: 'Masala Chai', category: 'Beverages', description: 'Indian tea brewed with milk, sugar, and aromatic spices.', unit: 'pcs', purchasePrice: 5, sellingPrice: 20, taxPercentage: 5, stockQuantity: 200 },
+          { name: 'Sweet Lassi', category: 'Beverages', description: 'Traditional creamy yogurt-based sweet drink.', unit: 'pcs', purchasePrice: 15, sellingPrice: 60, taxPercentage: 5, stockQuantity: 80 },
         ];
       case 'wholesale':
         return [
-          { name: 'Tata Salt 1kg (Carton of 20)', category: 'Wholesale', unit: 'carton', purchasePrice: 320, sellingPrice: 380, taxPercentage: 5, stockQuantity: 15 },
-          { name: 'Aashirvaad Atta 5kg (Bulk Bag)', category: 'Wholesale', unit: 'bag', purchasePrice: 215, sellingPrice: 250, taxPercentage: 5, stockQuantity: 8 },
-          { name: 'Fortune Sunflower Oil 15L Tin', category: 'Wholesale', unit: 'tin', purchasePrice: 1900, sellingPrice: 2150, taxPercentage: 5, stockQuantity: 12 },
-          { name: 'Sugar 50kg Bag', category: 'Wholesale', unit: 'bag', purchasePrice: 2100, sellingPrice: 2300, taxPercentage: 5, stockQuantity: 6 },
+          { name: 'Tata Salt', category: 'Wholesale', unit: 'box', purchasePrice: 320, sellingPrice: 380, taxPercentage: 5, stockQuantity: 15 },
+          { name: 'Aashirvaad Atta', category: 'Wholesale', unit: 'pkt', purchasePrice: 215, sellingPrice: 250, taxPercentage: 5, stockQuantity: 8 },
+          { name: 'Fortune Sunflower Oil', category: 'Wholesale', unit: 'box', purchasePrice: 1900, sellingPrice: 2150, taxPercentage: 5, stockQuantity: 12 },
+          { name: 'Sugar', category: 'Wholesale', unit: 'pkt', purchasePrice: 2100, sellingPrice: 2300, taxPercentage: 5, stockQuantity: 6 },
         ];
       case 'salesman':
         return [
-          { name: 'Tata Salt 1kg', category: 'FMCG', unit: 'packet', purchasePrice: 18, sellingPrice: 25, taxPercentage: 5, stockQuantity: 40 },
-          { name: 'Maggi Noodles 2-min', category: 'FMCG', unit: 'packet', purchasePrice: 10, sellingPrice: 14, taxPercentage: 5, stockQuantity: 8 },
-          { name: 'Parle-G Biscuit', category: 'FMCG', unit: 'packet', purchasePrice: 8, sellingPrice: 10, taxPercentage: 5, stockQuantity: 60 },
-          { name: 'Fortune Sunflower Oil 1L', category: 'FMCG', unit: 'bottle', purchasePrice: 140, sellingPrice: 165, taxPercentage: 5, stockQuantity: 30 },
+          { name: 'Tata Salt', category: 'FMCG', unit: 'pkt', purchasePrice: 18, sellingPrice: 25, taxPercentage: 5, stockQuantity: 40 },
+          { name: 'Maggi Noodles', category: 'FMCG', unit: 'pkt', purchasePrice: 10, sellingPrice: 14, taxPercentage: 5, stockQuantity: 8 },
+          { name: 'Parle-G Biscuit', category: 'FMCG', unit: 'pkt', purchasePrice: 8, sellingPrice: 10, taxPercentage: 5, stockQuantity: 60 },
+          { name: 'Fortune Sunflower Oil', category: 'FMCG', unit: 'pcs', purchasePrice: 140, sellingPrice: 165, taxPercentage: 5, stockQuantity: 30 },
         ];
       case 'grocery':
       case 'retail':
       case 'others':
       default:
         return [
-          { name: 'Tata Salt 1kg', category: 'Grocery', unit: 'packet', purchasePrice: 18, sellingPrice: 25, taxPercentage: 5, stockQuantity: 40 },
-          { name: 'Aashirvaad Atta 5kg', category: 'Grocery', unit: 'bag', purchasePrice: 220, sellingPrice: 260, taxPercentage: 5, stockQuantity: 25 },
-          { name: 'Amul Toned Milk 1L', category: 'Dairy', unit: 'packet', purchasePrice: 48, sellingPrice: 56, taxPercentage: 0, stockQuantity: 8 },
-          { name: 'Fortune Sunflower Oil 1L', category: 'Grocery', unit: 'bottle', purchasePrice: 140, sellingPrice: 165, taxPercentage: 5, stockQuantity: 30 },
+          { name: 'Tata Salt', category: 'Grocery', unit: 'pkt', purchasePrice: 18, sellingPrice: 25, taxPercentage: 5, stockQuantity: 40 },
+          { name: 'Aashirvaad Atta', category: 'Grocery', unit: 'pkt', purchasePrice: 220, sellingPrice: 260, taxPercentage: 5, stockQuantity: 25 },
+          { name: 'Amul Toned Milk', category: 'Dairy', unit: 'pkt', purchasePrice: 48, sellingPrice: 56, taxPercentage: 0, stockQuantity: 8 },
+          { name: 'Fortune Sunflower Oil', category: 'Grocery', unit: 'pcs', purchasePrice: 140, sellingPrice: 165, taxPercentage: 5, stockQuantity: 30 },
         ];
     }
   }

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
 import { ShoppingCart, Plus, Minus, Search } from 'lucide-react';
+import { parseQuantityUnit } from '@/lib/parse-quantity-unit';
 
 interface Product {
   id: string;
@@ -12,6 +13,7 @@ interface Product {
   selling_price: string | number;
   category: string | null;
   is_available: boolean;
+  unit?: string;
 }
 
 interface Category {
@@ -82,12 +84,93 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
     setCart(prev => {
       const newCart = { ...prev };
       const current = newCart[product.id]?.quantity || 0;
-      const next = current + delta;
+      
+      let next = current + delta;
+      let nextProduct = { ...product };
+
+      if (current === 0 && delta > 0) {
+        // Just add the product as configured, without splitting the unit and quantity
+      }
       
       if (next <= 0) {
         delete newCart[product.id];
       } else {
-        newCart[product.id] = { product, quantity: next };
+        newCart[product.id] = { product: nextProduct, quantity: next };
+      }
+      return newCart;
+    });
+  };
+
+  const setCartQuantity = (product: Product, quantity: number) => {
+    setCart(prev => {
+      const newCart = { ...prev };
+      newCart[product.id] = { product, quantity };
+      return newCart;
+    });
+  };
+
+  const updateCartName = (productId: string, newName: string) => {
+    setCart(prev => {
+      const newCart = { ...prev };
+      if (newCart[productId]) {
+        newCart[productId] = {
+          ...newCart[productId],
+          product: { ...newCart[productId].product, name: newName },
+        };
+      }
+      return newCart;
+    });
+  };
+
+  const updateCartUnit = (productId: string, newUnit: string) => {
+    setCart(prev => {
+      const newCart = { ...prev };
+      const item = newCart[productId];
+      if (item) {
+        const currentUnit = item.product.unit || 'pcs';
+        let newPrice = Number(item.product.selling_price);
+
+        const normalize = (u: string) => {
+          const lower = (u || '').toLowerCase();
+          if (lower === 'gram' || lower === 'g' || lower === 'gm' || lower === 'gms') return 'g';
+          if (lower === 'kg' || lower === 'kilo' || lower === 'kgs' || lower === 'kilogram') return 'kg';
+          if (lower === 'litre' || lower === 'l' || lower === 'ltr' || lower === 'liters') return 'L';
+          if (lower === 'ml' || lower === 'mls' || lower === 'millilitre') return 'ml';
+          return lower;
+        };
+
+        const parsedCurrent = parseQuantityUnit(currentUnit) || { quantity: 1, unit: currentUnit };
+        const parsedNew = parseQuantityUnit(newUnit) || { quantity: 1, unit: newUnit };
+
+        const normCurrent = normalize(parsedCurrent.unit);
+        const normNew = normalize(parsedNew.unit);
+        const isMass = (u: string) => u === 'kg' || u === 'g';
+        const isVol = (u: string) => u === 'L' || u === 'ml';
+
+        if (normCurrent && normNew && ((isMass(normCurrent) && isMass(normNew)) || (isVol(normCurrent) && isVol(normNew)))) {
+          // Calculate price per 1 basic unit (g or ml)
+          let pricePerBasicUnit = newPrice / parsedCurrent.quantity;
+          if (normCurrent === 'kg' || normCurrent === 'L') {
+            pricePerBasicUnit = pricePerBasicUnit / 1000;
+          }
+
+          // Multiply by the new unit's configuration
+          let finalPrice = pricePerBasicUnit * parsedNew.quantity;
+          if (normNew === 'kg' || normNew === 'L') {
+            finalPrice = finalPrice * 1000;
+          }
+          
+          newPrice = finalPrice;
+        }
+
+        newCart[productId] = {
+          ...item,
+          product: { 
+            ...item.product, 
+            unit: newUnit,
+            selling_price: parseFloat(newPrice.toFixed(4)).toString()
+          },
+        };
       }
       return newCart;
     });
@@ -169,7 +252,10 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
                     </span>
                   )}
                   <h4 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 pr-4">{p.name}</h4>
-                  <div className="text-emerald-600 font-bold text-sm mt-2">₹{Number(p.selling_price).toFixed(2)}</div>
+                  <div className="text-emerald-600 font-bold text-sm mt-2">
+                    ₹{Number(p.selling_price).toFixed(2)}
+                    {p.unit && <span className="text-xs text-slate-500 font-medium ml-1">/ {p.unit}</span>}
+                  </div>
                 </div>
               );
             })}
@@ -185,21 +271,84 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           
           <div className="max-h-40 overflow-y-auto space-y-3 mb-4 pr-2">
             {cartItems.map(item => (
-              <div key={item.product.id} className="flex justify-between items-center text-sm">
-                <span className="text-slate-700 truncate pr-4 flex-1">{item.product.name}</span>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white/50 border border-white/60 ring-1 ring-white/50 rounded-xl p-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
-                    <button onClick={() => updateCart(item.product, -1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-4 text-center font-medium">{item.quantity}</span>
-                    <button onClick={() => updateCart(item.product, 1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
-                      <Plus className="w-3 h-3" />
-                    </button>
+              <div key={item.product.id} className="flex flex-col gap-2 pb-3 border-b border-white/20 last:border-0 last:pb-0 text-sm">
+                <input
+                  type="text"
+                  className="text-slate-800 font-medium bg-transparent border-none outline-none focus:ring-1 focus:ring-emerald-500 rounded px-1 -mx-1"
+                  value={item.product.name}
+                  onChange={(e) => updateCartName(item.product.id, e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <div className="flex items-center justify-between gap-1 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-center gap-1 bg-white/50 border border-white/60 ring-1 ring-white/50 rounded-xl px-1 py-0.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
+                      <button onClick={() => updateCart(item.product, -1)} className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
+                        <Minus className="w-2.5 h-2.5" />
+                      </button>
+                      <input
+                        type="number"
+                        className="w-6 text-center font-medium text-xs bg-transparent outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        value={item.quantity === 0 ? '' : item.quantity}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 0) setCartQuantity(item.product, val);
+                        }}
+                        onBlur={() => {
+                          if (item.quantity === 0) updateCart(item.product, 0);
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <button onClick={() => updateCart(item.product, 1)} className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
+                        <Plus className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      list="unit-options-menu"
+                      className="bg-white/50 border border-white/60 text-slate-600 text-xs rounded outline-none focus:ring-1 focus:ring-emerald-500 py-1 px-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] cursor-text w-16"
+                      value={item.product.unit || ''}
+                      placeholder="Unit"
+                      onChange={(e) => updateCartUnit(item.product.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <datalist id="unit-options-menu">
+                      <option value="pcs" />
+                      <option value="kg" />
+                      <option value="g" />
+                      <option value="L" />
+                      <option value="ml" />
+                      <option value="pl" />
+                      <option value="box" />
+                      <option value="pkt" />
+                    </datalist>
                   </div>
-                  <span className="font-semibold text-slate-800 w-16 text-right">
-                    ₹{(Number(item.product.selling_price) * item.quantity).toFixed(2)}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0 justify-end flex-1">
+                    <div className="flex items-center gap-0.5 border border-white/60 rounded-lg px-2 py-0.5 focus-within:ring-1 focus-within:ring-emerald-500 bg-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]" title="Total Price">
+                      <span className="text-slate-400 text-xs">₹</span>
+                      <input
+                        type="number"
+                        className="w-16 h-6 text-right text-sm font-semibold text-slate-800 bg-transparent outline-none p-0"
+                        value={item.quantity > 0 ? Number((Number(item.product.selling_price) * item.quantity).toFixed(2)) : ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                             updateCartPrice(item.product.id, "0");
+                          } else {
+                             const numVal = parseFloat(val);
+                             if (!isNaN(numVal) && item.quantity > 0) {
+                               updateCartPrice(item.product.id, (numVal / item.quantity).toString());
+                             }
+                          }
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

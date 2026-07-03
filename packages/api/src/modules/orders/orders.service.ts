@@ -572,7 +572,7 @@ export class OrdersService {
    * { productId → price }. Queries actual order items (not just price_history)
    * so existing historical orders are included even before price_history was populated.
    */
-  async customerPrices(businessId: string, customerId: string): Promise<Record<string, number>> {
+  async customerPrices(businessId: string, customerId: string): Promise<Record<string, { price: number, unit?: string }>> {
     // Pull all paid/confirmed order items for this customer, newest first
     const items = await this.orderItemsRepository
       .createQueryBuilder('oi')
@@ -582,14 +582,14 @@ export class OrdersService {
       .andWhere('o.status IN (:...statuses)', { statuses: ['paid', 'confirmed', 'delivered'] })
       .andWhere('oi.product_id IS NOT NULL')
       .orderBy('o.created_at', 'DESC')
-      .select(['oi.id', 'oi.product_id', 'oi.unit_price'])
+      .select(['oi.id', 'oi.product_id', 'oi.unit_price', 'oi.unit'])
       .getMany();
 
-    // Keep only the most recent price per product
-    const map: Record<string, number> = {};
+    // Keep only the most recent price and unit per product
+    const map: Record<string, { price: number, unit?: string }> = {};
     for (const item of items) {
       if (item.product_id && !(item.product_id in map)) {
-        map[item.product_id] = Number(item.unit_price);
+        map[item.product_id] = { price: Number(item.unit_price), unit: item.unit || undefined };
       }
     }
     return map;

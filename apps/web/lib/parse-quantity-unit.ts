@@ -1,15 +1,16 @@
 // Canonical units used across the product form (see commonUnits in app/products/page.tsx).
 const UNIT_ALIASES: Record<string, string> = {
   kg: 'kg', kgs: 'kg', kilo: 'kg', kilos: 'kg', kilogram: 'kg', kilograms: 'kg',
-  g: 'gram', gm: 'gram', gms: 'gram', gram: 'gram', grams: 'gram',
-  l: 'litre', ltr: 'litre', ltrs: 'litre', liter: 'litre', liters: 'litre', litre: 'litre', litres: 'litre',
+  g: 'g', gm: 'g', gms: 'g', gram: 'g', grams: 'g',
+  l: 'L', ltr: 'L', ltrs: 'L', liter: 'L', liters: 'L', litre: 'L', litres: 'L',
   ml: 'ml', mls: 'ml', millilitre: 'ml', millilitres: 'ml',
-  pc: 'piece', pcs: 'piece', piece: 'piece', pieces: 'piece',
-  packet: 'packet', packets: 'packet', pkt: 'packet', pkts: 'packet',
+  pc: 'pcs', pcs: 'pcs', piece: 'pcs', pieces: 'pcs',
+  packet: 'pkt', packets: 'pkt', pkt: 'pkt', pkts: 'pkt',
   box: 'box', boxes: 'box',
-  dozen: 'dozen', dz: 'dozen',
-  bottle: 'bottle', bottles: 'bottle',
-  strip: 'strip', strips: 'strip',
+  dozen: 'pcs', dz: 'pcs',
+  bottle: 'pcs', bottles: 'pcs',
+  strip: 'pcs', strips: 'pcs',
+  plate: 'plate', plates: 'plate'
 };
 
 const UNIT_PATTERN = Object.keys(UNIT_ALIASES)
