@@ -191,6 +191,19 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
     });
   };
 
+  const updateCartPrice = (productId: string, newPrice: string) => {
+    setCart(prev => {
+      const newCart = { ...prev };
+      if (newCart[productId]) {
+        newCart[productId] = {
+          ...newCart[productId],
+          product: { ...newCart[productId].product, selling_price: newPrice },
+        };
+      }
+      return newCart;
+    });
+  };
+
   const handleSubmit = async () => {
     const items = Object.values(cart);
     if (items.length === 0) return;
