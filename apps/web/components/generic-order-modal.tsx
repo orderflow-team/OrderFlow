@@ -390,12 +390,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="grid grid-cols-2 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
-              const originalPrice = customerPrices[p.id] !== undefined ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
-              const hasCustomPrice = originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
+              const hasPreviousPrice = customerPrices[p.id] !== undefined;
+              const originalPrice = hasPreviousPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
+              const hasCustomPrice = hasPreviousPrice && originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
               return (
                 <div
                   key={p.id}
-                  className={`relative p-3 rounded-2xl border cursor-pointer transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${
+                  className={`relative p-3 rounded-2xl border cursor-pointer transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm flex flex-col justify-between ${
                     qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
                   onClick={() => updateCart(p, 1)}
@@ -406,14 +407,21 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                     </span>
                   )}
                   <h4 className="font-semibold text-slate-800 text-sm leading-snug pr-5">{p.name}</h4>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <span className="font-bold text-sm text-emerald-600">
-                      ₹{Number(p.selling_price).toFixed(2)}
-                      {p.unit && <span className="text-xs text-slate-500 font-medium ml-1">/ {p.unit}</span>}
-                    </span>
-                    {hasCustomPrice && originalPrice !== undefined && (
-                      <span className="text-xs text-slate-400 line-through">
-                        ₹{Number(originalPrice).toFixed(2)}
+                  <div className="flex flex-col gap-1 mt-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-sm text-emerald-600">
+                        ₹{Number(p.selling_price).toFixed(2)}
+                        {p.unit && <span className="text-xs text-slate-500 font-medium ml-1">/ {p.unit}</span>}
+                      </span>
+                      {hasCustomPrice && originalPrice !== undefined && (
+                        <span className="text-xs text-slate-400 line-through">
+                          ₹{Number(originalPrice).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {hasPreviousPrice && (
+                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-500/20 px-1.5 py-0.5 rounded w-fit border border-emerald-500/30">
+                        Last purchased price
                       </span>
                     )}
                   </div>
