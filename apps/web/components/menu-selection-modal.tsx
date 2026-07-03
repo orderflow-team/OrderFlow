@@ -346,8 +346,14 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
                       <option value="pcs" />
                       <option value="kg" />
                       <option value="g" />
+                      <option value="100g" />
+                      <option value="250g" />
+                      <option value="500g" />
                       <option value="L" />
                       <option value="ml" />
+                      <option value="100ml" />
+                      <option value="250ml" />
+                      <option value="500ml" />
                       <option value="pl" />
                       <option value="box" />
                       <option value="pkt" />
