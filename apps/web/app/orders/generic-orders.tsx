@@ -569,6 +569,13 @@ export function GenericOrders() {
                                 <Plus className="w-3 h-3" />
                               </button>
                             </div>
+                            <input
+                              value={line.unit || ''}
+                              onChange={(e) => updateLine(idx, 'unit', e.target.value)}
+                              list="edit-unit-options"
+                              placeholder="Unit"
+                              className="w-14 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-1.5 py-1 text-xs text-slate-600 outline-none"
+                            />
                             <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-2 py-1">
                               <span className="text-slate-400 text-xs">₹</span>
                               <input
@@ -593,6 +600,21 @@ export function GenericOrders() {
                     <button onClick={addEditLine} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-dashed border-slate-300 text-sm text-slate-500 hover:border-emerald-400 hover:text-emerald-600 transition-colors">
                       <Plus className="w-3.5 h-3.5" /> Add item
                     </button>
+                    <datalist id="edit-unit-options">
+                      <option value="pcs" />
+                      <option value="kg" />
+                      <option value="g" />
+                      <option value="100g" />
+                      <option value="250g" />
+                      <option value="500g" />
+                      <option value="L" />
+                      <option value="ml" />
+                      <option value="100ml" />
+                      <option value="250ml" />
+                      <option value="500ml" />
+                      <option value="box" />
+                      <option value="pkt" />
+                    </datalist>
                   </div>
                 )}
               </div>
