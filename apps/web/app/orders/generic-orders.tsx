@@ -9,6 +9,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
@@ -16,11 +17,12 @@ import {
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
-interface Product { id: string; name: string; selling_price: string | number; unit: string; }
+interface Product { id: string; name: string; selling_price: string | number; unit: string; unit_prices?: Record<string, number> | null; }
 interface OrderItem {
   quantity: string | number;
   unit_price: string | number;
   subtotal: string | number;
+  unit?: string | null;
   product?: Product;
   custom_product_name?: string;
 }
@@ -83,7 +85,10 @@ export function GenericOrders() {
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Credit'>('Cash');
 
   // Edit-items state
-  type EditLine = { name: string; qty: string; price: string; productId?: string; unit?: string };
+  type EditLine = {
+    name: string; qty: string; price: string; productId?: string; unit?: string;
+    originalUnit?: string; originalPrice?: string; unitPrices?: Record<string, number> | null;
+  };
   const [editMode, setEditMode] = useState(false);
   const [editLines, setEditLines] = useState<EditLine[]>([]);
   const [editSaving, setEditSaving] = useState(false);
@@ -269,19 +274,69 @@ export function GenericOrders() {
   const startEdit = () => {
     if (!drawerOrder?.items) return;
     setEditLines(
-      drawerOrder.items.map((i) => ({
-        name: i.product?.name || i.custom_product_name || '',
-        qty: String(Number(i.quantity)),
-        price: String(Number(i.unit_price)),
-        productId: i.product?.id,
-        unit: i.product?.unit,
-      })),
+      drawerOrder.items.map((i) => {
+        const unit = i.unit || i.product?.unit || '';
+        return {
+          name: i.product?.name || i.custom_product_name || '',
+          qty: String(Number(i.quantity)),
+          price: String(Number(i.unit_price)),
+          productId: i.product?.id,
+          unit,
+          originalUnit: unit,
+          originalPrice: String(Number(i.unit_price)),
+          unitPrices: i.product?.unit_prices,
+        };
+      }),
     );
     setEditMode(true);
   };
 
   const updateLine = (idx: number, field: keyof EditLine, value: string) => {
     setEditLines((prev) => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
+  };
+
+  // Mirrors the cart's unit-change pricing: use a saved per-unit price if one
+  // exists on the product, otherwise fall back to proportional conversion
+  // between mass units (g/kg) or volume units (ml/L).
+  const updateLineUnit = (idx: number, newUnit: string) => {
+    setEditLines((prev) => prev.map((l, i) => {
+      if (i !== idx) return l;
+
+      const originalUnit = l.originalUnit || l.unit || 'pcs';
+      const originalPrice = l.originalPrice !== undefined ? Number(l.originalPrice) : Number(l.price);
+      let newPrice = originalPrice;
+
+      const savedPrice = l.unitPrices?.[canonicalUnitKey(newUnit)];
+      if (savedPrice !== undefined) {
+        newPrice = savedPrice;
+      } else {
+        const normalize = (u: string) => {
+          const lower = (u || '').toLowerCase();
+          if (lower === 'gram' || lower === 'g' || lower === 'gm' || lower === 'gms') return 'g';
+          if (lower === 'kg' || lower === 'kilo' || lower === 'kgs' || lower === 'kilogram') return 'kg';
+          if (lower === 'litre' || lower === 'l' || lower === 'ltr' || lower === 'liters') return 'L';
+          if (lower === 'ml' || lower === 'mls' || lower === 'millilitre') return 'ml';
+          return lower;
+        };
+
+        const parsedOriginal = parseQuantityUnit(originalUnit) || { quantity: 1, unit: originalUnit };
+        const parsedNew = parseQuantityUnit(newUnit) || { quantity: 1, unit: newUnit };
+        const normOriginal = normalize(parsedOriginal.unit);
+        const normNew = normalize(parsedNew.unit);
+        const isMass = (u: string) => u === 'kg' || u === 'g';
+        const isVol = (u: string) => u === 'L' || u === 'ml';
+
+        if (normOriginal && normNew && ((isMass(normOriginal) && isMass(normNew)) || (isVol(normOriginal) && isVol(normNew)))) {
+          let pricePerBasicUnit = originalPrice / parsedOriginal.quantity;
+          if (normOriginal === 'kg' || normOriginal === 'L') pricePerBasicUnit /= 1000;
+          let finalPrice = pricePerBasicUnit * parsedNew.quantity;
+          if (normNew === 'kg' || normNew === 'L') finalPrice *= 1000;
+          newPrice = finalPrice;
+        }
+      }
+
+      return { ...l, unit: newUnit, price: parseFloat(newPrice.toFixed(4)).toString() };
+    }));
   };
 
   const addEditLine = () => setEditLines((prev) => [...prev, { name: '', qty: '1', price: '0' }]);
@@ -571,7 +626,7 @@ export function GenericOrders() {
                             </div>
                             <input
                               value={line.unit || ''}
-                              onChange={(e) => updateLine(idx, 'unit', e.target.value)}
+                              onChange={(e) => updateLineUnit(idx, e.target.value)}
                               list="edit-unit-options"
                               placeholder="Unit"
                               className="w-14 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-1.5 py-1 text-xs text-slate-600 outline-none"
