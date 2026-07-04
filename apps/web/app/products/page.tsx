@@ -11,6 +11,7 @@ import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
+import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { Plus, Trash2, Package, Search, ChevronRight, Tag } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 
@@ -27,9 +28,10 @@ interface Product {
   description: string | null;
   is_available: boolean;
   category: string | null;
+  unit_prices?: Record<string, number> | null;
 }
 
-const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '' };
+const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
 
 function ProductsPageContent() {
   const searchParams = useSearchParams();
@@ -94,6 +96,9 @@ function ProductsPageContent() {
       description: p.description || '',
       isAvailable: p.is_available ?? true,
       category: p.category || '',
+      unitPrices: p.unit_prices
+        ? Object.entries(p.unit_prices).map(([unit, price]) => ({ unit, price: String(price) }))
+        : [],
     });
     setShowForm(true);
   };
@@ -103,6 +108,12 @@ function ProductsPageContent() {
     if (!businessId) return;
     setSaving(true);
     setError('');
+    const unitPrices: Record<string, number> = {};
+    for (const row of form.unitPrices) {
+      if (row.unit.trim() && row.price !== '') {
+        unitPrices[canonicalUnitKey(row.unit.trim())] = Number(row.price);
+      }
+    }
     const payload = {
       name: form.name,
       sku: form.sku || undefined,
@@ -114,6 +125,7 @@ function ProductsPageContent() {
       description: form.description || undefined,
       isAvailable: form.isAvailable,
       category: form.category || undefined,
+      unitPrices: Object.keys(unitPrices).length > 0 ? unitPrices : undefined,
     };
     try {
       if (editingId) {
@@ -236,6 +248,54 @@ function ProductsPageContent() {
                   value={form.stockQuantity}
                   onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
                 />
+
+                <div className="sm:col-span-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">
+                    Saved prices for other units (optional) — e.g. a fixed price for 1kg instead of auto-converting from {form.unit || 'the base unit'}
+                  </p>
+                  {form.unitPrices.map((row, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        placeholder="Unit (e.g. 1kg)"
+                        value={row.unit}
+                        list="unit-options"
+                        onChange={(e) => {
+                          const next = [...form.unitPrices];
+                          next[i] = { ...next[i], unit: e.target.value };
+                          setForm({ ...form, unitPrices: next });
+                        }}
+                        className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      />
+                      <Input
+                        placeholder="Price"
+                        type="number"
+                        value={row.price}
+                        onChange={(e) => {
+                          const next = [...form.unitPrices];
+                          next[i] = { ...next[i], price: e.target.value };
+                          setForm({ ...form, unitPrices: next });
+                        }}
+                        className="h-8 w-28"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, unitPrices: form.unitPrices.filter((_, idx) => idx !== i) })}
+                        className="p-1.5 text-slate-300 hover:text-rose-600 shrink-0"
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, unitPrices: [...form.unitPrices, { unit: '', price: '' }] })}
+                    className="text-xs font-medium text-tile-lavender-fg hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add price for another unit
+                  </button>
+                </div>
+
                 {error && <p className="text-sm text-rose-600 sm:col-span-3">{error}</p>}
                 <div className="sm:col-span-3 flex gap-2">
                   <Button type="submit" disabled={saving}>

@@ -32,6 +32,7 @@ export class ProductsService {
       description: dto.description,
       is_available: dto.isAvailable ?? true,
       is_draft: dto.isDraft ?? false,
+      unit_prices: dto.unitPrices ?? null,
     });
     return this.productsRepository.save(product);
   }
@@ -137,6 +138,7 @@ export class ProductsService {
       description: dto.description !== undefined ? dto.description : product.description,
       is_available: dto.isAvailable !== undefined ? dto.isAvailable : product.is_available,
       is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,
+      unit_prices: dto.unitPrices !== undefined ? dto.unitPrices : product.unit_prices,
     });
     return this.productsRepository.save(product);
   }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsUUID, Min, IsDateString, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID, Min, IsDateString, IsBoolean, IsObject } from 'class-validator';
 
 export class CreateProductDto {
   @IsUUID()
@@ -61,4 +61,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isDraft?: boolean;
+
+  // Explicit price overrides keyed by canonical unit, e.g. { "1kg": 1400 }.
+  @IsOptional()
+  @IsObject()
+  unitPrices?: Record<string, number>;
 }

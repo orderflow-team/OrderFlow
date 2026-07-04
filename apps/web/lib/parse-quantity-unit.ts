@@ -34,3 +34,16 @@ export function parseQuantityUnit(text: string): { quantity: number; unit: strin
   const unit = UNIT_ALIASES[match[2].toLowerCase()];
   return { quantity, unit };
 }
+
+/**
+ * Canonical key for a unit string (e.g. "1kg", "500g", "1 kg" -> "1kg"),
+ * used to look up an explicitly saved per-unit price on a product.
+ * Bare units with no quantity (e.g. "kg") default to quantity 1.
+ */
+export function canonicalUnitKey(text: string): string {
+  const trimmed = (text || '').trim();
+  const parsed = parseQuantityUnit(trimmed);
+  if (parsed) return `${parsed.quantity}${parsed.unit}`;
+  const bareUnit = UNIT_ALIASES[trimmed.toLowerCase()] || trimmed.toLowerCase();
+  return `1${bareUnit}`;
+}

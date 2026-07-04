@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
-import { ShoppingCart, Plus, Minus, Search } from 'lucide-react';
-import { parseQuantityUnit } from '@/lib/parse-quantity-unit';
+import { ShoppingCart, Plus, Minus, Search, Save, Check } from 'lucide-react';
+import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 
 interface Product {
   id: string;
@@ -14,6 +14,7 @@ interface Product {
   category: string | null;
   is_available: boolean;
   unit?: string;
+  unit_prices?: Record<string, number> | null;
 }
 
 interface Category {
@@ -45,6 +46,8 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
   
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [submitting, setSubmitting] = useState(false);
+  // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
+  const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
 
   useEffect(() => {
     if (isOpen && businessId && products.length === 0) {
@@ -145,37 +148,43 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
         const originalPrice = item.original_price ?? Number(item.product.selling_price);
         let newPrice = originalPrice;
 
-        const normalize = (u: string) => {
-          const lower = (u || '').toLowerCase();
-          if (lower === 'gram' || lower === 'g' || lower === 'gm' || lower === 'gms') return 'g';
-          if (lower === 'kg' || lower === 'kilo' || lower === 'kgs' || lower === 'kilogram') return 'kg';
-          if (lower === 'litre' || lower === 'l' || lower === 'ltr' || lower === 'liters') return 'L';
-          if (lower === 'ml' || lower === 'mls' || lower === 'millilitre') return 'ml';
-          return lower;
-        };
+        const savedPrice = item.product.unit_prices?.[canonicalUnitKey(newUnit)];
 
-        const parsedOriginal = parseQuantityUnit(originalUnit) || { quantity: 1, unit: originalUnit };
-        const parsedNew = parseQuantityUnit(newUnit) || { quantity: 1, unit: newUnit };
+        if (savedPrice !== undefined) {
+          newPrice = savedPrice;
+        } else {
+          const normalize = (u: string) => {
+            const lower = (u || '').toLowerCase();
+            if (lower === 'gram' || lower === 'g' || lower === 'gm' || lower === 'gms') return 'g';
+            if (lower === 'kg' || lower === 'kilo' || lower === 'kgs' || lower === 'kilogram') return 'kg';
+            if (lower === 'litre' || lower === 'l' || lower === 'ltr' || lower === 'liters') return 'L';
+            if (lower === 'ml' || lower === 'mls' || lower === 'millilitre') return 'ml';
+            return lower;
+          };
 
-        const normOriginal = normalize(parsedOriginal.unit);
-        const normNew = normalize(parsedNew.unit);
-        const isMass = (u: string) => u === 'kg' || u === 'g';
-        const isVol = (u: string) => u === 'L' || u === 'ml';
+          const parsedOriginal = parseQuantityUnit(originalUnit) || { quantity: 1, unit: originalUnit };
+          const parsedNew = parseQuantityUnit(newUnit) || { quantity: 1, unit: newUnit };
 
-        if (normOriginal && normNew && ((isMass(normOriginal) && isMass(normNew)) || (isVol(normOriginal) && isVol(normNew)))) {
-          // Calculate price per 1 basic unit (g or ml)
-          let pricePerBasicUnit = originalPrice / parsedOriginal.quantity;
-          if (normOriginal === 'kg' || normOriginal === 'L') {
-            pricePerBasicUnit = pricePerBasicUnit / 1000;
+          const normOriginal = normalize(parsedOriginal.unit);
+          const normNew = normalize(parsedNew.unit);
+          const isMass = (u: string) => u === 'kg' || u === 'g';
+          const isVol = (u: string) => u === 'L' || u === 'ml';
+
+          if (normOriginal && normNew && ((isMass(normOriginal) && isMass(normNew)) || (isVol(normOriginal) && isVol(normNew)))) {
+            // Calculate price per 1 basic unit (g or ml)
+            let pricePerBasicUnit = originalPrice / parsedOriginal.quantity;
+            if (normOriginal === 'kg' || normOriginal === 'L') {
+              pricePerBasicUnit = pricePerBasicUnit / 1000;
+            }
+
+            // Multiply by the new unit's configuration
+            let finalPrice = pricePerBasicUnit * parsedNew.quantity;
+            if (normNew === 'kg' || normNew === 'L') {
+              finalPrice = finalPrice * 1000;
+            }
+
+            newPrice = finalPrice;
           }
-
-          // Multiply by the new unit's configuration
-          let finalPrice = pricePerBasicUnit * parsedNew.quantity;
-          if (normNew === 'kg' || normNew === 'L') {
-            finalPrice = finalPrice * 1000;
-          }
-          
-          newPrice = finalPrice;
         }
 
         newCart[productId] = {
@@ -202,6 +211,28 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
       }
       return newCart;
     });
+  };
+
+  // Persists the cart item's current unit + price as a saved override on the
+  // product, so this exact unit reflects this price next time instead of
+  // being re-derived via proportional conversion.
+  const saveUnitPrice = async (item: CartItem) => {
+    const productId = item.product.id;
+    const unit = item.product.unit?.trim();
+    const price = Number(item.product.selling_price);
+    if (!unit || !Number.isFinite(price)) return;
+
+    setUnitPriceSaveState(prev => ({ ...prev, [productId]: 'saving' }));
+    try {
+      const unitPrices = { ...(item.product.unit_prices || {}), [canonicalUnitKey(unit)]: price };
+      await apiClient.patch(`/api/products/${productId}`, { unitPrices }, { params: { businessId } });
+      setProducts(prev => prev.map(p => (p.id === productId ? { ...p, unit_prices: unitPrices } : p)));
+      setUnitPriceSaveState(prev => ({ ...prev, [productId]: 'saved' }));
+      setTimeout(() => setUnitPriceSaveState(prev => { const next = { ...prev }; delete next[productId]; return next; }), 1500);
+    } catch (err) {
+      console.error(err);
+      setUnitPriceSaveState(prev => { const next = { ...prev }; delete next[productId]; return next; });
+    }
   };
 
   const handleSubmit = async () => {
@@ -358,6 +389,16 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
                       <option value="box" />
                       <option value="pkt" />
                     </datalist>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); saveUnitPrice(item); }}
+                      disabled={unitPriceSaveState[item.product.id] === 'saving'}
+                      title="Save this price for this unit"
+                      className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 flex-shrink-0 disabled:opacity-30"
+                    >
+                      {unitPriceSaveState[item.product.id] === 'saved'
+                        ? <Check className="w-3 h-3 text-emerald-600" />
+                        : <Save className="w-3 h-3" />}
+                    </button>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 justify-end flex-1">
                     <div className="flex items-center gap-0.5 border border-white/60 rounded-lg px-2 py-0.5 focus-within:ring-1 focus-within:ring-emerald-500 bg-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]" title="Total Price">
