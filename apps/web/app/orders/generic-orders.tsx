@@ -384,7 +384,10 @@ export function GenericOrders() {
         items: cartItems.map((it) => ({
           productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
           customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
-          unit: it.product.id.startsWith('draft-') ? it.product.unit : undefined,
+          // Always record the unit actually shown/priced in the cart — not just
+          // for draft items — so editing the order later sees the same packaging
+          // (e.g. "100g") instead of falling back to the product's base unit.
+          unit: it.product.unit,
           quantity: Number(it.quantity),
           unitPrice: Number(it.product.selling_price),
         })),
