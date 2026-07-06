@@ -6,6 +6,7 @@ import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
+import { getPostLoginPath } from '@/lib/auth';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -120,9 +121,7 @@ function PasswordLoginForm() {
       const response = await apiClient.post('/auth/login', { email, password });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      // A salesman logs into the same business as the owner and never picks
-      // between businesses they own — skip straight to their dashboard.
-      router.push(response.data.user.role === 'salesman' ? '/dashboard' : '/select-business');
+      router.push(getPostLoginPath(response.data.user.role));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
@@ -218,9 +217,7 @@ function OtpLoginForm() {
       const response = await apiClient.post('/auth/otp/verify', { email, code });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      // A salesman logs into the same business as the owner and never picks
-      // between businesses they own — skip straight to their dashboard.
-      router.push(response.data.user.role === 'salesman' ? '/dashboard' : '/select-business');
+      router.push(getPostLoginPath(response.data.user.role));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired code');
     } finally {

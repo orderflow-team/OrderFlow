@@ -18,6 +18,7 @@ import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableStatusDto } from './dto/update-table-status.dto';
 import { CreateKotDto } from './dto/create-kot.dto';
 import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
+import { CreateKitchenStaffLoginDto } from './dto/create-kitchen-staff-login.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/restaurant')
@@ -72,5 +73,17 @@ export class RestaurantController {
     @Body() dto: UpdateKotStatusDto,
   ) {
     return this.restaurantService.updateKotStatus(id, businessId, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post('kitchen-staff')
+  createKitchenStaffLogin(@Query('businessId') businessId: string, @Body() dto: CreateKitchenStaffLoginDto) {
+    return this.restaurantService.createKitchenStaffLogin(businessId, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Get('kitchen-staff')
+  listKitchenStaff(@Query('businessId') businessId: string) {
+    return this.restaurantService.listKitchenStaff(businessId);
   }
 }

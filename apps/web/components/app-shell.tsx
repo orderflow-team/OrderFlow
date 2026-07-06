@@ -94,9 +94,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // real value arrives as a normal post-mount update instead.
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [isSalesmanRole, setIsSalesmanRole] = useState(false);
+  const [isCookRole, setIsCookRole] = useState(false);
   useEffect(() => {
     setBusinessId(getCurrentUser()?.businessId ?? null);
     setIsSalesmanRole(hasRole('salesman'));
+    setIsCookRole(hasRole('kitchen_staff'));
   }, []);
 
   useEffect(() => {
@@ -170,15 +172,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // A salesman logs into the SAME business as the owner (products/customers
   // are literally the same rows — no sync needed) but only gets a working
   // slice of the app: placing orders and logging visits, not admin tools.
-  const moreNav = isSalesmanRole
+  // A cook gets even less — nothing but the KOT screen, no dashboard even.
+  const moreNav = (isSalesmanRole || isCookRole)
     ? []
     : optionalModules
       ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV]
       : CORE_MORE_NAV;
 
-  const primaryNavBase = isSalesmanRole
-    ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
-    : CORE_PRIMARY_NAV;
+  const primaryNavBase = isCookRole
+    ? [{ ...OPTIONAL_NAV.restaurant, label: 'KOTs' }]
+    : isSalesmanRole
+      ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
+      : CORE_PRIMARY_NAV;
 
   const allNav = [...primaryNavBase.map(item => {
     if (item.href !== '/products') return item;
@@ -207,6 +212,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace('/dashboard');
     }
   }, [isSalesmanRole, pathname, router]);
+
+  // Safety net: a cook's only permitted surface is the KOT screen — bounce
+  // away from literally everything else, even the dashboard.
+  useEffect(() => {
+    if (!isCookRole) return;
+    if (!isActive(pathname, '/restaurant')) {
+      router.replace('/restaurant');
+    }
+  }, [isCookRole, pathname, router]);
 
   const logout = () => {
     localStorage.removeItem('access_token');

@@ -28,6 +28,17 @@ export function hasRole(...roles: string[]): boolean {
 }
 
 /**
+ * Restricted-role users (salesman, kitchen staff) log into the SAME business
+ * as the owner and never pick between businesses they own — skip
+ * /select-business and land straight on the one page they're allowed to see.
+ */
+export function getPostLoginPath(role: string | null | undefined): string {
+  if (role === 'salesman') return '/dashboard';
+  if (role === 'kitchen_staff') return '/restaurant';
+  return '/select-business';
+}
+
+/**
  * Caches the business category locally (keyed by businessId) so the nav
  * doesn't need to refetch it on every page load. Cleared automatically
  * whenever the cached businessId no longer matches.

@@ -1,14 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useBusiness } from '@/lib/use-business';
+import { hasRole } from '@/lib/auth';
 import apiClient from '@/lib/api-client';
-import { ChefHat, Play, CheckCircle2, Check, UtensilsCrossed } from 'lucide-react';
+import { ChefHat, Play, CheckCircle2, Check, UtensilsCrossed, KeyRound, Plus, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
+interface KitchenStaffUser {
+  id: string;
+  email: string;
+  fullName: string | null;
+  isActive: boolean;
+}
 
 interface OrderItem {
   id: string;
@@ -38,8 +47,15 @@ interface KOT {
 
 export default function KitchenDisplayPage() {
   const { businessId, ready } = useBusiness();
+  const isCookRole = hasRole('kitchen_staff');
   const [kots, setKots] = useState<KOT[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [kitchenStaff, setKitchenStaff] = useState<KitchenStaffUser[]>([]);
+  const [showStaffForm, setShowStaffForm] = useState(false);
+  const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' });
+  const [savingStaff, setSavingStaff] = useState(false);
+  const [staffError, setStaffError] = useState('');
 
   const fetchKots = async () => {
     if (!businessId) return;
@@ -53,6 +69,16 @@ export default function KitchenDisplayPage() {
     }
   };
 
+  const fetchKitchenStaff = async () => {
+    if (!businessId) return;
+    try {
+      const res = await apiClient.get<KitchenStaffUser[]>('/api/restaurant/kitchen-staff', { params: { businessId } });
+      setKitchenStaff(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (ready) {
       fetchKots();
@@ -61,12 +87,33 @@ export default function KitchenDisplayPage() {
     }
   }, [businessId, ready]);
 
+  useEffect(() => {
+    if (ready && !isCookRole) fetchKitchenStaff();
+  }, [businessId, ready, isCookRole]);
+
   const updateStatus = async (id: string, newStatus: string) => {
     try {
       await apiClient.patch(`/api/restaurant/kot/${id}/status`, { status: newStatus }, { params: { businessId } });
       fetchKots();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAddKitchenStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId) return;
+    setSavingStaff(true);
+    setStaffError('');
+    try {
+      await apiClient.post('/api/restaurant/kitchen-staff', staffForm, { params: { businessId } });
+      setStaffForm({ name: '', email: '', password: '' });
+      setShowStaffForm(false);
+      fetchKitchenStaff();
+    } catch (err: any) {
+      setStaffError(err.response?.data?.message || 'Failed to create login');
+    } finally {
+      setSavingStaff(false);
     }
   };
 
@@ -110,6 +157,46 @@ export default function KitchenDisplayPage() {
             </div>
           }
         />
+
+        {!isCookRole && (
+          <Card className="ring-white/50 glass-sheen-sm mt-6 shrink-0">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-emerald-600" />
+                  <CardTitle className="text-base">Kitchen Staff</CardTitle>
+                </div>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowStaffForm((s) => !s)}>
+                  {showStaffForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  {showStaffForm ? 'Cancel' : 'Add Cook'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {showStaffForm && (
+                <form onSubmit={handleAddKitchenStaff} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                  <Input placeholder="Name" value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} required />
+                  <Input type="email" placeholder="Email" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} required />
+                  <Input type="password" placeholder="Password (min 6 chars)" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} minLength={6} required />
+                  <Button type="submit" disabled={savingStaff} className="sm:col-span-3">{savingStaff ? 'Saving...' : 'Save'}</Button>
+                  {staffError && <p className="sm:col-span-3 text-sm text-rose-600">{staffError}</p>}
+                </form>
+              )}
+              {kitchenStaff.length === 0 ? (
+                <p className="text-sm text-slate-400">No kitchen staff logins yet — cooks only see this KOT screen, nothing else.</p>
+              ) : (
+                <div className="space-y-2">
+                  {kitchenStaff.map((s) => (
+                    <div key={s.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                      <span className="text-slate-800 font-medium">{s.fullName}</span>
+                      <span className="text-slate-400">{s.email}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mt-6 min-h-0">
           

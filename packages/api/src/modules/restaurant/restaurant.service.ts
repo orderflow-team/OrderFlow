@@ -1,20 +1,56 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
 import { Order } from '../../database/entities/order.entity';
+import { User } from '../../database/entities/user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableStatusDto } from './dto/update-table-status.dto';
 import { CreateKotDto } from './dto/create-kot.dto';
 import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
+import { CreateKitchenStaffLoginDto } from './dto/create-kitchen-staff-login.dto';
 
 @Injectable()
 export class RestaurantService {
   constructor(
     @InjectRepository(Table) private tablesRepository: Repository<Table>,
     @InjectRepository(KOT) private kotRepository: Repository<KOT>,
+    @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
+
+  /**
+   * A cook only ever needs to see/update KOTs — no visit-tracking or profile
+   * data like a salesman, so this creates a bare login (no linked domain
+   * entity) scoped to the SAME business as the owner.
+   */
+  async createKitchenStaffLogin(businessId: string, dto: CreateKitchenStaffLoginDto) {
+    const email = dto.email.toLowerCase();
+    const existing = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+    const password_hash = await bcrypt.hash(dto.password, 10);
+    const user = this.usersRepository.create({
+      email,
+      password_hash,
+      full_name: dto.name,
+      business_id: businessId,
+      role: UserRole.KITCHEN_STAFF,
+    });
+    const saved = await this.usersRepository.save(user);
+    return { id: saved.id, email: saved.email, fullName: saved.full_name };
+  }
+
+  async listKitchenStaff(businessId: string) {
+    const users = await this.usersRepository.find({
+      where: { business_id: businessId, role: UserRole.KITCHEN_STAFF },
+      order: { created_at: 'ASC' },
+    });
+    return users.map((u) => ({ id: u.id, email: u.email, fullName: u.full_name, isActive: u.is_active }));
+  }
 
   createTable(dto: CreateTableDto) {
     const table = this.tablesRepository.create({

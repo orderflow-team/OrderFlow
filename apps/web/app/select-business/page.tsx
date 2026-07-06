@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, setCurrentUser } from '@/lib/auth';
+import { getCurrentUser, setCurrentUser, getPostLoginPath } from '@/lib/auth';
 import { Plus, Store } from 'lucide-react';
 
 interface Business {
@@ -114,11 +114,13 @@ export default function SelectBusinessPage() {
       router.push('/login');
       return;
     }
-    // A salesman belongs to exactly one business (the owner's) and never
-    // "owns" it, so /api/businesses/mine would come back empty for them —
-    // send them straight to their dashboard instead of "add a business".
-    if (getCurrentUser()?.role === 'salesman') {
-      router.push('/dashboard');
+    // Restricted-role users (salesman, kitchen staff) belong to exactly one
+    // business (the owner's) and never "own" it, so /api/businesses/mine
+    // would come back empty for them — send them straight to the one page
+    // they're allowed to see instead of "add a business".
+    const role = getCurrentUser()?.role;
+    if (role === 'salesman' || role === 'kitchen_staff') {
+      router.push(getPostLoginPath(role));
       return;
     }
     loadBusinesses();
