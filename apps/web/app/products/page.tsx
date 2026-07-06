@@ -1,18 +1,20 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
+import { CategoryFilterPills } from '@/components/category-filter-pills';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory } from '@/lib/auth';
-import { getOptionalModulesForCategory } from '@/lib/business-modules';
+import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { Plus, Trash2, Package, Search, ChevronRight, Tag } from 'lucide-react';
+import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 
 interface Product {
@@ -31,6 +33,11 @@ interface Product {
   unit_prices?: Record<string, number> | null;
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
 
 function ProductsPageContent() {
@@ -44,6 +51,11 @@ function ProductsPageContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const isSeedingCategories = useRef(false);
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
@@ -72,6 +84,55 @@ function ProductsPageContent() {
     const t = setTimeout(() => load(businessId, search), 250);
     return () => clearTimeout(t);
   }, [search, ready, businessId, isRestaurant]);
+
+  const loadCategories = async (bizId: string) => {
+    try {
+      const catRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId: bizId } });
+      const seen = new Set<string>();
+      const unique = catRes.data.filter((c) => (seen.has(c.name) ? false : (seen.add(c.name), true)));
+      if (unique.length === 0 && !isSeedingCategories.current) {
+        isSeedingCategories.current = true;
+        const defaults = getDefaultItemCategories(getCachedBusinessCategory(bizId));
+        if (defaults.length > 0) {
+          await Promise.all(defaults.map((name) => apiClient.post('/api/categories', { businessId: bizId, name }).catch(() => null)));
+          const seeded = await apiClient.get<Category[]>('/api/categories', { params: { businessId: bizId } });
+          setCategories(seeded.data);
+          return;
+        }
+      }
+      setCategories(unique);
+    } catch {
+      // categories are optional for non-restaurant business types; ignore failures
+    }
+  };
+
+  useEffect(() => {
+    if (isRestaurant || !ready || !businessId) return;
+    loadCategories(businessId);
+  }, [ready, businessId, isRestaurant]);
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId) return;
+    try {
+      await apiClient.post('/api/categories', { businessId, name: categoryName });
+      setCategoryName('');
+      setShowCategoryForm(false);
+      loadCategories(businessId);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteCategory = async (id: string) => {
+    if (!businessId) return;
+    try {
+      await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
+      loadCategories(businessId);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   if (isRestaurant && businessId) {
     return <MenuGrid businessId={businessId} />;
@@ -155,6 +216,7 @@ function ProductsPageContent() {
   const commonUnits = ['kg', 'gram', 'litre', 'ml', 'piece', 'packet', 'box', 'dozen', 'carton', 'pallet', 'strip', 'bottle', 'vial', 'tube', 'roll', 'bundle', 'pair', 'set', 'meter', 'inch'];
   const existingUnits = products.map((p) => p.unit).filter(Boolean);
   const availableUnits = Array.from(new Set([...commonUnits, ...existingUnits]));
+  const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products;
 
   return (
     <AppShell>
@@ -178,8 +240,29 @@ function ProductsPageContent() {
               className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-lavender-fg/40"
             />
           </div>
+          <Button type="button" variant="outline" className="h-11 gap-1.5 shrink-0" onClick={() => setShowCategoryForm(true)}>
+            <FolderPlus className="h-4 w-4" /> Category
+          </Button>
           {businessId && <ClearModuleButton module="products" businessId={businessId} />}
         </div>
+
+        <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
+          <DialogContent className="sm:max-w-[400px] p-6">
+            <DialogHeader className="mb-2">
+              <DialogTitle className="text-xl">Add New Category</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCategorySubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Category Name</label>
+                <Input className="h-11" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="e.g. Dairy & Bakery" required />
+              </div>
+              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-white/40">
+                <Button type="button" variant="ghost" onClick={() => setShowCategoryForm(false)}>Cancel</Button>
+                <Button type="submit">Save Category</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
           {`Total: ${products.length} • Recent`}
@@ -248,6 +331,16 @@ function ProductsPageContent() {
                   value={form.stockQuantity}
                   onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
                 />
+                <select
+                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                >
+                  <option value="">No category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
 
                 <div className="sm:col-span-3 space-y-2">
                   <p className="text-xs font-semibold text-slate-500">
@@ -335,7 +428,15 @@ function ProductsPageContent() {
           </div>
         ) : (
           <div className="space-y-3">
-            {products.map((p) => {
+            <CategoryFilterPills
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelect={setSelectedCategory}
+              totalCount={products.length}
+              countFor={(name) => products.filter((p) => p.category === name).length}
+              onDeleteCategory={deleteCategory}
+            />
+            {filteredProducts.map((p) => {
               const stockTone =
                 p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= 10 ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
               return (
@@ -366,6 +467,9 @@ function ProductsPageContent() {
                 </div>
               );
             })}
+            {filteredProducts.length === 0 && (
+              <p className="py-12 text-center text-slate-400 text-sm">No {entityNamePlural.toLowerCase()} in this category.</p>
+            )}
           </div>
         )}
       </div>

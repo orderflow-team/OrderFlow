@@ -22,3 +22,18 @@ export function getOptionalModulesForCategory(category: string | null | undefine
   if (!category) return ALL_OPTIONAL_MODULES;
   return CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES;
 }
+
+/** Default item categories seeded the first time a business opens Products, per business type. */
+const DEFAULT_ITEM_CATEGORIES: Record<string, string[]> = {
+  grocery: ['Fruits & Vegetables', 'Dairy & Bakery', 'Snacks & Beverages', 'Personal Care', 'Household'],
+  retail: ['Clothing', 'Footwear', 'Accessories', 'Electronics', 'Home & Living'],
+  pharmacy: ['Medicines', 'Personal Care', 'Baby Care', 'Wellness', 'Medical Devices'],
+  wholesale: ['Bulk Grains', 'Packaged Goods', 'Beverages', 'Household Supplies'],
+  restaurant: ['Starters', 'Main Course', 'Breads & Rice', 'Tandoori Specials', 'Desserts', 'Beverages'],
+};
+
+/** Unknown/missing category (e.g. "others", "salesman") gets no default categories — user adds their own. */
+export function getDefaultItemCategories(category: string | null | undefined): string[] {
+  if (!category) return [];
+  return DEFAULT_ITEM_CATEGORIES[category] ?? [];
+}

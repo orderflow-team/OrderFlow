@@ -6,7 +6,9 @@ import { Pencil, Trash2, Plus, FolderPlus, Tag } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getCachedBusinessCategory } from '@/lib/auth';
+import { getDefaultItemCategories } from '@/lib/business-modules';
 
 interface Product {
   id: string;
@@ -74,7 +76,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
       if (catRes.data.length === 0 && !isSeeding.current) {
         isSeeding.current = true;
         // Seed default categories
-        const defaults = isRestaurant ? ['Starters', 'Main Course', 'Breads & Rice', 'Tandoori Specials', 'Desserts', 'Beverages'] : [];
+        const defaults = getDefaultItemCategories(categoryStr);
         if (defaults.length > 0) {
           await Promise.all(
             defaults.map(name => apiClient.post('/api/categories', { businessId, name }).catch(() => null))
@@ -287,33 +289,14 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         </Dialog>
 
         {/* Categories Tabs */}
-        <div className="flex flex-wrap gap-2">
-          <div
-            className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
-              selectedCategory === null ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
-            }`}
-            onClick={() => setSelectedCategory(null)}
-          >
-            All <span className="text-slate-400">({products.length})</span>
-          </div>
-          {categories.map(c => {
-            const count = products.filter(p => p.category === c.name).length;
-            const isSel = selectedCategory === c.name;
-            return (
-              <div key={c.id} className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
-                isSel ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
-              }`} onClick={() => setSelectedCategory(isSel ? null : c.name)}>
-                {c.name} <span className="text-slate-400">({count})</span>
-                <button
-                  className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full hover:bg-slate-500/10 text-slate-400 hover:text-rose-500 absolute -right-2 -top-2 bg-white/60 ring-1 ring-white/50 backdrop-blur-sm"
-                  onClick={(e) => { e.stopPropagation(); deleteCategory(c.id); }}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <CategoryFilterPills
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelect={setSelectedCategory}
+          totalCount={products.length}
+          countFor={(name) => products.filter((p) => p.category === name).length}
+          onDeleteCategory={deleteCategory}
+        />
 
         {/* Product Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
