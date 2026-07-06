@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
+import { getCachedBusinessCategory, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check } from 'lucide-react';
 
@@ -16,6 +17,9 @@ interface Product {
   is_available: boolean;
   unit?: string;
   unit_prices?: Record<string, number> | null;
+  batch_number?: string | null;
+  expiry_date?: string | null;
+  prescription_required?: boolean;
 }
 
 interface Category {
@@ -45,6 +49,11 @@ interface GenericOrderModalProps {
 }
 
 export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSubmit }: GenericOrderModalProps) {
+  const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
+  // A salesman's job is just to record what the customer wants — pricing is
+  // the owner's concern, so price stays read-only (and unit-price management
+  // hidden) in their cart.
+  const isSalesmanRole = hasRole('salesman');
   const [customerName, setCustomerName] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
@@ -58,6 +67,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   // customer-specific price overrides: productId → price
   const [customerPrices, setCustomerPrices] = useState<Record<string, { price: number, unit?: string }>>({});
   const priceLoadRef = useRef<string>('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
 
@@ -306,6 +316,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     }
   };
 
+  const focusSearch = () => {
+    searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    searchInputRef.current?.focus();
+  };
+
   const handleSubmit = async () => {
     const items = Object.values(cart);
     if (items.length === 0) return;
@@ -384,9 +399,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         <div className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0">
           {/* Categories */}
           {categories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-2 scrollbar-subtle">
               <div
-                className={`px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
                   selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
                 }`}
                 onClick={() => setSelectedCategory(null)}
@@ -396,7 +411,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               {categories.map(c => (
                 <div
                   key={c.id}
-                  className={`px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                  className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
                     selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
                   }`}
                   onClick={() => setSelectedCategory(c.name)}
@@ -410,8 +425,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
+              ref={searchInputRef}
               className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
-              placeholder="Search products..."
+              placeholder={isPharmacy ? 'Search medicines...' : 'Search products...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -437,7 +453,14 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       {qty}
                     </span>
                   )}
-                  <h4 className="font-semibold text-slate-800 text-sm leading-snug pr-5">{p.name}</h4>
+                  <h4 className="font-semibold text-slate-800 text-sm leading-snug pr-5 flex items-center gap-1.5">
+                    {p.name}
+                    {p.prescription_required && (
+                      <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20">
+                        Rx
+                      </span>
+                    )}
+                  </h4>
                   <div className="flex flex-col gap-1 mt-2">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-sm text-emerald-600">
@@ -454,6 +477,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-500/20 px-1.5 py-0.5 rounded w-fit border border-emerald-500/30">
                         Last purchased price
                       </span>
+                    )}
+                    {p.batch_number && (
+                      <span className="text-[10px] text-slate-400">Batch {p.batch_number}</span>
                     )}
                   </div>
                 </div>
@@ -558,16 +584,18 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       <option value="box" />
                       <option value="pkt" />
                     </datalist>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); saveUnitPrice(item); }}
-                      disabled={item.product.id.startsWith('draft-') || unitPriceSaveState[item.product.id] === 'saving'}
-                      title="Save this price for this unit"
-                      className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 flex-shrink-0 disabled:opacity-30"
-                    >
-                      {unitPriceSaveState[item.product.id] === 'saved'
-                        ? <Check className="w-3 h-3 text-emerald-600" />
-                        : <Save className="w-3 h-3" />}
-                    </button>
+                    {!isSalesmanRole && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); saveUnitPrice(item); }}
+                        disabled={item.product.id.startsWith('draft-') || unitPriceSaveState[item.product.id] === 'saving'}
+                        title="Save this price for this unit"
+                        className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-500/10 flex-shrink-0 disabled:opacity-30"
+                      >
+                        {unitPriceSaveState[item.product.id] === 'saved'
+                          ? <Check className="w-3 h-3 text-emerald-600" />
+                          : <Save className="w-3 h-3" />}
+                      </button>
+                    )}
                     <button
                       onClick={() => setCart(prev => { const n = { ...prev }; delete n[item.product.id]; return n; })}
                       className="w-6 h-6 flex items-center justify-center rounded text-rose-400 hover:text-rose-600 hover:bg-rose-500/10 flex-shrink-0"
@@ -612,13 +640,22 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             <span className="font-bold text-lg text-slate-800">₹{cartTotal.toFixed(2)}</span>
           </div>
 
-          <Button
-            className="w-full h-11 text-base font-semibold"
-            disabled={cartItems.length === 0 || submitting}
-            onClick={handleSubmit}
-          >
-            {submitting ? 'Submitting...' : 'Submit Order'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              className="flex-1 h-11 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
+              onClick={focusSearch}
+            >
+              <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : 'Add Product'}
+            </Button>
+            <Button
+              className="flex-1 h-11 text-base font-semibold"
+              disabled={cartItems.length === 0 || submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? 'Submitting...' : 'Submit Order'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

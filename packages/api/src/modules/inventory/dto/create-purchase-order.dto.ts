@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsNumber,
   IsUUID,
+  IsDateString,
   Min,
   ValidateNested,
   ArrayMinSize,
@@ -21,6 +22,14 @@ export class PurchaseItemDto {
   @IsNumber()
   @Min(0)
   unitPrice: number;
+
+  @IsOptional()
+  @IsString()
+  batchNumber?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }
 
 export class CreatePurchaseOrderDto {

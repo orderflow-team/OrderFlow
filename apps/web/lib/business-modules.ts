@@ -27,7 +27,18 @@ export function getOptionalModulesForCategory(category: string | null | undefine
 const DEFAULT_ITEM_CATEGORIES: Record<string, string[]> = {
   grocery: ['Fruits & Vegetables', 'Dairy & Bakery', 'Snacks & Beverages', 'Personal Care', 'Household'],
   retail: ['Clothing', 'Footwear', 'Accessories', 'Electronics', 'Home & Living'],
-  pharmacy: ['Medicines', 'Personal Care', 'Baby Care', 'Wellness', 'Medical Devices'],
+  pharmacy: [
+    'Prescription Medicines',
+    'OTC Medicines',
+    'Ayurvedic & Herbal',
+    'Vitamins & Supplements',
+    'Diabetic Care',
+    'Baby & Mother Care',
+    'Skin & Personal Care',
+    'Surgical & First Aid',
+    'Health Devices & Equipment',
+    'Elderly & Senior Care',
+  ],
   wholesale: ['Bulk Grains', 'Packaged Goods', 'Beverages', 'Household Supplies'],
   restaurant: ['Starters', 'Main Course', 'Breads & Rice', 'Tandoori Specials', 'Desserts', 'Beverages'],
 };

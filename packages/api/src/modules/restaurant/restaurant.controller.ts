@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { RestaurantService } from './restaurant.service';
@@ -18,7 +19,7 @@ import { UpdateTableStatusDto } from './dto/update-table-status.dto';
 import { CreateKotDto } from './dto/create-kot.dto';
 import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/restaurant')
 export class RestaurantController {
   constructor(private restaurantService: RestaurantService) {}

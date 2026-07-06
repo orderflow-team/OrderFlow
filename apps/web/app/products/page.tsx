@@ -16,6 +16,7 @@ import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
+import { PharmacyGrid } from './pharmacy-grid';
 
 interface Product {
   id: string;
@@ -59,6 +60,7 @@ function ProductsPageContent() {
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
+  const isPharmacy = category === 'pharmacy';
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowForm(true);
@@ -80,10 +82,10 @@ function ProductsPageContent() {
   };
 
   useEffect(() => {
-    if (isRestaurant || !ready || !businessId) return;
+    if (isRestaurant || isPharmacy || !ready || !businessId) return;
     const t = setTimeout(() => load(businessId, search), 250);
     return () => clearTimeout(t);
-  }, [search, ready, businessId, isRestaurant]);
+  }, [search, ready, businessId, isRestaurant, isPharmacy]);
 
   const loadCategories = async (bizId: string) => {
     try {
@@ -107,9 +109,9 @@ function ProductsPageContent() {
   };
 
   useEffect(() => {
-    if (isRestaurant || !ready || !businessId) return;
+    if (isRestaurant || isPharmacy || !ready || !businessId) return;
     loadCategories(businessId);
-  }, [ready, businessId, isRestaurant]);
+  }, [ready, businessId, isRestaurant, isPharmacy]);
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +138,10 @@ function ProductsPageContent() {
 
   if (isRestaurant && businessId) {
     return <MenuGrid businessId={businessId} />;
+  }
+
+  if (isPharmacy && businessId) {
+    return <PharmacyGrid businessId={businessId} />;
   }
 
   const openCreateForm = () => {

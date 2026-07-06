@@ -23,7 +23,7 @@ import {
   Check,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
 
@@ -93,8 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // means the first client render still matches the server (null), and the
   // real value arrives as a normal post-mount update instead.
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [isSalesmanRole, setIsSalesmanRole] = useState(false);
   useEffect(() => {
     setBusinessId(getCurrentUser()?.businessId ?? null);
+    setIsSalesmanRole(hasRole('salesman'));
   }, []);
 
   useEffect(() => {
@@ -165,15 +167,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  const moreNav = optionalModules
-    ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV]
-    : CORE_MORE_NAV;
-    
-  const isRestaurant = optionalModules?.includes('restaurant') ?? false;
-  
-  const allNav = [...CORE_PRIMARY_NAV.map(item => 
-    item.href === '/products' && businessCategory === 'restaurant' ? { ...item, label: 'Menu' } : item
-  ), ...moreNav];
+  // A salesman logs into the SAME business as the owner (products/customers
+  // are literally the same rows — no sync needed) but only gets a working
+  // slice of the app: placing orders and logging visits, not admin tools.
+  const moreNav = isSalesmanRole
+    ? []
+    : optionalModules
+      ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV]
+      : CORE_MORE_NAV;
+
+  const primaryNavBase = isSalesmanRole
+    ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
+    : CORE_PRIMARY_NAV;
+
+  const allNav = [...primaryNavBase.map(item => {
+    if (item.href !== '/products') return item;
+    if (businessCategory === 'restaurant') return { ...item, label: 'Menu' };
+    if (businessCategory === 'pharmacy') return { ...item, label: 'Medicines' };
+    return item;
+  }), ...moreNav];
 
   // Safety net: if a category-restricted module is hidden, bounce away from its URL.
   useEffect(() => {
@@ -185,6 +197,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       router.replace('/dashboard');
     }
   }, [optionalModules, pathname, router]);
+
+  // Safety net: a salesman-role user has no admin tools — bounce away from
+  // Products/Billing/Reports/Inventory even if they hit the URL directly.
+  useEffect(() => {
+    if (!isSalesmanRole) return;
+    const adminOnlyPaths = ['/products', '/billing', '/reports', '/inventory'];
+    if (adminOnlyPaths.some((p) => isActive(pathname, p))) {
+      router.replace('/dashboard');
+    }
+  }, [isSalesmanRole, pathname, router]);
 
   const logout = () => {
     localStorage.removeItem('access_token');
@@ -377,10 +399,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/50 shadow-[0_-4px_30px_-5px_rgba(0,0,0,0.1)] flex px-1 py-1 pb-[env(safe-area-inset-bottom)]">
-        {CORE_PRIMARY_NAV.map((item, index) => {
+        {primaryNavBase.map((item, index) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
-          const label = item.href === '/products' && isRestaurant ? 'Menu' : item.label;
+          const label =
+            item.href === '/products' && businessCategory === 'restaurant'
+              ? 'Menu'
+              : item.href === '/products' && businessCategory === 'pharmacy'
+                ? 'Medicines'
+                : item.label;
           const tint = NAV_TINTS[index % NAV_TINTS.length];
           return (
             <Link
@@ -401,23 +428,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
-        <button
-          onClick={() => setMoreOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
-        >
-          <div
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-              moreNav.some((item) => isActive(pathname, item.href))
-                ? 'bg-slate-900/10 text-slate-700 shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]'
-                : 'text-slate-400'
-            }`}
+        {moreNav.length > 0 && (
+          <button
+            onClick={() => setMoreOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
           >
-            <MoreHorizontal className="w-5 h-5" />
-          </div>
-          <span className={moreNav.some((item) => isActive(pathname, item.href)) ? 'text-slate-700' : 'text-slate-400'}>
-            More
-          </span>
-        </button>
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                moreNav.some((item) => isActive(pathname, item.href))
+                  ? 'bg-slate-900/10 text-slate-700 shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]'
+                  : 'text-slate-400'
+              }`}
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </div>
+            <span className={moreNav.some((item) => isActive(pathname, item.href)) ? 'text-slate-700' : 'text-slate-400'}>
+              More
+            </span>
+          </button>
+        )}
       </nav>
 
       {/* Mobile "More" sheet */}

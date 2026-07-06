@@ -7,6 +7,16 @@ function money(n: number | string) {
   return Number(n).toFixed(2);
 }
 
+/** Batch/expiry/Rx are pharmacy-specific product fields — only rendered when actually set. */
+function itemDetails(item: InvoiceItem): string[] {
+  const p = item.product;
+  const details: string[] = [];
+  if (p?.batch_number) details.push(`Batch: ${p.batch_number}`);
+  if (p?.expiry_date) details.push(`Exp: ${new Date(p.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+  if (p?.prescription_required) details.push('Rx');
+  return details;
+}
+
 /** A4 GST invoice layout for puppeteer print-to-PDF (also reused, in spirit, by the thermal template). */
 export function renderInvoiceHtml(
   invoice: Invoice,
@@ -16,16 +26,20 @@ export function renderInvoiceHtml(
   order: any | null,
 ) {
   const rows = items
-    .map(
-      (item) => `
+    .map((item) => {
+      const details = itemDetails(item);
+      const detailsHtml = details.length
+        ? `<div class="muted" style="font-size:11px;margin-top:2px;">${details.join('&nbsp;&nbsp;•&nbsp;&nbsp;')}</div>`
+        : '';
+      return `
         <tr>
-          <td>${item.product?.name ?? item.custom_product_name ?? '-'}</td>
+          <td>${item.product?.name ?? item.custom_product_name ?? '-'}${detailsHtml}</td>
           <td class="num">${money(item.quantity)}</td>
           <td class="num">₹${money(item.unit_price)}</td>
           <td class="num">${money(item.tax_percentage)}%</td>
           <td class="num">₹${money(item.subtotal)}</td>
-        </tr>`,
-    )
+        </tr>`;
+    })
     .join('');
 
   return `<!DOCTYPE html>
@@ -93,7 +107,9 @@ export function renderThermalReceiptHtml(
   const rows = items
     .map((item) => {
       const name = (item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20);
-      return `${name.padEnd(20)}${String(money(item.quantity)).padStart(4)} ${`₹${money(item.subtotal)}`.padStart(8)}`;
+      const row = `${name.padEnd(20)}${String(money(item.quantity)).padStart(4)} ${`₹${money(item.subtotal)}`.padStart(8)}`;
+      const details = itemDetails(item);
+      return details.length ? `${row}\n  ${details.join('  ')}` : row;
     })
     .join('\n');
 

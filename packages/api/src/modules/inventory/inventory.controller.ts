@@ -1,12 +1,13 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { InventoryService } from './inventory.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/inventory')
 export class InventoryController {
   constructor(private inventoryService: InventoryService) {}

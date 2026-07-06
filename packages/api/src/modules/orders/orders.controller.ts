@@ -7,8 +7,10 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
@@ -20,9 +22,9 @@ export class OrdersController {
   constructor(private ordersService: OrdersService) {}
 
   @Post()
-  async create(@Body() dto: CreateOrderDto) {
+  async create(@Body() dto: CreateOrderDto, @Req() req: Request & { user?: { userId: string } }) {
     try {
-      return await this.ordersService.create(dto);
+      return await this.ordersService.create(dto, req.user?.userId);
     } catch (error: any) {
       require('fs').appendFileSync('error.log', error.stack + '\n\n');
       throw error;

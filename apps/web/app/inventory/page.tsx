@@ -10,6 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { StatusBadge } from '@/components/status-badge';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { getCachedBusinessCategory } from '@/lib/auth';
 import { Plus, X, AlertTriangle, Warehouse, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface Supplier {
@@ -22,6 +23,9 @@ interface Product {
   id: string;
   name: string;
   stock_quantity: number;
+  brand?: string | null;
+  batch_number?: string | null;
+  expiry_date?: string | null;
 }
 
 interface PurchaseOrder {
@@ -29,17 +33,27 @@ interface PurchaseOrder {
   order_number: string;
   status: string;
   total_amount: string | number;
-  items?: { quantity: string | number; unit_price: string | number; subtotal: string | number; product?: Product }[];
+  items?: {
+    quantity: string | number;
+    unit_price: string | number;
+    subtotal: string | number;
+    batch_number?: string | null;
+    expiry_date?: string | null;
+    product?: Product;
+  }[];
 }
 
 interface PoLine {
   productId: string;
   quantity: string;
   unitPrice: string;
+  batchNumber: string;
+  expiryDate: string;
 }
 
 export default function InventoryPage() {
   const { businessId, ready } = useBusiness();
+  const [isPharmacy, setIsPharmacy] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -52,9 +66,13 @@ export default function InventoryPage() {
   const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   const [poSupplierId, setPoSupplierId] = useState('');
-  const [poLines, setPoLines] = useState<PoLine[]>([{ productId: '', quantity: '1', unitPrice: '' }]);
+  const [poLines, setPoLines] = useState<PoLine[]>([{ productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }]);
   const [showPoForm, setShowPoForm] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (businessId) setIsPharmacy(getCachedBusinessCategory(businessId) === 'pharmacy');
+  }, [businessId]);
 
   const load = async (bizId: string) => {
     setLoading(true);
@@ -105,10 +123,16 @@ export default function InventoryPage() {
       await apiClient.post('/api/inventory/purchase-orders', {
         businessId,
         supplierId: poSupplierId || undefined,
-        items: poLines.map((l) => ({ productId: l.productId, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) })),
+        items: poLines.map((l) => ({
+          productId: l.productId,
+          quantity: Number(l.quantity),
+          unitPrice: Number(l.unitPrice),
+          batchNumber: l.batchNumber || undefined,
+          expiryDate: l.expiryDate || undefined,
+        })),
       });
       setPoSupplierId('');
-      setPoLines([{ productId: '', quantity: '1', unitPrice: '' }]);
+      setPoLines([{ productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }]);
       setShowPoForm(false);
       load(businessId);
     } catch (err: any) {
@@ -141,7 +165,7 @@ export default function InventoryPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <CardTitle className="text-base">Low Stock</CardTitle>
+              <CardTitle className="text-base">{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -151,7 +175,12 @@ export default function InventoryPage() {
               <div className="space-y-2">
                 {lowStock.map((p) => (
                   <div key={p.id} className="flex justify-between text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                    <span className="text-slate-800">{p.name}</span>
+                    <div>
+                      <span className="text-slate-800">{p.name}</span>
+                      {isPharmacy && p.batch_number && (
+                        <span className="text-xs text-slate-400 ml-2">Batch {p.batch_number}</span>
+                      )}
+                    </div>
                     <span className="text-amber-600 font-semibold">{p.stock_quantity} left</span>
                   </div>
                 ))}
@@ -226,49 +255,70 @@ export default function InventoryPage() {
                   ))}
                 </select>
                 {poLines.map((line, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-3">
-                    <select
-                      value={line.productId}
-                      onChange={(e) =>
-                        setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, productId: e.target.value } : l)))
-                      }
-                      className="h-10 rounded-lg bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
-                      required
-                    >
-                      <option value="">Select product</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                    <Input
-                      placeholder="Quantity"
-                      type="number"
-                      value={line.quantity}
-                      onChange={(e) =>
-                        setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, quantity: e.target.value } : l)))
-                      }
-                    />
-                    <Input
-                      placeholder="Unit price"
-                      type="number"
-                      value={line.unitPrice}
-                      onChange={(e) =>
-                        setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, unitPrice: e.target.value } : l)))
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPoLines((prev) => prev.filter((_, i) => i !== index))}
-                      className="text-xs text-slate-400 hover:text-rose-600 text-left"
-                    >
-                      Remove
-                    </button>
+                  <div key={index} className="bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-3 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                      <select
+                        value={line.productId}
+                        onChange={(e) =>
+                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, productId: e.target.value } : l)))
+                        }
+                        className="h-10 rounded-lg bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
+                        required
+                      >
+                        <option value="">Select product</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <Input
+                        placeholder="Quantity"
+                        type="number"
+                        value={line.quantity}
+                        onChange={(e) =>
+                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, quantity: e.target.value } : l)))
+                        }
+                      />
+                      <Input
+                        placeholder="Unit price"
+                        type="number"
+                        value={line.unitPrice}
+                        onChange={(e) =>
+                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, unitPrice: e.target.value } : l)))
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPoLines((prev) => prev.filter((_, i) => i !== index))}
+                        className="text-xs text-slate-400 hover:text-rose-600 text-left"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {isPharmacy && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Input
+                          placeholder="Batch number"
+                          value={line.batchNumber}
+                          onChange={(e) =>
+                            setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, batchNumber: e.target.value } : l)))
+                          }
+                        />
+                        <Input
+                          type="date"
+                          placeholder="Expiry date"
+                          value={line.expiryDate}
+                          onChange={(e) =>
+                            setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, expiryDate: e.target.value } : l)))
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div className="flex items-center justify-between pt-2">
                   <button
                     type="button"
-                    onClick={() => setPoLines((prev) => [...prev, { productId: '', quantity: '1', unitPrice: '' }])}
+                    onClick={() => setPoLines((prev) => [...prev, { productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }])}
                     className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
                   >
                     + Add item
@@ -335,6 +385,7 @@ export default function InventoryPage() {
                                 <thead className="text-xs text-slate-500 bg-white/30 border-b border-white/40 uppercase">
                                   <tr>
                                     <th className="px-4 py-2">Item</th>
+                                    {isPharmacy && <th className="px-4 py-2">Batch / Expiry</th>}
                                     <th className="px-4 py-2 text-right">Qty</th>
                                     <th className="px-4 py-2 text-right">Unit Price</th>
                                     <th className="px-4 py-2 text-right">Subtotal</th>
@@ -344,6 +395,12 @@ export default function InventoryPage() {
                                   {po.items.map((item, idx) => (
                                     <tr key={idx}>
                                       <td className="px-4 py-2 font-medium text-slate-700">{item.product?.name || 'Unknown Product'}</td>
+                                      {isPharmacy && (
+                                        <td className="px-4 py-2 text-slate-500 text-xs">
+                                          {item.batch_number || '—'}
+                                          {item.expiry_date ? ` • Exp ${new Date(item.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}` : ''}
+                                        </td>
+                                      )}
                                       <td className="px-4 py-2 text-right text-slate-600">{Number(item.quantity)}</td>
                                       <td className="px-4 py-2 text-right text-slate-600">₹{Number(item.unit_price).toFixed(2)}</td>
                                       <td className="px-4 py-2 text-right font-medium text-slate-700">₹{Number(item.subtotal).toFixed(2)}</td>

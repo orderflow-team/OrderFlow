@@ -30,6 +30,14 @@ export class PurchaseItem {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   subtotal: number;
 
+  // Pharmacy-specific: the batch/expiry of the specific shipment being received,
+  // applied to the product record when the purchase order is marked received.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  batch_number: string;
+
+  @Column({ type: 'date', nullable: true })
+  expiry_date: Date;
+
   @CreateDateColumn()
   created_at: Date;
 }

@@ -3,6 +3,7 @@ import { Business } from './business.entity';
 import { Customer } from './customer.entity';
 import { Table } from './table.entity';
 import { OrderItem } from './order-item.entity';
+import { User } from './user.entity';
 
 @Entity('orders')
 export class Order {
@@ -56,6 +57,15 @@ export class Order {
 
   @Column({ type: 'text', nullable: true })
   notes: string;
+
+  // Who placed this order — e.g. which salesman took it in the field.
+  // Nullable: most orders are entered directly by the shop staff.
+  @Column({ type: 'uuid', nullable: true })
+  created_by_user_id: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'created_by_user_id' })
+  created_by: User;
 
   @CreateDateColumn()
   created_at: Date;

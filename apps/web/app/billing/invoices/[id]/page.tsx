@@ -14,7 +14,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 interface InvoiceItem {
   id: string;
   product_id: string | null;
-  product?: { name: string } | null;
+  product?: { name: string; batch_number?: string | null; expiry_date?: string | null; prescription_required?: boolean } | null;
   custom_product_name: string | null;
   quantity: string | number;
   unit_price: string | number;
@@ -186,9 +186,19 @@ export default function InvoiceDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {invoice.items.map((item) => (
+                {invoice.items.map((item) => {
+                  const details: string[] = [];
+                  if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
+                  if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+                  if (item.product?.prescription_required) details.push('Rx');
+                  return (
                   <tr key={item.id}>
-                    <td className="py-3 text-slate-800">{item.product?.name || item.custom_product_name || '-'}</td>
+                    <td className="py-3 text-slate-800">
+                      {item.product?.name || item.custom_product_name || '-'}
+                      {details.length > 0 && (
+                        <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
+                      )}
+                    </td>
                     <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
                     <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
                     <td className="py-3 text-right text-slate-600">
@@ -198,7 +208,8 @@ export default function InvoiceDetailPage() {
                       {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table></div>
 

@@ -49,6 +49,14 @@ export class Product {
   @Column({ type: 'date', nullable: true })
   expiry_date: Date;
 
+  // Generic/salt composition, e.g. "Paracetamol 500mg" — pharmacy-specific.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  generic_name: string;
+
+  // Whether a doctor's prescription is required to sell this item (Rx vs OTC).
+  @Column({ type: 'boolean', default: false })
+  prescription_required: boolean;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

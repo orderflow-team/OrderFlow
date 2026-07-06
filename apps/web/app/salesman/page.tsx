@@ -9,13 +9,15 @@ import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, X, MapPin, UserRound } from 'lucide-react';
+import { getCurrentUser, hasRole } from '@/lib/auth';
+import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2 } from 'lucide-react';
 
 interface Salesman {
   id: string;
   name: string;
   phone: string | null;
   route: string | null;
+  user_id: string | null;
 }
 
 interface Customer {
@@ -33,6 +35,8 @@ interface Visit {
 
 export default function SalesmanPage() {
   const { businessId, ready } = useBusiness();
+  const isSalesmanRole = hasRole('salesman');
+  const myUserId = getCurrentUser()?.id;
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [visits, setVisits] = useState<Record<string, Visit[]>>({});
@@ -45,6 +49,10 @@ export default function SalesmanPage() {
   const [form, setForm] = useState({ name: '', phone: '', route: '' });
   const [visitCustomerId, setVisitCustomerId] = useState('');
   const [gps, setGps] = useState('');
+  const [loginFormFor, setLoginFormFor] = useState<string | null>(null);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [creatingLogin, setCreatingLogin] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const load = async (bizId: string) => {
     setLoading(true);
@@ -56,7 +64,9 @@ export default function SalesmanPage() {
       setSalesmen(salesmenRes.data);
       setCustomers(customersRes.data);
       if (salesmenRes.data.length && !selectedSalesman) {
-        setSelectedSalesman(salesmenRes.data[0].id);
+        // A salesman-role user only ever sees/checks in as themselves.
+        const mine = isSalesmanRole ? salesmenRes.data.find((s) => s.user_id === myUserId) : undefined;
+        setSelectedSalesman((mine ?? salesmenRes.data[0]).id);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load salesman data');
@@ -107,6 +117,23 @@ export default function SalesmanPage() {
     loadVisits(selectedSalesman);
   };
 
+  const handleCreateLogin = async (e: React.FormEvent, salesmanId: string) => {
+    e.preventDefault();
+    if (!businessId) return;
+    setCreatingLogin(true);
+    setLoginError('');
+    try {
+      await apiClient.post(`/api/salesman/${salesmanId}/create-login`, loginForm, { params: { businessId } });
+      setLoginForm({ email: '', password: '' });
+      setLoginFormFor(null);
+      load(businessId);
+    } catch (err: any) {
+      setLoginError(err.response?.data?.message || 'Failed to create login');
+    } finally {
+      setCreatingLogin(false);
+    }
+  };
+
   const handleCheckOut = async (visitId: string) => {
     await apiClient.post(`/api/salesman/visits/${visitId}/check-out`);
     if (selectedSalesman) loadVisits(selectedSalesman);
@@ -119,21 +146,23 @@ export default function SalesmanPage() {
       <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
         <PageHeader
           title="Salesman"
-          description="Field salesmen and their customer visit log."
+          description={isSalesmanRole ? 'Your customer visit log.' : 'Field salesmen and their customer visit log.'}
           action={
-            <div className="flex gap-2">
-              {businessId && <ClearModuleButton module="salesman" businessId={businessId} />}
-              <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
-                {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showForm ? 'Cancel' : 'Add Salesman'}
-              </Button>
-            </div>
+            !isSalesmanRole && (
+              <div className="flex gap-2">
+                {businessId && <ClearModuleButton module="salesman" businessId={businessId} />}
+                <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
+                  {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {showForm ? 'Cancel' : 'Add Salesman'}
+                </Button>
+              </div>
+            )
           }
         />
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        {showForm && (
+        {!isSalesmanRole && showForm && (
           <Card className="ring-white/50 glass-sheen-sm">
             <CardContent className="pt-6">
               <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -155,15 +184,89 @@ export default function SalesmanPage() {
           </div>
         ) : (
           <>
-            <select
-              value={selectedSalesman}
-              onChange={(e) => setSelectedSalesman(e.target.value)}
-              className="h-10 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
-            >
-              {salesmen.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}{s.route ? ` - ${s.route}` : ''}</option>
-              ))}
-            </select>
+            {!isSalesmanRole && (
+            <Card className="ring-white/50 glass-sheen-sm">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-emerald-600" />
+                  <CardTitle className="text-base">Salesmen &amp; Logins</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {salesmen.map((s) => (
+                    <div key={s.id} className="px-6 py-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{s.name}</p>
+                          <p className="text-xs text-slate-400 truncate">{[s.phone, s.route].filter(Boolean).join(' · ') || '—'}</p>
+                        </div>
+                        {s.user_id ? (
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3" /> Has login
+                          </span>
+                        ) : loginFormFor === s.id ? null : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 gap-1.5"
+                            onClick={() => { setLoginFormFor(s.id); setLoginForm({ email: '', password: '' }); setLoginError(''); }}
+                          >
+                            <KeyRound className="w-3.5 h-3.5" /> Create Login
+                          </Button>
+                        )}
+                      </div>
+                      {loginFormFor === s.id && (
+                        <form onSubmit={(e) => handleCreateLogin(e, s.id)} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <Input
+                            type="email"
+                            placeholder="Email"
+                            value={loginForm.email}
+                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                            required
+                          />
+                          <Input
+                            type="password"
+                            placeholder="Password (min 6 chars)"
+                            value={loginForm.password}
+                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                            minLength={6}
+                            required
+                          />
+                          <div className="flex gap-2">
+                            <Button type="submit" size="sm" disabled={creatingLogin} className="flex-1">
+                              {creatingLogin ? 'Creating...' : 'Save'}
+                            </Button>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => setLoginFormFor(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {loginError && <p className="px-6 pb-3 text-sm text-rose-600">{loginError}</p>}
+              </CardContent>
+            </Card>
+            )}
+
+            {isSalesmanRole ? (
+              <p className="text-sm font-semibold text-slate-600">
+                {salesmen.find((s) => s.id === selectedSalesman)?.name}
+                {salesmen.find((s) => s.id === selectedSalesman)?.route ? ` · ${salesmen.find((s) => s.id === selectedSalesman)?.route}` : ''}
+              </p>
+            ) : (
+              <select
+                value={selectedSalesman}
+                onChange={(e) => setSelectedSalesman(e.target.value)}
+                className="h-10 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+              >
+                {salesmen.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}{s.route ? ` - ${s.route}` : ''}</option>
+                ))}
+              </select>
+            )}
 
             <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>

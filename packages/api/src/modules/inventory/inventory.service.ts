@@ -38,6 +38,8 @@ export class InventoryService {
           quantity: item.quantity,
           unit_price: item.unitPrice,
           subtotal: item.quantity * item.unitPrice,
+          batch_number: item.batchNumber,
+          expiry_date: item.expiryDate ? new Date(item.expiryDate) : undefined,
         }),
       );
       await manager.save(PurchaseItem, items);
@@ -86,6 +88,17 @@ export class InventoryService {
       for (const item of items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
+          // Latest received batch/expiry becomes the product's current batch/expiry.
+          if (item.batch_number || item.expiry_date) {
+            await manager.update(
+              Product,
+              { id: item.product_id },
+              {
+                ...(item.batch_number ? { batch_number: item.batch_number } : {}),
+                ...(item.expiry_date ? { expiry_date: item.expiry_date } : {}),
+              },
+            );
+          }
         }
         const stock = manager.create(Stock, {
           business_id: businessId,

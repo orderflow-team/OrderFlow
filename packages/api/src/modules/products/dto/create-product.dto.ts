@@ -21,6 +21,18 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsString()
+  genericName?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  prescriptionRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
   unit?: string;
 
   @IsOptional()

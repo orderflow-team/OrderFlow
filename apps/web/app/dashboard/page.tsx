@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
@@ -14,7 +14,7 @@ import { DraftReviewStack } from '@/components/draft-review-stack';
 import Link from 'next/link';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
-  Users, Receipt, Mic, UserPlus, Plus,
+  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound,
 } from 'lucide-react';
 
 interface DashboardData {
@@ -33,14 +33,23 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 }
 
-const HOME_TILES = [
-  { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
-  { href: '/products', label: 'Products', icon: Package, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
-  { href: '/orders', label: 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
-  { href: '/billing', label: 'Ledger', icon: Receipt, bg: 'bg-tile-mint', iconBg: 'bg-tile-mint-icon', fg: 'text-tile-mint-fg' },
-];
+function getHomeTiles(isPharmacy: boolean, isSalesman: boolean) {
+  if (isSalesman) {
+    return [
+      { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
+      { href: '/orders', label: 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
+      { href: '/salesman', label: 'Visits', icon: UserRound, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
+    ];
+  }
+  return [
+    { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
+    { href: '/products', label: isPharmacy ? 'Medicines' : 'Products', icon: isPharmacy ? Pill : Package, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
+    { href: '/orders', label: 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
+    { href: '/billing', label: 'Ledger', icon: Receipt, bg: 'bg-tile-mint', iconBg: 'bg-tile-mint-icon', fg: 'text-tile-mint-fg' },
+  ];
+}
 
-function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: (typeof HOME_TILES)[number]) {
+function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: ReturnType<typeof getHomeTiles>[number]) {
   return (
     <Link
       href={href}
@@ -54,38 +63,50 @@ function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: (typeof HOME_TILE
   );
 }
 
-const QUICK_ACTIONS = [
-  {
-    href: '/orders?new=1',
-    title: 'New Order',
-    subtitle: 'Record a sale',
-    icon: Plus,
-    iconBg: 'bg-tile-peach-icon',
-    iconFg: 'text-tile-peach-fg',
-    micBg: 'bg-accent-orange',
-    onMic: () => window.dispatchEvent(new CustomEvent('open-order-assistant')),
-  },
-  {
-    href: '/products?new=1',
-    title: 'Add Product',
-    subtitle: 'Add to inventory',
-    icon: Package,
-    iconBg: 'bg-tile-lavender-icon',
-    iconFg: 'text-tile-lavender-fg',
-    micBg: 'bg-tile-lavender-fg',
-  },
-  {
-    href: '/customers?new=1',
-    title: 'Add Client',
-    subtitle: 'Register shop owner',
-    icon: UserPlus,
-    iconBg: 'bg-tile-sky-icon',
-    iconFg: 'text-tile-sky-fg',
-    micBg: 'bg-tile-sky-fg',
-  },
-] as const;
+function getQuickActions(isPharmacy: boolean, isSalesman: boolean) {
+  return [
+    {
+      href: '/orders?new=1',
+      title: 'New Order',
+      subtitle: 'Record a sale',
+      icon: Plus,
+      iconBg: 'bg-tile-peach-icon',
+      iconFg: 'text-tile-peach-fg',
+      micBg: 'bg-accent-orange',
+      onMic: () => window.dispatchEvent(new CustomEvent('open-order-assistant')),
+    },
+    isSalesman
+      ? {
+          href: '/salesman',
+          title: 'Log Visit',
+          subtitle: 'Check in at a shop',
+          icon: UserRound,
+          iconBg: 'bg-tile-lavender-icon',
+          iconFg: 'text-tile-lavender-fg',
+          micBg: 'bg-tile-lavender-fg',
+        }
+      : {
+          href: '/products?new=1',
+          title: isPharmacy ? 'Add Medicine' : 'Add Product',
+          subtitle: isPharmacy ? 'Add to pharmacy stock' : 'Add to inventory',
+          icon: isPharmacy ? Pill : Package,
+          iconBg: 'bg-tile-lavender-icon',
+          iconFg: 'text-tile-lavender-fg',
+          micBg: 'bg-tile-lavender-fg',
+        },
+    {
+      href: '/customers?new=1',
+      title: 'Add Client',
+      subtitle: 'Register shop owner',
+      icon: UserPlus,
+      iconBg: 'bg-tile-sky-icon',
+      iconFg: 'text-tile-sky-fg',
+      micBg: 'bg-tile-sky-fg',
+    },
+  ] as const;
+}
 
-function QuickActionRow({ action }: { action: (typeof QUICK_ACTIONS)[number] }) {
+function QuickActionRow({ action }: { action: ReturnType<typeof getQuickActions>[number] }) {
   const Icon = action.icon;
   return (
     <div className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm p-3.5">
@@ -148,6 +169,8 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [seeding, setSeeding] = useState(false);
   const [hasInventory, setHasInventory] = useState(false);
+  const [isPharmacy, setIsPharmacy] = useState(false);
+  const [isSalesman, setIsSalesman] = useState(false);
 
   const handleSeedDemoData = async () => {
     if (!businessId) return;
@@ -192,17 +215,20 @@ export default function DashboardPage() {
     }
 
     setBusinessId(user.businessId);
+    setIsSalesman(hasRole('salesman'));
     loadDashboard(user.businessId);
 
     const cachedCategory = getCachedBusinessCategory(user.businessId);
     if (cachedCategory !== null) {
       setHasInventory(getOptionalModulesForCategory(cachedCategory).includes('inventory'));
+      setIsPharmacy(cachedCategory === 'pharmacy');
     }
     apiClient
       .get<{ category: string | null }>(`/api/businesses/${user.businessId}`)
       .then((res) => {
         setCachedBusinessCategory(user.businessId!, res.data.category);
         setHasInventory(getOptionalModulesForCategory(res.data.category).includes('inventory'));
+        setIsPharmacy(res.data.category === 'pharmacy');
       })
       .catch(() => {});
   }, [router]);
@@ -238,29 +264,31 @@ export default function DashboardPage() {
           title="Dashboard"
           description="Here's what's happening with your business today."
           action={
-            <Button
-              onClick={handleSeedDemoData}
-              disabled={seeding}
-              size="sm"
-              className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
-              <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
-            </Button>
+            !isSalesman && (
+              <Button
+                onClick={handleSeedDemoData}
+                disabled={seeding}
+                size="sm"
+                className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
+                <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
+              </Button>
+            )
           }
         />
 
         <DraftReviewStack businessId={businessId} />
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-md lg:max-w-none">
-          {HOME_TILES.map((tile) => (
+          {getHomeTiles(isPharmacy, isSalesman).map((tile) => (
             <HomeTile key={tile.href} {...tile} />
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {QUICK_ACTIONS.map((action) => (
+          {getQuickActions(isPharmacy, isSalesman).map((action) => (
             <QuickActionRow key={action.href} action={action} />
           ))}
         </div>
@@ -272,15 +300,15 @@ export default function DashboardPage() {
           <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" />
         </div>
 
-        {hasInventory && (
+        {hasInventory && !isSalesman && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <CardTitle>Low Stock</CardTitle>
+                  <CardTitle>{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
                 </div>
-                <CardDescription>Products at or below 10 units</CardDescription>
+                <CardDescription>{isPharmacy ? 'Medicines at or below 10 units' : 'Products at or below 10 units'}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.lowStockProducts.length === 0 ? (
@@ -308,9 +336,9 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CalendarClock className="w-4 h-4 text-amber-600" />
-                  <CardTitle>Expiring Soon</CardTitle>
+                  <CardTitle>{isPharmacy ? 'Medicines Expiring Soon' : 'Expiring Soon'}</CardTitle>
                 </div>
-                <CardDescription>Products expiring within 30 days</CardDescription>
+                <CardDescription>{isPharmacy ? 'Batches expiring within 30 days' : 'Products expiring within 30 days'}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.expiringProducts.length === 0 ? (
@@ -332,6 +360,7 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {!isSalesman && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
@@ -363,8 +392,8 @@ export default function DashboardPage() {
           <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-emerald-600" />
-                <CardTitle>Top Products</CardTitle>
+                {isPharmacy ? <Pill className="w-4 h-4 text-emerald-600" /> : <Package className="w-4 h-4 text-emerald-600" />}
+                <CardTitle>{isPharmacy ? 'Top Selling Medicines' : 'Top Products'}</CardTitle>
               </div>
               <CardDescription>By quantity sold</CardDescription>
             </CardHeader>
@@ -387,6 +416,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
     </AppShell>
   );

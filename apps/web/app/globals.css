@@ -203,6 +203,27 @@
   background-color: oklch(0.5 0.01 250);
 }
 
+/* Barely-there horizontal scrollbar for pill rows (category filters, etc.) —
+   a hairline translucent thumb that only becomes clearly visible on hover. */
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.55);
+}
+
 /* Apple-style "liquid glass": a bright inset highlight along the top edge
    (light catching the curved surface), a faint inset shade along the bottom
    (glass thickness), and a soft diffused drop shadow for the floating look. */

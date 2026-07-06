@@ -1,27 +1,71 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { Salesman } from '../../database/entities/salesman.entity';
 import { Visit } from '../../database/entities/visit.entity';
+import { User } from '../../database/entities/user.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { CreateSalesmanDto } from './dto/create-salesman.dto';
 import { CheckinVisitDto } from './dto/checkin-visit.dto';
+import { CreateSalesmanLoginDto } from './dto/create-salesman-login.dto';
 
 @Injectable()
 export class SalesmanService {
   constructor(
     @InjectRepository(Salesman) private salesmenRepository: Repository<Salesman>,
     @InjectRepository(Visit) private visitsRepository: Repository<Visit>,
+    @InjectRepository(User) private usersRepository: Repository<User>,
   ) {}
 
-  create(dto: CreateSalesmanDto) {
+  async create(dto: CreateSalesmanDto) {
+    let userId = dto.userId;
+    if (dto.email && dto.password) {
+      const user = await this.createLoginUser(dto.businessId, dto.name, dto.email, dto.password);
+      userId = user.id;
+    }
+
     const salesman = this.salesmenRepository.create({
       business_id: dto.businessId,
-      user_id: dto.userId,
+      user_id: userId,
       name: dto.name,
       phone: dto.phone,
       route: dto.route,
     });
     return this.salesmenRepository.save(salesman);
+  }
+
+  /**
+   * Gives an already-existing salesman a real login, scoped to the SAME
+   * business as the owner — so products/customers/pricing are always the
+   * live data the owner sees, with no cross-business sync to maintain.
+   */
+  async createLogin(id: string, businessId: string, dto: CreateSalesmanLoginDto) {
+    const salesman = await this.findOne(id, businessId);
+    if (salesman.user_id) {
+      throw new ConflictException('This salesman already has a login');
+    }
+    const user = await this.createLoginUser(businessId, salesman.name, dto.email, dto.password);
+    salesman.user_id = user.id;
+    await this.salesmenRepository.save(salesman);
+    return { id: user.id, email: user.email };
+  }
+
+  private async createLoginUser(businessId: string, name: string, email: string, password: string) {
+    const normalizedEmail = email.toLowerCase();
+    const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+    const password_hash = await bcrypt.hash(password, 10);
+    const user = this.usersRepository.create({
+      email: normalizedEmail,
+      password_hash,
+      full_name: name,
+      business_id: businessId,
+      role: UserRole.SALESMAN,
+    });
+    return this.usersRepository.save(user);
   }
 
   findAll(businessId: string) {

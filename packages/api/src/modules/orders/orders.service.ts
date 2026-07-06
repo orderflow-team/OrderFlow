@@ -86,7 +86,7 @@ export class OrdersService {
    * Tax is computed on top of each item's price using the linked product's
    * GST tax_percentage (free-text items have no tax, since there's no rate to apply).
    */
-  async create(dto: CreateOrderDto) {
+  async create(dto: CreateOrderDto, createdByUserId?: string) {
     return this.dataSource.transaction(async (manager) => {
       const orderNumber = `ORD-${Date.now()}`;
 
@@ -199,6 +199,7 @@ export class OrdersService {
         total_amount: totalAmount,
         tax_amount: totalTax,
         notes: dto.notes,
+        created_by_user_id: createdByUserId,
       });
       const savedOrder = await manager.save(order);
 
@@ -279,24 +280,38 @@ export class OrdersService {
     return saved.id;
   }
 
-  findAll(businessId: string, status?: string) {
+  // created_by is a full User relation — never leak the password hash to the client.
+  private sanitizeCreatedBy<T extends { created_by?: any }>(order: T): T {
+    if (order.created_by) {
+      const { password_hash, ...safe } = order.created_by;
+      order.created_by = safe;
+    }
+    return order;
+  }
+
+  async findAll(businessId: string, status?: string) {
     const where: Record<string, any> = { business_id: businessId };
     if (status) {
       where.status = status;
     }
-    return this.ordersRepository.find({ 
-      where, 
-      relations: { table: true, items: { product: true } },
-      order: { created_at: 'DESC' } 
+    const orders = await this.ordersRepository.find({
+      where,
+      relations: { table: true, items: { product: true }, created_by: true },
+      order: { created_at: 'DESC' }
     });
+    return orders.map((o) => this.sanitizeCreatedBy(o));
   }
 
   async findOne(id: string, businessId: string) {
-    const order = await this.ordersRepository.findOne({ where: { id, business_id: businessId } });
+    const order = await this.ordersRepository.findOne({
+      where: { id, business_id: businessId },
+      relations: { created_by: true },
+    });
     if (!order) {
       throw new NotFoundException('Order not found');
     }
-    const items = await this.orderItemsRepository.find({ 
+    this.sanitizeCreatedBy(order);
+    const items = await this.orderItemsRepository.find({
       where: { order_id: id },
       relations: { product: true }
     });

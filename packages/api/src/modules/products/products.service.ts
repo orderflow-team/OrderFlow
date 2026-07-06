@@ -19,6 +19,7 @@ export class ProductsService {
     const product = this.productsRepository.create({
       business_id: dto.businessId,
       name: dto.name,
+      brand: dto.brand,
       sku: dto.sku,
       barcode: dto.barcode,
       category: dto.category,
@@ -29,6 +30,8 @@ export class ProductsService {
       stock_quantity: dto.stockQuantity ?? 0,
       batch_number: dto.batchNumber,
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+      generic_name: dto.genericName,
+      prescription_required: dto.prescriptionRequired ?? false,
       description: dto.description,
       is_available: dto.isAvailable ?? true,
       is_draft: dto.isDraft ?? false,
@@ -125,6 +128,7 @@ export class ProductsService {
     const product = await this.findOne(id, businessId);
     Object.assign(product, {
       name: dto.name ?? product.name,
+      brand: dto.brand ?? product.brand,
       sku: dto.sku ?? product.sku,
       barcode: dto.barcode ?? product.barcode,
       category: dto.category ?? product.category,
@@ -135,6 +139,8 @@ export class ProductsService {
       stock_quantity: dto.stockQuantity ?? product.stock_quantity,
       batch_number: dto.batchNumber ?? product.batch_number,
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : product.expiry_date,
+      generic_name: dto.genericName ?? product.generic_name,
+      prescription_required: dto.prescriptionRequired !== undefined ? dto.prescriptionRequired : product.prescription_required,
       description: dto.description !== undefined ? dto.description : product.description,
       is_available: dto.isAvailable !== undefined ? dto.isAvailable : product.is_available,
       is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,

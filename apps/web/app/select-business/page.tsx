@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { setCurrentUser } from '@/lib/auth';
+import { getCurrentUser, setCurrentUser } from '@/lib/auth';
 import { Plus, Store } from 'lucide-react';
 
 interface Business {
@@ -112,6 +112,13 @@ export default function SelectBusinessPage() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
       router.push('/login');
+      return;
+    }
+    // A salesman belongs to exactly one business (the owner's) and never
+    // "owns" it, so /api/businesses/mine would come back empty for them —
+    // send them straight to their dashboard instead of "add a business".
+    if (getCurrentUser()?.role === 'salesman') {
+      router.push('/dashboard');
       return;
     }
     loadBusinesses();

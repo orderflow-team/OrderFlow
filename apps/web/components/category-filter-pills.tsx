@@ -18,9 +18,9 @@ export function CategoryFilterPills({
   onDeleteCategory,
 }: CategoryFilterPillsProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pt-3 -mt-3 pb-2 scrollbar-subtle">
       <div
-        className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
+        className={`shrink-0 whitespace-nowrap group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
           selectedCategory === null ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
         }`}
         onClick={() => onSelect(null)}
@@ -32,7 +32,7 @@ export function CategoryFilterPills({
         return (
           <div
             key={c.id}
-            className={`group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
+            className={`shrink-0 whitespace-nowrap group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ring-1 cursor-pointer transition-colors backdrop-blur-sm ${
               isSel ? 'ring-emerald-500/30 text-emerald-700 bg-emerald-500/10' : 'ring-white/50 text-slate-700 bg-white/40 hover:bg-white/60'
             }`}
             onClick={() => onSelect(isSel ? null : c.name)}

@@ -9,15 +9,25 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
-  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer,
+  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound,
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
-interface Product { id: string; name: string; selling_price: string | number; unit: string; unit_prices?: Record<string, number> | null; }
+interface Product {
+  id: string;
+  name: string;
+  selling_price: string | number;
+  unit: string;
+  unit_prices?: Record<string, number> | null;
+  batch_number?: string | null;
+  expiry_date?: string | null;
+  prescription_required?: boolean;
+}
 interface OrderItem {
   quantity: string | number;
   unit_price: string | number;
@@ -35,6 +45,7 @@ interface Order {
   total_amount: string | number;
   created_at: string;
   items?: OrderItem[];
+  created_by?: { full_name: string | null } | null;
 }
 
 const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'cancelled'];
@@ -60,6 +71,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function GenericOrders() {
   const { businessId, ready } = useBusiness();
+  const isPharmacy = businessId ? getCachedBusinessCategory(businessId) === 'pharmacy' : false;
   const router = useRouter();
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -466,7 +478,7 @@ export function GenericOrders() {
               <ShoppingCart className="w-10 h-10 text-tile-peach-fg" />
             </div>
             <h2 className="text-xl font-bold text-slate-800 mb-2">No active orders</h2>
-            <p className="text-slate-500 mb-8 text-sm">Add items to create a new order</p>
+            <p className="text-slate-500 mb-8 text-sm">{isPharmacy ? 'Add medicines to create a new order' : 'Add items to create a new order'}</p>
             <Button onClick={() => setShowForm(true)} className="bg-accent-orange hover:brightness-95 text-white gap-2 px-6 h-11 shadow-sm">
               <Plus className="w-4 h-4" /> New Order
             </Button>
@@ -486,7 +498,11 @@ export function GenericOrders() {
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-800 text-sm truncate">{o.customer_name}</p>
                       <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />&mdash;</span>
+                        {o.created_by?.full_name ? (
+                          <span className="flex items-center gap-1 truncate"><UserRound className="w-3 h-3 shrink-0" />{o.created_by.full_name}</span>
+                        ) : (
+                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />&mdash;</span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
                           {new Date(o.created_at).toLocaleDateString('en-IN', { month: 'short', day: '2-digit', year: '2-digit' })}
@@ -555,6 +571,11 @@ export function GenericOrders() {
                 <p className="text-xs text-slate-400 mt-0.5">
                   {new Date(drawerOrder.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
+                {drawerOrder.created_by?.full_name && (
+                  <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <UserRound className="w-3 h-3" /> Placed by {drawerOrder.created_by.full_name}
+                  </p>
+                )}
               </div>
               <button onClick={closeDrawer} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/40 hover:bg-white/60 backdrop-blur-sm transition-colors shrink-0">
                 <X className="w-4 h-4 text-slate-500" />
@@ -590,17 +611,30 @@ export function GenericOrders() {
 
                 {!editMode ? (
                   <div className="rounded-2xl bg-white/30 backdrop-blur-md ring-1 ring-white/50 overflow-hidden">
-                    {(drawerOrder.items ?? []).map((item, idx) => (
+                    {(drawerOrder.items ?? []).map((item, idx) => {
+                      const details: string[] = [];
+                      if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
+                      if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+                      return (
                       <div key={idx} className="flex items-center justify-between px-4 py-3 border-b border-slate-100 last:border-0">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-700 truncate">
+                          <p className="text-sm font-medium text-slate-700 truncate flex items-center gap-1.5">
                             {item.product?.name || item.custom_product_name || 'Unknown'}
+                            {item.product?.prescription_required && (
+                              <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20">
+                                Rx
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-slate-400">×{Number(item.quantity)} · ₹{Number(item.unit_price).toFixed(2)} each</p>
+                          {details.length > 0 && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">{details.join('  •  ')}</p>
+                          )}
                         </div>
                         <p className="text-sm font-semibold text-slate-800 ml-3 shrink-0">₹{Number(item.subtotal).toFixed(2)}</p>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="space-y-2">

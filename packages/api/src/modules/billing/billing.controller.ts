@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Param, Query, Body, UseGuards, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { InvoicesService } from './invoices.service';
@@ -24,7 +25,7 @@ export class BillingController {
     res.sendFile(filePath);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
   @Post('invoices/from-order/:orderId')
   generateInvoice(@Param('orderId') orderId: string, @Query('businessId') businessId: string) {
@@ -67,7 +68,7 @@ export class BillingController {
     return { url: `/api/billing/invoices/public/pdf?token=${token}` };
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
   @Post('payments')
   createPayment(@Body() dto: CreatePaymentDto) {

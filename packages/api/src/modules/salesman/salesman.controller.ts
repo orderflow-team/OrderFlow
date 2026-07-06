@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { SalesmanService } from './salesman.service';
 import { CreateSalesmanDto } from './dto/create-salesman.dto';
 import { CheckinVisitDto } from './dto/checkin-visit.dto';
+import { CreateSalesmanLoginDto } from './dto/create-salesman-login.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/salesman')
 export class SalesmanController {
   constructor(private salesmanService: SalesmanService) {}
@@ -25,6 +27,16 @@ export class SalesmanController {
   @Get(':id')
   findOne(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.salesmanService.findOne(id, businessId);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post(':id/create-login')
+  createLogin(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Body() dto: CreateSalesmanLoginDto,
+  ) {
+    return this.salesmanService.createLogin(id, businessId, dto);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALESMAN)
