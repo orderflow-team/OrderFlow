@@ -123,8 +123,9 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     switch (category) {
       case 'grocery':
       case 'retail':
-      case 'pharmacy':
         return { inventory: true, restaurant: false, salesman: false };
+      case 'pharmacy':
+        return { inventory: true, restaurant: false, salesman: true };
       case 'wholesale':
         return { inventory: true, restaurant: false, salesman: true };
       case 'salesman':

@@ -9,7 +9,7 @@ export type OptionalModule = 'inventory' | 'restaurant' | 'salesman';
 const CATEGORY_MODULES: Record<string, OptionalModule[]> = {
   grocery: ['inventory'],
   retail: ['inventory'],
-  pharmacy: ['inventory'],
+  pharmacy: ['inventory', 'salesman'],
   wholesale: ['inventory', 'salesman'],
   salesman: ['salesman'],
   restaurant: ['restaurant'],
