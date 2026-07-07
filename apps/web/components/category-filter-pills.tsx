@@ -38,7 +38,7 @@ export function CategoryFilterPills({
             onClick={() => onSelect(isSel ? null : c.name)}
           >
             {c.name} <span className="text-slate-400">({countFor(c.name)})</span>
-            {onDeleteCategory && (
+            {onDeleteCategory && !c.id.startsWith('cat-') && (
               <button
                 className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded-full hover:bg-slate-500/10 text-slate-400 hover:text-rose-500 absolute -right-2 -top-2 bg-white/60 ring-1 ring-white/50 backdrop-blur-sm"
                 onClick={(e) => {

@@ -97,6 +97,15 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
     return true;
   });
 
+  const deleteCategory = async (id: string) => {
+    try {
+      await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const updateCart = (product: Product, delta: number) => {
     setCart(prev => {
       const newCart = { ...prev };
@@ -282,6 +291,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
               onSelect={setSelectedCategory}
               totalCount={products.length}
               countFor={(name) => products.filter(p => p.category === name).length}
+              onDeleteCategory={deleteCategory}
             />
           </div>
 

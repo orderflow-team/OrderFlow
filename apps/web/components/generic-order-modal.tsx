@@ -139,10 +139,19 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
   const selectCustomer = (c: Customer) => {
     console.log('[phone match] customer', c);
-    setCustomerName(c.name);
     setCustomerId(c.id);
-    if (c.phone) setPhone(c.phone);
+    setCustomerName(c.name);
+    setPhone(c.phone || '');
     loadCustomerPrices(c.id);
+  };
+
+  const deleteCategory = async (id: string) => {
+    try {
+      await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Name field: free text only — phone is the sole identifier for customer matching
@@ -419,6 +428,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               onSelect={setSelectedCategory}
               totalCount={baseProducts.length}
               countFor={(name) => baseProducts.filter(p => p.category === name).length}
+              onDeleteCategory={deleteCategory}
             />
           </div>
 
