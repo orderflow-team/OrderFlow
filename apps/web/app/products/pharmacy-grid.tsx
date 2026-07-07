@@ -81,14 +81,24 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
         apiClient.get<Product[]>('/api/products', { params: { businessId, search } }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
       ]);
-      setProducts(prodRes.data);
-      const uniqueCategories = (data: Category[]) => {
-        const seen = new Set();
-        return data.filter((c) => {
-          if (seen.has(c.name)) return false;
-          seen.add(c.name);
-          return true;
-        });
+      const fetchedProducts = prodRes.data;
+      setProducts(fetchedProducts);
+      const extractCategories = (data: Category[]) => {
+        const seen = new Set<string>();
+        const result: Category[] = [];
+        for (const c of data) {
+          if (!seen.has(c.name)) {
+            seen.add(c.name);
+            result.push(c);
+          }
+        }
+        for (const p of fetchedProducts) {
+          if (p.category && !seen.has(p.category)) {
+            seen.add(p.category);
+            result.push({ id: `cat-${p.category}`, name: p.category });
+          }
+        }
+        return result;
       };
 
       if (catRes.data.length === 0 && !isSeeding.current) {
@@ -100,9 +110,9 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           );
         }
         const newCatRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId } });
-        setCategories(uniqueCategories(newCatRes.data));
+        setCategories(extractCategories(newCatRes.data));
       } else {
-        setCategories(uniqueCategories(catRes.data));
+        setCategories(extractCategories(catRes.data));
       }
     } catch (err) {
       console.error(err);

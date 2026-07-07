@@ -76,13 +76,26 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     try {
       const prodRes = await apiClient.get<Product[]>('/api/products', { params: { businessId, isDraft: 'all' } });
       const catRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId } });
-      setBaseProducts(prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started'));
+      const fetchedProducts = prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started');
+      setBaseProducts(fetchedProducts);
       const seen = new Set<string>();
-      setCategories(catRes.data.filter(c => {
-        if (seen.has(c.name)) return false;
-        seen.add(c.name);
-        return true;
-      }));
+      const combinedCategories: Category[] = [];
+      
+      for (const c of catRes.data) {
+        if (!seen.has(c.name)) {
+          seen.add(c.name);
+          combinedCategories.push(c);
+        }
+      }
+      
+      for (const p of fetchedProducts) {
+        if (p.category && !seen.has(p.category)) {
+          seen.add(p.category);
+          combinedCategories.push({ id: `cat-${p.category}`, name: p.category });
+        }
+      }
+      
+      setCategories(combinedCategories);
     } catch (err) {
       console.error(err);
     } finally {
