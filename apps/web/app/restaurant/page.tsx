@@ -63,6 +63,7 @@ export default function KitchenDisplayPage() {
   const [credError, setCredError] = useState('');
   const [credShowPassword, setCredShowPassword] = useState(false);
   const [credForm, setCredForm] = useState({ name: '', email: '', currentPassword: '', newPassword: '' });
+  const [showStaffFormPassword, setShowStaffFormPassword] = useState(false);
 
   const fetchKots = async () => {
     if (!businessId) return;
@@ -221,7 +222,25 @@ export default function KitchenDisplayPage() {
                 <form onSubmit={handleAddKitchenStaff} className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                   <Input placeholder="Name" value={staffForm.name} onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })} required />
                   <Input type="email" placeholder="Email" value={staffForm.email} onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })} required />
-                  <Input type="password" placeholder="Password (min 6 chars)" value={staffForm.password} onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })} minLength={6} required />
+                  <div className="relative">
+                    <Input
+                      type={showStaffFormPassword ? 'text' : 'password'}
+                      placeholder="Password (min 6 chars)"
+                      value={staffForm.password}
+                      onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                      minLength={6}
+                      required
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowStaffFormPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                      aria-label={showStaffFormPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showStaffFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   <Button type="submit" disabled={savingStaff} className="sm:col-span-3">{savingStaff ? 'Saving...' : 'Save'}</Button>
                   {staffError && <p className="sm:col-span-3 text-sm text-rose-600">{staffError}</p>}
                 </form>

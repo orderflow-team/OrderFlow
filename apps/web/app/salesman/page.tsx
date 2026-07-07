@@ -54,6 +54,7 @@ export default function SalesmanPage() {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [creatingLogin, setCreatingLogin] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const [credFormFor, setCredFormFor] = useState<string | null>(null);
   const [credLoading, setCredLoading] = useState(false);
@@ -261,7 +262,7 @@ export default function SalesmanPage() {
                             size="sm"
                             variant="outline"
                             className="shrink-0 gap-1.5"
-                            onClick={() => { setLoginFormFor(s.id); setLoginForm({ email: '', password: '' }); setLoginError(''); }}
+                            onClick={() => { setLoginFormFor(s.id); setLoginForm({ email: '', password: '' }); setLoginError(''); setShowLoginPassword(false); }}
                           >
                             <KeyRound className="w-3.5 h-3.5" /> Create Login
                           </Button>
@@ -276,14 +277,25 @@ export default function SalesmanPage() {
                             onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                             required
                           />
-                          <Input
-                            type="password"
-                            placeholder="Password (min 6 chars)"
-                            value={loginForm.password}
-                            onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                            minLength={6}
-                            required
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showLoginPassword ? 'text' : 'password'}
+                              placeholder="Password (min 6 chars)"
+                              value={loginForm.password}
+                              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                              minLength={6}
+                              required
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowLoginPassword((v) => !v)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                              aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
                           <div className="flex gap-2">
                             <Button type="submit" size="sm" disabled={creatingLogin} className="flex-1">
                               {creatingLogin ? 'Creating...' : 'Save'}
