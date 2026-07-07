@@ -333,7 +333,7 @@ export class OrdersService {
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
         where: { id, business_id: businessId },
-        relations: ['items'],
+        relations: { items: true },
       });
       if (!order) {
         throw new NotFoundException('Order not found');
