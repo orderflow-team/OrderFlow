@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
@@ -10,6 +10,9 @@ import { Ledger } from '../../database/entities/ledger.entity';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
 import { Stock } from '../../database/entities/stock.entity';
+import { Invoice } from '../../database/entities/invoice.entity';
+import { InvoiceItem } from '../../database/entities/invoice-item.entity';
+import { Payment } from '../../database/entities/payment.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
@@ -329,6 +332,12 @@ export class OrdersService {
     return saved.id;
   }
 
+  /**
+   * Undoes the stock deduction from create()/addItems() for every item that
+   * referenced a real product, then removes everything that references this
+   * order (KOT has a NOT NULL order_id, so those rows must be deleted rather
+   * than unlinked — same dependency order as dev-tools' clearModule('orders')).
+   */
   async remove(id: string, businessId: string) {
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
@@ -339,20 +348,25 @@ export class OrdersService {
         throw new NotFoundException('Order not found');
       }
 
-      // Revert stock if order was completed/dispatched/active (i.e. not draft/cancelled)
-      // Actually we decrement stock during create for ALL orders except if they explicitly handled it?
-      // Wait, in create: we always decrementStock for clientProvidedProductId
       for (const item of order.items) {
         if (item.product_id) {
-          // decrementStock does stock_quantity = Number(stock) - delta
-          // So to revert, we do + quantity
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
         }
       }
 
+      const invoiceIds = (
+        await manager.find(Invoice, { where: { order_id: id }, select: { id: true } })
+      ).map((i) => i.id);
+      if (invoiceIds.length) {
+        await manager.delete(InvoiceItem, { invoice_id: In(invoiceIds) });
+        await manager.delete(Invoice, { id: In(invoiceIds) });
+      }
+      await manager.delete(Payment, { order_id: id });
+
       if (order.items.length > 0) {
         await manager.remove(OrderItem, order.items);
       }
+      await manager.delete(KOT, { order_id: id });
 
       await manager.remove(Order, order);
       return { deleted: true };
