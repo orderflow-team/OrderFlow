@@ -8,6 +8,7 @@ import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check } from 'lucide-react';
+import { CategoryFilterPills } from '@/components/category-filter-pills';
 
 interface Product {
   id: string;
@@ -411,29 +412,17 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         {/* Product area */}
         <div className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0">
           {/* Categories */}
-          <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-2 scrollbar-subtle">
-            <div
-              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
-              }`}
-              onClick={() => setSelectedCategory(null)}
-            >
-              All
-            </div>
-            {categories.map(c => (
-              <div
-                key={c.id}
-                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                  selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
-                }`}
-                onClick={() => setSelectedCategory(c.name)}
-              >
-                {c.name}
-              </div>
-            ))}
+          <div className="shrink-0">
+            <CategoryFilterPills
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelect={setSelectedCategory}
+              totalCount={baseProducts.length}
+              countFor={(name) => baseProducts.filter(p => p.category === name).length}
+            />
           </div>
 
-          <div className="relative">
+          <div className="shrink-0 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
               ref={searchInputRef}

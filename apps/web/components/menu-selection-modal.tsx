@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
 import { ShoppingCart, Plus, Minus, Search, Save, Check } from 'lucide-react';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
+import { CategoryFilterPills } from '@/components/category-filter-pills';
 
 interface Product {
   id: string;
@@ -274,29 +275,17 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
 
         <div className="flex-1 overflow-y-auto p-5 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-5 relative z-0">
           {/* Category Filters */}
-          <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-2 scrollbar-subtle">
-            <div
-              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-slate-200 bg-white/60 text-slate-700 hover:bg-white/80 ring-1 ring-slate-200/50 glass-sheen-sm'
-              }`}
-              onClick={() => setSelectedCategory(null)}
-            >
-              All
-            </div>
-            {categories.map(c => (
-              <div
-                key={c.id}
-                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                  selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-slate-200 bg-white/60 text-slate-700 hover:bg-white/80 ring-1 ring-slate-200/50 glass-sheen-sm'
-                }`}
-                onClick={() => setSelectedCategory(c.name)}
-              >
-                {c.name}
-              </div>
-            ))}
+          <div className="shrink-0">
+            <CategoryFilterPills
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelect={setSelectedCategory}
+              totalCount={products.length}
+              countFor={(name) => products.filter(p => p.category === name).length}
+            />
           </div>
 
-          <div className="relative">
+          <div className="shrink-0 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input 
               className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55" 
