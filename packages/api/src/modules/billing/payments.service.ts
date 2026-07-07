@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, Like } from 'typeorm';
 import { Payment } from '../../database/entities/payment.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { Customer } from '../../database/entities/customer.entity';
@@ -44,10 +44,24 @@ export class PaymentsService {
           throw new NotFoundException('Customer not found');
         }
 
-        // Bill the order first if it skipped 'confirmed' (e.g. restaurant
-        // "Close Bill" pays a draft order directly) — the debt must exist
-        // before a payment (or a Credit deferral) can offset/reference it.
-        const willBillOrder = order && order.status === 'draft';
+        // Bill the order first if it hasn't been billed yet (e.g. restaurant
+        // "Close Bill" pays a draft order directly, or order skipped confirmed state).
+        let willBillOrder = false;
+        if (order) {
+          if (order.status === 'draft') {
+            willBillOrder = true;
+          } else {
+            const billedCount = await manager.count(Ledger, {
+              where: {
+                business_id: dto.businessId,
+                customer_id: dto.customerId,
+                description: Like(`%Order ${order.order_number}%`),
+              },
+            });
+            willBillOrder = billedCount === 0;
+          }
+        }
+
         if (willBillOrder) {
           await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', Number(order!.total_amount));
           await manager.save(

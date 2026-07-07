@@ -396,7 +396,8 @@ export class OrdersService {
         if (historyRows.length) await manager.save(PriceHistory, historyRows);
       };
 
-      if (dto.status === 'confirmed' && order.status === 'draft') {
+      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
+      if (billedStatuses.includes(dto.status) && order.status === 'draft') {
         const items = await manager.find(OrderItem, { where: { order_id: id } });
         await savePriceHistory(items);
 
@@ -409,7 +410,7 @@ export class OrdersService {
               customer_id: order.customer_id,
               type: 'DEBIT',
               amount: order.total_amount,
-              description: `Order ${order.order_number} confirmed`,
+              description: `Order ${order.order_number} billed`,
             }),
           );
         }
@@ -628,9 +629,28 @@ export class OrdersService {
         if (historyRows.length) await manager.save(PriceHistory, historyRows);
       }
 
+      const oldTotal = Number(order.total_amount);
       order.total_amount = totalAmount;
       order.tax_amount = totalTax;
       const savedOrder = await manager.save(order);
+
+      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
+      if (order.customer_id && billedStatuses.includes(order.status)) {
+        const diff = totalAmount - oldTotal;
+        if (Math.abs(diff) > 0.01) {
+          await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', diff);
+          await manager.save(
+            Ledger,
+            manager.create(Ledger, {
+              business_id: businessId,
+              customer_id: order.customer_id,
+              type: diff > 0 ? 'DEBIT' : 'CREDIT',
+              amount: Math.abs(diff),
+              description: `Order ${order.order_number} items edited`,
+            }),
+          );
+        }
+      }
 
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: order.id }, relations: { product: true } }) };
     });
