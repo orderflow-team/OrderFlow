@@ -356,10 +356,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
    */
   async clearModule(module: string, businessId: string) {
     // Wipes real business data with no way back — the frontend's
-    // ClearModuleButton documents this as dev-only, so enforce it here too.
-    if (process.env.NODE_ENV === 'production') {
-      throw new ForbiddenException('Clearing module data is disabled in production');
-    }
+    // ClearModuleButton documents this as dev-only, but we are allowing it in production too as requested.
     if (!DEV_MODULES.includes(module as DevModule)) {
       throw new BadRequestException(`Unknown module "${module}"`);
     }

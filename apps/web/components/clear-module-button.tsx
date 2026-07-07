@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api-client';
 
-/** Dev-only: wipes all of one module's data for the current business. The API rejects this in production. */
+/** Wipes all of one module's data for the current business. */
 export function ClearModuleButton({
   module,
   businessId,
