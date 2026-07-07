@@ -153,12 +153,11 @@ export class ProductsService {
   async remove(id: string, businessId: string) {
     const product = await this.findOne(id, businessId);
     try {
-      await this.productsRepository.remove(product);
+      await this.productsRepository.delete(product.id);
       return { deleted: true };
     } catch (error) {
       // If hard delete fails (e.g. foreign key constraint from order_items), soft delete it
-      product.is_archived = true;
-      await this.productsRepository.save(product);
+      await this.productsRepository.update(product.id, { is_archived: true });
       return { deleted: true, softDeleted: true };
     }
   }
