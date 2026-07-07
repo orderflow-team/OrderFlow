@@ -87,18 +87,36 @@ function ProductsPageContent() {
     return () => clearTimeout(t);
   }, [search, ready, businessId, isRestaurant, isPharmacy]);
 
-  const loadCategories = async (bizId: string) => {
+  const loadCategories = async (bizId: string, currentProducts: Product[]) => {
     try {
       const catRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId: bizId } });
-      const seen = new Set<string>();
-      const unique = catRes.data.filter((c) => (seen.has(c.name) ? false : (seen.add(c.name), true)));
-      if (unique.length === 0 && !isSeedingCategories.current) {
+      const extractCategories = (apiCats: Category[], prods: Product[]) => {
+        const seen = new Set<string>();
+        const result: Category[] = [];
+        for (const c of apiCats) {
+          if (!seen.has(c.name)) {
+            seen.add(c.name);
+            result.push(c);
+          }
+        }
+        for (const p of prods) {
+          if (p.category && !seen.has(p.category)) {
+            seen.add(p.category);
+            result.push({ id: `cat-${p.category}`, name: p.category });
+          }
+        }
+        return result;
+      };
+
+      const unique = extractCategories(catRes.data, currentProducts);
+      
+      if (catRes.data.length === 0 && !isSeedingCategories.current) {
         isSeedingCategories.current = true;
         const defaults = getDefaultItemCategories(getCachedBusinessCategory(bizId));
         if (defaults.length > 0) {
           await Promise.all(defaults.map((name) => apiClient.post('/api/categories', { businessId: bizId, name }).catch(() => null)));
           const seeded = await apiClient.get<Category[]>('/api/categories', { params: { businessId: bizId } });
-          setCategories(seeded.data);
+          setCategories(extractCategories(seeded.data, currentProducts));
           return;
         }
       }
@@ -110,8 +128,8 @@ function ProductsPageContent() {
 
   useEffect(() => {
     if (isRestaurant || isPharmacy || !ready || !businessId) return;
-    loadCategories(businessId);
-  }, [ready, businessId, isRestaurant, isPharmacy]);
+    loadCategories(businessId, products);
+  }, [ready, businessId, isRestaurant, isPharmacy, products]);
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +138,7 @@ function ProductsPageContent() {
       await apiClient.post('/api/categories', { businessId, name: categoryName });
       setCategoryName('');
       setShowCategoryForm(false);
-      loadCategories(businessId);
+      loadCategories(businessId, products);
     } catch (err) {
       console.error(err);
     }
@@ -130,7 +148,7 @@ function ProductsPageContent() {
     if (!businessId) return;
     try {
       await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
-      loadCategories(businessId);
+      loadCategories(businessId, products);
     } catch (err) {
       console.error(err);
     }

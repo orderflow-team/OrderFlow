@@ -62,16 +62,27 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
         apiClient.get<Product[]>('/api/products', { params: { businessId } }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
       ]);
-      setProducts(prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started'));
-      const uniqueCategories = (data: Category[]) => {
-        const seen = new Set();
-        return data.filter(c => {
-          if (seen.has(c.name)) return false;
+      const fetchedProducts = prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started');
+      setProducts(fetchedProducts);
+
+      const seen = new Set<string>();
+      const combinedCategories: Category[] = [];
+      
+      for (const c of catRes.data) {
+        if (!seen.has(c.name)) {
           seen.add(c.name);
-          return true;
-        });
-      };
-      setCategories(uniqueCategories(catRes.data));
+          combinedCategories.push(c);
+        }
+      }
+      
+      for (const p of fetchedProducts) {
+        if (p.category && !seen.has(p.category)) {
+          seen.add(p.category);
+          combinedCategories.push({ id: `cat-${p.category}`, name: p.category });
+        }
+      }
+      
+      setCategories(combinedCategories);
     } catch (err) {
       console.error(err);
     } finally {
