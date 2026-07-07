@@ -12,6 +12,8 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { MailService } from './mail.service';
 
 const OTP_EXPIRY_MINUTES = 10;
+const OTP_REQUEST_COOLDOWN_SECONDS = 60;
+const OTP_MAX_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
@@ -79,6 +81,16 @@ export class AuthService {
    */
   async requestOtp(dto: RequestOtpDto) {
     const email = dto.email.toLowerCase();
+
+    // Slows down both mailbox-spam and brute-force-via-repeated-codes abuse.
+    const recent = await this.otpCodesRepository.findOne({
+      where: { email: ILike(email) },
+      order: { created_at: 'DESC' },
+    });
+    if (recent && Date.now() - recent.created_at.getTime() < OTP_REQUEST_COOLDOWN_SECONDS * 1000) {
+      throw new BadRequestException('Please wait a minute before requesting another code');
+    }
+
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
@@ -96,15 +108,28 @@ export class AuthService {
   /** Verifying an OTP logs in an existing user or creates a new passwordless one. */
   async verifyOtp(dto: VerifyOtpDto) {
     const email = dto.email.toLowerCase();
-    const otp = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), code: dto.code, consumed: false },
+
+    // Attempts are tracked against the latest outstanding code for this email
+    // (not the specific code guessed) so a lockout can't be reset by simply
+    // trying a different wrong code.
+    const latest = await this.otpCodesRepository.findOne({
+      where: { email: ILike(email), consumed: false },
       order: { created_at: 'DESC' },
     });
 
-    if (!otp || otp.expires_at < new Date()) {
+    if (!latest || latest.expires_at < new Date()) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+    if (latest.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new BadRequestException('Too many incorrect attempts. Request a new code.');
+    }
+    if (latest.code !== dto.code) {
+      latest.attempts += 1;
+      await this.otpCodesRepository.save(latest);
       throw new BadRequestException('Invalid or expired OTP');
     }
 
+    const otp = latest;
     otp.consumed = true;
     await this.otpCodesRepository.save(otp);
 

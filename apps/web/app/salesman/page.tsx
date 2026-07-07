@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
-import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
 
 interface Salesman {
   id: string;
@@ -85,7 +85,8 @@ export default function SalesmanPage() {
   };
 
   const loadVisits = async (salesmanId: string) => {
-    const res = await apiClient.get<Visit[]>(`/api/salesman/${salesmanId}/visits`);
+    if (!businessId) return;
+    const res = await apiClient.get<Visit[]>(`/api/salesman/${salesmanId}/visits`, { params: { businessId } });
     setVisits((prev) => ({ ...prev, [salesmanId]: res.data }));
   };
 
@@ -115,8 +116,9 @@ export default function SalesmanPage() {
 
   const handleCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSalesman) return;
+    if (!selectedSalesman || !businessId) return;
     await apiClient.post('/api/salesman/visits/check-in', {
+      businessId,
       salesmanId: selectedSalesman,
       customerId: visitCustomerId || undefined,
       gpsLocation: gps || undefined,
@@ -140,6 +142,17 @@ export default function SalesmanPage() {
       setLoginError(err.response?.data?.message || 'Failed to create login');
     } finally {
       setCreatingLogin(false);
+    }
+  };
+
+  const handleDeleteSalesman = async (salesmanId: string, name: string) => {
+    if (!businessId) return;
+    if (!confirm(`Delete ${name}? This removes their visit history and deactivates their login (if any). This cannot be undone.`)) return;
+    try {
+      await apiClient.delete(`/api/salesman/${salesmanId}`, { params: { businessId } });
+      load(businessId);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete salesman');
     }
   };
 
@@ -181,7 +194,8 @@ export default function SalesmanPage() {
   };
 
   const handleCheckOut = async (visitId: string) => {
-    await apiClient.post(`/api/salesman/visits/${visitId}/check-out`);
+    if (!businessId) return;
+    await apiClient.post(`/api/salesman/visits/${visitId}/check-out`, undefined, { params: { businessId } });
     if (selectedSalesman) loadVisits(selectedSalesman);
   };
 
@@ -267,6 +281,13 @@ export default function SalesmanPage() {
                             <KeyRound className="w-3.5 h-3.5" /> Create Login
                           </Button>
                         )}
+                        <button
+                          onClick={() => handleDeleteSalesman(s.id, s.name)}
+                          className="shrink-0 p-1.5 text-slate-300 hover:text-rose-600 transition-colors"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                       {loginFormFor === s.id && (
                         <form onSubmit={(e) => handleCreateLogin(e, s.id)} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">

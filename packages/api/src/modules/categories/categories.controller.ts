@@ -10,11 +10,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/categories')
 export class CategoriesController {
   constructor(private categoriesService: CategoriesService) {}

@@ -1,8 +1,9 @@
 import { Controller, Post, Delete, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { DevToolsService } from './dev-tools.service';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/dev')
 export class DevToolsController {
   constructor(private devToolsService: DevToolsService) {}

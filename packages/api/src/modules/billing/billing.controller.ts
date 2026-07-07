@@ -2,6 +2,7 @@ import { Controller, Get, Post, Param, Query, Body, UseGuards, Res } from '@nest
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { InvoicesService } from './invoices.service';
@@ -25,27 +26,27 @@ export class BillingController {
     res.sendFile(filePath);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
   @Post('invoices/from-order/:orderId')
   generateInvoice(@Param('orderId') orderId: string, @Query('businessId') businessId: string) {
     return this.invoicesService.generateFromOrder(orderId, businessId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices')
   findAllInvoices(@Query('businessId') businessId: string, @Query('orderId') orderId?: string) {
     return this.invoicesService.findAll(businessId, orderId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices/:id')
   findOneInvoice(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.invoicesService.findOne(id, businessId);
   }
 
   /** Downloads (generating on first request) the A4 PDF for an invoice. */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices/:id/pdf')
   async downloadPdf(@Param('id') id: string, @Query('businessId') businessId: string, @Res() res: Response) {
     const filePath = await this.pdfService.getOrGeneratePdf(id, businessId);
@@ -53,7 +54,7 @@ export class BillingController {
   }
 
   /** Narrow 58/80mm receipt HTML — frontend opens this in a new tab and calls window.print(). */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices/:id/receipt')
   async thermalReceipt(@Param('id') id: string, @Query('businessId') businessId: string, @Res() res: Response) {
     const html = await this.pdfService.getThermalReceiptHtml(id, businessId);
@@ -61,21 +62,21 @@ export class BillingController {
   }
 
   /** Short-lived signed link so the WhatsApp share button can pass a fetchable URL to wa.me. */
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices/:id/share-link')
   shareLink(@Param('id') id: string, @Query('businessId') businessId: string) {
     const token = this.pdfService.createShareToken(id, businessId);
     return { url: `/api/billing/invoices/public/pdf?token=${token}` };
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
   @Post('payments')
   createPayment(@Body() dto: CreatePaymentDto) {
     return this.paymentsService.create(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('payments')
   findAllPayments(@Query('businessId') businessId: string, @Query('orderId') orderId?: string) {
     return this.paymentsService.findAll(businessId, orderId);

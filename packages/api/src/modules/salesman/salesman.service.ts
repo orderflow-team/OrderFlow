@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { ILike, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Salesman } from '../../database/entities/salesman.entity';
 import { Visit } from '../../database/entities/visit.entity';
@@ -130,7 +130,29 @@ export class SalesmanService {
     return salesman;
   }
 
-  checkIn(dto: CheckinVisitDto) {
+  /** Visits reference the salesman with no cascade at the app level, so they're removed first. The linked login (if any) is deactivated rather than deleted, since other records (orders, notifications) may reference it. */
+  async remove(id: string, businessId: string) {
+    const salesman = await this.findOne(id, businessId);
+    await this.visitsRepository.delete({ salesman_id: id });
+    if (salesman.user_id) {
+      await this.usersRepository.update({ id: salesman.user_id }, { is_active: false });
+    }
+    await this.salesmenRepository.remove(salesman);
+    return { deleted: true };
+  }
+
+  async checkIn(dto: CheckinVisitDto) {
+    // Confirms the salesman actually belongs to the caller's business before
+    // opening a visit against them.
+    await this.findOne(dto.salesmanId, dto.businessId);
+
+    const openVisit = await this.visitsRepository.findOne({
+      where: { salesman_id: dto.salesmanId, check_out_time: IsNull() },
+    });
+    if (openVisit) {
+      throw new ConflictException('This salesman already has an open visit — check out first');
+    }
+
     const visit = this.visitsRepository.create({
       salesman_id: dto.salesmanId,
       customer_id: dto.customerId,
@@ -141,8 +163,13 @@ export class SalesmanService {
     return this.visitsRepository.save(visit);
   }
 
-  async checkOut(id: string) {
-    const visit = await this.visitsRepository.findOne({ where: { id } });
+  async checkOut(id: string, businessId: string) {
+    const visit = await this.visitsRepository
+      .createQueryBuilder('visit')
+      .innerJoin('visit.salesman', 'salesman')
+      .where('visit.id = :id', { id })
+      .andWhere('salesman.business_id = :businessId', { businessId })
+      .getOne();
     if (!visit) {
       throw new NotFoundException('Visit not found');
     }
@@ -153,11 +180,18 @@ export class SalesmanService {
     return this.visitsRepository.save(visit);
   }
 
-  findVisitsBySalesman(salesmanId: string) {
+  async findVisitsBySalesman(salesmanId: string, businessId: string) {
+    await this.findOne(salesmanId, businessId);
     return this.visitsRepository.find({ where: { salesman_id: salesmanId }, order: { created_at: 'DESC' } });
   }
 
-  findVisitsByCustomer(customerId: string) {
-    return this.visitsRepository.find({ where: { customer_id: customerId }, order: { created_at: 'DESC' } });
+  findVisitsByCustomer(customerId: string, businessId: string) {
+    return this.visitsRepository
+      .createQueryBuilder('visit')
+      .innerJoin('visit.salesman', 'salesman')
+      .where('visit.customer_id = :customerId', { customerId })
+      .andWhere('salesman.business_id = :businessId', { businessId })
+      .orderBy('visit.created_at', 'DESC')
+      .getMany();
   }
 }

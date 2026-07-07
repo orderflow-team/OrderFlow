@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, In, Raw } from 'typeorm';
 import { CustomersService } from '../customers/customers.service';
 import { ProductsService } from '../products/products.service';
@@ -200,6 +200,8 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         ],
       });
       const kot1 = await this.restaurantService.createKot({ businessId, orderId: dineInOrder1.id, tableId: table1.id, notes: 'No onions' });
+      // KOT status is a forward-only state machine — pending must pass through preparing.
+      await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'preparing' });
       await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'ready' });
 
       const dineInOrder2 = await this.ordersService.create({
@@ -238,7 +240,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         customerName: custA.name,
         orderType: 'regular',
         items: [
-          { productId: itemA.id, quantity: 10, unitPrice: Number(itemA.selling_price) },
+          { productId: itemA.id, quantity: 3, unitPrice: Number(itemA.selling_price) },
           { productId: itemB.id, quantity: 5, unitPrice: Number(itemB.selling_price) },
         ],
       });
@@ -264,7 +266,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         orderType: 'regular',
         items: [
           { productId: itemC.id, quantity: 6, unitPrice: Number(itemC.selling_price) },
-          { productId: itemD.id, quantity: 12, unitPrice: Number(itemD.selling_price) },
+          { productId: itemD.id, quantity: 4, unitPrice: Number(itemD.selling_price) },
         ],
       });
       await this.ordersService.updateStatus(order2.id, businessId, { status: 'confirmed' });
@@ -282,9 +284,9 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     if (modules.salesman) {
       const salesman1 = await this.salesmanService.create({ businessId, name: 'Vikram Singh', phone: '9830000001', route: 'North Pune Route' });
       await this.salesmanService.create({ businessId, name: 'Anita Desai', phone: '9830000002', route: 'East Pune Route' });
-      const visit1 = await this.salesmanService.checkIn({ salesmanId: salesman1.id, customerId: custA.id, gpsLocation: '18.5204,73.8567', notes: 'Discussed monthly order' });
-      await this.salesmanService.checkOut(visit1.id);
-      await this.salesmanService.checkIn({ salesmanId: salesman1.id, customerId: custB.id, gpsLocation: '18.5304,73.8467' });
+      const visit1 = await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custA.id, gpsLocation: '18.5204,73.8567', notes: 'Discussed monthly order' });
+      await this.salesmanService.checkOut(visit1.id, businessId);
+      await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custB.id, gpsLocation: '18.5304,73.8467' });
       salesmenCount = 2;
     }
 
@@ -353,6 +355,11 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
    * Every clear below deletes children before parents explicitly.
    */
   async clearModule(module: string, businessId: string) {
+    // Wipes real business data with no way back — the frontend's
+    // ClearModuleButton documents this as dev-only, so enforce it here too.
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException('Clearing module data is disabled in production');
+    }
     if (!DEV_MODULES.includes(module as DevModule)) {
       throw new BadRequestException(`Unknown module "${module}"`);
     }

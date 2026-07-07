@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Business } from '../../database/entities/business.entity';
@@ -68,12 +68,24 @@ export class BusinessesService {
     return business;
   }
 
-  findOne(id: string) {
-    return this.findOneOrFail(id);
+  /**
+   * A caller may view a business if it's their currently-active workspace
+   * (covers staff logins like salesman/kitchen_staff, which have a
+   * business_id but no ownership) or one they own outright.
+   */
+  async findOne(id: string, requestingUserId: string, requestingUserBusinessId?: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId && business.id !== requestingUserBusinessId) {
+      throw new NotFoundException('Business not found');
+    }
+    return business;
   }
 
-  async update(id: string, dto: UpdateBusinessDto) {
+  async update(id: string, dto: UpdateBusinessDto, requestingUserId: string) {
     const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('You do not have permission to edit this business');
+    }
     Object.assign(business, {
       name: dto.name ?? business.name,
       category: dto.category ?? business.category,

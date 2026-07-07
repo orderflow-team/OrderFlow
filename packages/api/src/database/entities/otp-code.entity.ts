@@ -17,6 +17,9 @@ export class OtpCode {
   @Column({ type: 'boolean', default: false })
   consumed: boolean;
 
+  @Column({ type: 'int', default: 0 })
+  attempts: number;
+
   @CreateDateColumn()
   created_at: Date;
 }

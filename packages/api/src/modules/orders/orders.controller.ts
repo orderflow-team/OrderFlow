@@ -12,11 +12,12 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/orders')
 export class OrdersController {
   constructor(private ordersService: OrdersService) {}

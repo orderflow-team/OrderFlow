@@ -71,16 +71,34 @@ export class InventoryService {
 
   /**
    * Receiving a purchase order stocks-in each item and bumps product
-   * stock_quantity. Idempotent: a non-draft order can't be received twice.
+   * stock_quantity. The status flip to 'received' is done as a single
+   * conditional UPDATE (not read-then-write) so two concurrent requests
+   * can't both pass the "not yet received" check and double-credit stock.
    */
   async receivePurchaseOrder(id: string, businessId: string) {
     return this.dataSource.transaction(async (manager) => {
+      const updateResult = await manager
+        .createQueryBuilder()
+        .update(PurchaseOrder)
+        .set({ status: 'received' })
+        .where('id = :id AND business_id = :businessId AND status != :received', {
+          id,
+          businessId,
+          received: 'received',
+        })
+        .execute();
+
+      if (updateResult.affected === 0) {
+        const exists = await manager.findOne(PurchaseOrder, { where: { id, business_id: businessId } });
+        if (!exists) {
+          throw new NotFoundException('Purchase order not found');
+        }
+        throw new BadRequestException('Purchase order already received');
+      }
+
       const order = await manager.findOne(PurchaseOrder, { where: { id, business_id: businessId } });
       if (!order) {
         throw new NotFoundException('Purchase order not found');
-      }
-      if (order.status === 'received') {
-        throw new BadRequestException('Purchase order already received');
       }
 
       const items = await manager.find(PurchaseItem, { where: { purchase_order_id: id } });
@@ -111,8 +129,7 @@ export class InventoryService {
         await manager.save(stock);
       }
 
-      order.status = 'received';
-      return manager.save(order);
+      return order;
     });
   }
 

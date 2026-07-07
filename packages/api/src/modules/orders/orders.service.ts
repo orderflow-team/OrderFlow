@@ -9,6 +9,7 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
+import { Stock } from '../../database/entities/stock.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
@@ -141,11 +142,16 @@ export class OrdersService {
         if (!item.productId && !item.customProductName) {
           throw new BadRequestException('Each item needs either productId or customProductName');
         }
+        const clientProvidedProductId = !!item.productId;
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(dto.businessId, dto.customerId, item);
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
         totalAmount += subtotal + taxAmount;
         totalTax += taxAmount;
+
+        if (clientProvidedProductId) {
+          await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
+        }
 
         // Quick Parchi items are free text by default; auto-create a Product
         // master row the first time a name is used so it appears as a normal
@@ -241,6 +247,49 @@ export class OrdersService {
 
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: savedOrder.id }, relations: { product: true } }) };
     });
+  }
+
+  /**
+   * Decrements stock for a catalog product the caller explicitly selected
+   * (never for a Quick-Parchi free-text item auto-linked to a fresh
+   * zero-stock draft product — that would break the "sell without inventory
+   * tracking" workflow those exist for). Uses a single conditional UPDATE
+   * rather than read-then-write so concurrent orders can't both pass an
+   * insufficient-stock check and oversell the same units.
+   */
+  private async decrementStock(
+    manager: import('typeorm').EntityManager,
+    businessId: string,
+    productId: string,
+    quantity: number,
+    orderNumber: string,
+  ) {
+    const result = await manager
+      .createQueryBuilder()
+      .update(Product)
+      .set({ stock_quantity: () => `stock_quantity - ${Number(quantity)}` })
+      .where('id = :id AND business_id = :businessId AND stock_quantity >= :qty', {
+        id: productId,
+        businessId,
+        qty: Number(quantity),
+      })
+      .execute();
+
+    if (result.affected === 0) {
+      throw new BadRequestException('Insufficient stock for one of the items in this order');
+    }
+
+    await manager.save(
+      Stock,
+      manager.create(Stock, {
+        business_id: businessId,
+        product_id: productId,
+        type: 'OUT',
+        quantity: Number(quantity),
+        reference: orderNumber,
+        notes: 'Sold via order',
+      }),
+    );
   }
 
   /**
@@ -406,11 +455,16 @@ export class OrdersService {
         if (!item.productId && !item.customProductName) {
           throw new BadRequestException('Each item needs either productId or customProductName');
         }
+        const clientProvidedProductId = !!item.productId;
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(businessId, order.customer_id, item);
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
         additionalAmount += subtotal + taxAmount;
         additionalTax += taxAmount;
+
+        if (clientProvidedProductId) {
+          await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
+        }
 
         const nameKey = item.customProductName?.trim().toLowerCase();
         if (!item.productId && item.customProductName && nameKey !== TABLE_SESSION_PLACEHOLDER_ITEM) {

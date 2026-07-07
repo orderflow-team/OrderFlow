@@ -10,11 +10,12 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/customers')
 export class CustomersController {
   constructor(private customersService: CustomersService) {}

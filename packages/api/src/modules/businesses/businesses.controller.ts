@@ -39,17 +39,17 @@ export class BusinessesController {
   }
 
   @Post()
-  create(@Body() dto: CreateBusinessDto) {
-    return this.businessesService.create(dto);
+  create(@Req() req: any, @Body() dto: CreateBusinessDto) {
+    return this.businessesService.create(dto, req.user.userId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.businessesService.findOne(id);
+  findOne(@Req() req: any, @Param('id') id: string) {
+    return this.businessesService.findOne(id, req.user.userId, req.user.businessId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateBusinessDto) {
-    return this.businessesService.update(id, dto);
+  update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateBusinessDto) {
+    return this.businessesService.update(id, dto, req.user.userId);
   }
 }

@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { SalesmanService } from './salesman.service';
@@ -9,7 +10,7 @@ import { CheckinVisitDto } from './dto/checkin-visit.dto';
 import { CreateSalesmanLoginDto } from './dto/create-salesman-login.dto';
 import { UpdateSalesmanLoginDto } from './dto/update-salesman-login.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/salesman')
 export class SalesmanController {
   constructor(private salesmanService: SalesmanService) {}
@@ -56,6 +57,12 @@ export class SalesmanController {
     return this.salesmanService.updateLogin(id, businessId, dto);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query('businessId') businessId: string) {
+    return this.salesmanService.remove(id, businessId);
+  }
+
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALESMAN)
   @Post('visits/check-in')
   checkIn(@Body() dto: CheckinVisitDto) {
@@ -63,17 +70,17 @@ export class SalesmanController {
   }
 
   @Post('visits/:id/check-out')
-  checkOut(@Param('id') id: string) {
-    return this.salesmanService.checkOut(id);
+  checkOut(@Param('id') id: string, @Query('businessId') businessId: string) {
+    return this.salesmanService.checkOut(id, businessId);
   }
 
   @Get(':id/visits')
-  findVisitsBySalesman(@Param('id') id: string) {
-    return this.salesmanService.findVisitsBySalesman(id);
+  findVisitsBySalesman(@Param('id') id: string, @Query('businessId') businessId: string) {
+    return this.salesmanService.findVisitsBySalesman(id, businessId);
   }
 
   @Get('visits/by-customer/:customerId')
-  findVisitsByCustomer(@Param('customerId') customerId: string) {
-    return this.salesmanService.findVisitsByCustomer(customerId);
+  findVisitsByCustomer(@Param('customerId') customerId: string, @Query('businessId') businessId: string) {
+    return this.salesmanService.findVisitsByCustomer(customerId, businessId);
   }
 }

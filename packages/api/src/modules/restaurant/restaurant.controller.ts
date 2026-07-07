@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { RestaurantService } from './restaurant.service';
@@ -21,11 +22,12 @@ import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
 import { CreateKitchenStaffLoginDto } from './dto/create-kitchen-staff-login.dto';
 import { UpdateKitchenStaffLoginDto } from './dto/update-kitchen-staff-login.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/restaurant')
 export class RestaurantController {
   constructor(private restaurantService: RestaurantService) {}
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.WAITER)
   @Post('tables')
   createTable(@Body() dto: CreateTableDto) {
     return this.restaurantService.createTable(dto);
@@ -36,6 +38,7 @@ export class RestaurantController {
     return this.restaurantService.findAllTables(businessId, status);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.WAITER)
   @Patch('tables/:id/status')
   updateTableStatus(
     @Param('id') id: string,
@@ -45,11 +48,13 @@ export class RestaurantController {
     return this.restaurantService.updateTableStatus(id, businessId, dto);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.WAITER)
   @Post('tables/:id/release')
   releaseTable(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.restaurantService.releaseTable(id, businessId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Delete('tables/:id')
   deleteTable(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.restaurantService.deleteTable(id, businessId);

@@ -88,7 +88,7 @@ export class PdfService {
     return this.jwtService.sign(
       { invoiceId, businessId, purpose: 'invoice-pdf-share' },
       {
-        secret: this.configService.get<string>('JWT_SECRET') || 'test-secret',
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
         expiresIn: '15m',
       },
     );
@@ -98,7 +98,7 @@ export class PdfService {
     let payload: { invoiceId: string; businessId: string; purpose: string };
     try {
       payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET') || 'test-secret',
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
       });
     } catch {
       throw new NotFoundException('Invalid or expired share link');

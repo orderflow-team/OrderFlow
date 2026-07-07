@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Payment } from '../../database/entities/payment.entity';
@@ -28,23 +28,18 @@ export class PaymentsService {
    */
   async create(dto: CreatePaymentDto) {
     return this.dataSource.transaction(async (manager) => {
-      const payment = manager.create(Payment, {
-        business_id: dto.businessId,
-        order_id: dto.orderId,
-        amount: dto.amount,
-        payment_method: dto.paymentMethod,
-        status: 'completed',
-        transaction_id: dto.transactionId,
-      });
-      const savedPayment = await manager.save(payment);
-
       let order: Order | null = null;
       if (dto.orderId) {
-        order = await manager.findOne(Order, { where: { id: dto.orderId } });
+        order = await manager.findOne(Order, { where: { id: dto.orderId, business_id: dto.businessId } });
+        if (!order) {
+          throw new NotFoundException('Order not found');
+        }
       }
 
       if (dto.customerId) {
-        const customer = await manager.findOne(Customer, { where: { id: dto.customerId } });
+        const customer = await manager.findOne(Customer, {
+          where: { id: dto.customerId, business_id: dto.businessId },
+        });
         if (!customer) {
           throw new NotFoundException('Customer not found');
         }
@@ -52,21 +47,31 @@ export class PaymentsService {
         // Bill the order first if it skipped 'confirmed' (e.g. restaurant
         // "Close Bill" pays a draft order directly) — the debt must exist
         // before a payment (or a Credit deferral) can offset/reference it.
-        if (order && order.status === 'draft') {
-          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', Number(order.total_amount));
+        const willBillOrder = order && order.status === 'draft';
+        if (willBillOrder) {
+          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', Number(order!.total_amount));
           await manager.save(
             Ledger,
             manager.create(Ledger, {
               business_id: dto.businessId,
               customer_id: dto.customerId,
               type: 'DEBIT',
-              amount: order.total_amount,
-              description: `Order ${order.order_number} billed`,
+              amount: order!.total_amount,
+              description: `Order ${order!.order_number} billed`,
             }),
           );
         }
 
         if (dto.paymentMethod !== 'Credit') {
+          // Computed from the balance as loaded, before the increments above
+          // touch the DB row, so a payment can never push the customer into
+          // a negative (business-owes-them) balance.
+          const projectedOutstanding =
+            Number(customer.outstanding_amount) + (willBillOrder ? Number(order!.total_amount) : 0);
+          if (dto.amount > projectedOutstanding + 0.01) {
+            throw new BadRequestException('Payment amount exceeds the outstanding balance');
+          }
+
           await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', -dto.amount);
 
           const ledger = manager.create(Ledger, {
@@ -79,6 +84,16 @@ export class PaymentsService {
           await manager.save(ledger);
         }
       }
+
+      const payment = manager.create(Payment, {
+        business_id: dto.businessId,
+        order_id: dto.orderId,
+        amount: dto.amount,
+        payment_method: dto.paymentMethod,
+        status: 'completed',
+        transaction_id: dto.transactionId,
+      });
+      const savedPayment = await manager.save(payment);
 
       if (order) {
         const paid = await manager

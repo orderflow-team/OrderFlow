@@ -2,6 +2,9 @@ import { IsString, IsOptional, IsUUID } from 'class-validator';
 
 export class CheckinVisitDto {
   @IsUUID()
+  businessId: string;
+
+  @IsUUID()
   salesmanId: string;
 
   @IsOptional()

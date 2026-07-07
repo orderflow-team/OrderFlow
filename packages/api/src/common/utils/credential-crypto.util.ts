@@ -9,7 +9,10 @@ const ALGORITHM = 'aes-256-gcm';
  * explicitly in production so rotating JWT_SECRET can't strand ciphertext.
  */
 function getKey(): Buffer {
-  const secret = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET || 'orderflow-dev-key';
+  const secret = process.env.CREDENTIAL_ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('CREDENTIAL_ENCRYPTION_KEY or JWT_SECRET must be set to store/reveal staff passwords');
+  }
   return crypto.createHash('sha256').update(secret).digest();
 }
 

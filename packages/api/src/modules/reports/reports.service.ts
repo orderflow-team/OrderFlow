@@ -72,6 +72,7 @@ export class ReportsService {
         .createQueryBuilder('product')
         .where('product.business_id = :businessId', { businessId })
         .andWhere('product.expiry_date IS NOT NULL')
+        .andWhere('product.expiry_date >= :today', { today: new Date() })
         .andWhere(`product.expiry_date <= :soon`, { soon: this.daysFromNow(30) })
         .orderBy('product.expiry_date', 'ASC')
         .limit(10)

@@ -1,8 +1,9 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { ReportsService } from './reports.service';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/reports')
 export class ReportsController {
   constructor(private reportsService: ReportsService) {}

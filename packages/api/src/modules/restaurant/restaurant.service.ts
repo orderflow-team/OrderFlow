@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -11,9 +11,19 @@ import { encryptPassword, decryptPassword } from '../../common/utils/credential-
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableStatusDto } from './dto/update-table-status.dto';
 import { CreateKotDto } from './dto/create-kot.dto';
-import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
+import { UpdateKotStatusDto, KOT_STATUSES } from './dto/update-kot-status.dto';
 import { CreateKitchenStaffLoginDto } from './dto/create-kitchen-staff-login.dto';
 import { UpdateKitchenStaffLoginDto } from './dto/update-kitchen-staff-login.dto';
+
+type KotStatus = (typeof KOT_STATUSES)[number];
+
+/** Forward-only kitchen workflow — no skipping ahead or reverting a ticket. */
+const KOT_STATUS_TRANSITIONS: Record<KotStatus, KotStatus[]> = {
+  pending: ['preparing'],
+  preparing: ['ready'],
+  ready: ['served'],
+  served: [],
+};
 
 @Injectable()
 export class RestaurantService {
@@ -167,6 +177,10 @@ export class RestaurantService {
     const kot = await this.kotRepository.findOne({ where: { id, business_id: businessId } });
     if (!kot) {
       throw new NotFoundException('KOT not found');
+    }
+    const allowedNextStatuses = KOT_STATUS_TRANSITIONS[kot.status as KotStatus];
+    if (!allowedNextStatuses?.includes(dto.status as KotStatus)) {
+      throw new BadRequestException(`Cannot move a KOT from "${kot.status}" to "${dto.status}"`);
     }
     kot.status = dto.status;
     return this.kotRepository.save(kot);
