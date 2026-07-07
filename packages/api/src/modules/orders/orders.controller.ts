@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -85,5 +86,10 @@ export class OrdersController {
     @Body() dto: AddOrderItemsDto,
   ) {
     return this.ordersService.replaceItems(id, businessId, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query('businessId') businessId: string) {
+    return this.ordersService.remove(id, businessId);
   }
 }

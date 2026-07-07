@@ -329,6 +329,36 @@ export class OrdersService {
     return saved.id;
   }
 
+  async remove(id: string, businessId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, {
+        where: { id, business_id: businessId },
+        relations: ['items'],
+      });
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      // Revert stock if order was completed/dispatched/active (i.e. not draft/cancelled)
+      // Actually we decrement stock during create for ALL orders except if they explicitly handled it?
+      // Wait, in create: we always decrementStock for clientProvidedProductId
+      for (const item of order.items) {
+        if (item.product_id) {
+          // decrementStock does stock_quantity = Number(stock) - delta
+          // So to revert, we do + quantity
+          await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
+        }
+      }
+
+      if (order.items.length > 0) {
+        await manager.remove(OrderItem, order.items);
+      }
+
+      await manager.remove(Order, order);
+      return { deleted: true };
+    });
+  }
+
   // created_by is a full User relation — never leak the password hash to the client.
   private sanitizeCreatedBy<T extends { created_by?: any }>(order: T): T {
     if (order.created_by) {
