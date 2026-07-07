@@ -273,11 +273,11 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-5 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-5 relative z-0">
-          {/* Categories */}
+          {/* Category Filters */}
           <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-2 scrollbar-subtle">
             <div
-              className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                selectedCategory === null ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-slate-200 bg-white/60 text-slate-700 hover:bg-white/80 ring-1 ring-slate-200/50 glass-sheen-sm'
               }`}
               onClick={() => setSelectedCategory(null)}
             >
@@ -286,8 +286,8 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
             {categories.map(c => (
               <div
                 key={c.id}
-                className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
-                  selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-white/40 bg-white/40 text-slate-700 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-2xl text-sm font-medium border cursor-pointer transition-all ${
+                  selectedCategory === c.name ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-800 ring-1 ring-emerald-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]' : 'border-slate-200 bg-white/60 text-slate-700 hover:bg-white/80 ring-1 ring-slate-200/50 glass-sheen-sm'
                 }`}
                 onClick={() => setSelectedCategory(c.name)}
               >
