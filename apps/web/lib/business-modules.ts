@@ -17,10 +17,30 @@ const CATEGORY_MODULES: Record<string, OptionalModule[]> = {
 
 const ALL_OPTIONAL_MODULES: OptionalModule[] = ['inventory', 'restaurant', 'salesman'];
 
-/** Unknown/missing category (e.g. "others") falls back to showing everything. */
-export function getOptionalModulesForCategory(category: string | null | undefined): OptionalModule[] {
-  if (!category) return ALL_OPTIONAL_MODULES;
-  return CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES;
+/**
+ * Unknown/missing category (e.g. "others") falls back to showing everything.
+ * `inventoryEnabled` is a separate, explicit owner choice made at
+ * signup/onboarding that overrides the category default for that one module —
+ * `undefined` means "not known yet" and defers to the category default;
+ * `false` always hides it regardless of category.
+ */
+export function getOptionalModulesForCategory(
+  category: string | null | undefined,
+  inventoryEnabled?: boolean,
+): OptionalModule[] {
+  const modules = !category ? ALL_OPTIONAL_MODULES : (CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES);
+  if (inventoryEnabled === false) {
+    return modules.filter((m) => m !== 'inventory');
+  }
+  if (inventoryEnabled === true && !modules.includes('inventory')) {
+    return [...modules, 'inventory'];
+  }
+  return modules;
+}
+
+/** Smart default for the onboarding checkbox: pre-checked only for categories that normally ship with inventory. */
+export function categoryDefaultsToInventory(category: string): boolean {
+  return (CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES).includes('inventory');
 }
 
 /** Default item categories seeded the first time a business opens Products, per business type. */

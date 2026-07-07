@@ -24,6 +24,7 @@ export class BusinessesService {
       currency: dto.currency ?? 'INR',
       timezone: dto.timezone ?? 'Asia/Kolkata',
       logo_url: dto.logoUrl,
+      inventory_enabled: dto.inventoryEnabled ?? true,
     });
     return this.businessesRepository.save(business);
   }
@@ -95,6 +96,7 @@ export class BusinessesService {
       currency: dto.currency ?? business.currency,
       timezone: dto.timezone ?? business.timezone,
       logo_url: dto.logoUrl ?? business.logo_url,
+      inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
     });
     return this.businessesRepository.save(business);
   }

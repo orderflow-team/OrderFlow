@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateBusinessDto {
   @IsString()
@@ -31,4 +31,8 @@ export class CreateBusinessDto {
   @IsOptional()
   @IsString()
   logoUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  inventoryEnabled?: boolean;
 }

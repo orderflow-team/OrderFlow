@@ -83,11 +83,16 @@ export class AuthService {
     const email = dto.email.toLowerCase();
 
     // Slows down both mailbox-spam and brute-force-via-repeated-codes abuse.
-    const recent = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email) },
-      order: { created_at: 'DESC' },
-    });
-    if (recent && Date.now() - recent.created_at.getTime() < OTP_REQUEST_COOLDOWN_SECONDS * 1000) {
+    // Compared entirely within Postgres (created_at and NOW() both come from
+    // the DB's own clock) rather than against Node's Date.now() — the two
+    // processes' clocks/timezone handling for "timestamp without time zone"
+    // columns aren't guaranteed to agree.
+    const recent = await this.otpCodesRepository
+      .createQueryBuilder('otp')
+      .where('otp.email ILIKE :email', { email })
+      .andWhere(`otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`)
+      .getOne();
+    if (recent) {
       throw new BadRequestException('Please wait a minute before requesting another code');
     }
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, setCurrentUser, getPostLoginPath } from '@/lib/auth';
+import { categoryDefaultsToInventory } from '@/lib/business-modules';
 import { Plus, Store } from 'lucide-react';
 
 interface Business {
@@ -32,15 +33,21 @@ function categoryLabel(category: string | null) {
 function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('grocery');
+  const [inventoryEnabled, setInventoryEnabled] = useState(() => categoryDefaultsToInventory('grocery'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    setInventoryEnabled(categoryDefaultsToInventory(value));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const response = await apiClient.post('/api/businesses/onboard', { name, category });
+      const response = await apiClient.post('/api/businesses/onboard', { name, category, inventoryEnabled });
       localStorage.setItem('access_token', response.data.access_token);
       setCurrentUser(response.data.user);
       onCreated();
@@ -62,7 +69,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} required />
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => handleCategoryChange(e.target.value)}
             className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
           >
             {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
@@ -71,6 +78,18 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+            <input
+              type="checkbox"
+              checked={inventoryEnabled}
+              onChange={(e) => setInventoryEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className="text-sm font-medium text-slate-700">
+              Enable Inventory module
+              <span className="block text-xs font-normal text-slate-500">Track stock, purchase orders, and low-stock alerts</span>
+            </span>
+          </label>
           {error && <p className="text-sm text-rose-600">{error}</p>}
           <div className="flex gap-3">
             <Button type="button" variant="outline" className="flex-1 h-11 rounded-xl" onClick={onCancel} disabled={loading}>

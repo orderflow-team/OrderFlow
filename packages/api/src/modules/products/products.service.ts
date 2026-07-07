@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../../database/entities/product.entity';
 import { ProductVariant } from '../../database/entities/product-variant.entity';
+import { Order } from '../../database/entities/order.entity';
+import { OrderItem } from '../../database/entities/order-item.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
@@ -12,6 +14,7 @@ import { enforceMrpCeiling } from './utils/pricing.util';
 export class ProductsService {
   constructor(
     @InjectRepository(Product) private productsRepository: Repository<Product>,
+    @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     private dataSource: DataSource,
   ) {}
 
@@ -127,6 +130,7 @@ export class ProductsService {
 
   async update(id: string, businessId: string, dto: UpdateProductDto) {
     const product = await this.findOne(id, businessId);
+    const hadZeroPrice = Number(product.selling_price) === 0;
     Object.assign(product, {
       name: dto.name ?? product.name,
       brand: dto.brand ?? product.brand,
@@ -147,7 +151,56 @@ export class ProductsService {
       is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,
       unit_prices: dto.unitPrices !== undefined ? dto.unitPrices : product.unit_prices,
     });
-    return this.productsRepository.save(product);
+    const saved = await this.productsRepository.save(product);
+
+    if (hadZeroPrice && Number(saved.selling_price) > 0) {
+      await this.syncZeroPricedDraftOrderItems(saved);
+    }
+
+    return saved;
+  }
+
+  /**
+   * Order items snapshot their price at order time so confirmed/paid orders
+   * never silently change — but an item added at ₹0 (e.g. a product created
+   * without a price yet, or a Quick-Parchi item) never had a real price to
+   * snapshot. Once the owner sets a real price, push it into still-draft
+   * orders so they aren't stuck showing ₹0; confirmed/paid orders are left
+   * alone since those are settled records.
+   */
+  private async syncZeroPricedDraftOrderItems(product: Product) {
+    const taxPercentage = Number(product.tax_percentage);
+    const newPrice = Number(product.selling_price);
+
+    await this.dataSource.transaction(async (manager) => {
+      const items = await manager
+        .createQueryBuilder(OrderItem, 'item')
+        .innerJoin(Order, 'order', 'order.id = item.order_id')
+        .where('item.product_id = :productId', { productId: product.id })
+        .andWhere('item.unit_price = 0')
+        .andWhere('order.business_id = :businessId', { businessId: product.business_id })
+        .andWhere('order.status = :status', { status: 'draft' })
+        .getMany();
+
+      const affectedOrderIds = new Set(items.map((i) => i.order_id));
+
+      for (const item of items) {
+        item.unit_price = newPrice;
+        item.tax_percentage = taxPercentage;
+        item.subtotal = newPrice * Number(item.quantity);
+        item.tax_amount = item.subtotal * (taxPercentage / 100);
+      }
+      if (items.length) {
+        await manager.save(OrderItem, items);
+      }
+
+      for (const orderId of affectedOrderIds) {
+        const orderItems = await manager.find(OrderItem, { where: { order_id: orderId } });
+        const totalTax = orderItems.reduce((sum, i) => sum + Number(i.tax_amount), 0);
+        const totalAmount = orderItems.reduce((sum, i) => sum + Number(i.subtotal) + Number(i.tax_amount), 0);
+        await manager.update(Order, { id: orderId }, { total_amount: totalAmount, tax_amount: totalTax });
+      }
+    });
   }
 
   async remove(id: string, businessId: string) {

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, hasRole } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
@@ -219,15 +219,17 @@ export default function DashboardPage() {
     loadDashboard(user.businessId);
 
     const cachedCategory = getCachedBusinessCategory(user.businessId);
+    const cachedInventoryEnabled = getCachedInventoryEnabled(user.businessId);
     if (cachedCategory !== null) {
-      setHasInventory(getOptionalModulesForCategory(cachedCategory).includes('inventory'));
+      setHasInventory(getOptionalModulesForCategory(cachedCategory, cachedInventoryEnabled ?? undefined).includes('inventory'));
       setIsPharmacy(cachedCategory === 'pharmacy');
     }
     apiClient
-      .get<{ category: string | null }>(`/api/businesses/${user.businessId}`)
+      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${user.businessId}`)
       .then((res) => {
         setCachedBusinessCategory(user.businessId!, res.data.category);
-        setHasInventory(getOptionalModulesForCategory(res.data.category).includes('inventory'));
+        setCachedInventoryEnabled(user.businessId!, res.data.inventory_enabled);
+        setHasInventory(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled).includes('inventory'));
         setIsPharmacy(res.data.category === 'pharmacy');
       })
       .catch(() => {});

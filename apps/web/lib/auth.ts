@@ -58,3 +58,20 @@ export function getCachedBusinessCategory(businessId: string): string | null {
 export function setCachedBusinessCategory(businessId: string, category: string | null) {
   localStorage.setItem('business_category', JSON.stringify({ businessId, category }));
 }
+
+/** Same businessId-keyed caching as the category above, for the independent inventory-module toggle. */
+export function getCachedInventoryEnabled(businessId: string): boolean | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem('business_inventory_enabled');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { businessId: string; inventoryEnabled: boolean };
+    return parsed.businessId === businessId ? parsed.inventoryEnabled : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedInventoryEnabled(businessId: string, inventoryEnabled: boolean) {
+  localStorage.setItem('business_inventory_enabled', JSON.stringify({ businessId, inventoryEnabled }));
+}

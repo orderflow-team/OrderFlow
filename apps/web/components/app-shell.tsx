@@ -21,9 +21,10 @@ import {
   Store,
   Plus,
   Check,
+  Settings,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, hasRole } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
 
@@ -37,6 +38,7 @@ const CORE_PRIMARY_NAV = [
 const CORE_MORE_NAV = [
   { href: '/billing', label: 'Billing', icon: Receipt },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: typeof Warehouse }> = {
@@ -108,15 +110,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     const cached = getCachedBusinessCategory(businessId);
-    setOptionalModules(getOptionalModulesForCategory(cached));
+    const cachedInventoryEnabled = getCachedInventoryEnabled(businessId);
+    setOptionalModules(getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined));
 
     apiClient
-      .get<{ name: string; category: string | null }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
         setCachedBusinessCategory(businessId, res.data.category);
-        setOptionalModules(getOptionalModulesForCategory(res.data.category));
+        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+        setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled));
       })
       .catch(() => {
         // Keep whatever we had (cached or "show everything") if the lookup fails.
@@ -226,6 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('user');
     localStorage.removeItem('business_category');
+    localStorage.removeItem('business_inventory_enabled');
     router.push('/login');
   };
 
