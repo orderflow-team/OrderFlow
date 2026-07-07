@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useBusiness } from '@/lib/use-business';
 import { hasRole } from '@/lib/auth';
 import apiClient from '@/lib/api-client';
-import { ChefHat, Play, CheckCircle2, Check, UtensilsCrossed, KeyRound, Plus, X } from 'lucide-react';
+import { ChefHat, Play, CheckCircle2, Check, UtensilsCrossed, KeyRound, Plus, X, Eye, EyeOff, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface KitchenStaffUser {
@@ -56,6 +56,13 @@ export default function KitchenDisplayPage() {
   const [staffForm, setStaffForm] = useState({ name: '', email: '', password: '' });
   const [savingStaff, setSavingStaff] = useState(false);
   const [staffError, setStaffError] = useState('');
+
+  const [credFormFor, setCredFormFor] = useState<string | null>(null);
+  const [credLoading, setCredLoading] = useState(false);
+  const [credSaving, setCredSaving] = useState(false);
+  const [credError, setCredError] = useState('');
+  const [credShowPassword, setCredShowPassword] = useState(false);
+  const [credForm, setCredForm] = useState({ name: '', email: '', currentPassword: '', newPassword: '' });
 
   const fetchKots = async () => {
     if (!businessId) return;
@@ -114,6 +121,43 @@ export default function KitchenDisplayPage() {
       setStaffError(err.response?.data?.message || 'Failed to create login');
     } finally {
       setSavingStaff(false);
+    }
+  };
+
+  const handleViewStaffLogin = async (staff: KitchenStaffUser) => {
+    if (credFormFor === staff.id) {
+      setCredFormFor(null);
+      return;
+    }
+    setCredFormFor(staff.id);
+    setCredError('');
+    setCredShowPassword(false);
+    setCredLoading(true);
+    try {
+      const res = await apiClient.get<{ email: string; password: string | null }>(`/api/restaurant/kitchen-staff/${staff.id}/login`, { params: { businessId } });
+      setCredForm({ name: staff.fullName || '', email: res.data.email, currentPassword: res.data.password || '', newPassword: '' });
+    } catch (err: any) {
+      setCredError(err.response?.data?.message || 'Failed to load login details');
+    } finally {
+      setCredLoading(false);
+    }
+  };
+
+  const handleSaveStaffLogin = async (e: React.FormEvent, staffId: string) => {
+    e.preventDefault();
+    if (!businessId) return;
+    setCredSaving(true);
+    setCredError('');
+    try {
+      const body: { name?: string; email?: string; password?: string } = { name: credForm.name, email: credForm.email };
+      if (credForm.newPassword) body.password = credForm.newPassword;
+      await apiClient.patch(`/api/restaurant/kitchen-staff/${staffId}`, body, { params: { businessId } });
+      setCredFormFor(null);
+      fetchKitchenStaff();
+    } catch (err: any) {
+      setCredError(err.response?.data?.message || 'Failed to update login');
+    } finally {
+      setCredSaving(false);
     }
   };
 
@@ -187,9 +231,73 @@ export default function KitchenDisplayPage() {
               ) : (
                 <div className="space-y-2">
                   {kitchenStaff.map((s) => (
-                    <div key={s.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-                      <span className="text-slate-800 font-medium">{s.fullName}</span>
-                      <span className="text-slate-400">{s.email}</span>
+                    <div key={s.id} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-800 font-medium">{s.fullName}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-slate-400">{s.email}</span>
+                          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleViewStaffLogin(s)}>
+                            <KeyRound className="w-3.5 h-3.5" /> {credFormFor === s.id ? 'Close' : 'View / Edit Login'}
+                          </Button>
+                        </div>
+                      </div>
+                      {credFormFor === s.id && (
+                        <div className="mt-3">
+                          {credLoading ? (
+                            <p className="text-sm text-slate-400">Loading...</p>
+                          ) : (
+                            <form onSubmit={(e) => handleSaveStaffLogin(e, s.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <Input
+                                placeholder="Name"
+                                value={credForm.name}
+                                onChange={(e) => setCredForm({ ...credForm, name: e.target.value })}
+                                required
+                              />
+                              <Input
+                                type="email"
+                                placeholder="Email"
+                                value={credForm.email}
+                                onChange={(e) => setCredForm({ ...credForm, email: e.target.value })}
+                                required
+                              />
+                              <div className="relative">
+                                <Input
+                                  type={credShowPassword ? 'text' : 'password'}
+                                  placeholder="Current password"
+                                  value={credShowPassword ? credForm.currentPassword : '••••••••'}
+                                  readOnly
+                                  className="pr-10"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setCredShowPassword((v) => !v)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                                  aria-label={credShowPassword ? 'Hide password' : 'Show password'}
+                                >
+                                  {credShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              <Input
+                                type="text"
+                                placeholder="New password (leave blank to keep)"
+                                value={credForm.newPassword}
+                                onChange={(e) => setCredForm({ ...credForm, newPassword: e.target.value })}
+                                minLength={6}
+                                className="sm:col-span-2"
+                              />
+                              <div className="flex gap-2">
+                                <Button type="submit" size="sm" disabled={credSaving} className="gap-1.5 flex-1">
+                                  <Pencil className="w-3.5 h-3.5" /> {credSaving ? 'Saving...' : 'Save'}
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setCredFormFor(null)}>
+                                  Cancel
+                                </Button>
+                              </div>
+                              {credError && <p className="sm:col-span-3 text-sm text-rose-600">{credError}</p>}
+                            </form>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

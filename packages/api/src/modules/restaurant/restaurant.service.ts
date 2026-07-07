@@ -7,11 +7,13 @@ import { KOT } from '../../database/entities/kot.entity';
 import { Order } from '../../database/entities/order.entity';
 import { User } from '../../database/entities/user.entity';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { encryptPassword, decryptPassword } from '../../common/utils/credential-crypto.util';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableStatusDto } from './dto/update-table-status.dto';
 import { CreateKotDto } from './dto/create-kot.dto';
 import { UpdateKotStatusDto } from './dto/update-kot-status.dto';
 import { CreateKitchenStaffLoginDto } from './dto/create-kitchen-staff-login.dto';
+import { UpdateKitchenStaffLoginDto } from './dto/update-kitchen-staff-login.dto';
 
 @Injectable()
 export class RestaurantService {
@@ -36,6 +38,7 @@ export class RestaurantService {
     const user = this.usersRepository.create({
       email,
       password_hash,
+      password_plain: encryptPassword(dto.password),
       full_name: dto.name,
       business_id: businessId,
       role: UserRole.KITCHEN_STAFF,
@@ -50,6 +53,45 @@ export class RestaurantService {
       order: { created_at: 'ASC' },
     });
     return users.map((u) => ({ id: u.id, email: u.email, fullName: u.full_name, isActive: u.is_active }));
+  }
+
+  private async findKitchenStaffUser(userId: string, businessId: string, select?: Record<string, boolean>) {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId, business_id: businessId, role: UserRole.KITCHEN_STAFF },
+      ...(select ? { select } : {}),
+    });
+    if (!user) {
+      throw new NotFoundException('Kitchen staff login not found');
+    }
+    return user;
+  }
+
+  /** Owner-only: reveal the current plaintext password for a cook's login. */
+  async getKitchenStaffCredentials(userId: string, businessId: string) {
+    const user = await this.findKitchenStaffUser(userId, businessId, { id: true, email: true, password_plain: true });
+    return { email: user.email, password: user.password_plain ? decryptPassword(user.password_plain) : null };
+  }
+
+  /** Owner-only: change the name/email/password of a cook's existing login. */
+  async updateKitchenStaffLogin(userId: string, businessId: string, dto: UpdateKitchenStaffLoginDto) {
+    const user = await this.findKitchenStaffUser(userId, businessId);
+    if (dto.email) {
+      const normalizedEmail = dto.email.toLowerCase();
+      const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Email already registered');
+      }
+      user.email = normalizedEmail;
+    }
+    if (dto.name) {
+      user.full_name = dto.name;
+    }
+    if (dto.password) {
+      user.password_hash = await bcrypt.hash(dto.password, 10);
+      user.password_plain = encryptPassword(dto.password);
+    }
+    const saved = await this.usersRepository.save(user);
+    return { id: saved.id, email: saved.email, fullName: saved.full_name };
   }
 
   createTable(dto: CreateTableDto) {

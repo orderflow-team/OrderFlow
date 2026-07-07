@@ -6,9 +6,11 @@ import { Salesman } from '../../database/entities/salesman.entity';
 import { Visit } from '../../database/entities/visit.entity';
 import { User } from '../../database/entities/user.entity';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { encryptPassword, decryptPassword } from '../../common/utils/credential-crypto.util';
 import { CreateSalesmanDto } from './dto/create-salesman.dto';
 import { CheckinVisitDto } from './dto/checkin-visit.dto';
 import { CreateSalesmanLoginDto } from './dto/create-salesman-login.dto';
+import { UpdateSalesmanLoginDto } from './dto/update-salesman-login.dto';
 
 @Injectable()
 export class SalesmanService {
@@ -61,6 +63,7 @@ export class SalesmanService {
     const user = this.usersRepository.create({
       email: normalizedEmail,
       password_hash,
+      password_plain: encryptPassword(password),
       full_name: name,
       business_id: businessId,
       role: UserRole.SALESMAN,
@@ -68,8 +71,55 @@ export class SalesmanService {
     return this.usersRepository.save(user);
   }
 
-  findAll(businessId: string) {
-    return this.salesmenRepository.find({ where: { business_id: businessId }, order: { name: 'ASC' } });
+  async findAll(businessId: string) {
+    const salesmen = await this.salesmenRepository.find({
+      where: { business_id: businessId },
+      relations: { user: true },
+      order: { name: 'ASC' },
+    });
+    return salesmen.map((s) => ({ ...s, email: s.user?.email ?? null }));
+  }
+
+  /** Owner-only: reveal the current plaintext password for a salesman's login. */
+  async getLoginCredentials(id: string, businessId: string) {
+    const salesman = await this.findOne(id, businessId);
+    if (!salesman.user_id) {
+      throw new NotFoundException('This salesman has no login');
+    }
+    const user = await this.usersRepository.findOne({
+      where: { id: salesman.user_id },
+      select: { id: true, email: true, password_plain: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Login not found');
+    }
+    return { email: user.email, password: user.password_plain ? decryptPassword(user.password_plain) : null };
+  }
+
+  /** Owner-only: change the email and/or password of a salesman's existing login. */
+  async updateLogin(id: string, businessId: string, dto: UpdateSalesmanLoginDto) {
+    const salesman = await this.findOne(id, businessId);
+    if (!salesman.user_id) {
+      throw new NotFoundException('This salesman has no login');
+    }
+    const user = await this.usersRepository.findOne({ where: { id: salesman.user_id } });
+    if (!user) {
+      throw new NotFoundException('Login not found');
+    }
+    if (dto.email) {
+      const normalizedEmail = dto.email.toLowerCase();
+      const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Email already registered');
+      }
+      user.email = normalizedEmail;
+    }
+    if (dto.password) {
+      user.password_hash = await bcrypt.hash(dto.password, 10);
+      user.password_plain = encryptPassword(dto.password);
+    }
+    const saved = await this.usersRepository.save(user);
+    return { id: saved.id, email: saved.email };
   }
 
   async findOne(id: string, businessId: string) {

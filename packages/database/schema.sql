@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   business_id UUID,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255),
+  password_plain TEXT,
   full_name VARCHAR(255),
   role VARCHAR(50) DEFAULT 'viewer',
   is_active BOOLEAN DEFAULT TRUE,

@@ -19,6 +19,11 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   password_hash: string;
 
+  // Reversible copy so an owner can view a staff login's current password.
+  // Excluded from default selects — must be requested explicitly.
+  @Column({ type: 'text', nullable: true, select: false })
+  password_plain: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   full_name: string;
 

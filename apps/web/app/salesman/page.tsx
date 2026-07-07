@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
-import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil } from 'lucide-react';
 
 interface Salesman {
   id: string;
@@ -18,6 +18,7 @@ interface Salesman {
   phone: string | null;
   route: string | null;
   user_id: string | null;
+  email: string | null;
 }
 
 interface Customer {
@@ -53,6 +54,13 @@ export default function SalesmanPage() {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [creatingLogin, setCreatingLogin] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  const [credFormFor, setCredFormFor] = useState<string | null>(null);
+  const [credLoading, setCredLoading] = useState(false);
+  const [credSaving, setCredSaving] = useState(false);
+  const [credError, setCredError] = useState('');
+  const [credShowPassword, setCredShowPassword] = useState(false);
+  const [credForm, setCredForm] = useState({ email: '', currentPassword: '', newPassword: '' });
 
   const load = async (bizId: string) => {
     setLoading(true);
@@ -134,6 +142,43 @@ export default function SalesmanPage() {
     }
   };
 
+  const handleViewLogin = async (salesmanId: string) => {
+    if (credFormFor === salesmanId) {
+      setCredFormFor(null);
+      return;
+    }
+    setCredFormFor(salesmanId);
+    setCredError('');
+    setCredShowPassword(false);
+    setCredLoading(true);
+    try {
+      const res = await apiClient.get<{ email: string; password: string | null }>(`/api/salesman/${salesmanId}/login`, { params: { businessId } });
+      setCredForm({ email: res.data.email, currentPassword: res.data.password || '', newPassword: '' });
+    } catch (err: any) {
+      setCredError(err.response?.data?.message || 'Failed to load login details');
+    } finally {
+      setCredLoading(false);
+    }
+  };
+
+  const handleSaveLogin = async (e: React.FormEvent, salesmanId: string) => {
+    e.preventDefault();
+    if (!businessId) return;
+    setCredSaving(true);
+    setCredError('');
+    try {
+      const body: { email?: string; password?: string } = { email: credForm.email };
+      if (credForm.newPassword) body.password = credForm.newPassword;
+      await apiClient.patch(`/api/salesman/${salesmanId}/login`, body, { params: { businessId } });
+      setCredFormFor(null);
+      load(businessId);
+    } catch (err: any) {
+      setCredError(err.response?.data?.message || 'Failed to update login');
+    } finally {
+      setCredSaving(false);
+    }
+  };
+
   const handleCheckOut = async (visitId: string) => {
     await apiClient.post(`/api/salesman/visits/${visitId}/check-out`);
     if (selectedSalesman) loadVisits(selectedSalesman);
@@ -200,11 +245,17 @@ export default function SalesmanPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-slate-800 truncate">{s.name}</p>
                           <p className="text-xs text-slate-400 truncate">{[s.phone, s.route].filter(Boolean).join(' · ') || '—'}</p>
+                          {s.email && <p className="text-xs text-slate-400 truncate">{s.email}</p>}
                         </div>
                         {s.user_id ? (
-                          <span className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20">
-                            <CheckCircle2 className="w-3 h-3" /> Has login
-                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 gap-1.5"
+                            onClick={() => handleViewLogin(s.id)}
+                          >
+                            <KeyRound className="w-3.5 h-3.5" /> {credFormFor === s.id ? 'Close' : 'View / Edit Login'}
+                          </Button>
                         ) : loginFormFor === s.id ? null : (
                           <Button
                             size="sm"
@@ -242,6 +293,56 @@ export default function SalesmanPage() {
                             </Button>
                           </div>
                         </form>
+                      )}
+                      {credFormFor === s.id && (
+                        <div className="mt-3">
+                          {credLoading ? (
+                            <p className="text-sm text-slate-400">Loading...</p>
+                          ) : (
+                            <form onSubmit={(e) => handleSaveLogin(e, s.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <Input
+                                type="email"
+                                placeholder="Email"
+                                value={credForm.email}
+                                onChange={(e) => setCredForm({ ...credForm, email: e.target.value })}
+                                required
+                              />
+                              <div className="relative">
+                                <Input
+                                  type={credShowPassword ? 'text' : 'password'}
+                                  placeholder="Current password"
+                                  value={credShowPassword ? credForm.currentPassword : '••••••••'}
+                                  readOnly
+                                  className="pr-10"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setCredShowPassword((v) => !v)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                                  aria-label={credShowPassword ? 'Hide password' : 'Show password'}
+                                >
+                                  {credShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              </div>
+                              <Input
+                                type="text"
+                                placeholder="New password (leave blank to keep)"
+                                value={credForm.newPassword}
+                                onChange={(e) => setCredForm({ ...credForm, newPassword: e.target.value })}
+                                minLength={6}
+                              />
+                              <div className="flex gap-2 sm:col-span-3">
+                                <Button type="submit" size="sm" disabled={credSaving} className="gap-1.5">
+                                  <Pencil className="w-3.5 h-3.5" /> {credSaving ? 'Saving...' : 'Save changes'}
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" onClick={() => setCredFormFor(null)}>
+                                  Cancel
+                                </Button>
+                              </div>
+                              {credError && <p className="sm:col-span-3 text-sm text-rose-600">{credError}</p>}
+                            </form>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
