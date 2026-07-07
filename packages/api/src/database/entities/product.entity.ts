@@ -66,6 +66,9 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   is_draft: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  is_archived: boolean;
+
   // Explicit price overrides keyed by canonical unit (e.g. "1kg", "500g") —
   // checked before falling back to proportional unit-conversion pricing.
   @Column({ type: 'jsonb', nullable: true })

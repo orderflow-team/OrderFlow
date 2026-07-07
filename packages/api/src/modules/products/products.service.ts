@@ -96,7 +96,8 @@ export class ProductsService {
   findAll(businessId: string, search?: string, isDraft?: string) {
     const query = this.productsRepository
       .createQueryBuilder('product')
-      .where('product.business_id = :businessId', { businessId });
+      .where('product.business_id = :businessId', { businessId })
+      .andWhere('product.is_archived = false');
 
     if (isDraft !== undefined && isDraft !== 'all') {
       query.andWhere('product.is_draft = :isDraft', { isDraft: isDraft === 'true' });
@@ -151,8 +152,15 @@ export class ProductsService {
 
   async remove(id: string, businessId: string) {
     const product = await this.findOne(id, businessId);
-    await this.productsRepository.remove(product);
-    return { deleted: true };
+    try {
+      await this.productsRepository.remove(product);
+      return { deleted: true };
+    } catch (error) {
+      // If hard delete fails (e.g. foreign key constraint from order_items), soft delete it
+      product.is_archived = true;
+      await this.productsRepository.save(product);
+      return { deleted: true, softDeleted: true };
+    }
   }
 
   async adjustStock(id: string, businessId: string, delta: number) {
