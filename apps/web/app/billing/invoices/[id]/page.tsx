@@ -70,18 +70,18 @@ export default function InvoiceDetailPage() {
   const downloadPdf = async () => {
     try {
       setError('');
-      const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
-        params: { businessId },
-        responseType: 'blob',
-      });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${invoice?.invoice_number || 'invoice'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const element = document.getElementById('invoice-pdf-content');
+      if (!element) return;
+      
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+      await html2pdf().from(element).set({
+        margin: 0.5,
+        filename: `${invoice?.invoice_number || 'invoice'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      }).save();
     } catch (err) {
       setError(await extractErrorMessage(err, 'Failed to download invoice PDF'));
     }
@@ -110,13 +110,21 @@ export default function InvoiceDetailPage() {
     try {
       setError('');
 
-      // Fetch the actual PDF file
-      const pdfRes = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
-        params: { businessId },
-        responseType: 'blob',
-      });
+      // Fetch the actual PDF file from the frontend
+      const element = document.getElementById('invoice-pdf-content');
+      if (!element) return;
       
-      const file = new File([pdfRes.data], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+      const pdfBlob = await html2pdf().from(element).set({
+        margin: 0.5,
+        filename: `${invoice?.invoice_number || 'invoice'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      }).output('blob');
+      
+      const file = new File([pdfBlob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
       
       // Try to share the actual PDF file via Web Share API
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -137,7 +145,7 @@ export default function InvoiceDetailPage() {
 
       // If Web Share API fails or is unsupported, fallback to downloading the PDF
       // and opening WhatsApp Web so the user can attach it manually
-      const url = URL.createObjectURL(pdfRes.data);
+      const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${invoice?.invoice_number || 'invoice'}.pdf`;
@@ -186,7 +194,7 @@ export default function InvoiceDetailPage() {
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
         {invoice && (
-          <div className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
+          <div id="invoice-pdf-content" className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
             <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400 print:hidden" />
             <div className="p-8">
             <div className="flex justify-between items-start mb-8">
