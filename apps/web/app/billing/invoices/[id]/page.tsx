@@ -109,6 +109,30 @@ export default function InvoiceDetailPage() {
   const shareOnWhatsapp = async () => {
     try {
       setError('');
+
+      // First try to share the actual PDF file via Web Share API
+      try {
+        const pdfRes = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
+          params: { businessId },
+          responseType: 'blob',
+        });
+        
+        const file = new File([pdfRes.data], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Invoice ${invoice?.invoice_number}`,
+            text: `Here is the invoice ${invoice?.invoice_number}`,
+          });
+          return; // Successfully shared the file
+        }
+      } catch (fileErr) {
+        // Ignore file fetch/share errors and fallback to link sharing
+        console.warn('Direct file share failed, falling back to link sharing:', fileErr);
+      }
+
+      // Fallback: share the link
       const res = await apiClient.get<{ url: string }>(`/api/billing/invoices/${params.id}/share-link`, {
         params: { businessId },
       });
@@ -116,7 +140,7 @@ export default function InvoiceDetailPage() {
       const text = `Invoice ${invoice?.invoice_number}: ${pdfUrl}`;
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     } catch (err) {
-      setError(await extractErrorMessage(err, 'Failed to create share link'));
+      setError(await extractErrorMessage(err, 'Failed to share invoice'));
     }
   };
 
