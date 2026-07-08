@@ -21,7 +21,7 @@ export class BillingController {
   /** Unauthenticated — WhatsApp opens this link in its own client, not the user's session. Guarded by a short-lived signed token instead of JwtAuthGuard. */
   @Get('invoices/public/pdf')
   async publicPdf(@Query('token') token: string, @Res() res: Response) {
-    const { invoiceId, businessId } = this.pdfService.verifyShareToken(token);
+    const { invoiceId, businessId } = await this.pdfService.verifyShareToken(token);
     const filePath = await this.pdfService.getOrGeneratePdf(invoiceId, businessId);
     res.sendFile(filePath);
   }
@@ -61,11 +61,11 @@ export class BillingController {
     res.type('html').send(html);
   }
 
-  /** Short-lived signed link so the WhatsApp share button can pass a fetchable URL to wa.me. */
+  /** Short-lived opaque link so the WhatsApp share button can pass a fetchable URL to wa.me. */
   @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices/:id/share-link')
-  shareLink(@Param('id') id: string, @Query('businessId') businessId: string) {
-    const token = this.pdfService.createShareToken(id, businessId);
+  async shareLink(@Param('id') id: string, @Query('businessId') businessId: string) {
+    const token = await this.pdfService.createShareToken(id, businessId);
     return { url: `/api/billing/invoices/public/pdf?token=${token}` };
   }
 

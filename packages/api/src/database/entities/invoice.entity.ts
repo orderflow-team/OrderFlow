@@ -33,6 +33,13 @@ export class Invoice {
   @Column({ type: 'text', nullable: true })
   pdf_url: string;
 
+  /** Opaque random token for the unauthenticated public share link (WhatsApp/etc) — carries no decodable info, unlike a JWT payload. */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  share_token: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  share_token_expires_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

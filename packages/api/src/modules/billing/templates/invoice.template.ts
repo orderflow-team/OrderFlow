@@ -7,12 +7,23 @@ function money(n: number | string) {
   return Number(n).toFixed(2);
 }
 
+/**
+ * `toLocaleString`/`toLocaleDateString` without an explicit `timeZone` fall
+ * back to whatever timezone the rendering environment happens to be in
+ * (e.g. a UTC server) — not the business's actual timezone. Pin it
+ * explicitly so the invoice always shows the business's local time,
+ * regardless of where it's rendered.
+ */
+function tz(business: Business | null): string {
+  return business?.timezone || 'Asia/Kolkata';
+}
+
 /** Batch/expiry/Rx are pharmacy-specific product fields — only rendered when actually set. */
-function itemDetails(item: InvoiceItem): string[] {
+function itemDetails(item: InvoiceItem, timeZone: string): string[] {
   const p = item.product;
   const details: string[] = [];
   if (p?.batch_number) details.push(`Batch: ${p.batch_number}`);
-  if (p?.expiry_date) details.push(`Exp: ${new Date(p.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+  if (p?.expiry_date) details.push(`Exp: ${new Date(p.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone })}`);
   if (p?.prescription_required) details.push('Rx');
   return details;
 }
@@ -25,9 +36,10 @@ export function renderInvoiceHtml(
   customer: Customer | null,
   order: any | null,
 ) {
+  const timeZone = tz(business);
   const rows = items
     .map((item) => {
-      const details = itemDetails(item);
+      const details = itemDetails(item, timeZone);
       const detailsHtml = details.length
         ? `<div class="muted" style="font-size:11px;margin-top:2px;">${details.join('&nbsp;&nbsp;•&nbsp;&nbsp;')}</div>`
         : '';
@@ -70,7 +82,7 @@ export function renderInvoiceHtml(
     <div>
       <div class="muted">Invoice No.</div>
       <div><strong>${invoice.invoice_number}</strong></div>
-      <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN')} ${new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+      <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })} ${new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone })}</div>
       ${order?.status ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${order.status}</div>` : ''}
     </div>
   </div>
@@ -103,12 +115,13 @@ export function renderThermalReceiptHtml(
   customer: Customer | null,
   order: any | null,
 ) {
+  const timeZone = tz(business);
   const line = '-'.repeat(32);
   const rows = items
     .map((item) => {
       const name = (item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20);
       const row = `${name.padEnd(20)}${String(money(item.quantity)).padStart(4)} ${`₹${money(item.subtotal)}`.padStart(8)}`;
-      const details = itemDetails(item);
+      const details = itemDetails(item, timeZone);
       return details.length ? `${row}\n  ${details.join('  ')}` : row;
     })
     .join('\n');
@@ -128,7 +141,7 @@ ${business?.address ?? ''}
 ${business?.gst_number ? `GSTIN: ${business.gst_number}` : ''}
 ${line}
 Invoice: ${invoice.invoice_number}
-Date: ${new Date(invoice.created_at).toLocaleString('en-IN')}
+Date: ${new Date(invoice.created_at).toLocaleString('en-IN', { timeZone })}
 ${order?.status ? `Status: ${String(order.status).toUpperCase()}\n` : ''}
 Customer: ${customer?.name ?? order?.customer_name ?? 'Walk-in'}
 ${line}

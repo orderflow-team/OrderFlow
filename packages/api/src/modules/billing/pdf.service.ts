@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Invoice } from '../../database/entities/invoice.entity';
@@ -13,6 +12,7 @@ import { Order } from '../../database/entities/order.entity';
 import { renderInvoiceHtml, renderThermalReceiptHtml } from './templates/invoice.template';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
+const SHARE_TOKEN_TTL_MINUTES = 15;
 
 @Injectable()
 export class PdfService {
@@ -22,8 +22,6 @@ export class PdfService {
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
-    private jwtService: JwtService,
-    private configService: ConfigService,
   ) {}
 
   private async loadInvoiceContext(invoiceId: string, businessId: string) {
@@ -83,29 +81,33 @@ export class PdfService {
     return renderThermalReceiptHtml(invoice, items, business, customer, order);
   }
 
-  /** Short-lived signed token so WhatsApp (opened in its own client) can fetch the PDF without an auth header. */
-  createShareToken(invoiceId: string, businessId: string): string {
-    return this.jwtService.sign(
-      { invoiceId, businessId, purpose: 'invoice-pdf-share' },
-      {
-        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
-        expiresIn: '15m',
-      },
-    );
+  /**
+   * Short-lived opaque token so WhatsApp (opened in its own client) can fetch
+   * the PDF without an auth header. Deliberately not a JWT: a JWT's payload is
+   * only signed, not encrypted, so anyone the link is forwarded to could
+   * base64-decode it and read the raw invoiceId/businessId. A random token
+   * stored server-side reveals nothing on its own and can be invalidated by
+   * re-generating it.
+   */
+  async createShareToken(invoiceId: string, businessId: string): Promise<string> {
+    const invoice = await this.invoicesRepository.findOne({ where: { id: invoiceId, business_id: businessId } });
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const token = crypto.randomBytes(24).toString('hex');
+    invoice.share_token = token;
+    invoice.share_token_expires_at = new Date(Date.now() + SHARE_TOKEN_TTL_MINUTES * 60 * 1000);
+    await this.invoicesRepository.save(invoice);
+
+    return token;
   }
 
-  verifyShareToken(token: string): { invoiceId: string; businessId: string } {
-    let payload: { invoiceId: string; businessId: string; purpose: string };
-    try {
-      payload = this.jwtService.verify(token, {
-        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
-      });
-    } catch {
+  async verifyShareToken(token: string): Promise<{ invoiceId: string; businessId: string }> {
+    const invoice = await this.invoicesRepository.findOne({ where: { share_token: token } });
+    if (!invoice || !invoice.share_token_expires_at || invoice.share_token_expires_at < new Date()) {
       throw new NotFoundException('Invalid or expired share link');
     }
-    if (payload.purpose !== 'invoice-pdf-share') {
-      throw new NotFoundException('Invalid share link');
-    }
-    return { invoiceId: payload.invoiceId, businessId: payload.businessId };
+    return { invoiceId: invoice.id, businessId: invoice.business_id };
   }
 }

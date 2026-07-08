@@ -159,8 +159,8 @@ export default function InvoiceDetailPage() {
                 <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
               </div>
               <div className="text-right">
-                <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN')}</p>
-                <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+                <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</p>
                 {invoice.order_status && (
                   <div className="mt-2 inline-flex items-center rounded-full bg-emerald-500/10 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 uppercase tracking-wider">
                     Status: {invoice.order_status}
@@ -189,7 +189,7 @@ export default function InvoiceDetailPage() {
                 {invoice.items.map((item) => {
                   const details: string[] = [];
                   if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
-                  if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+                  if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`);
                   if (item.product?.prescription_required) details.push('Rx');
                   return (
                   <tr key={item.id}>
