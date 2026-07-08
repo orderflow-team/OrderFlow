@@ -102,10 +102,13 @@ export default function InvoiceDetailPage() {
       const element = document.getElementById('invoice-pdf-content');
       if (!element) return;
       
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default || html2canvasModule;
       
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.jsPDF || jsPDFModule.default?.jsPDF || jsPDFModule.default || jsPDFModule;
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
