@@ -69,19 +69,7 @@ export default function InvoiceDetailPage() {
 
   const downloadPdf = async () => {
     try {
-      setError('');
-      const element = document.getElementById('invoice-pdf-content');
-      if (!element) return;
-      
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      await html2pdf().from(element).set({
-        margin: 0.5,
-        filename: `${invoice?.invoice_number || 'invoice'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      }).save();
+      window.print();
     } catch (err) {
       setError(await extractErrorMessage(err, 'Failed to download invoice PDF'));
     }
@@ -114,15 +102,19 @@ export default function InvoiceDetailPage() {
       const element = document.getElementById('invoice-pdf-content');
       if (!element) return;
       
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      const pdfBlob = await html2pdf().from(element).set({
-        margin: 0.5,
-        filename: `${invoice?.invoice_number || 'invoice'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      }).output('blob');
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      
+      const pdfBlob = pdf.output('blob');
       
       const file = new File([pdfBlob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
       
