@@ -94,65 +94,56 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const buildWhatsappTarget = (phone?: string | null) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    // Bare 10-digit Indian mobile numbers arrive without a country code.
+    return digits.length === 10 ? `91${digits}` : digits;
+  };
+
   const shareOnWhatsapp = async () => {
     try {
       setError('');
 
-      // Fetch the actual PDF file from the frontend
-      const element = document.getElementById('invoice-pdf-content');
-      if (!element) return;
-      
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default || html2canvasModule;
-      
-      const jsPDFModule = await import('jspdf');
-      // @ts-ignore
-      const jsPDF = jsPDFModule.jsPDF || jsPDFModule.default?.jsPDF || jsPDFModule.default || jsPDFModule;
-      
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'a4' });
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      
-      const pdfBlob = pdf.output('blob');
-      
-      const file = new File([pdfBlob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
-      
-      // Try to share the actual PDF file via Web Share API
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // On devices that support sharing files (mobile Web Share API), hand
+      // WhatsApp the real PDF directly — no download/attach step at all.
+      // The PDF is rendered server-side via Puppeteer from plain HTML/CSS,
+      // avoiding the oklch() colors Tailwind v4 emits that html2canvas
+      // can't parse (the previous client-side screenshot approach failed here).
+      if (navigator.canShare) {
         try {
-          await navigator.share({
-            files: [file],
-            title: `Invoice ${invoice?.invoice_number}`,
-            text: `Here is the invoice ${invoice?.invoice_number}`,
+          const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
+            params: { businessId },
+            responseType: 'blob',
           });
-          return; // Successfully shared the file
+          const file = new File([res.data], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Invoice ${invoice?.invoice_number}`,
+              text: `Here is the invoice ${invoice?.invoice_number}`,
+            });
+            return; // Successfully shared the file directly
+          }
         } catch (fileErr: any) {
           if (fileErr.name === 'AbortError') {
             return; // User cancelled the share dialog
           }
-          console.warn('Direct file share failed:', fileErr);
+          console.warn('Direct file share failed, falling back to share link:', fileErr);
         }
       }
 
-      // If Web Share API fails or is unsupported, fallback to downloading the PDF
-      // and opening WhatsApp Web so the user can attach it manually
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${invoice?.invoice_number || 'invoice'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-      setError('File downloaded. Please attach the PDF manually in WhatsApp.');
-      window.open('https://wa.me/', '_blank');
-      
+      // No file-sharing support (desktop browsers) — WhatsApp Web has no API
+      // to auto-attach a file, so instead send a link that resolves straight
+      // to the real PDF. The recipient opens it and gets the actual invoice,
+      // with no manual download/attach step for the sender either.
+      const { data } = await apiClient.get<{ url: string }>(`/api/billing/invoices/${params.id}/share-link`, {
+        params: { businessId },
+      });
+      const pdfUrl = `${API_BASE_URL}${data.url}`;
+      const text = `Here is your invoice ${invoice?.invoice_number}: ${pdfUrl}`;
+      const target = buildWhatsappTarget(invoice?.customer?.phone);
+      window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
     } catch (err) {
       setError(await extractErrorMessage(err, 'Failed to process invoice PDF for sharing'));
     }
