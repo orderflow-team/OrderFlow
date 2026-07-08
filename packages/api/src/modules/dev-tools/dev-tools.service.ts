@@ -146,6 +146,9 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     }
     const category = (business.category as CategoryKey) || 'others';
     const modules = this.getModulesForCategory(category);
+    // The category default is just a starting point — the business's own explicit
+    // toggle (set at onboarding, see business-modules.ts on the frontend) always wins.
+    modules.inventory = business.inventory_enabled;
     const catalog = this.getCatalog(category);
 
     // If it's a restaurant, also seed categories if they don't exist
@@ -318,22 +321,25 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
 
     // A couple of sample notifications, since the real reminder cron only
     // fires on stale/overdue data (not present right after a fresh seed).
-    const lowStockItem = products.find((p) => p.stock_quantity <= 10) ?? products[0];
-    const expiringItem = products.find((p) => p.expiry_date) ?? lowStockItem;
-    await this.dataSource.getRepository(Notification).save([
-      this.dataSource.getRepository(Notification).create({
-        business_id: businessId,
-        type: 'low_stock',
-        message: `${lowStockItem.name} is low on stock (${lowStockItem.stock_quantity} left)`,
-      }),
-      this.dataSource.getRepository(Notification).create({
-        business_id: businessId,
-        type: 'expiry_alert',
-        message: expiringItem.expiry_date
-          ? `${expiringItem.name} batch ${expiringItem.batch_number} expires soon`
-          : `${expiringItem.name} is running low`,
-      }),
-    ]);
+    // Stock/expiry alerts are meaningless for a business that isn't tracking inventory.
+    if (modules.inventory) {
+      const lowStockItem = products.find((p) => p.stock_quantity <= 10) ?? products[0];
+      const expiringItem = products.find((p) => p.expiry_date) ?? lowStockItem;
+      await this.dataSource.getRepository(Notification).save([
+        this.dataSource.getRepository(Notification).create({
+          business_id: businessId,
+          type: 'low_stock',
+          message: `${lowStockItem.name} is low on stock (${lowStockItem.stock_quantity} left)`,
+        }),
+        this.dataSource.getRepository(Notification).create({
+          business_id: businessId,
+          type: 'expiry_alert',
+          message: expiringItem.expiry_date
+            ? `${expiringItem.name} batch ${expiringItem.batch_number} expires soon`
+            : `${expiringItem.name} is running low`,
+        }),
+      ]);
+    }
 
     return {
       message: `Demo data seeded for category "${category}"`,

@@ -5,10 +5,12 @@ import { Repository } from 'typeorm';
 import { Notification } from '../../database/entities/notification.entity';
 import { Order } from '../../database/entities/order.entity';
 import { Customer } from '../../database/entities/customer.entity';
+import { Business } from '../../database/entities/business.entity';
 
 const STALE_ORDER_STATUSES = ['confirmed', 'packed', 'dispatched'];
 const ORDER_REMINDER_AFTER_HOURS = 24;
 const PAYMENT_REMINDER_AFTER_DAYS = 7;
+const INVENTORY_NOTIFICATION_TYPES = ['low_stock', 'expiry_alert'];
 
 @Injectable()
 export class NotificationsService {
@@ -18,14 +20,22 @@ export class NotificationsService {
     @InjectRepository(Notification) private notificationsRepository: Repository<Notification>,
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
+    @InjectRepository(Business) private businessesRepository: Repository<Business>,
   ) {}
 
-  findAll(businessId: string, unreadOnly?: boolean) {
+  async findAll(businessId: string, unreadOnly?: boolean) {
     const where: Record<string, any> = { business_id: businessId };
     if (unreadOnly) {
       where.is_read = false;
     }
-    return this.notificationsRepository.find({ where, order: { created_at: 'DESC' }, take: 50 });
+    const notifications = await this.notificationsRepository.find({ where, order: { created_at: 'DESC' }, take: 50 });
+
+    const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+    if (business?.inventory_enabled === false) {
+      // Stock/expiry alerts are stale noise once a business turns inventory tracking off.
+      return notifications.filter((n) => !INVENTORY_NOTIFICATION_TYPES.includes(n.type));
+    }
+    return notifications;
   }
 
   async markRead(id: string, businessId: string) {
