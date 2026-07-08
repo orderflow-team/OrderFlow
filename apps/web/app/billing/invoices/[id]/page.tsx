@@ -44,6 +44,7 @@ export default function InvoiceDetailPage() {
   const { businessId, ready } = useBusiness();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [error, setError] = useState('');
+  const [shareFallbackReason, setShareFallbackReason] = useState('');
   const pdfBlobRef = useRef<Blob | null>(null);
   const pdfBlobPromiseRef = useRef<Promise<Blob> | null>(null);
 
@@ -123,6 +124,7 @@ export default function InvoiceDetailPage() {
   const shareOnWhatsapp = async () => {
     try {
       setError('');
+      setShareFallbackReason('');
 
       // On devices that support sharing files (mobile Web Share API), hand
       // WhatsApp the real PDF directly — no download/attach step at all.
@@ -144,13 +146,19 @@ export default function InvoiceDetailPage() {
               });
               return; // Successfully shared the file directly
             }
+            setShareFallbackReason('canShare({files}) returned false for this PDF — this browser reports Web Share support but refuses to share a PDF file specifically.');
+          } else {
+            setShareFallbackReason('PDF prefetch had not finished by the time you tapped Share.');
           }
         } catch (fileErr: any) {
           if (fileErr.name === 'AbortError') {
             return; // User cancelled the share dialog
           }
+          setShareFallbackReason(`navigator.share() threw: ${fileErr.name || 'Error'} — ${fileErr.message || String(fileErr)}`);
           console.warn('Direct file share failed, falling back to share link:', fileErr);
         }
+      } else {
+        setShareFallbackReason('navigator.canShare is not defined — this browser has no Web Share API (file sharing) support at all.');
       }
 
       // No file-sharing support (desktop browsers) — WhatsApp Web has no API
@@ -199,6 +207,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
+        {shareFallbackReason && <p className="text-xs text-amber-600 print:hidden">Sent as a link instead of the file: {shareFallbackReason}</p>}
 
         {invoice && (
           <div id="invoice-pdf-content" className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
