@@ -10,6 +10,7 @@ import { Ledger } from '../../database/entities/ledger.entity';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
 import { Stock } from '../../database/entities/stock.entity';
+import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
@@ -93,6 +94,8 @@ export class OrdersService {
   async create(dto: CreateOrderDto, createdByUserId?: string) {
     return this.dataSource.transaction(async (manager) => {
       const orderNumber = `ORD-${Date.now()}`;
+      const business = await manager.findOne(Business, { where: { id: dto.businessId } });
+      const inventoryEnabled = business?.inventory_enabled !== false;
 
       let resolvedCustomerId = dto.customerId;
       // If phone provided, look up customer by phone first (phone is unique identifier)
@@ -152,7 +155,7 @@ export class OrdersService {
         totalAmount += subtotal + taxAmount;
         totalTax += taxAmount;
 
-        if (clientProvidedProductId) {
+        if (clientProvidedProductId && inventoryEnabled) {
           await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
         }
 
@@ -483,6 +486,8 @@ export class OrdersService {
       if (!order) {
         throw new NotFoundException('Order not found');
       }
+      const business = await manager.findOne(Business, { where: { id: businessId } });
+      const inventoryEnabled = business?.inventory_enabled !== false;
 
       let additionalAmount = 0;
       let additionalTax = 0;
@@ -507,7 +512,7 @@ export class OrdersService {
         additionalAmount += subtotal + taxAmount;
         additionalTax += taxAmount;
 
-        if (clientProvidedProductId) {
+        if (clientProvidedProductId && inventoryEnabled) {
           await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
         }
 
@@ -565,9 +570,31 @@ export class OrdersService {
 
       order.total_amount = Number(order.total_amount) + additionalAmount;
       order.tax_amount = Number(order.tax_amount) + additionalTax;
-      
+
       const savedOrder = await manager.save(order);
-      
+
+      // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
+      const existingInvoice = await manager.findOne(Invoice, { where: { order_id: order.id } });
+      if (existingInvoice) {
+        existingInvoice.total_amount = Number(existingInvoice.total_amount) + additionalAmount;
+        existingInvoice.tax_amount = Number(existingInvoice.tax_amount) + additionalTax;
+        await manager.save(existingInvoice);
+
+        const newInvoiceItems = orderItems.map((oi) =>
+          manager.create(InvoiceItem, {
+            invoice_id: existingInvoice.id,
+            product_id: oi.product_id,
+            custom_product_name: oi.custom_product_name,
+            quantity: oi.quantity,
+            unit_price: oi.unit_price,
+            subtotal: oi.subtotal,
+            tax_percentage: oi.tax_percentage,
+            tax_amount: oi.tax_amount,
+          }),
+        );
+        await manager.save(InvoiceItem, newInvoiceItems);
+      }
+
       // Update Customer and Ledger if order is already confirmed
       if (order.status === 'confirmed' || order.status === 'delivered') {
         if (order.customer_id) {
@@ -677,6 +704,29 @@ export class OrdersService {
       order.total_amount = totalAmount;
       order.tax_amount = totalTax;
       const savedOrder = await manager.save(order);
+
+      // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
+      const existingInvoice = await manager.findOne(Invoice, { where: { order_id: order.id } });
+      if (existingInvoice) {
+        existingInvoice.total_amount = totalAmount;
+        existingInvoice.tax_amount = totalTax;
+        await manager.save(existingInvoice);
+
+        await manager.delete(InvoiceItem, { invoice_id: existingInvoice.id });
+        const newInvoiceItems = orderItems.map((oi) =>
+          manager.create(InvoiceItem, {
+            invoice_id: existingInvoice.id,
+            product_id: oi.product_id,
+            custom_product_name: oi.custom_product_name,
+            quantity: oi.quantity,
+            unit_price: oi.unit_price,
+            subtotal: oi.subtotal,
+            tax_percentage: oi.tax_percentage,
+            tax_amount: oi.tax_amount,
+          }),
+        );
+        await manager.save(InvoiceItem, newInvoiceItems);
+      }
 
       const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
       if (order.customer_id && billedStatuses.includes(order.status)) {
