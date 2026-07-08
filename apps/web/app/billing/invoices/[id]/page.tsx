@@ -9,7 +9,10 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { Printer, Download, MessageCircle } from 'lucide-react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Must match the rewrite destination in next.config.ts — that's the only
+// other place NEXT_PUBLIC_API_URL's fallback is defined, and the two need to
+// stay in sync so a link built here points at the same backend /api-proxy hits.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
 interface InvoiceItem {
   id: string;
