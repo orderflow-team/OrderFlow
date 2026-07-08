@@ -16,6 +16,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { InvoicesService } from '../billing/invoices.service';
 
 /** Internal marker item used to open a table session before real items are added — never a real product. */
 const TABLE_SESSION_PLACEHOLDER_ITEM = 'table session started';
@@ -30,6 +31,7 @@ export class OrdersService {
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     @InjectRepository(Ledger) private ledgerRepository: Repository<Ledger>,
     private dataSource: DataSource,
+    private invoicesService: InvoicesService,
   ) {}
 
   /**
@@ -574,26 +576,7 @@ export class OrdersService {
       const savedOrder = await manager.save(order);
 
       // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
-      const existingInvoice = await manager.findOne(Invoice, { where: { order_id: order.id } });
-      if (existingInvoice) {
-        existingInvoice.total_amount = Number(existingInvoice.total_amount) + additionalAmount;
-        existingInvoice.tax_amount = Number(existingInvoice.tax_amount) + additionalTax;
-        await manager.save(existingInvoice);
-
-        const newInvoiceItems = orderItems.map((oi) =>
-          manager.create(InvoiceItem, {
-            invoice_id: existingInvoice.id,
-            product_id: oi.product_id,
-            custom_product_name: oi.custom_product_name,
-            quantity: oi.quantity,
-            unit_price: oi.unit_price,
-            subtotal: oi.subtotal,
-            tax_percentage: oi.tax_percentage,
-            tax_amount: oi.tax_amount,
-          }),
-        );
-        await manager.save(InvoiceItem, newInvoiceItems);
-      }
+      await this.invoicesService.syncFromOrder(order.id, manager);
 
       // Update Customer and Ledger if order is already confirmed
       if (order.status === 'confirmed' || order.status === 'delivered') {
@@ -706,27 +689,7 @@ export class OrdersService {
       const savedOrder = await manager.save(order);
 
       // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
-      const existingInvoice = await manager.findOne(Invoice, { where: { order_id: order.id } });
-      if (existingInvoice) {
-        existingInvoice.total_amount = totalAmount;
-        existingInvoice.tax_amount = totalTax;
-        await manager.save(existingInvoice);
-
-        await manager.delete(InvoiceItem, { invoice_id: existingInvoice.id });
-        const newInvoiceItems = orderItems.map((oi) =>
-          manager.create(InvoiceItem, {
-            invoice_id: existingInvoice.id,
-            product_id: oi.product_id,
-            custom_product_name: oi.custom_product_name,
-            quantity: oi.quantity,
-            unit_price: oi.unit_price,
-            subtotal: oi.subtotal,
-            tax_percentage: oi.tax_percentage,
-            tax_amount: oi.tax_amount,
-          }),
-        );
-        await manager.save(InvoiceItem, newInvoiceItems);
-      }
+      await this.invoicesService.syncFromOrder(order.id, manager);
 
       const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
       if (order.customer_id && billedStatuses.includes(order.status)) {

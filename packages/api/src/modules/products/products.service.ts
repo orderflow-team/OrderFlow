@@ -9,6 +9,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
 import { enforceMrpCeiling } from './utils/pricing.util';
+import { InvoicesService } from '../billing/invoices.service';
 
 @Injectable()
 export class ProductsService {
@@ -16,6 +17,7 @@ export class ProductsService {
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     private dataSource: DataSource,
+    private invoicesService: InvoicesService,
   ) {}
 
   create(dto: CreateProductDto) {
@@ -199,6 +201,11 @@ export class ProductsService {
         const totalTax = orderItems.reduce((sum, i) => sum + Number(i.tax_amount), 0);
         const totalAmount = orderItems.reduce((sum, i) => sum + Number(i.subtotal) + Number(i.tax_amount), 0);
         await manager.update(Order, { id: orderId }, { total_amount: totalAmount, tax_amount: totalTax });
+
+        // An invoice generated while the item still had its ₹0 placeholder price
+        // (nothing stops invoicing a draft order) would otherwise keep showing
+        // the stale ₹0 total/line-items forever.
+        await this.invoicesService.syncFromOrder(orderId, manager);
       }
     });
   }

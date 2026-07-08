@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Order } from '../../database/entities/order.entity';
@@ -58,6 +58,48 @@ export class InvoicesService {
 
       return { ...savedInvoice, items: invoiceItems };
     });
+  }
+
+  /**
+   * Re-syncs an already-generated invoice (totals + line items) from its
+   * order's current state. Order edits after invoicing — added/replaced
+   * items, or a Quick-Parchi ₹0 price getting backfilled once the product's
+   * real price is set — must call this so the invoice (and the PDF/thermal
+   * print, which just render the invoice row) don't go stale. No-op if the
+   * order has no invoice yet.
+   */
+  async syncFromOrder(orderId: string, manager: EntityManager) {
+    const invoice = await manager.findOne(Invoice, { where: { order_id: orderId } });
+    if (!invoice) return;
+
+    const order = await manager.findOne(Order, { where: { id: orderId } });
+    if (!order) return;
+
+    invoice.total_amount = order.total_amount;
+    invoice.tax_amount = order.tax_amount;
+    // The A4 PDF is rendered once and cached to disk (see PdfService.getOrGeneratePdf) —
+    // clearing pdf_url forces it to regenerate from the now-current totals/items on next
+    // request. The thermal receipt has no such cache and always renders fresh.
+    invoice.pdf_url = null;
+    await manager.save(invoice);
+
+    await manager.delete(InvoiceItem, { invoice_id: invoice.id });
+    const items = await manager.find(OrderItem, { where: { order_id: orderId } });
+    const invoiceItems = items.map((item) =>
+      manager.create(InvoiceItem, {
+        invoice_id: invoice.id,
+        product_id: item.product_id,
+        custom_product_name: item.custom_product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+        tax_percentage: item.tax_percentage,
+        tax_amount: item.tax_amount,
+      }),
+    );
+    if (invoiceItems.length) {
+      await manager.save(InvoiceItem, invoiceItems);
+    }
   }
 
   findAll(businessId: string, orderId?: string) {
