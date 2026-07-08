@@ -533,6 +533,17 @@ export class OrdersService {
             newlyCreatedProductIds.set(nameKey, linkedProductId);
           }
           item.productId = linkedProductId;
+        } else if (item.productId && item.unitPrice !== undefined) {
+          // If a user explicitly updates the price of a catalog product during order edit,
+          // sync that new price back to the product's base price.
+          const product = await manager.findOne(Product, { where: { id: item.productId } });
+          if (product && Number(product.selling_price) !== Number(unitPrice)) {
+            product.selling_price = Number(unitPrice);
+            if (item.unit && !product.unit_prices?.[item.unit]) {
+              product.unit = item.unit;
+            }
+            await manager.save(Product, product);
+          }
         }
 
         resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
@@ -647,6 +658,17 @@ export class OrdersService {
             newlyCreatedProductIds.set(nameKey, linkedProductId);
           }
           item.productId = linkedProductId;
+        } else if (item.productId && item.unitPrice !== undefined) {
+          // If a user explicitly updates the price of a catalog product during order edit,
+          // sync that new price back to the product's base price.
+          const product = await manager.findOne(Product, { where: { id: item.productId } });
+          if (product && Number(product.selling_price) !== Number(unitPrice)) {
+            product.selling_price = Number(unitPrice);
+            if (item.unit && !product.unit_prices?.[item.unit]) {
+              product.unit = item.unit;
+            }
+            await manager.save(Product, product);
+          }
         }
 
         resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
