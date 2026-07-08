@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/app-shell';
@@ -44,13 +44,29 @@ export default function InvoiceDetailPage() {
   const { businessId, ready } = useBusiness();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [error, setError] = useState('');
+  const pdfBlobRef = useRef<Blob | null>(null);
+  const pdfBlobPromiseRef = useRef<Promise<Blob> | null>(null);
 
   useEffect(() => {
     if (!ready || !businessId || !params?.id) return;
+    pdfBlobRef.current = null;
+
     apiClient
       .get<Invoice>(`/api/billing/invoices/${params.id}`, { params: { businessId } })
       .then((res) => setInvoice(res.data))
       .catch((err) => setError(err.response?.data?.message || 'Failed to load invoice'));
+
+    // Prefetch the PDF now so the WhatsApp button can call navigator.share()
+    // synchronously on click, with no awaited work in between. Safari (and
+    // increasingly Chrome) revokes the "user activation" a click grants if
+    // there's an async gap before share() is called, so calling it right
+    // after an awaited fetch silently fails and falls back to a text link.
+    pdfBlobPromiseRef.current = apiClient
+      .get(`/api/billing/invoices/${params.id}/pdf`, { params: { businessId }, responseType: 'blob' })
+      .then((res) => {
+        pdfBlobRef.current = res.data;
+        return res.data as Blob;
+      });
   }, [ready, businessId, params?.id]);
 
   if (!ready) return null;
@@ -115,18 +131,19 @@ export default function InvoiceDetailPage() {
       // can't parse (the previous client-side screenshot approach failed here).
       if (navigator.canShare) {
         try {
-          const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
-            params: { businessId },
-            responseType: 'blob',
-          });
-          const file = new File([res.data], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: `Invoice ${invoice?.invoice_number}`,
-              text: `Here is the invoice ${invoice?.invoice_number}`,
-            });
-            return; // Successfully shared the file directly
+          // Use the prefetched blob so share() fires with no async gap after
+          // the click — only await if the prefetch genuinely hasn't landed yet.
+          const blob = pdfBlobRef.current || (await pdfBlobPromiseRef.current);
+          if (blob) {
+            const file = new File([blob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: `Invoice ${invoice?.invoice_number}`,
+                text: `Here is the invoice ${invoice?.invoice_number}`,
+              });
+              return; // Successfully shared the file directly
+            }
           }
         } catch (fileErr: any) {
           if (fileErr.name === 'AbortError') {
