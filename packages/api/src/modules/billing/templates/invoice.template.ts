@@ -131,7 +131,7 @@ export function renderThermalReceiptHtml(
 <head>
 <meta charset="utf-8" />
 <style>
-  @page { size: 80mm auto; margin: 0; }
+  @page { size: 80mm; margin: 0; }
   body { width: 76mm; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre; padding: 8px; }
   @media print { body { width: 76mm; } }
 </style>
@@ -151,7 +151,22 @@ Tax:    ₹${money(invoice.tax_amount)}
 TOTAL:  ₹${money(invoice.total_amount)}
 ${line}
 Thank you!
-<script>window.onload = () => window.print();</script>
+<script>
+  window.onload = () => {
+    // "@page { size: 80mm auto; }" (a length paired with the auto keyword)
+    // isn't valid per the CSS Paged Media spec — only a bare "auto", one or
+    // two lengths, or a named page-size keyword are allowed. Browsers
+    // silently drop the whole malformed declaration and fall back to the
+    // system/locale default page size (A4), instead of the intended narrow
+    // thermal roll. Compute the real content height and set an explicit
+    // "width height" pair so the receipt paper size is honored.
+    const heightMm = Math.ceil((document.body.scrollHeight * 25.4) / 96) + 2;
+    const pageSize = document.createElement('style');
+    pageSize.textContent = \`@page { size: 80mm \${heightMm}mm; margin: 0; }\`;
+    document.head.appendChild(pageSize);
+    window.print();
+  };
+</script>
 </body>
 </html>`;
 }
