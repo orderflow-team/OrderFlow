@@ -58,6 +58,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [customerName, setCustomerName] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [baseProducts, setBaseProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +114,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setCustomerName('');
       setCustomerId('');
       setPhone('');
+      setPhoneError('');
       setCustomerPrices({});
       priceLoadRef.current = '';
       setCart({});
@@ -162,6 +164,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   // Phone field: sole source of customer identity
   const handlePhoneChange = (val: string) => {
     setPhone(val);
+    setPhoneError('');
     console.log('[phone] typed', val, 'customers with phone:', customers.filter(c => c.phone).map(c => ({ name: c.name, phone: c.phone })));
     const existing = customers.find(c => c.phone === val);
     if (existing) {
@@ -347,6 +350,12 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const handleSubmit = async () => {
     const items = Object.values(cart);
     if (items.length === 0) return;
+
+    if (phone && !/^\d{10}$/.test(phone)) {
+      setPhoneError('Phone number must be exactly 10 digits');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await onSubmit(items, customerId, customerName, phone);
@@ -406,6 +415,12 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               </datalist>
             </div>
           </div>
+
+          {phoneError && (
+            <p className="text-xs text-rose-600 font-medium">
+              {phoneError}
+            </p>
+          )}
 
           {/* Customer matched indicator */}
           {customerId && (
