@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsUUID, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID, Min, Matches } from 'class-validator';
 
 export class CreateCustomerDto {
   @IsUUID()
@@ -9,6 +9,7 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' })
   phone?: string;
 
   @IsOptional()

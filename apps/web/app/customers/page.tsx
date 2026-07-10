@@ -78,6 +78,13 @@ function CustomersPageContent() {
     if (!businessId) return;
     setSaving(true);
     setError('');
+
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      setError('Phone number must be exactly 10 digits');
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       name: form.name,
       phone: form.phone || undefined,
@@ -181,7 +188,10 @@ function CustomersPageContent() {
                 <Input
                   placeholder="Phone"
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, phone: e.target.value });
+                    if (error) setError('');
+                  }}
                 />
                 <Input
                   placeholder="Email"

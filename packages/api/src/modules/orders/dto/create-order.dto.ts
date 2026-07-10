@@ -7,6 +7,7 @@ import {
   ValidateNested,
   ArrayMinSize,
   IsArray,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -58,6 +59,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' })
   phone?: string;
 
   @IsOptional()
