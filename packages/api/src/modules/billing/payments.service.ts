@@ -125,11 +125,20 @@ export class PaymentsService {
     });
   }
 
-  findAll(businessId: string, orderId?: string) {
-    const where: Record<string, any> = { business_id: businessId };
+  async findAll(businessId: string, orderId?: string, customerId?: string) {
+    const qb = this.paymentsRepository
+      .createQueryBuilder('p')
+      .where('p.business_id = :businessId', { businessId });
+
     if (orderId) {
-      where.order_id = orderId;
+      qb.andWhere('p.order_id = :orderId', { orderId });
     }
-    return this.paymentsRepository.find({ where, order: { created_at: 'DESC' } });
+
+    if (customerId) {
+      qb.innerJoin('p.order', 'o')
+        .andWhere('o.customer_id = :customerId', { customerId });
+    }
+
+    return qb.orderBy('p.created_at', 'DESC').getMany();
   }
 }

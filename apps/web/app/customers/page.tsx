@@ -9,7 +9,8 @@ import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Customer {
   id: string;
@@ -34,6 +35,33 @@ function CustomersPageContent() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [customerPayments, setCustomerPayments] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = async (cId: string) => {
+    if (!businessId) return;
+    setHistoryLoading(true);
+    try {
+      const [ordersRes, paymentsRes] = await Promise.all([
+        apiClient.get<any[]>('/api/orders', { params: { businessId, customerId: cId } }),
+        apiClient.get<any[]>('/api/billing/payments', { params: { businessId, customerId: cId } }),
+      ]);
+      setCustomerOrders(ordersRes.data);
+      setCustomerPayments(paymentsRes.data);
+    } catch (err) {
+      console.error('Failed to load history', err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (historyCustomer) {
+      loadHistory(historyCustomer.id);
+    }
+  }, [historyCustomer, businessId]);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowForm(true);
@@ -253,7 +281,7 @@ function CustomersPageContent() {
           <div className="space-y-3">
             {filteredCustomers.map((c) => (
               <div key={c.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
-                <button onClick={() => openEditForm(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
+                <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
                   <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">
                     <Users className="w-5 h-5" />
                   </div>
@@ -265,15 +293,147 @@ function CustomersPageContent() {
                 {Number(c.outstanding_amount) > 0 && (
                   <span className="text-xs font-bold text-rose-600 shrink-0">{`₹${Number(c.outstanding_amount).toFixed(0)} due`}</span>
                 )}
+                <button
+                  onClick={() => openEditForm(c)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 shrink-0 transition-colors"
+                  aria-label="Edit Details"
+                  title="Edit Details"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
                 <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-300 hover:text-rose-600 shrink-0 transition-colors" aria-label="Delete">
                   <Trash2 className="w-4 h-4" />
                 </button>
-                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
+                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 cursor-pointer" onClick={() => setHistoryCustomer(c)} />
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <Dialog open={!!historyCustomer} onOpenChange={(open) => !open && setHistoryCustomer(null)}>
+        <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-3xl bg-slate-50 border-none shadow-xl flex flex-col">
+          <DialogHeader className="p-5 bg-white border-b border-slate-100 flex-shrink-0 flex flex-row items-center justify-between">
+            <div className="min-w-0">
+              <DialogTitle className="text-lg font-bold text-slate-800 truncate">
+                {historyCustomer?.name}
+              </DialogTitle>
+              <p className="text-xs text-slate-400 mt-0.5">{historyCustomer?.phone || 'No phone number'}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                onClick={() => {
+                  if (historyCustomer) {
+                    openEditForm(historyCustomer);
+                    setHistoryCustomer(null);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold border-slate-200 hover:bg-slate-50"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit Details
+              </Button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            {historyLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-400">
+                <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                <p className="text-xs font-medium">Fetching orders and payments...</p>
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  let totalBill = 0;
+                  let totalPaid = 0;
+                  
+                  const ordersWithPayment = customerOrders.map(order => {
+                    const orderPayments = customerPayments.filter(p => p.order_id === order.id);
+                    const paid = orderPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+                    const remaining = Math.max(0, Number(order.total_amount) - paid);
+                    
+                    totalBill += Number(order.total_amount);
+                    totalPaid += paid;
+                    
+                    return {
+                      ...order,
+                      paid,
+                      remaining
+                    };
+                  });
+
+                  const totalRemaining = Math.max(0, totalBill - totalPaid);
+
+                  return (
+                    <>
+                      {/* Overall Summary Card */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
+                          <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-1">Total Paid</p>
+                          <p className="text-xl font-black text-emerald-700">₹{totalPaid.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-center">
+                          <p className="text-xs font-semibold text-rose-800 uppercase tracking-wider mb-1">Total Remaining</p>
+                          <p className="text-xl font-black text-rose-700">₹{totalRemaining.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      {/* Orders History List */}
+                      <div className="space-y-3">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Order History ({customerOrders.length})</p>
+                        {ordersWithPayment.length === 0 ? (
+                          <p className="text-center py-8 text-slate-400 text-sm bg-white rounded-2xl border border-slate-100">No orders placed yet.</p>
+                        ) : (
+                          ordersWithPayment.map(order => (
+                            <div key={order.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-bold text-slate-800 text-sm">Order {order.order_number}</p>
+                                  <p className="text-xs text-slate-400 mt-0.5">
+                                    {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                                  order.status === 'paid' ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'
+                                }`}>
+                                  {order.status}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center text-xs">
+                                <div>
+                                  <p className="text-slate-400 font-medium">Order Total</p>
+                                  <p className="font-bold text-slate-700 mt-0.5">₹{Number(order.total_amount).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-emerald-600 font-medium">Amount Paid</p>
+                                  <p className="font-bold text-emerald-600 mt-0.5">₹{order.paid.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-rose-600 font-medium">Remaining</p>
+                                  <p className="font-bold text-rose-600 mt-0.5">₹{order.remaining.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </AppShell>
   );

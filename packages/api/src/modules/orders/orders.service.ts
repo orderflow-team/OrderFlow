@@ -387,10 +387,13 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(businessId: string, status?: string) {
+  async findAll(businessId: string, status?: string, customerId?: string) {
     const where: Record<string, any> = { business_id: businessId };
     if (status) {
       where.status = status;
+    }
+    if (customerId) {
+      where.customer_id = customerId;
     }
     const orders = await this.ordersRepository.find({
       where,

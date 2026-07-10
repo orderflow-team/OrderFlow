@@ -78,7 +78,11 @@ export class BillingController {
 
   @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('payments')
-  findAllPayments(@Query('businessId') businessId: string, @Query('orderId') orderId?: string) {
-    return this.paymentsService.findAll(businessId, orderId);
+  findAllPayments(
+    @Query('businessId') businessId: string,
+    @Query('orderId') orderId?: string,
+    @Query('customerId') customerId?: string,
+  ) {
+    return this.paymentsService.findAll(businessId, orderId, customerId);
   }
 }

@@ -34,8 +34,12 @@ export class OrdersController {
   }
 
   @Get()
-  findAll(@Query('businessId') businessId: string, @Query('status') status?: string) {
-    return this.ordersService.findAll(businessId, status);
+  findAll(
+    @Query('businessId') businessId: string,
+    @Query('status') status?: string,
+    @Query('customerId') customerId?: string,
+  ) {
+    return this.ordersService.findAll(businessId, status, customerId);
   }
 
   // Static routes MUST come before @Get(':id') or NestJS will match them as the id param
