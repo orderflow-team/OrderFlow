@@ -149,15 +149,31 @@ export function StandardBilling() {
                   const orderId = e.target.value;
                   setPayOrderId(orderId);
                   const order = orders.find((o) => o.id === orderId);
-                  setPayAmount(order ? Number(order.total_amount).toFixed(2) : '');
+                  if (order) {
+                    const paid = payments
+                      .filter((p) => p.order_id === order.id)
+                      .reduce((sum, p) => sum + Number(p.amount), 0);
+                    const remaining = Math.max(0, Number(order.total_amount) - paid);
+                    setPayAmount(remaining.toFixed(2));
+                  } else {
+                    setPayAmount('');
+                  }
                 }}
                 className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
                 required
               >
                 <option value="">Select order</option>
-                {orders.filter(o => o.status !== 'paid').map((o) => (
-                  <option key={o.id} value={o.id}>{o.order_number} - {o.customer_name} ({Number(o.total_amount).toFixed(0)})</option>
-                ))}
+                {orders.filter(o => o.status !== 'paid').map((o) => {
+                  const paid = payments
+                    .filter((p) => p.order_id === o.id)
+                    .reduce((sum, p) => sum + Number(p.amount), 0);
+                  const remaining = Math.max(0, Number(o.total_amount) - paid);
+                  return (
+                    <option key={o.id} value={o.id}>
+                      {o.order_number} - {o.customer_name} (₹{remaining.toFixed(0)} remaining)
+                    </option>
+                  );
+                })}
               </select>
               <Input placeholder="Amount" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} required />
               <select
@@ -199,6 +215,20 @@ export function StandardBilling() {
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       <span className="font-bold text-slate-800">₹{Number(o.total_amount).toFixed(2)}</span>
+                      {(() => {
+                        const paid = payments
+                          .filter((p) => p.order_id === o.id)
+                          .reduce((sum, p) => sum + Number(p.amount), 0);
+                        const remaining = Math.max(0, Number(o.total_amount) - paid);
+                        if (paid > 0 && remaining > 0) {
+                          return (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              ₹{paid.toFixed(0)} paid · ₹{remaining.toFixed(0)} due
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                       {invoiceByOrderId.has(o.id) ? (
                         <a
                           href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
