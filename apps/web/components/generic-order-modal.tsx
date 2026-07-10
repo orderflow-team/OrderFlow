@@ -59,6 +59,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [validationError, setValidationError] = useState('');
   const [baseProducts, setBaseProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -365,7 +366,16 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       return;
     }
 
+    // Verify all items have a unit
+    const hasItemWithoutUnit = items.some(item => !item.product.unit || !item.product.unit.trim());
+    if (hasItemWithoutUnit) {
+      setValidationError('Please specify a unit for all items in the cart.');
+      return;
+    }
+
     setSubmitting(true);
+    setValidationError('');
+    setPhoneError('');
     try {
       await onSubmit(items, customerId, customerName, phone);
       onClose();
@@ -428,6 +438,12 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           {phoneError && (
             <p className="text-xs text-rose-600 font-medium">
               {phoneError}
+            </p>
+          )}
+
+          {validationError && (
+            <p className="text-xs text-rose-600 font-medium">
+              {validationError}
             </p>
           )}
 

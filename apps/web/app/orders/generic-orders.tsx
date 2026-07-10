@@ -359,7 +359,16 @@ export function GenericOrders() {
     if (!businessId || !drawerOrder) return;
     const valid = editLines.filter((l) => l.name.trim() && Number(l.qty) > 0);
     if (valid.length === 0) return;
+
+    // Verify all items have a unit
+    const hasItemWithoutUnit = valid.some(line => !line.unit || !line.unit.trim());
+    if (hasItemWithoutUnit) {
+      setError('Please specify a unit for all items.');
+      return;
+    }
+
     setEditSaving(true);
+    setError('');
     try {
       const res = await apiClient.put<Order>(`/api/orders/${drawerOrder.id}/items`, {
         items: valid.map((l) => ({
@@ -584,6 +593,11 @@ export function GenericOrders() {
 
             {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {error && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 text-rose-700 text-xs font-semibold ring-1 ring-rose-500/20">
+                  {error}
+                </div>
+              )}
 
               {/* Total */}
               <div className="bg-emerald-500/10 backdrop-blur-sm ring-1 ring-emerald-500/20 rounded-2xl px-4 py-3 flex items-center justify-between">

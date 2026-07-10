@@ -49,6 +49,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
   const [submitting, setSubmitting] = useState(false);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
+  const [validationError, setValidationError] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const focusSearch = () => {
@@ -274,7 +275,15 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
     const items = Object.values(cart);
     if (items.length === 0) return;
     
+    // Verify all items have a unit
+    const hasItemWithoutUnit = items.some(item => !item.product.unit || !item.product.unit.trim());
+    if (hasItemWithoutUnit) {
+      setValidationError('Please specify a unit for all items in the cart.');
+      return;
+    }
+
     setSubmitting(true);
+    setValidationError('');
     try {
       await onSubmit(items);
       setCart({});
@@ -482,6 +491,12 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
             </div>
             <p className="font-bold text-xl text-slate-800">₹{cartTotal.toFixed(2)}</p>
           </div>
+          
+          {validationError && (
+            <p className="text-xs text-rose-600 font-semibold mt-2">
+              {validationError}
+            </p>
+          )}
           
           <div className="flex gap-2 mt-4">
             <Button
