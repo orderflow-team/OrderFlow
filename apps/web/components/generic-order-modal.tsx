@@ -597,7 +597,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                     <input
                       type="text"
                       list="unit-options"
-                      className="bg-white/50 border border-white/60 text-slate-600 text-xs rounded outline-none focus:ring-1 focus:ring-emerald-500 py-1 px-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] cursor-text w-16"
+                      className={`bg-white/50 border text-slate-600 text-xs rounded outline-none py-1 px-1 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] cursor-text w-16 transition-all ${
+                        (!item.product.unit || !item.product.unit.trim())
+                          ? 'border-rose-400 focus:ring-1 focus:ring-rose-500'
+                          : 'border-white/60 focus:ring-1 focus:ring-emerald-500'
+                      }`}
                       value={item.product.unit || ''}
                       placeholder="Unit"
                       onChange={(e) => updateCartUnit(item.product.id, e.target.value)}
@@ -635,16 +639,24 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                       onClick={() => setCart(prev => { const n = { ...prev }; delete n[item.product.id]; return n; })}
                       className="w-6 h-6 flex items-center justify-center rounded text-rose-400 hover:text-rose-600 hover:bg-rose-500/10 flex-shrink-0"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 justify-end flex-1">
-                    <div className="flex items-center gap-0.5 border border-white/60 rounded-lg px-2 py-0.5 focus-within:ring-1 focus-within:ring-emerald-500 bg-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]" title="Total Price">
+                    <div
+                      className={`flex items-center gap-0.5 border rounded-lg px-2 py-0.5 bg-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] transition-all ${
+                        (!item.product.unit || !item.product.unit.trim())
+                          ? 'border-slate-200 opacity-50 cursor-not-allowed'
+                          : 'border-white/60 focus-within:ring-1 focus-within:ring-emerald-500'
+                      }`}
+                      title={(!item.product.unit || !item.product.unit.trim()) ? "Enter unit first" : "Total Price"}
+                    >
                       <span className="text-slate-400 text-xs">₹</span>
                       <input
                         type="number"
-                        className="w-16 h-6 text-right text-sm font-semibold text-slate-800 bg-transparent outline-none p-0"
+                        className="w-16 h-6 text-right text-sm font-semibold text-slate-800 bg-transparent outline-none p-0 disabled:text-slate-400"
                         value={item.quantity > 0 ? Number((Number(item.product.selling_price) * item.quantity).toFixed(2)) : ''}
+                        disabled={!item.product.unit || !item.product.unit.trim()}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === '') {

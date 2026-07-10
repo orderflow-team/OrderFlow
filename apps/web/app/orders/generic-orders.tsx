@@ -666,9 +666,20 @@ export function GenericOrders() {
                               onChange={(e) => updateLineUnit(idx, e.target.value)}
                               list="edit-unit-options"
                               placeholder="Unit"
-                              className="w-14 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-1.5 py-1 text-xs text-slate-600 outline-none"
+                              className={`w-14 bg-white/40 backdrop-blur-sm ring-1 rounded-lg px-1.5 py-1 text-xs text-slate-600 outline-none transition-all ${
+                                (!line.unit || !line.unit.trim())
+                                  ? 'ring-rose-400 focus:ring-rose-500'
+                                  : 'ring-white/50 focus:ring-emerald-500'
+                              }`}
                             />
-                            <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-2 py-1">
+                            <div
+                              className={`flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 rounded-lg px-2 py-1 transition-all ${
+                                (!line.unit || !line.unit.trim())
+                                  ? 'ring-slate-200 opacity-50 cursor-not-allowed'
+                                  : 'ring-white/50 focus-within:ring-emerald-500'
+                              }`}
+                              title={(!line.unit || !line.unit.trim()) ? "Enter unit first" : undefined}
+                            >
                               <span className="text-slate-400 text-xs">₹</span>
                               <input
                                 value={line.price}
@@ -676,7 +687,8 @@ export function GenericOrders() {
                                 onFocus={(e) => e.target.select()}
                                 type="number"
                                 min="0"
-                                className="w-16 text-sm font-semibold text-slate-800 bg-transparent outline-none"
+                                disabled={!line.unit || !line.unit.trim()}
+                                className="w-16 text-sm font-semibold text-slate-800 bg-transparent outline-none disabled:text-slate-400"
                               />
                             </div>
                             <span className="text-xs text-slate-400 ml-auto">
