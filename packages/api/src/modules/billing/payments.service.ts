@@ -36,6 +36,21 @@ export class PaymentsService {
         }
       }
 
+      let paymentAmount = dto.amount;
+      if (order) {
+        const paid = await manager
+          .createQueryBuilder(Payment, 'payment')
+          .where('payment.order_id = :orderId', { orderId: order.id })
+          .select('SUM(payment.amount)', 'total')
+          .getRawOne();
+        const totalPaidSoFar = Number(paid.total || 0);
+        const orderRemaining = Math.max(0, Number(order.total_amount) - totalPaidSoFar);
+
+        if (paymentAmount > orderRemaining) {
+          paymentAmount = orderRemaining;
+        }
+      }
+
       if (dto.customerId) {
         const customer = await manager.findOne(Customer, {
           where: { id: dto.customerId, business_id: dto.businessId },
@@ -82,17 +97,17 @@ export class PaymentsService {
           // a negative (business-owes-them) balance.
           const projectedOutstanding =
             Number(customer.outstanding_amount) + (willBillOrder ? Number(order!.total_amount) : 0);
-          if (dto.amount > projectedOutstanding + 0.01) {
+          if (paymentAmount > projectedOutstanding + 0.01) {
             throw new BadRequestException('Payment amount exceeds the outstanding balance');
           }
 
-          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', -dto.amount);
+          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', -paymentAmount);
 
           const ledger = manager.create(Ledger, {
             business_id: dto.businessId,
             customer_id: dto.customerId,
             type: 'CREDIT',
-            amount: dto.amount,
+            amount: paymentAmount,
             description: `Payment received (${dto.paymentMethod})${dto.orderId ? ` - order ${dto.orderId}` : ''}`,
           });
           await manager.save(ledger);
@@ -102,7 +117,7 @@ export class PaymentsService {
       const payment = manager.create(Payment, {
         business_id: dto.businessId,
         order_id: dto.orderId,
-        amount: dto.amount,
+        amount: paymentAmount,
         payment_method: dto.paymentMethod,
         status: 'completed',
         transaction_id: dto.transactionId,
