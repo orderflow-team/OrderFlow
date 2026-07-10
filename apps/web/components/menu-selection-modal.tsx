@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
-import { ShoppingCart, Plus, Minus, Search, Save, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Save, Check, Trash2 } from 'lucide-react';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 
@@ -408,6 +408,12 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
                       {unitPriceSaveState[item.product.id] === 'saved'
                         ? <Check className="w-3 h-3 text-emerald-600" />
                         : <Save className="w-3 h-3" />}
+                    </button>
+                    <button
+                      onClick={() => setCart(prev => { const n = { ...prev }; delete n[item.product.id]; return n; })}
+                      className="w-6 h-6 flex items-center justify-center rounded text-rose-400 hover:text-rose-600 hover:bg-rose-500/10 flex-shrink-0"
+                    >
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 justify-end flex-1">
