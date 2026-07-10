@@ -89,7 +89,31 @@ export default function InvoiceDetailPage() {
 
   const downloadPdf = async () => {
     try {
-      window.print();
+      setError('');
+      let blob = pdfBlobRef.current;
+      if (!blob) {
+        if (pdfBlobPromiseRef.current) {
+          blob = await pdfBlobPromiseRef.current;
+        } else if (params?.id && businessId) {
+          const res = await apiClient.get(`/api/billing/invoices/${params.id}/pdf`, {
+            params: { businessId },
+            responseType: 'blob',
+          });
+          blob = res.data;
+          pdfBlobRef.current = blob;
+        }
+      }
+      if (!blob) {
+        throw new Error('Failed to retrieve PDF blob.');
+      }
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${invoice?.invoice_number || 'invoice'}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError(await extractErrorMessage(err, 'Failed to download invoice PDF'));
     }
