@@ -308,11 +308,7 @@ export default function TableDetailsPage() {
                 </Button>
                 <Button
                   onClick={isZeroBill ? handleForceRelease : handleCloseAndPay}
-                  className={`flex-1 h-11 gap-1.5 text-sm font-semibold ${
-                    isZeroBill
-                      ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                      : ''
-                  }`}
+                  className="flex-1 h-11 gap-1.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white"
                 >
                   {isZeroBill ? (
                     <><XCircle className="w-4 h-4" /> Cancel</>
