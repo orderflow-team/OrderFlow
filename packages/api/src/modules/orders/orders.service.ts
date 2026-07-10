@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, Like } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
@@ -439,6 +439,24 @@ export class OrdersService {
     return { ...order, items };
   }
 
+  private async isOrderBilled(manager: import('typeorm').EntityManager, order: Order): Promise<boolean> {
+    const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+    if (billedStatuses.includes(order.status)) {
+      return true;
+    }
+    if (!order.customer_id) {
+      return false;
+    }
+    const billedCount = await manager.count(Ledger, {
+      where: {
+        business_id: order.business_id,
+        customer_id: order.customer_id,
+        description: Like(`%Order ${order.order_number}%`),
+      },
+    });
+    return billedCount > 0;
+  }
+
   /**
    * Confirming an order records each item's price into price_history so the
    * next order for this customer can auto-suggest it again, and posts the
@@ -469,7 +487,7 @@ export class OrdersService {
       };
 
       const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
-      const wasBilled = billedStatuses.includes(order.status);
+      const wasBilled = await this.isOrderBilled(manager, order);
       const isBilled = billedStatuses.includes(dto.status);
 
       if (order.customer_id) {

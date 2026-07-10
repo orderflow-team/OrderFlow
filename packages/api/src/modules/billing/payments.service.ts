@@ -63,8 +63,9 @@ export class PaymentsService {
         // "Close Bill" pays a draft order directly, or order skipped confirmed state).
         let willBillOrder = false;
         if (order) {
-          if (order.status === 'draft') {
-            willBillOrder = true;
+          const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+          if (billedStatuses.includes(order.status)) {
+            willBillOrder = false;
           } else {
             const billedCount = await manager.count(Ledger, {
               where: {
