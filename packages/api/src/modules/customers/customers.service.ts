@@ -58,7 +58,22 @@ export class CustomersService {
 
   async remove(id: string, businessId: string) {
     const customer = await this.findOne(id, businessId);
-    await this.customersRepository.remove(customer);
+    await this.customersRepository.manager.transaction(async (manager) => {
+      // 1. Update orders to null out customer reference
+      await manager.update('orders', { customer_id: id }, { customer_id: null });
+
+      // 2. Clear customer ledger logs
+      await manager.delete('ledgers', { customer_id: id });
+
+      // 3. Clear customer-specific price history
+      await manager.delete('price_history', { customer_id: id });
+
+      // 4. Clear salesman check-in visits
+      await manager.delete('visits', { customer_id: id });
+
+      // 5. Remove customer record
+      await manager.remove(Customer, customer);
+    });
     return { deleted: true };
   }
 }
