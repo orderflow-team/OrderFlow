@@ -135,7 +135,16 @@ function CustomersPageContent() {
   };
 
   useEffect(() => {
-    if (ready && businessId) load(businessId);
+    if (ready && businessId) {
+      load(businessId);
+      const handleUpdate = () => {
+        load(businessId);
+      };
+      window.addEventListener('order-updated', handleUpdate);
+      return () => {
+        window.removeEventListener('order-updated', handleUpdate);
+      };
+    }
   }, [ready, businessId]);
 
   const openCreateForm = () => {
@@ -332,7 +341,7 @@ function CustomersPageContent() {
                       {c.phone && <p className="text-xs text-slate-400 truncate mt-0.5">{c.phone}</p>}
                     </div>
                   </button>
-                  {Number(c.outstanding_amount) > 0 && (
+                  {Number(c.outstanding_amount) > 0.01 && (
                     <span className="text-xs font-bold text-rose-600 shrink-0">{`₹${Number(c.outstanding_amount).toFixed(0)} due`}</span>
                   )}
                   <button
