@@ -106,6 +106,15 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
     }
   };
 
+  const renameCategory = async (id: string, name: string) => {
+    try {
+      await apiClient.patch(`/api/categories/${id}`, { name }, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const updateCart = (product: Product, delta: number) => {
     setCart(prev => {
       const newCart = { ...prev };
@@ -292,6 +301,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
               totalCount={products.length}
               countFor={(name) => products.filter(p => p.category === name).length}
               onDeleteCategory={deleteCategory}
+              onRenameCategory={renameCategory}
             />
           </div>
 

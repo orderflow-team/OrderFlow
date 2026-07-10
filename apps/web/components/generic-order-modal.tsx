@@ -156,6 +156,15 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     }
   };
 
+  const renameCategory = async (id: string, name: string) => {
+    try {
+      await apiClient.patch(`/api/categories/${id}`, { name }, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Name field: free text only — phone is the sole identifier for customer matching
   const handleNameChange = (val: string) => {
     setCustomerName(val);
@@ -444,6 +453,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               totalCount={baseProducts.length}
               countFor={(name) => baseProducts.filter(p => p.category === name).length}
               onDeleteCategory={deleteCategory}
+              onRenameCategory={renameCategory}
             />
           </div>
 

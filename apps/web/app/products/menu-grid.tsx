@@ -130,6 +130,15 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const renameCategory = async (id: string, name: string) => {
+    try {
+      await apiClient.patch(`/api/categories/${id}`, { name }, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
@@ -307,6 +316,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
           totalCount={products.length}
           countFor={(name) => products.filter((p) => p.category === name).length}
           onDeleteCategory={deleteCategory}
+          onRenameCategory={renameCategory}
         />
 
         {/* Product Grid */}

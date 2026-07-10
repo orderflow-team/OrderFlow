@@ -41,9 +41,23 @@ export class CategoriesService {
 
   async update(id: string, businessId: string, dto: UpdateCategoryDto) {
     const category = await this.findOne(id, businessId);
+    const oldName = category.name;
     if (dto.name !== undefined) category.name = dto.name;
     if (dto.parentId !== undefined) category.parent_id = dto.parentId;
-    return this.categoriesRepository.save(category);
+    const saved = await this.categoriesRepository.save(category);
+
+    if (dto.name !== undefined && oldName !== dto.name) {
+      await this.categoriesRepository.manager
+        .createQueryBuilder()
+        .update('products')
+        .set({ category: dto.name })
+        .where('business_id = :businessId AND category = :oldName', {
+          businessId,
+          oldName,
+        })
+        .execute();
+    }
+    return saved;
   }
 
   async remove(id: string, businessId: string) {

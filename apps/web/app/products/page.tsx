@@ -170,6 +170,16 @@ function ProductsPageContent() {
     }
   };
 
+  const renameCategory = async (id: string, name: string) => {
+    if (!businessId) return;
+    try {
+      await apiClient.patch(`/api/categories/${id}`, { name }, { params: { businessId } });
+      loadCategories(businessId, products);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (isRestaurant && businessId) {
     return <MenuGrid businessId={businessId} />;
   }
@@ -479,6 +489,7 @@ function ProductsPageContent() {
               totalCount={products.length}
               countFor={(name) => products.filter((p) => p.category === name).length}
               onDeleteCategory={deleteCategory}
+              onRenameCategory={renameCategory}
             />
             {filteredProducts.map((p) => {
               const stockTone =
