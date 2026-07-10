@@ -9,7 +9,7 @@ import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Customer {
@@ -54,6 +54,61 @@ function CustomersPageContent() {
       console.error('Failed to load history', err);
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const [historyForm, setHistoryForm] = useState({ name: '', phone: '', email: '', address: '', creditLimit: '' });
+  const [isEditingInHistory, setIsEditingInHistory] = useState(false);
+
+  const startHistoryEdit = () => {
+    if (!historyCustomer) return;
+    setHistoryForm({
+      name: historyCustomer.name,
+      phone: historyCustomer.phone || '',
+      email: historyCustomer.email || '',
+      address: historyCustomer.address || '',
+      creditLimit: String(historyCustomer.credit_limit ?? ''),
+    });
+    setIsEditingInHistory(true);
+  };
+
+  const handleHistoryEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId || !historyCustomer) return;
+    setSaving(true);
+    setError('');
+
+    if (historyForm.phone && !/^\d{10}$/.test(historyForm.phone)) {
+      setError('Phone number must be exactly 10 digits');
+      setSaving(false);
+      return;
+    }
+
+    const payload = {
+      name: historyForm.name,
+      phone: historyForm.phone || undefined,
+      email: historyForm.email || undefined,
+      address: historyForm.address || undefined,
+      creditLimit: historyForm.creditLimit ? Number(historyForm.creditLimit) : undefined,
+    };
+
+    try {
+      await apiClient.patch(`/api/customers/${historyCustomer.id}`, payload, { params: { businessId } });
+      const updatedCustomer: Customer = {
+        ...historyCustomer,
+        name: payload.name,
+        phone: payload.phone ?? null,
+        email: payload.email ?? null,
+        address: payload.address ?? null,
+        credit_limit: payload.creditLimit ?? historyCustomer.credit_limit,
+      };
+      setHistoryCustomer(updatedCustomer);
+      setIsEditingInHistory(false);
+      load(businessId);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save customer');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -189,14 +244,13 @@ function CustomersPageContent() {
           )}
         </div>
 
-        {showForm && (
-          <Card className="ring-white/50 glass-sheen-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{editingId ? 'Edit Customer' : 'New Customer'}</CardTitle>
+        {showForm && !editingId && (
+          <Card className="ring-white/50 glass-sheen-sm border-dashed border-emerald-400/30 bg-emerald-50/5">
+            <CardHeader className="flex flex-row items-center justify-between py-3">
+              <CardTitle className="text-sm font-bold text-slate-700">New Customer</CardTitle>
               <button
                 type="button"
                 onClick={() => {
-                  setEditingId(null);
                   setForm(emptyForm);
                   setShowForm(false);
                 }}
@@ -205,7 +259,7 @@ function CustomersPageContent() {
                 Cancel
               </button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-4">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   placeholder="Name"
@@ -241,21 +295,8 @@ function CustomersPageContent() {
                 {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
                 <div className="sm:col-span-2 flex gap-2">
                   <Button type="submit" disabled={saving}>
-                    {saving ? 'Saving...' : editingId ? 'Update Customer' : 'Save Customer'}
+                    {saving ? 'Saving...' : 'Save Customer'}
                   </Button>
-                  {editingId && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingId(null);
-                        setForm(emptyForm);
-                        setShowForm(false);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  )}
                 </div>
               </form>
             </CardContent>
@@ -280,38 +321,120 @@ function CustomersPageContent() {
         ) : (
           <div className="space-y-3">
             {filteredCustomers.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
-                <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
-                  <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">
-                    <Users className="w-5 h-5" />
+              <div key={c.id} className="flex flex-col bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 transition-all">
+                <div className="flex items-center gap-3 w-full">
+                  <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
+                    <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-800 text-sm truncate">{c.name}</p>
+                      {c.phone && <p className="text-xs text-slate-400 truncate mt-0.5">{c.phone}</p>}
+                    </div>
+                  </button>
+                  {Number(c.outstanding_amount) > 0 && (
+                    <span className="text-xs font-bold text-rose-600 shrink-0">{`₹${Number(c.outstanding_amount).toFixed(0)} due`}</span>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (editingId === c.id && showForm) {
+                        setEditingId(null);
+                        setShowForm(false);
+                      } else {
+                        openEditForm(c);
+                      }
+                    }}
+                    className={`p-1.5 shrink-0 transition-colors rounded-lg ${
+                      editingId === c.id && showForm
+                        ? 'bg-slate-200/60 text-slate-700'
+                        : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100/50'
+                    }`}
+                    aria-label="Edit Details"
+                    title="Edit Details"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-300 hover:text-rose-600 shrink-0 transition-colors" aria-label="Delete">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 cursor-pointer" onClick={() => setHistoryCustomer(c)} />
+                </div>
+
+                {/* Inline dropdown edit form */}
+                {editingId === c.id && showForm && (
+                  <div className="border-t border-slate-100/60 mt-3 pt-3.5 w-full animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="text-xs font-semibold text-slate-500 mb-3">Edit Client Details</p>
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Input
+                        placeholder="Name"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        required
+                        className="h-10 text-xs bg-white/60"
+                      />
+                      <Input
+                        placeholder="Phone"
+                        value={form.phone}
+                        onChange={(e) => {
+                          setForm({ ...form, phone: e.target.value });
+                          if (error) setError('');
+                        }}
+                        className="h-10 text-xs bg-white/60"
+                      />
+                      <Input
+                        placeholder="Email"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        className="h-10 text-xs bg-white/60"
+                      />
+                      <Input
+                        placeholder="Credit limit"
+                        type="number"
+                        value={form.creditLimit}
+                        onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                        className="h-10 text-xs bg-white/60"
+                      />
+                      <Input
+                        placeholder="Address"
+                        className="sm:col-span-2 h-10 text-xs bg-white/60"
+                        value={form.address}
+                        onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      />
+                      {error && <p className="text-xs text-rose-600 sm:col-span-2 font-medium">{error}</p>}
+                      <div className="sm:col-span-2 flex gap-2 mt-1">
+                        <Button type="submit" size="sm" disabled={saving} className="flex-1 h-9 bg-slate-800 hover:bg-slate-900 text-white font-semibold">
+                          {saving ? 'Updating...' : 'Update Details'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingId(null);
+                            setForm(emptyForm);
+                            setShowForm(false);
+                          }}
+                          className="flex-1 h-9 font-semibold border-slate-200"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-slate-800 text-sm truncate">{c.name}</p>
-                    {c.phone && <p className="text-xs text-slate-400 truncate mt-0.5">{c.phone}</p>}
-                  </div>
-                </button>
-                {Number(c.outstanding_amount) > 0 && (
-                  <span className="text-xs font-bold text-rose-600 shrink-0">{`₹${Number(c.outstanding_amount).toFixed(0)} due`}</span>
                 )}
-                <button
-                  onClick={() => openEditForm(c)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 shrink-0 transition-colors"
-                  aria-label="Edit Details"
-                  title="Edit Details"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDelete(c.id)} className="p-1.5 text-slate-300 hover:text-rose-600 shrink-0 transition-colors" aria-label="Delete">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 cursor-pointer" onClick={() => setHistoryCustomer(c)} />
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <Dialog open={!!historyCustomer} onOpenChange={(open) => !open && setHistoryCustomer(null)}>
+      <Dialog open={!!historyCustomer} onOpenChange={(open) => {
+        if (!open) {
+          setHistoryCustomer(null);
+          setIsEditingInHistory(false);
+          setError('');
+        }
+      }}>
         <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-3xl bg-slate-50 border-none shadow-xl flex flex-col">
           <DialogHeader className="p-5 bg-white border-b border-slate-100 flex-shrink-0 flex flex-row items-center justify-between">
             <div className="min-w-0">
@@ -323,22 +446,106 @@ function CustomersPageContent() {
             <div className="flex items-center gap-2 shrink-0">
               <Button
                 onClick={() => {
-                  if (historyCustomer) {
-                    openEditForm(historyCustomer);
-                    setHistoryCustomer(null);
+                  if (isEditingInHistory) {
+                    setIsEditingInHistory(false);
+                    setError('');
+                  } else {
+                    startHistoryEdit();
                   }
                 }}
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1.5 text-xs font-semibold border-slate-200 hover:bg-slate-50"
               >
-                <Pencil className="w-3.5 h-3.5" /> Edit Details
+                {isEditingInHistory ? (
+                  <>
+                    <HistoryIcon className="w-3.5 h-3.5" /> View History
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="w-3.5 h-3.5" /> Edit Details
+                  </>
+                )}
               </Button>
             </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {historyLoading ? (
+            {isEditingInHistory ? (
+              <form onSubmit={handleHistoryEditSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Name</label>
+                    <Input
+                      placeholder="Name"
+                      value={historyForm.name}
+                      onChange={(e) => setHistoryForm({ ...historyForm, name: e.target.value })}
+                      required
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Phone</label>
+                    <Input
+                      placeholder="Phone"
+                      value={historyForm.phone}
+                      onChange={(e) => {
+                        setHistoryForm({ ...historyForm, phone: e.target.value });
+                        if (error) setError('');
+                      }}
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Email</label>
+                    <Input
+                      placeholder="Email"
+                      value={historyForm.email}
+                      onChange={(e) => setHistoryForm({ ...historyForm, email: e.target.value })}
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Credit Limit</label>
+                    <Input
+                      placeholder="Credit limit"
+                      type="number"
+                      value={historyForm.creditLimit}
+                      onChange={(e) => setHistoryForm({ ...historyForm, creditLimit: e.target.value })}
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-500">Address</label>
+                    <Input
+                      placeholder="Address"
+                      value={historyForm.address}
+                      onChange={(e) => setHistoryForm({ ...historyForm, address: e.target.value })}
+                      className="bg-white"
+                    />
+                  </div>
+                </div>
+
+                {error && <p className="text-sm text-rose-600 font-medium">{error}</p>}
+
+                <div className="flex gap-2 pt-2">
+                  <Button type="submit" disabled={saving} className="flex-1 h-10 font-semibold bg-slate-800 hover:bg-slate-900 text-white">
+                    {saving ? 'Updating...' : 'Update Details'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingInHistory(false);
+                      setError('');
+                    }}
+                    className="flex-1 h-10 font-semibold border-slate-200"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : historyLoading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-2 text-slate-400">
                 <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
                 <p className="text-xs font-medium">Fetching orders and payments...</p>
