@@ -8,6 +8,7 @@ import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
+import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 
 interface Product {
   id: string;
@@ -49,6 +50,22 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const isSeeding = useRef(false);
+  const [inventoryEnabled, setInventoryEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const cached = getCachedInventoryEnabled(businessId);
+    if (cached !== null) {
+      setInventoryEnabled(cached);
+    }
+    apiClient
+      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        setInventoryEnabled(res.data.inventory_enabled);
+        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+      })
+      .catch(() => {});
+  }, [businessId]);
 
   // Form states
   const [showItemForm, setShowItemForm] = useState(false);
@@ -156,8 +173,8 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       category: form.category || undefined,
       unit: form.unit || undefined,
       sellingPrice: Number(form.sellingPrice),
-      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
-      stockQuantity: form.stockQuantity ? Number(form.stockQuantity) : 0,
+      purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
       batchNumber: form.batchNumber || undefined,
       expiryDate: form.expiryDate || undefined,
       prescriptionRequired: form.prescriptionRequired,
@@ -305,14 +322,18 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 <label className="text-sm font-medium text-slate-700">MRP (₹)</label>
                 <Input className="h-11" type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} required />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Purchase Price (₹)</label>
-                <Input className="h-11" type="number" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Stock Quantity</label>
-                <Input className="h-11" type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
-              </div>
+              {inventoryEnabled && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Purchase Price (₹)</label>
+                  <Input className="h-11" type="number" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                </div>
+              )}
+              {inventoryEnabled && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Stock Quantity</label>
+                  <Input className="h-11" type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
+                </div>
+              )}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Batch Number</label>
                 <Input className="h-11" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. CR2024A" />

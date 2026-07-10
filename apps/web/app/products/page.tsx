@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
-import { getCachedBusinessCategory } from '@/lib/auth';
+import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
@@ -61,6 +61,22 @@ function ProductsPageContent() {
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
   const isPharmacy = category === 'pharmacy';
+  const [inventoryEnabled, setInventoryEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    const cached = getCachedInventoryEnabled(businessId);
+    if (cached !== null) {
+      setInventoryEnabled(cached);
+    }
+    apiClient
+      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        setInventoryEnabled(res.data.inventory_enabled);
+        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+      })
+      .catch(() => {});
+  }, [ready, businessId]);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowForm(true);
@@ -204,9 +220,9 @@ function ProductsPageContent() {
       sku: form.sku || undefined,
       unit: form.unit || undefined,
       sellingPrice: Number(form.sellingPrice),
-      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : undefined,
-      stockQuantity: form.stockQuantity ? Number(form.stockQuantity) : undefined,
+      stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : undefined,
       description: form.description || undefined,
       isAvailable: form.isAvailable,
       category: form.category || undefined,
@@ -337,24 +353,28 @@ function ProductsPageContent() {
                   onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
                   required
                 />
-                <Input
-                  placeholder="Purchase price"
-                  type="number"
-                  value={form.purchasePrice}
-                  onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
-                />
+                {inventoryEnabled && (
+                  <Input
+                    placeholder="Purchase price"
+                    type="number"
+                    value={form.purchasePrice}
+                    onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })}
+                  />
+                )}
                 <Input
                   placeholder="GST tax %"
                   type="number"
                   value={form.taxPercentage}
                   onChange={(e) => setForm({ ...form, taxPercentage: e.target.value })}
                 />
-                <Input
-                  placeholder="Opening stock"
-                  type="number"
-                  value={form.stockQuantity}
-                  onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
-                />
+                {inventoryEnabled && (
+                  <Input
+                    placeholder="Opening stock"
+                    type="number"
+                    value={form.stockQuantity}
+                    onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
+                  />
+                )}
                 <select
                   className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                   value={form.category}
