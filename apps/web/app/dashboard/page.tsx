@@ -138,25 +138,41 @@ function StatCard({
   label,
   value,
   tint,
+  href,
 }: {
   icon: typeof ShoppingCart;
   label: string;
   value: string;
   tint: string;
+  href?: string;
 }) {
+  const cardContent = (
+    <CardContent className="p-4 sm:p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs sm:text-sm font-medium text-slate-500 truncate mr-2">{label}</p>
+        <div className={`p-1.5 sm:p-2 rounded-lg ${tint} shrink-0`}>
+          <Icon className="w-4 h-4 sm:w-4 sm:h-4" />
+        </div>
+      </div>
+      <div className="mt-3 sm:mt-4">
+        <p className="text-xl sm:text-2xl font-bold text-slate-800 truncate tracking-tight">{value}</p>
+      </div>
+    </CardContent>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="block group">
+        <Card className="ring-white/50 glass-sheen-sm hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer hover:scale-[1.01] active:scale-[0.99]">
+          {cardContent}
+        </Card>
+      </Link>
+    );
+  }
+
   return (
     <Card className="ring-white/50 glass-sheen-sm hover:shadow-md transition-all duration-200 overflow-hidden">
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-center justify-between">
-          <p className="text-xs sm:text-sm font-medium text-slate-500 truncate mr-2">{label}</p>
-          <div className={`p-1.5 sm:p-2 rounded-lg ${tint} shrink-0`}>
-            <Icon className="w-4 h-4 sm:w-4 sm:h-4" />
-          </div>
-        </div>
-        <div className="mt-3 sm:mt-4">
-          <p className="text-xl sm:text-2xl font-bold text-slate-800 truncate tracking-tight">{value}</p>
-        </div>
-      </CardContent>
+      {cardContent}
     </Card>
   );
 }
@@ -201,6 +217,17 @@ export default function DashboardPage() {
     }
   };
 
+  const refreshDashboardSilently = async (bizId: string) => {
+    try {
+      const response = await apiClient.get<DashboardData>('/api/reports/dashboard', {
+        params: { businessId: bizId },
+      });
+      setData(response.data);
+    } catch (err) {
+      console.error('Silent dashboard refresh failed', err);
+    }
+  };
+
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
@@ -218,6 +245,21 @@ export default function DashboardPage() {
     setIsSalesman(hasRole('salesman'));
     loadDashboard(user.businessId);
 
+    // Setup periodic polling to track order count changes
+    const interval = setInterval(() => {
+      if (user.businessId) {
+        refreshDashboardSilently(user.businessId);
+      }
+    }, 5000);
+
+    // Setup event listener to catch instant order mutations from modals/chat assistant
+    const handleOrderUpdate = () => {
+      if (user.businessId) {
+        refreshDashboardSilently(user.businessId);
+      }
+    };
+    window.addEventListener('order-updated', handleOrderUpdate);
+
     const cachedCategory = getCachedBusinessCategory(user.businessId);
     const cachedInventoryEnabled = getCachedInventoryEnabled(user.businessId);
     if (cachedCategory !== null) {
@@ -233,6 +275,11 @@ export default function DashboardPage() {
         setIsPharmacy(res.data.category === 'pharmacy');
       })
       .catch(() => {});
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('order-updated', handleOrderUpdate);
+    };
   }, [router]);
 
   if (loading) {
@@ -296,10 +343,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-          <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-tile-sky-icon text-tile-sky-fg" />
+          <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-tile-sky-icon text-tile-sky-fg" href="/orders" />
           <StatCard icon={IndianRupee} label="Today's Sales" value={formatCurrency(data.todaysSales)} tint="bg-tile-mint-icon text-tile-mint-fg" />
-          <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" />
-          <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" />
+          <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" href="/billing" />
+          <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" href="/billing" />
         </div>
 
         {hasInventory && !isSalesman && (

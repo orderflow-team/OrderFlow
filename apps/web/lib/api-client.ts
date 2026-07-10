@@ -18,9 +18,25 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle errors
+// Handle response and dispatch events for dashboard/billing updates
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const url = response.config.url;
+    const method = response.config.method?.toUpperCase();
+    if (url && (
+      url.includes('/api/orders') || 
+      url.includes('/api/billing') || 
+      url.includes('/api/ai/chat-order') ||
+      url.includes('/api/dev/seed')
+    )) {
+      if (method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('order-updated'));
+        }
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token');
