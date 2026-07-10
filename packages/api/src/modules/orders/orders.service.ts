@@ -353,6 +353,26 @@ export class OrdersService {
         throw new NotFoundException('Order not found');
       }
 
+      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+      if (order.customer_id && billedStatuses.includes(order.status)) {
+        const payments = await manager.find(Payment, { where: { order_id: id } });
+        const paidSum = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const remaining = Math.max(0, Number(order.total_amount) - paidSum);
+        if (remaining > 0.01) {
+          await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', -remaining);
+          await manager.save(
+            Ledger,
+            manager.create(Ledger, {
+              business_id: businessId,
+              customer_id: order.customer_id,
+              type: 'CREDIT',
+              amount: remaining,
+              description: `Order ${order.order_number} deleted`,
+            }),
+          );
+        }
+      }
+
       for (const item of order.items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
@@ -448,12 +468,15 @@ export class OrdersService {
         if (historyRows.length) await manager.save(PriceHistory, historyRows);
       };
 
-      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
-      if (billedStatuses.includes(dto.status) && order.status === 'draft') {
-        const items = await manager.find(OrderItem, { where: { order_id: id } });
-        await savePriceHistory(items);
+      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+      const wasBilled = billedStatuses.includes(order.status);
+      const isBilled = billedStatuses.includes(dto.status);
 
-        if (order.customer_id) {
+      if (order.customer_id) {
+        if (!wasBilled && isBilled) {
+          // Billed status entered: increment outstanding
+          const items = await manager.find(OrderItem, { where: { order_id: id } });
+          await savePriceHistory(items);
           await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', Number(order.total_amount));
           await manager.save(
             Ledger,
@@ -465,6 +488,25 @@ export class OrdersService {
               description: `Order ${order.order_number} billed`,
             }),
           );
+        } else if (wasBilled && !isBilled) {
+          // Billed status exited (e.g. cancelled or reverted to draft): decrement outstanding by remaining unpaid
+          const payments = await manager.find(Payment, { where: { order_id: id } });
+          const paidSum = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+          const remaining = Math.max(0, Number(order.total_amount) - paidSum);
+          
+          if (remaining > 0.01) {
+            await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', -remaining);
+            await manager.save(
+              Ledger,
+              manager.create(Ledger, {
+                business_id: businessId,
+                customer_id: order.customer_id,
+                type: 'CREDIT',
+                amount: remaining,
+                description: `Order ${order.order_number} cancelled`,
+              }),
+            );
+          }
         }
       }
 
