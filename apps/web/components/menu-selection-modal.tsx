@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,11 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
   const [submitting, setSubmitting] = useState(false);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const focusSearch = () => {
+    searchInputRef.current?.focus();
+  };
 
   useEffect(() => {
     if (isOpen && businessId && products.length === 0) {
@@ -308,6 +313,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           <div className="shrink-0 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input 
+              ref={searchInputRef}
               className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55" 
               placeholder="Search dishes..." 
               value={search}
@@ -465,13 +471,22 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
             <p className="font-bold text-xl text-slate-800">₹{cartTotal.toFixed(2)}</p>
           </div>
           
-          <Button 
-            className="w-full mt-4 h-12 text-base font-semibold" 
-            disabled={cartItems.length === 0 || submitting}
-            onClick={handleSubmit}
-          >
-            {submitting ? 'Submitting...' : 'Submit Order'}
-          </Button>
+          <div className="flex gap-2 mt-4">
+            <Button
+              type="button"
+              className="flex-1 h-12 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
+              onClick={focusSearch}
+            >
+              <Plus className="w-4 h-4" /> Add Item
+            </Button>
+            <Button
+              className="flex-1 h-12 text-base font-semibold"
+              disabled={cartItems.length === 0 || submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? 'Submitting...' : 'Submit Order'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
