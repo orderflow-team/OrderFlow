@@ -196,7 +196,8 @@ function RestaurantPageContent() {
 
   if (view === 'take_away') {
     return (
-      <AppShell>
+      <>
+        <AppShell>
         <div className="p-6 md:p-10 max-w-3xl mx-auto">
           <div className="flex flex-col gap-1 mb-8">
             <button
@@ -325,8 +326,112 @@ function RestaurantPageContent() {
           </div>
         )}
       </AppShell>
-    );
-  }
+
+      {/* Takeaway QR Code Modal */}
+      <Dialog open={showTakeAwayQrModal} onOpenChange={setShowTakeAwayQrModal}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-800">Takeaway Self-Service QR</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 space-y-6 bg-slate-50 rounded-2xl border border-slate-100 mt-2">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex flex-col items-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
+                )}`}
+                alt="Takeaway Self-Service QR"
+                className="w-48 h-48 sm:w-56 sm:h-56"
+              />
+              <div className="text-slate-800 font-extrabold text-lg mt-4 tracking-wide uppercase">TAKEAWAY ORDERING</div>
+              <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase mt-1">Scan to View Menu & Order</p>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium text-slate-600">Scan this QR code from your phone to browse our menu and place a takeaway order.</p>
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-end mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowTakeAwayQrModal(false)}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
+              onClick={() => {
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
+                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
+                )}`;
+                const win = window.open('', '_blank');
+                if (!win) return;
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>Print Takeaway QR Code</title>
+                      <style>
+                        body {
+                          margin: 0;
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                          justify-content: center;
+                          height: 100vh;
+                          font-family: system-ui, -apple-system, sans-serif;
+                          color: #1e293b;
+                        }
+                        .container {
+                          text-align: center;
+                          border: 2px dashed #cbd5e1;
+                          padding: 40px;
+                          border-radius: 24px;
+                          background: #f8fafc;
+                        }
+                        img {
+                          width: 320px;
+                          height: 320px;
+                          margin-bottom: 20px;
+                        }
+                        .label {
+                          font-size: 28px;
+                          font-weight: 800;
+                          letter-spacing: 0.05em;
+                          margin-bottom: 8px;
+                        }
+                        .instruction {
+                          font-size: 16px;
+                          color: #64748b;
+                          font-weight: 500;
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="container">
+                        <img src="${qrUrl}" alt="QR" />
+                        <div class="label">TAKEAWAY ORDERING</div>
+                        <div class="instruction">Scan to view Menu & Order</div>
+                      </div>
+                      <script>
+                        window.onload = function() {
+                          window.print();
+                          window.close();
+                        }
+                      </script>
+                    </body>
+                  </html>
+                `);
+                win.document.close();
+              }}
+            >
+              <Printer className="w-4 h-4" /> Print QR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
   return (
     <>
@@ -570,108 +675,6 @@ function RestaurantPageContent() {
       </Dialog>
     )}
 
-      {/* Takeaway QR Code Modal */}
-      <Dialog open={showTakeAwayQrModal} onOpenChange={setShowTakeAwayQrModal}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-800">Takeaway Self-Service QR</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-6 space-y-6 bg-slate-50 rounded-2xl border border-slate-100 mt-2">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex flex-col items-center">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
-                )}`}
-                alt="Takeaway Self-Service QR"
-                className="w-48 h-48 sm:w-56 sm:h-56"
-              />
-              <div className="text-slate-800 font-extrabold text-lg mt-4 tracking-wide uppercase">TAKEAWAY ORDERING</div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase mt-1">Scan to View Menu & Order</p>
-            </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-medium text-slate-600">Scan this QR code from your phone to browse our menu and place a takeaway order.</p>
-            </div>
-          </div>
-          <DialogFooter className="sm:justify-end mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowTakeAwayQrModal(false)}
-            >
-              Close
-            </Button>
-            <Button
-              type="button"
-              className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
-              onClick={() => {
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
-                )}`;
-                const win = window.open('', '_blank');
-                if (!win) return;
-                win.document.write(`
-                  <html>
-                    <head>
-                      <title>Print Takeaway QR Code</title>
-                      <style>
-                        body {
-                          margin: 0;
-                          display: flex;
-                          flex-direction: column;
-                          align-items: center;
-                          justify-content: center;
-                          height: 100vh;
-                          font-family: system-ui, -apple-system, sans-serif;
-                          color: #1e293b;
-                        }
-                        .container {
-                          text-align: center;
-                          border: 2px dashed #cbd5e1;
-                          padding: 40px;
-                          border-radius: 24px;
-                          background: #f8fafc;
-                        }
-                        img {
-                          width: 320px;
-                          height: 320px;
-                          margin-bottom: 20px;
-                        }
-                        .label {
-                          font-size: 28px;
-                          font-weight: 800;
-                          letter-spacing: 0.05em;
-                          margin-bottom: 8px;
-                        }
-                        .instruction {
-                          font-size: 16px;
-                          color: #64748b;
-                          font-weight: 500;
-                        }
-                      </style>
-                    </head>
-                    <body>
-                      <div class="container">
-                        <img src="${qrUrl}" alt="QR" />
-                        <div class="label">TAKEAWAY ORDERING</div>
-                        <div class="instruction">Scan to view Menu & Order</div>
-                      </div>
-                      <script>
-                        window.onload = function() {
-                          window.print();
-                          window.close();
-                        }
-                      </script>
-                    </body>
-                  </html>
-                `);
-                win.document.close();
-              }}
-            >
-              <Printer className="w-4 h-4" /> Print QR
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
