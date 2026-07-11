@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2 } from 'lucide-react';
+import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 import React from 'react';
@@ -52,6 +53,15 @@ function RestaurantPageContent() {
   const [takeAwayToken, setTakeAwayToken] = useState<number | null>(null);
   const [previousTakeaways, setPreviousTakeaways] = useState<TakeawayOrder[]>([]);
   const [expandedTakeaways, setExpandedTakeaways] = useState<Record<string, boolean>>({});
+
+  // QR Modal States
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrTable, setQrTable] = useState<Table | null>(null);
+
+  const handleShowQr = (table: Table) => {
+    setQrTable(table);
+    setShowQrModal(true);
+  };
 
   const loadTables = async (bizId: string) => {
     setLoading(true);
@@ -300,7 +310,8 @@ function RestaurantPageContent() {
   }
 
   return (
-    <AppShell>
+    <>
+      <AppShell>
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
 
         {/* Header Section */}
@@ -360,6 +371,17 @@ function RestaurantPageContent() {
                       title="Delete table"
                     >
                       <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleShowQr(t);
+                      }}
+                      className="absolute top-2 right-9 z-10 p-1.5 rounded-full text-slate-300 hover:text-emerald-600 hover:bg-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="View Table QR Code"
+                    >
+                      <QrCode className="w-4 h-4" />
                     </button>
                     <CardContent className="p-5 flex-1 flex flex-col">
                       <div className="flex justify-between items-start">
@@ -421,6 +443,114 @@ function RestaurantPageContent() {
         )}
       </div>
     </AppShell>
+
+    {/* Table QR Code Modal */}
+    {showQrModal && qrTable && (
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-[360px] ring-white/50 glass-sheen-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center font-bold text-slate-800 text-lg">
+              Self-Service QR - {qrTable.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-6 flex flex-col items-center justify-center gap-4 text-center">
+            <p className="text-xs text-slate-400 font-medium px-4">
+              Customers can scan this QR code to view the menu and place their own orders directly from their phones.
+            </p>
+            
+            {/* QR Image container */}
+            <div id="table-qr-print-area" className="p-4 bg-white rounded-3xl border border-slate-100 flex flex-col items-center gap-3">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                  typeof window !== 'undefined' ? `${window.location.origin}/orders/table/${qrTable.id}?customerMode=1` : ''
+                )}`}
+                alt={`QR for ${qrTable.name}`}
+                className="w-[200px] h-[200px] object-contain"
+              />
+              <span className="text-sm font-extrabold text-slate-800 tracking-wider">
+                TABLE {qrTable.name}
+              </span>
+            </div>
+
+            <div className="text-[10px] font-mono text-slate-400 break-all select-all px-2 py-1 bg-slate-50 rounded-lg max-w-[280px]">
+              {typeof window !== 'undefined' ? `${window.location.origin}/orders/table/${qrTable.id}?customerMode=1` : ''}
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-between">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setShowQrModal(false)}>
+              Close
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              onClick={() => {
+                const printContent = document.getElementById('table-qr-print-area');
+                if (!printContent) return;
+                const win = window.open('', '_blank');
+                if (!win) return;
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>Print QR Code - ${qrTable.name}</title>
+                      <style>
+                        body {
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                          justify-content: center;
+                          height: 80vh;
+                          font-family: sans-serif;
+                          text-align: center;
+                        }
+                        .qr-container {
+                          border: 2px solid #e2e8f0;
+                          padding: 24px;
+                          border-radius: 24px;
+                          background: white;
+                        }
+                        img {
+                          width: 250px;
+                          height: 250px;
+                        }
+                        .label {
+                          margin-top: 16px;
+                          font-size: 24px;
+                          font-weight: bold;
+                          color: #1e293b;
+                          letter-spacing: 0.05em;
+                        }
+                        .instruction {
+                          margin-top: 8px;
+                          font-size: 14px;
+                          color: #64748b;
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      <div class="qr-container">
+                        <img src="${printContent.querySelector('img')?.src}" alt="QR" />
+                        <div class="label">TABLE ${qrTable.name}</div>
+                        <div class="instruction">Scan to view Menu & Order</div>
+                      </div>
+                      <script>
+                        window.onload = function() {
+                          window.print();
+                          window.close();
+                        }
+                      </script>
+                    </body>
+                  </html>
+                `);
+                win.document.close();
+              }}
+            >
+              <Printer className="w-4 h-4" /> Print QR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 

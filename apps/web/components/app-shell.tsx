@@ -75,7 +75,7 @@ interface BusinessOption {
 
 const NEW_BUSINESS_OPTION = '__new__';
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, hideNavigation = false }: { children: React.ReactNode; hideNavigation?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -251,7 +251,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 bg-white/30 backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm flex-col m-3 mr-0 rounded-[2rem]">
+      {!hideNavigation && (
+        <aside className="hidden md:flex w-64 bg-white/30 backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm flex-col m-3 mr-0 rounded-[2rem]">
         <div className="px-5 py-6 flex flex-col gap-5 border-b border-white/40 mb-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500/90 to-teal-400/90 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 ring-1 ring-white/40 glass-sheen-sm">
@@ -392,9 +393,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           Log out
         </button>
       </aside>
+      )}
 
       {/* Mobile top bar */}
-      <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
+      {!hideNavigation && (
+        <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
           <span className="text-base font-bold text-slate-800 tracking-tight">OrderFlow</span>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
@@ -416,15 +419,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         )}
       </header>
+      )}
 
-      <main className="flex-1 min-w-0 pt-[60px] pb-16 md:pt-0 md:pb-0">
+      <main className={`flex-1 min-w-0 ${hideNavigation ? 'pt-0 pb-0' : 'pt-[60px] pb-16 md:pt-0 md:pb-0'}`}>
         <div key={pathname} className="animate-in fade-in duration-150 ease-out">
           {children}
         </div>
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/50 shadow-[0_-4px_30px_-5px_rgba(0,0,0,0.1)] flex px-1 py-1 pb-[env(safe-area-inset-bottom)]">
+      {!hideNavigation && (
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/50 shadow-[0_-4px_30px_-5px_rgba(0,0,0,0.1)] flex px-1 py-1 pb-[env(safe-area-inset-bottom)]">
         {primaryNavBase.map((item, index) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
@@ -474,6 +479,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         )}
       </nav>
+      )}
 
       {/* Mobile "More" sheet */}
       {moreOpen && (
@@ -568,7 +574,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {chatEnabled ? (
+      {!hideNavigation && (chatEnabled ? (
         <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />
       ) : (
         ['/orders', '/products', '/customers'].includes(pathname) && (
@@ -580,7 +586,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Plus className="w-6 h-6 animate-in zoom-in duration-200" />
           </button>
         )
-      )}
+      ))}
     </div>
   );
 }

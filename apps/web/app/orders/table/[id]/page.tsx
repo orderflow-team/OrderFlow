@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api-client';
@@ -40,6 +40,8 @@ interface OrderItem {
 export default function TableDetailsPage() {
   const params = useParams();
   const id = params?.id as string;
+  const searchParams = useSearchParams();
+  const isCustomerMode = searchParams?.get('customerMode') === '1';
   const { businessId, ready } = useBusiness();
   const router = useRouter();
 
@@ -136,7 +138,7 @@ export default function TableDetailsPage() {
   };
 
   if (!ready || loading || (!table && !loadingError)) return (
-    <AppShell>
+    <AppShell hideNavigation={isCustomerMode}>
       <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-slate-400">
         <Coffee className="w-8 h-8 animate-pulse" />
         <span className="text-sm">Loading table...</span>
@@ -145,7 +147,7 @@ export default function TableDetailsPage() {
   );
 
   if (loadingError) return (
-    <AppShell>
+    <AppShell hideNavigation={isCustomerMode}>
       <div className="p-6 text-center text-rose-500 font-bold">{loadingError}</div>
     </AppShell>
   );
@@ -157,7 +159,7 @@ export default function TableDetailsPage() {
   const isZeroBill = !activeSession || Number(activeSession.total_amount) <= 0;
 
   return (
-    <AppShell>
+    <AppShell hideNavigation={isCustomerMode}>
       {/*
         main in AppShell has pt-[60px] pb-16 on mobile = 60+64=124px used.
         So we constrain this page to exactly 100dvh-124px, no page scroll.
@@ -166,12 +168,14 @@ export default function TableDetailsPage() {
 
         {/* ── Top bar ── */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white/50 backdrop-blur-xl border-white/40 flex-shrink-0">
-          <button
-            onClick={() => router.push('/orders?view=dine_in')}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/40 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
+          {!isCustomerMode && (
+            <button
+              onClick={() => router.push('/orders?view=dine_in')}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/40 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-800 truncate">Table {table.name}</h1>
@@ -223,7 +227,7 @@ export default function TableDetailsPage() {
               </Button>
             </div>
 
-            {previousSessions.length > 0 && (
+            {previousSessions.length > 0 && !isCustomerMode && (
               <div className="px-4 pb-4">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Previous Sessions</p>
                 <div className="space-y-2">
@@ -346,16 +350,18 @@ export default function TableDetailsPage() {
                 >
                   <Plus className="w-4 h-4" /> Add Items
                 </Button>
-                <Button
-                  onClick={isZeroBill ? handleForceRelease : handleCloseAndPay}
-                  className="flex-1 h-11 gap-1.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white"
-                >
-                  {isZeroBill ? (
-                    <><XCircle className="w-4 h-4" /> Cancel</>
-                  ) : (
-                    <><SplitSquareHorizontal className="w-4 h-4" /> Close &amp; Pay</>
-                  )}
-                </Button>
+                {!isCustomerMode && (
+                  <Button
+                    onClick={isZeroBill ? handleForceRelease : handleCloseAndPay}
+                    className="flex-1 h-11 gap-1.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white"
+                  >
+                    {isZeroBill ? (
+                      <><XCircle className="w-4 h-4" /> Cancel</>
+                    ) : (
+                      <><SplitSquareHorizontal className="w-4 h-4" /> Close &amp; Pay</>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
