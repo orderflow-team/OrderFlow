@@ -157,7 +157,7 @@ export class OrdersService {
         totalAmount += subtotal + taxAmount;
         totalTax += taxAmount;
 
-        if (clientProvidedProductId && inventoryEnabled) {
+        if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
           await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
         }
 
@@ -690,7 +690,7 @@ export class OrdersService {
         additionalAmount += subtotal + taxAmount;
         additionalTax += taxAmount;
 
-        if (clientProvidedProductId && inventoryEnabled) {
+        if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
           await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
         }
 
