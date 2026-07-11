@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../database/entities/user.entity';
@@ -22,6 +22,7 @@ export class AuthService {
     @InjectRepository(OtpCode) private otpCodesRepository: Repository<OtpCode>,
     private jwtService: JwtService,
     private mailService: MailService,
+    private dataSource: DataSource,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -171,5 +172,22 @@ export class AuthService {
         businessId: user.business_id,
       },
     };
+  }
+
+  async tableGuestLogin(tableId: string) {
+    const TableEntity = require('../../database/entities/table.entity').Table;
+    const table = await this.dataSource.getRepository(TableEntity).findOne({ where: { id: tableId } });
+    if (!table) {
+      throw new NotFoundException('Table not found');
+    }
+
+    const guestUser = {
+      id: `guest-${table.id}`,
+      email: `guest-${table.name.toLowerCase()}@orderflow.guest`,
+      business_id: table.business_id,
+      role: 'salesman',
+    } as any;
+
+    return this.issueTokens(guestUser);
   }
 }

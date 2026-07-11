@@ -28,4 +28,9 @@ export class AuthController {
   async verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto);
   }
+
+  @Post('table-guest-login')
+  async tableGuestLogin(@Body('tableId') tableId: string) {
+    return this.authService.tableGuestLogin(tableId);
+  }
 }
