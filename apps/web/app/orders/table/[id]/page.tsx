@@ -50,6 +50,7 @@ export default function TableDetailsPage() {
   const [loadingError, setLoadingError] = useState('');
   const [billingError, setBillingError] = useState('');
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
   // Lock page scroll — this page is a single-screen layout
   useEffect(() => {
@@ -226,17 +227,56 @@ export default function TableDetailsPage() {
               <div className="px-4 pb-4">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Previous Sessions</p>
                 <div className="space-y-2">
-                  {previousSessions.map(session => (
-                    <div key={session.id} className="flex justify-between items-center py-3 px-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">{session.customer_name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {new Date(session.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </p>
+                  {previousSessions.map(session => {
+                    const isExpanded = !!expandedSessions[session.id];
+                    return (
+                      <div key={session.id} className="flex flex-col rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
+                        <div
+                          onClick={() => setExpandedSessions(prev => ({ ...prev, [session.id]: !prev[session.id] }))}
+                          className="flex justify-between items-center py-3 px-4 cursor-pointer hover:bg-white/10 transition-colors"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-700">{session.customer_name}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {new Date(session.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 font-bold text-emerald-600">
+                            <span>₹{Number(session.total_amount).toFixed(2)}</span>
+                            <svg
+                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="px-4 pb-3 pt-2 border-t border-white/30 bg-white/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Session Items</div>
+                            <div className="space-y-1.5">
+                              {session.items && session.items.length > 0 ? (
+                                session.items.map((item) => (
+                                  <div key={item.id} className="flex justify-between text-sm text-slate-700">
+                                    <span>
+                                      {item.product?.name || item.custom_product_name || 'Unknown item'}
+                                      <span className="text-xs text-slate-400 font-normal ml-2">x{Number(item.quantity)}</span>
+                                    </span>
+                                    <span className="font-medium text-slate-800">₹{Number(item.subtotal).toFixed(2)}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-slate-400">No items found in this session.</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <span className="font-bold text-emerald-600">₹{Number(session.total_amount).toFixed(2)}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
