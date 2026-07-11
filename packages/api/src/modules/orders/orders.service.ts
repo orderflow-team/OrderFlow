@@ -938,4 +938,43 @@ export class OrdersService {
     }
     return map;
   }
+
+  async getOrderReceiptHtml(id: string, businessId: string): Promise<string> {
+    const order = await this.ordersRepository.findOne({
+      where: { id, business_id: businessId },
+      relations: { table: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const items = await this.orderItemsRepository.find({
+      where: { order_id: id },
+      relations: { product: true },
+    });
+
+    const business = await this.dataSource.getRepository(Business).findOne({ where: { id: businessId } });
+    const customer = order.customer_id
+      ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
+      : null;
+
+    const dummyInvoice = {
+      invoice_number: order.order_number.replace('ORD-', 'REC-'),
+      created_at: order.created_at,
+    } as any;
+
+    const mappedItems = items.map((item) => ({
+      id: item.id,
+      product: item.product,
+      custom_product_name: item.custom_product_name,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      subtotal: Number(item.subtotal),
+      tax_percentage: Number(item.tax_percentage),
+      tax_amount: Number(item.tax_amount),
+    })) as any[];
+
+    const { renderThermalReceiptHtml } = require('../billing/templates/invoice.template');
+    return renderThermalReceiptHtml(dummyInvoice, mappedItems, business, customer, order);
+  }
 }

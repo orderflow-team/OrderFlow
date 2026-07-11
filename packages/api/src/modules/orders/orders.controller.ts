@@ -10,8 +10,9 @@ import {
   Query,
   Req,
   UseGuards,
+  Res,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { OrdersService } from './orders.service';
@@ -58,6 +59,17 @@ export class OrdersController {
     @Body() item: CreateOrderItemDto,
   ) {
     return this.ordersService.suggestPrice(businessId, customerId, item);
+  }
+
+  @Get(':id/receipt')
+  async getReceipt(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Res() res: Response,
+  ) {
+    const html = await this.ordersService.getOrderReceiptHtml(id, businessId);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   }
 
   @Get(':id')

@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/page-header';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Search, Eye, CheckCircle2 } from 'lucide-react';
+import { Search, Eye, CheckCircle2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Table {
@@ -25,6 +25,7 @@ interface Order {
   total_amount: string | number;
   guest_count: number | null;
   table: Table | null;
+  items?: any[];
 }
 
 interface Payment {
@@ -48,6 +49,30 @@ export function RestaurantBilling() {
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  // Short Bill Preview Modal State
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [printError, setPrintError] = useState('');
+
+  const handlePrintThermal = async (order: Order) => {
+    try {
+      setPrintError('');
+      const res = await apiClient.get(`/api/orders/${order.id}/receipt`, {
+        params: { businessId },
+        responseType: 'text',
+      });
+      const win = window.open('', '_blank');
+      if (!win) {
+        setPrintError('Pop-up blocked — please allow pop-ups to print the receipt.');
+        return;
+      }
+      win.document.write(res.data);
+      win.document.close();
+    } catch (err) {
+      setPrintError('Failed to open thermal receipt');
+    }
+  };
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('Cash');
   const [saving, setSaving] = useState(false);
@@ -218,7 +243,16 @@ export function RestaurantBilling() {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-xl font-bold text-emerald-600">₹{Number(order.total_amount).toFixed(2)}</div>
-                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600">
+                        <Button
+                          onClick={() => {
+                            setViewingOrder(order);
+                            setPrintError('');
+                            setShowBillModal(true);
+                          }}
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 text-slate-400 hover:text-slate-600"
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button onClick={() => handleOpenPayment(order)} className="bg-amber-500/15 backdrop-blur-md hover:bg-amber-500/25 text-amber-700 ring-1 ring-amber-500/25 h-9 font-semibold">
@@ -250,7 +284,16 @@ export function RestaurantBilling() {
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-xl font-bold text-emerald-600">₹{Number(order.total_amount).toFixed(2)}</div>
-                        <Button variant="outline" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600">
+                        <Button
+                          onClick={() => {
+                            setViewingOrder(order);
+                            setPrintError('');
+                            setShowBillModal(true);
+                          }}
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 text-slate-400 hover:text-slate-600"
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
                         <Button onClick={() => handleOpenPayment(order)} className="bg-rose-500/15 backdrop-blur-md hover:bg-rose-500/25 text-rose-600 ring-1 ring-rose-500/25 h-9 font-semibold">
@@ -346,6 +389,62 @@ export function RestaurantBilling() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Short Bill Preview Modal */}
+      <Dialog open={showBillModal} onOpenChange={setShowBillModal}>
+        <DialogContent className="sm:max-w-[420px] ring-white/50 glass-sheen-sm">
+          <DialogHeader>
+            <DialogTitle>Bill Preview - {viewingOrder?.table?.name || 'Take Away'}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4 text-slate-700">
+            <div className="flex justify-between text-xs text-slate-400 font-medium">
+              <span>Order: {viewingOrder?.order_number}</span>
+              <span>Customer: {viewingOrder?.customer_name}</span>
+            </div>
+            
+            {/* Items List */}
+            <div className="border-t border-b border-dashed border-slate-200 py-3 space-y-2 max-h-[250px] overflow-y-auto">
+              {viewingOrder?.items && viewingOrder.items.length > 0 ? (
+                viewingOrder.items.map((item: any) => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="font-semibold text-slate-800 truncate">
+                        {item.product?.name || item.custom_product_name || 'Unknown item'}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        ₹{Number(item.unit_price).toFixed(2)} x {Number(item.quantity)}
+                      </p>
+                    </div>
+                    <div className="font-bold text-slate-800">
+                      ₹{Number(item.subtotal).toFixed(2)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-2">No items in this order.</p>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-sm font-semibold text-slate-650">Total Amount</span>
+              <span className="text-xl font-black text-emerald-600">
+                ₹{viewingOrder ? Number(viewingOrder.total_amount).toFixed(2) : '0.00'}
+              </span>
+            </div>
+            {printError && <p className="text-sm text-rose-600 font-medium">{printError}</p>}
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-between">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setShowBillModal(false)}>Close</Button>
+            <Button
+              type="button"
+              className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              onClick={() => viewingOrder && handlePrintThermal(viewingOrder)}
+            >
+              <Printer className="w-4 h-4" /> Thermal Print
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
