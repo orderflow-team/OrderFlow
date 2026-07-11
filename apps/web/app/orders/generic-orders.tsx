@@ -88,6 +88,12 @@ export function GenericOrders() {
     if (searchParams.get('new') === '1') setShowForm(true);
   }, [searchParams]);
 
+  useEffect(() => {
+    const handleOpen = () => setShowForm(true);
+    window.addEventListener('open-new-form', handleOpen);
+    return () => window.removeEventListener('open-new-form', handleOpen);
+  }, []);
+
   // Drawer state
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null);
   const [drawerStatus, setDrawerStatus] = useState('');

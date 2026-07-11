@@ -122,6 +122,16 @@ function CustomersPageContent() {
     if (searchParams.get('new') === '1') setShowForm(true);
   }, [searchParams]);
 
+  useEffect(() => {
+    const handleOpen = () => {
+      setEditingId(null);
+      setForm(emptyForm);
+      setShowForm(true);
+    };
+    window.addEventListener('open-new-form', handleOpen);
+    return () => window.removeEventListener('open-new-form', handleOpen);
+  }, []);
+
   const load = async (bizId: string) => {
     setLoading(true);
     try {

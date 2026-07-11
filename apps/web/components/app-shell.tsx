@@ -568,7 +568,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {chatEnabled && <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />}
+      {chatEnabled ? (
+        <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />
+      ) : (
+        ['/orders', '/products', '/customers'].includes(pathname) && (
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-new-form'))}
+            aria-label="Add New"
+            className="fixed z-50 w-14 h-14 rounded-full bg-emerald-500/85 backdrop-blur-md ring-1 ring-white/30 glass-sheen-sm hover:bg-emerald-500/95 text-white shadow-lg shadow-emerald-900/30 flex items-center justify-center transition-all duration-200 bottom-20 right-4 md:bottom-6 md:right-6 scale-100 opacity-100"
+          >
+            <Plus className="w-6 h-6 animate-in zoom-in duration-200" />
+          </button>
+        )
+      )}
     </div>
   );
 }
