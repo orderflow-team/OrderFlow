@@ -173,7 +173,7 @@ export function RestaurantBilling() {
       customerName: o?.customer_name || 'Guest',
       amount: Number(p.amount),
       time: new Date(p.created_at),
-      order: o,
+      order: o || null,
     };
   }).sort((a, b) => b.time.getTime() - a.time.getTime()); // Latest first
 
@@ -355,7 +355,7 @@ export function RestaurantBilling() {
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
                         <Button
-                          onClick={() => handlePrintThermal(log.order)}
+                          onClick={() => log.order && handlePrintThermal(log.order)}
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full"
