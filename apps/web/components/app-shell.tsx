@@ -24,7 +24,7 @@ import {
   Settings,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
-import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
+import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
 
@@ -88,6 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [switching, setSwitching] = useState(false);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
   const [mobileBusinessMenuOpen, setMobileBusinessMenuOpen] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(true);
 
   // localStorage isn't available during SSR, so getCurrentUser() would return
   // a different value on the server (null) vs. the client's first render
@@ -106,20 +107,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!businessId) {
       setOptionalModules(getOptionalModulesForCategory(null));
+      setChatEnabled(true);
       return;
     }
 
     const cached = getCachedBusinessCategory(businessId);
     const cachedInventoryEnabled = getCachedInventoryEnabled(businessId);
+    const cachedChatEnabled = getCachedChatEnabled(businessId);
     setOptionalModules(getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined));
+    setChatEnabled(cachedChatEnabled ?? true);
 
     apiClient
-      .get<{ name: string; category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
         setCachedBusinessCategory(businessId, res.data.category);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+        const isChatEnabled = res.data.ai_chat_enabled !== false;
+        setCachedChatEnabled(businessId, isChatEnabled);
+        setChatEnabled(isChatEnabled);
         setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled));
       })
       .catch(() => {
@@ -561,7 +568,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />
+      {chatEnabled && <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />}
     </div>
   );
 }

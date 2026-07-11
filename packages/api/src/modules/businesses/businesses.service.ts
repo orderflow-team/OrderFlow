@@ -25,6 +25,7 @@ export class BusinessesService {
       timezone: dto.timezone ?? 'Asia/Kolkata',
       logo_url: dto.logoUrl,
       inventory_enabled: dto.inventoryEnabled ?? true,
+      ai_chat_enabled: dto.aiChatEnabled ?? true,
     });
     return this.businessesRepository.save(business);
   }
@@ -97,6 +98,7 @@ export class BusinessesService {
       timezone: dto.timezone ?? business.timezone,
       logo_url: dto.logoUrl ?? business.logo_url,
       inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
+      ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
     });
     return this.businessesRepository.save(business);
   }

@@ -17,6 +17,9 @@ export class Business {
   @Column({ type: 'boolean', default: true })
   inventory_enabled: boolean;
 
+  @Column({ type: 'boolean', default: true })
+  ai_chat_enabled: boolean;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   gst_number: string;
 

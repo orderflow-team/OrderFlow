@@ -75,3 +75,20 @@ export function getCachedInventoryEnabled(businessId: string): boolean | null {
 export function setCachedInventoryEnabled(businessId: string, inventoryEnabled: boolean) {
   localStorage.setItem('business_inventory_enabled', JSON.stringify({ businessId, inventoryEnabled }));
 }
+
+/** Same businessId-keyed caching for the independent AI chat assistant toggle. */
+export function getCachedChatEnabled(businessId: string): boolean | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem('business_chat_enabled');
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { businessId: string; chatEnabled: boolean };
+    return parsed.businessId === businessId ? parsed.chatEnabled : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedChatEnabled(businessId: string, chatEnabled: boolean) {
+  localStorage.setItem('business_chat_enabled', JSON.stringify({ businessId, chatEnabled }));
+}

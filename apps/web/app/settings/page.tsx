@@ -25,6 +25,7 @@ interface BusinessProfile {
   address: string | null;
   gst_number: string | null;
   inventory_enabled: boolean;
+  ai_chat_enabled: boolean;
 }
 
 export default function SettingsPage() {
@@ -40,6 +41,7 @@ export default function SettingsPage() {
     address: '',
     gstNumber: '',
     inventoryEnabled: true,
+    aiChatEnabled: true,
   });
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function SettingsPage() {
           address: res.data.address || '',
           gstNumber: res.data.gst_number || '',
           inventoryEnabled: res.data.inventory_enabled,
+          aiChatEnabled: res.data.ai_chat_enabled !== false,
         });
       })
       .catch((err: any) => setError(err.response?.data?.message || 'Failed to load business settings'))
@@ -74,6 +77,7 @@ export default function SettingsPage() {
         address: form.address || undefined,
         gstNumber: form.gstNumber || undefined,
         inventoryEnabled: form.inventoryEnabled,
+        aiChatEnabled: form.aiChatEnabled,
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
       // reload so AppShell re-fetches and picks up the change immediately.
@@ -139,7 +143,7 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Modules</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
                   <input
                     type="checkbox"
@@ -151,6 +155,21 @@ export default function SettingsPage() {
                     Enable Inventory module
                     <span className="block text-xs font-normal text-slate-500">
                       Track stock, purchase orders, and low-stock alerts. Turning this off hides the Inventory tab and dashboard stock widgets.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={form.aiChatEnabled}
+                    onChange={(e) => setForm({ ...form, aiChatEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">
+                    Enable AI Chat Assistant
+                    <span className="block text-xs font-normal text-slate-500">
+                      Show floating AI assistant widget to place orders via speech and chat commands instantly.
                     </span>
                   </span>
                 </label>

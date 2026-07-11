@@ -35,4 +35,8 @@ export class CreateBusinessDto {
   @IsOptional()
   @IsBoolean()
   inventoryEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  aiChatEnabled?: boolean;
 }
