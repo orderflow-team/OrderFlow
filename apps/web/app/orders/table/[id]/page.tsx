@@ -64,6 +64,13 @@ export default function TableDetailsPage() {
     if (ready && businessId) loadTableData();
   }, [ready, businessId]);
 
+  useEffect(() => {
+    const isAvail = table?.status === 'available' && !activeSession;
+    if (ready && table && isAvail && isCustomerMode) {
+      setShowMenuModal(true);
+    }
+  }, [ready, table, activeSession, isCustomerMode]);
+
   const loadTableData = async () => {
     setLoading(true);
     try {
@@ -109,6 +116,7 @@ export default function TableDetailsPage() {
           items: payloadItems,
         });
       }
+      setShowMenuModal(false);
       loadTableData();
     } catch (err) {
       console.error(err);
