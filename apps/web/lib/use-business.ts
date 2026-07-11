@@ -16,19 +16,37 @@ export function useBusiness() {
       let token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
 
       if (!token && isCustomer) {
-        const pathParts = window.location.pathname.split('/');
-        const tableId = pathParts[pathParts.length - 1];
-        if (tableId) {
-          try {
-            const api = (await import('@/lib/api-client')).default;
-            const res = await api.post('/auth/table-guest-login', { tableId });
-            localStorage.setItem('access_token', res.data.access_token);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-            token = res.data.access_token;
-          } catch (err) {
-            console.error('Guest login failed', err);
-            router.push('/login');
-            return;
+        const isTakeaway = typeof window !== 'undefined' && window.location.pathname.includes('/orders/takeaway');
+        if (isTakeaway) {
+          const businessIdParam = new URLSearchParams(window.location.search).get('businessId');
+          if (businessIdParam) {
+            try {
+              const api = (await import('@/lib/api-client')).default;
+              const res = await api.post('/auth/takeaway-guest-login', { businessId: businessIdParam });
+              localStorage.setItem('access_token', res.data.access_token);
+              localStorage.setItem('user', JSON.stringify(res.data.user));
+              token = res.data.access_token;
+            } catch (err) {
+              console.error('Takeaway guest login failed', err);
+              router.push('/login');
+              return;
+            }
+          }
+        } else {
+          const pathParts = window.location.pathname.split('/');
+          const tableId = pathParts[pathParts.length - 1];
+          if (tableId) {
+            try {
+              const api = (await import('@/lib/api-client')).default;
+              const res = await api.post('/auth/table-guest-login', { tableId });
+              localStorage.setItem('access_token', res.data.access_token);
+              localStorage.setItem('user', JSON.stringify(res.data.user));
+              token = res.data.access_token;
+            } catch (err) {
+              console.error('Table guest login failed', err);
+              router.push('/login');
+              return;
+            }
           }
         }
       }
