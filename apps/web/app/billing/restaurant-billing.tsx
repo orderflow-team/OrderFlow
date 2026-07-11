@@ -172,7 +172,8 @@ export function RestaurantBilling() {
       tableName: o?.table?.name || 'Take Away',
       customerName: o?.customer_name || 'Guest',
       amount: Number(p.amount),
-      time: new Date(p.created_at)
+      time: new Date(p.created_at),
+      order: o,
     };
   }).sort((a, b) => b.time.getTime() - a.time.getTime()); // Latest first
 
@@ -334,8 +335,36 @@ export function RestaurantBilling() {
                       </div>
                     </div>
                   </div>
-                  <div className="font-bold text-emerald-600">
-                    ₹{log.amount.toFixed(2)}
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="font-bold text-emerald-600 mr-1">
+                      ₹{log.amount.toFixed(2)}
+                    </div>
+                    {log.order && (
+                      <div className="flex gap-1">
+                        <Button
+                          onClick={() => {
+                            setViewingOrder(log.order);
+                            setPrintError('');
+                            setShowBillModal(true);
+                          }}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-full"
+                          title="View Bill Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          onClick={() => handlePrintThermal(log.order)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full"
+                          title="Print Receipt"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
