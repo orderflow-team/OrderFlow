@@ -184,7 +184,7 @@ export default function KitchenDisplayPage() {
 
   return (
     <AppShell>
-      <div className="p-6 h-[calc(100vh-64px)] flex flex-col">
+      <div className="p-6 min-h-screen md:h-[calc(100vh-64px)] flex flex-col md:overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-6">
         <PageHeader
           title="Active Orders"
           description="Real-time kitchen order screen. Updates automatically."
