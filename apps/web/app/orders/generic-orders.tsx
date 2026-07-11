@@ -214,7 +214,7 @@ export function GenericOrders() {
   const orderBucket = (status: string): 'NEW' | 'UNPAID' | 'PAID' | null => {
     if (status === 'draft') return 'NEW';
     if (status === 'paid') return 'PAID';
-    if (status === 'cancelled') return null;
+    if (status === 'cancelled' || status === 'returned') return null;
     return 'UNPAID';
   };
 
@@ -518,8 +518,8 @@ export function GenericOrders() {
             {filteredOrders.map((o) => {
               const bucket = orderBucket(o.status);
               return (
-                <div key={o.id} className={`bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-opacity ${o.status === 'returned' ? 'opacity-40' : ''}`}>
-                  <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left">
+                <div key={o.id} className={`bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-all hover:bg-white/50 active:scale-[0.99] cursor-pointer ${o.status === 'returned' ? 'opacity-40 hover:opacity-60' : ''}`}>
+                  <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left cursor-pointer">
                     <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
                       {o.customer_name.charAt(0).toUpperCase()}
                     </div>
@@ -628,18 +628,18 @@ export function GenericOrders() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Items</p>
-                  {!editMode ? (
+                  {!editMode && drawerOrder.status !== 'returned' && drawerOrder.status !== 'cancelled' ? (
                     <button onClick={startEdit} className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:text-emerald-700">
                       <Pencil className="w-3 h-3" /> Edit
                     </button>
-                  ) : (
+                  ) : editMode ? (
                     <div className="flex gap-2">
                       <button onClick={() => setEditMode(false)} className="text-xs text-slate-500 font-medium hover:text-slate-700">Cancel</button>
                       <button onClick={saveEditLines} disabled={editSaving} className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 disabled:opacity-50">
                         <Check className="w-3 h-3" />{editSaving ? 'Saving…' : 'Save'}
                       </button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {!editMode ? (
