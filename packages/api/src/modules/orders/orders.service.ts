@@ -200,6 +200,9 @@ export class OrdersService {
         tokenNumber = (max ?? 0) + 1;
       }
 
+      const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+      const createdByUserUuid = createdByUserId && isUuid(createdByUserId) ? createdByUserId : null;
+
       const order = manager.create(Order, {
         business_id: dto.businessId,
         customer_id: resolvedCustomerId,
@@ -213,7 +216,7 @@ export class OrdersService {
         total_amount: totalAmount,
         tax_amount: totalTax,
         notes: dto.notes,
-        created_by_user_id: createdByUserId,
+        created_by_user_id: createdByUserUuid,
       });
       const savedOrder = await manager.save(order);
 
