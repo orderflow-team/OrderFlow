@@ -21,7 +21,7 @@ export function useBusiness() {
         if (tableId) {
           try {
             const api = (await import('@/lib/api-client')).default;
-            const res = await api.post('/api/auth/table-guest-login', { tableId });
+            const res = await api.post('/auth/table-guest-login', { tableId });
             localStorage.setItem('access_token', res.data.access_token);
             localStorage.setItem('user', JSON.stringify(res.data.user));
             token = res.data.access_token;
