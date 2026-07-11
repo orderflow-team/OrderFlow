@@ -41,7 +41,7 @@ export class ReportsService {
         .createQueryBuilder('order')
         .where('order.business_id = :businessId', { businessId })
         .andWhere('order.created_at >= :startOfToday', { startOfToday })
-        .andWhere('order.status != :cancelled', { cancelled: 'cancelled' })
+        .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] })
         .select('COALESCE(SUM(order.total_amount), 0)', 'total')
         .getRawOne(),
       this.ordersRepository
@@ -134,7 +134,7 @@ export class ReportsService {
     const query = this.ordersRepository
       .createQueryBuilder('order')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status != :cancelled', { cancelled: 'cancelled' });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });
@@ -178,7 +178,7 @@ export class ReportsService {
       .innerJoin('orders', 'order', 'order.id = item.order_id')
       .leftJoin('products', 'product', 'product.id = item.product_id')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status != :cancelled', { cancelled: 'cancelled' });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });
@@ -208,7 +208,7 @@ export class ReportsService {
     const query = this.ordersRepository
       .createQueryBuilder('order')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status != :cancelled', { cancelled: 'cancelled' });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });

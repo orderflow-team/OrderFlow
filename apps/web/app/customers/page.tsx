@@ -568,10 +568,15 @@ function CustomersPageContent() {
                   const ordersWithPayment = customerOrders.map(order => {
                     const orderPayments = customerPayments.filter(p => p.order_id === order.id);
                     const paid = orderPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-                    const remaining = Math.max(0, Number(order.total_amount) - paid);
+                    const isCancelledOrReturned = order.status === 'cancelled' || order.status === 'returned';
+                    const remaining = isCancelledOrReturned
+                      ? 0
+                      : Math.max(0, Number(order.total_amount) - paid);
                     
-                    totalBill += Number(order.total_amount);
-                    totalPaid += paid;
+                    if (!isCancelledOrReturned) {
+                      totalBill += Number(order.total_amount);
+                      totalPaid += paid;
+                    }
                     
                     return {
                       ...order,
@@ -618,7 +623,10 @@ function CustomersPageContent() {
                                   </p>
                                 </div>
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
-                                  order.status === 'paid' ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700'
+                                  order.status === 'paid' ? 'bg-emerald-500/15 text-emerald-700' :
+                                  order.status === 'cancelled' ? 'bg-rose-500/15 text-rose-700' :
+                                  order.status === 'returned' ? 'bg-yellow-500/15 text-yellow-700' :
+                                  'bg-amber-500/15 text-amber-700'
                                 }`}>
                                   {order.status}
                                 </span>

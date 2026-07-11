@@ -464,6 +464,9 @@ export class OrdersService {
    * reflects what they owe before any payment is collected.
    */
   async updateStatus(id: string, businessId: string, dto: UpdateOrderStatusDto) {
+    if (dto.status === 'returned') {
+      throw new BadRequestException('Use the return endpoint to process returned orders.');
+    }
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, { where: { id, business_id: businessId } });
       if (!order) {
@@ -541,6 +544,116 @@ export class OrdersService {
       }
 
       order.status = dto.status;
+      return manager.save(order);
+    });
+  }
+
+  async returnOrder(id: string, businessId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, {
+        where: { id, business_id: businessId },
+        relations: { items: true },
+      });
+      if (!order) {
+        throw new NotFoundException('Order not found');
+      }
+
+      if (order.status === 'returned') {
+        throw new BadRequestException('Order is already returned');
+      }
+      if (order.status === 'cancelled') {
+        throw new BadRequestException('Cancelled orders cannot be returned');
+      }
+
+      const business = await manager.findOne(Business, { where: { id: businessId } });
+      const inventoryEnabled = business?.inventory_enabled !== false;
+
+      // 1. Restore stock
+      if (inventoryEnabled) {
+        for (const item of order.items) {
+          if (item.product_id) {
+            await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
+            await manager.save(
+              Stock,
+              manager.create(Stock, {
+                business_id: businessId,
+                product_id: item.product_id,
+                type: 'IN',
+                quantity: Number(item.quantity),
+                reference: order.order_number,
+                notes: 'Restored via return',
+              }),
+            );
+          }
+        }
+      }
+
+      // 2. Financial Adjustments & Repay Paid Amount
+      const payments = await manager.find(Payment, { where: { order_id: id } });
+      const paidSum = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      if (order.customer_id) {
+        const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+        const wasBilled = billedStatuses.includes(order.status) || (await manager.count(Ledger, {
+          where: {
+            business_id: businessId,
+            customer_id: order.customer_id,
+            description: Like(`%Order ${order.order_number}%`),
+          },
+        })) > 0;
+
+        if (wasBilled) {
+          // Credit the customer outstanding for the returned order total
+          await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', -Number(order.total_amount));
+          await manager.save(
+            Ledger,
+            manager.create(Ledger, {
+              business_id: businessId,
+              customer_id: order.customer_id,
+              type: 'CREDIT',
+              amount: order.total_amount,
+              description: `Order ${order.order_number} returned`,
+            }),
+          );
+
+          // Debit the customer outstanding for the refund cash/UPI paid back to them
+          if (paidSum > 0) {
+            await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', paidSum);
+            await manager.save(
+              Ledger,
+              manager.create(Ledger, {
+                business_id: businessId,
+                customer_id: order.customer_id,
+                type: 'DEBIT',
+                amount: paidSum,
+                description: `Refund for returned order ${order.order_number}`,
+              }),
+            );
+
+            // Log a negative payment refund
+            const lastPayment = payments[0];
+            await manager.save(
+              Payment,
+              manager.create(Payment, {
+                business_id: businessId,
+                order_id: id,
+                amount: -paidSum,
+                payment_method: lastPayment?.payment_method || 'Cash',
+                status: 'completed',
+                transaction_id: lastPayment?.transaction_id ? `REF-${lastPayment.transaction_id}` : `REF-${Date.now()}`,
+              }),
+            );
+          }
+        }
+      }
+
+      // 3. Release restaurant table
+      if (order.table_id) {
+        await manager.update(Table, { id: order.table_id }, { status: 'available' });
+      }
+
+      // 4. Update status and save
+      order.status = 'returned';
       return manager.save(order);
     });
   }

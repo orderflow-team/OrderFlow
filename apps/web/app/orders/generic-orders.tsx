@@ -11,10 +11,9 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
-  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound,
+  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound, RotateCcw,
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
@@ -48,7 +47,7 @@ interface Order {
   created_by?: { full_name: string | null } | null;
 }
 
-const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'cancelled'];
+const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'returned', 'cancelled'];
 
 const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   draft:      { color: 'bg-orange-500/10 text-orange-700 ring-1 ring-orange-500/20',  icon: Clock },
@@ -57,6 +56,7 @@ const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   dispatched: { color: 'bg-purple-500/10 text-purple-700 ring-1 ring-purple-500/20', icon: Truck },
   delivered:  { color: 'bg-teal-500/10 text-teal-700 ring-1 ring-teal-500/20', icon: CheckCircle2 },
   paid:       { color: 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20', icon: IndianRupee },
+  returned:   { color: 'bg-yellow-500/10 text-yellow-700 ring-1 ring-yellow-500/20', icon: RotateCcw },
   cancelled:  { color: 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20',     icon: XCircle },
 };
 
@@ -187,6 +187,24 @@ export function GenericOrders() {
       setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'paid' } : o));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to mark as paid');
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  const handleReturnOrder = async () => {
+    if (!businessId || !drawerOrder) return;
+    if (!confirm('Are you sure you want to return this order and process the refund? This will restore stock and adjust customer ledger.')) {
+      return;
+    }
+    setStatusSaving(true);
+    try {
+      await apiClient.post(`/api/orders/${drawerOrder.id}/return`, {}, { params: { businessId } });
+      setDrawerOrder({ ...drawerOrder, status: 'returned' });
+      setDrawerStatus('returned');
+      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'returned' } : o));
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to return order');
     } finally {
       setStatusSaving(false);
     }
@@ -744,9 +762,10 @@ export function GenericOrders() {
                   <select
                     value={drawerStatus}
                     onChange={(e) => setDrawerStatus(e.target.value)}
-                    className="flex-1 h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm font-medium text-slate-700 capitalize"
+                    disabled={drawerOrder.status === 'returned' || drawerOrder.status === 'cancelled'}
+                    className="flex-1 h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm font-medium text-slate-700 capitalize disabled:opacity-50"
                   >
-                    {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {STATUSES.filter(s => s !== 'returned').map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <Button
                     onClick={handleStatusSave}
@@ -789,6 +808,19 @@ export function GenericOrders() {
                     Mark as Paid · {paymentMethod}
                   </Button>
                 </div>
+              )}
+
+              {/* Return & Refund Order */}
+              {['confirmed', 'packed', 'dispatched', 'delivered', 'paid'].includes(drawerOrder.status) && (
+                <Button
+                  onClick={handleReturnOrder}
+                  disabled={statusSaving}
+                  variant="outline"
+                  className="w-full h-11 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4 text-amber-500" />
+                  Return & Refund Order
+                </Button>
               )}
 
               {/* Invoice */}

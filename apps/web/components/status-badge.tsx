@@ -7,6 +7,7 @@ const STATUS_STYLES: Record<string, string> = {
   delivered: 'bg-teal-500/10 text-teal-700 ring-teal-500/20',
   paid: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20',
   cancelled: 'bg-rose-500/10 text-rose-700 ring-rose-500/20',
+  returned: 'bg-yellow-500/10 text-yellow-700 ring-yellow-500/20',
   // restaurant table status
   available: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20',
   occupied: 'bg-amber-500/10 text-amber-700 ring-amber-500/20',

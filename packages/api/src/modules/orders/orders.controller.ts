@@ -74,6 +74,14 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, businessId, dto);
   }
 
+  @Post(':id/return')
+  returnOrder(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+  ) {
+    return this.ordersService.returnOrder(id, businessId);
+  }
+
   @Post(':id/items')
   addItems(
     @Param('id') id: string,
