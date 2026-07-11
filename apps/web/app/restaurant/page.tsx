@@ -328,7 +328,7 @@ export default function KitchenDisplayPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 mt-6 min-h-0">
           
           {/* Column 1: Pending */}
-          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl">
+          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl min-h-0 overflow-hidden">
             <div className="p-4 border-b border-white/40 flex justify-between items-center bg-white/40 backdrop-blur-md rounded-t-3xl">
               <h2 className="text-lg font-bold text-amber-600 flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
@@ -375,7 +375,7 @@ export default function KitchenDisplayPage() {
           </div>
 
           {/* Column 2: Preparing */}
-          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl">
+          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl min-h-0 overflow-hidden">
             <div className="p-4 border-b border-white/40 flex justify-between items-center bg-white/40 backdrop-blur-md rounded-t-3xl">
               <h2 className="text-lg font-bold text-blue-600 flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
@@ -422,7 +422,7 @@ export default function KitchenDisplayPage() {
           </div>
 
           {/* Column 3: Ready */}
-          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl">
+          <div className="flex flex-col bg-white/20 backdrop-blur-sm rounded-3xl min-h-0 overflow-hidden">
             <div className="p-4 border-b border-white/40 flex justify-between items-center bg-white/40 backdrop-blur-md rounded-t-3xl">
               <h2 className="text-lg font-bold text-emerald-600 flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
