@@ -33,4 +33,9 @@ export class AuthController {
   async tableGuestLogin(@Body('tableId') tableId: string) {
     return this.authService.tableGuestLogin(tableId);
   }
+
+  @Post('takeaway-guest-login')
+  async takeawayGuestLogin(@Body('businessId') businessId: string) {
+    return this.authService.takeawayGuestLogin(businessId);
+  }
 }

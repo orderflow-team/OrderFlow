@@ -190,4 +190,21 @@ export class AuthService {
 
     return this.issueTokens(guestUser);
   }
+
+  async takeawayGuestLogin(businessId: string) {
+    const BusinessEntity = require('../../database/entities/business.entity').Business;
+    const business = await this.dataSource.getRepository(BusinessEntity).findOne({ where: { id: businessId } });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const guestUser = {
+      id: `guest-takeaway-${business.id}`,
+      email: `guest-takeaway@orderflow.guest`,
+      business_id: business.id,
+      role: 'salesman',
+    } as any;
+
+    return this.issueTokens(guestUser);
+  }
 }
