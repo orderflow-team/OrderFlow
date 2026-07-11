@@ -518,7 +518,7 @@ export function GenericOrders() {
             {filteredOrders.map((o) => {
               const bucket = orderBucket(o.status);
               return (
-                <div key={o.id} className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3">
+                <div key={o.id} className={`bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-opacity ${o.status === 'returned' ? 'opacity-40' : ''}`}>
                   <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left">
                     <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
                       {o.customer_name.charAt(0).toUpperCase()}
@@ -543,7 +543,7 @@ export function GenericOrders() {
                     </div>
                   </button>
                   <div className="flex items-center gap-2">
-                    {(['NEW', 'UNPAID', 'PAID'] as const).map((b) => {
+                    {o.status !== 'returned' && o.status !== 'cancelled' && (['NEW', 'UNPAID', 'PAID'] as const).map((b) => {
                       const active = bucket === b;
                       const BucketIcon = b === 'NEW' ? Clock : b === 'UNPAID' ? AlertCircle : CheckCircle2;
                       return (
@@ -561,7 +561,7 @@ export function GenericOrders() {
                     })}
                     <button
                       onClick={() => quickInvoice(o)}
-                      className="w-8 h-8 rounded-full bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0"
+                      className={`w-8 h-8 rounded-full bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0 ${o.status === 'returned' || o.status === 'cancelled' ? 'ml-auto' : ''}`}
                       aria-label="Invoice"
                     >
                       <Printer className="w-4 h-4" />
