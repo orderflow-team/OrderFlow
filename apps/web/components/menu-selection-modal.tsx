@@ -57,7 +57,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
   };
 
   useEffect(() => {
-    if (isOpen && businessId && products.length === 0) {
+    if (isOpen && businessId) {
       loadData();
     }
   }, [isOpen, businessId]);
