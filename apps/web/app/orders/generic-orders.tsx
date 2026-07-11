@@ -783,7 +783,7 @@ export function GenericOrders() {
             <div className="shrink-0 px-5 py-4 border-t border-white/40 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
 
               {/* Mark as Paid */}
-              {drawerOrder.status !== 'paid' && drawerOrder.status !== 'cancelled' && (
+              {drawerOrder.status !== 'paid' && drawerOrder.status !== 'cancelled' && drawerOrder.status !== 'returned' && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-4 gap-1.5">
                     {(['Cash', 'UPI', 'Bank Transfer', 'Credit'] as const).map(m => (
