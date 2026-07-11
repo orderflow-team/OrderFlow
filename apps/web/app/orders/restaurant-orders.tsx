@@ -27,6 +27,7 @@ interface TakeawayOrder {
   status: string;
   total_amount: string | number;
   created_at: string;
+  items?: any[];
 }
 
 type OrderTypeChoice = 'choice' | 'dine_in' | 'take_away';
@@ -50,6 +51,7 @@ function RestaurantPageContent() {
   const [showTakeAwayMenuModal, setShowTakeAwayMenuModal] = useState(false);
   const [takeAwayToken, setTakeAwayToken] = useState<number | null>(null);
   const [previousTakeaways, setPreviousTakeaways] = useState<TakeawayOrder[]>([]);
+  const [expandedTakeaways, setExpandedTakeaways] = useState<Record<string, boolean>>({});
 
   const loadTables = async (bizId: string) => {
     setLoading(true);
@@ -210,22 +212,59 @@ function RestaurantPageContent() {
             <p className="text-sm text-slate-400">No takeaway orders yet.</p>
           ) : (
             <div className="space-y-2">
-              {previousTakeaways.map(order => (
-                <div key={order.id} className="flex justify-between items-center py-4 px-5 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm">
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="text-slate-500">{new Date(order.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                    <span className="font-semibold text-slate-800">Token #{order.token_number ?? '—'}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold capitalize ${
-                      order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
-                    }`}>
-                      {order.status}
-                    </span>
+              {previousTakeaways.map(order => {
+                const isExpanded = !!expandedTakeaways[order.id];
+                return (
+                  <div key={order.id} className="flex flex-col rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
+                    <div
+                      onClick={() => setExpandedTakeaways(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
+                      className="flex justify-between items-center py-4 px-5 cursor-pointer hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-slate-500">{new Date(order.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="font-semibold text-slate-800">Token #{order.token_number ?? '—'}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold capitalize ${
+                          order.status === 'paid' ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 font-semibold text-emerald-600">
+                        <span>₹{Number(order.total_amount).toFixed(2)}</span>
+                        <svg
+                          className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="px-5 pb-4 pt-2 border-t border-white/30 bg-white/10 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Order Items</div>
+                        <div className="space-y-1.5">
+                          {order.items && order.items.length > 0 ? (
+                            order.items.map((item: any) => (
+                              <div key={item.id} className="flex justify-between text-sm text-slate-700">
+                                <span>
+                                  {item.product?.name || item.custom_product_name || 'Unknown item'}
+                                  <span className="text-xs text-slate-400 font-normal ml-2">x{Number(item.quantity)}</span>
+                                </span>
+                                <span className="font-medium text-slate-800">₹{Number(item.subtotal).toFixed(2)}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-slate-400">No items found in this order.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="font-semibold text-emerald-600">
-                    ₹{Number(order.total_amount).toFixed(2)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
