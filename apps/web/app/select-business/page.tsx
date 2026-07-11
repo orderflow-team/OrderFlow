@@ -33,13 +33,12 @@ function categoryLabel(category: string | null) {
 function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('grocery');
-  const [inventoryEnabled, setInventoryEnabled] = useState(() => categoryDefaultsToInventory('grocery'));
+  const [inventoryEnabled, setInventoryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleCategoryChange = (value: string) => {
     setCategory(value);
-    setInventoryEnabled(categoryDefaultsToInventory(value));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
