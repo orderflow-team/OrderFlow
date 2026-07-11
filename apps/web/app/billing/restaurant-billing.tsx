@@ -78,8 +78,8 @@ export function RestaurantBilling() {
   const [saving, setSaving] = useState(false);
   const [paymentError, setPaymentError] = useState('');
 
-  const loadData = async (bizId: string) => {
-    setLoading(true);
+  const loadData = async (bizId: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [ordersRes, paymentsRes] = await Promise.all([
         apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
@@ -90,12 +90,20 @@ export function RestaurantBilling() {
     } catch (err) {
       console.error('Failed to load billing data', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (ready && businessId) loadData(businessId);
+    if (ready && businessId) {
+      loadData(businessId);
+
+      const interval = setInterval(() => {
+        loadData(businessId, true);
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(interval);
+    }
   }, [ready, businessId]);
 
   const handleOpenPayment = (order: Order) => {

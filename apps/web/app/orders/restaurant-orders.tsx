@@ -63,15 +63,15 @@ function RestaurantPageContent() {
     setShowQrModal(true);
   };
 
-  const loadTables = async (bizId: string) => {
-    setLoading(true);
+  const loadTables = async (bizId: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await apiClient.get<Table[]>('/api/restaurant/tables', { params: { businessId: bizId } });
       setTables(res.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load tables');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -88,6 +88,13 @@ function RestaurantPageContent() {
     if (ready && businessId) {
       loadTables(businessId);
       loadPreviousTakeaways(businessId);
+
+      const interval = setInterval(() => {
+        loadTables(businessId, true);
+        loadPreviousTakeaways(businessId);
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(interval);
     }
   }, [ready, businessId]);
 
