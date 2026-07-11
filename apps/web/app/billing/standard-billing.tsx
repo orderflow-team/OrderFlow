@@ -163,7 +163,7 @@ export function StandardBilling() {
                 required
               >
                 <option value="">Select order</option>
-                {orders.filter(o => o.status !== 'paid').map((o) => {
+                {orders.filter(o => o.status !== 'paid' && o.status !== 'returned' && o.status !== 'cancelled').map((o) => {
                   const paid = payments
                     .filter((p) => p.order_id === o.id)
                     .reduce((sum, p) => sum + Number(p.amount), 0);
