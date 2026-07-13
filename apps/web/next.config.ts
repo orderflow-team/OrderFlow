@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
       {
         source: '/api-proxy/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com'}/:path*`
+      },
+      {
+        source: '/uploads/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com'}/uploads/:path*`
       }
     ];
   }

@@ -58,6 +58,34 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     isAvailable: true,
   });
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError('');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await apiClient.post<{ url: string }>('/api/products/upload', formData, {
+        params: { businessId },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setForm(prev => ({ ...prev, imageUrl: res.data.url }));
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.response?.data?.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -189,12 +217,16 @@ export function MenuGrid({ businessId }: { businessId: string }) {
       imageUrl: p.image_url || '',
       isAvailable: p.is_available,
     });
+    setUploading(false);
+    setUploadError('');
     setShowItemForm(true);
   };
 
   const openCreate = () => {
     setEditingItem(null);
     setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true });
+    setUploading(false);
+    setUploadError('');
     setShowItemForm(true);
   };
 
@@ -293,8 +325,43 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 <Input className="h-11" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="e.g. Aromatic lamb curry with Kashmiri spices" />
               </div>
               <div className="space-y-1.5 md:col-span-2">
-                <label className="text-sm font-medium text-slate-700">Image URL</label>
-                <Input className="h-11" value={form.imageUrl} onChange={e => setForm({...form, imageUrl: e.target.value})} placeholder="e.g. https://images.unsplash.com/photo-..." />
+                <label className="text-sm font-medium text-slate-700">Product Image</label>
+                <div className="flex flex-col gap-2">
+                  {form.imageUrl ? (
+                    <div className="relative w-full h-32 rounded-xl overflow-hidden border bg-slate-50 group/preview">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={form.imageUrl} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, imageUrl: '' }))}
+                        className="absolute top-2 right-2 bg-rose-600 hover:bg-rose-700 text-white rounded-full p-1.5 shadow-md transition-colors"
+                        title="Remove Image"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 transition-colors relative">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-400 mb-2 stroke-[1.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <span className="text-xs font-semibold text-slate-600">
+                        {uploading ? 'Uploading...' : 'Upload from Device'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP up to 5MB</span>
+                    </div>
+                  )}
+                  {uploadError && <p className="text-xs text-rose-600 font-medium">{uploadError}</p>}
+                </div>
               </div>
               <div className="md:col-span-2 flex items-center gap-2 mt-2 bg-white/30 backdrop-blur-sm p-3 rounded-xl ring-1 ring-white/40">
                 <input 
