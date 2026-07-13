@@ -10,10 +10,34 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer } from 'lucide-react';
+import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 import React from 'react';
+
+// Convert takeaway order items into cart format
+const convertOrderToCart = (items: any[]): Record<string, CartItem> => {
+  const cart: Record<string, CartItem> = {};
+  for (const item of items) {
+    const key = item.product_id || `custom-${item.id || Date.now() + Math.random()}`;
+    cart[key] = {
+      product: {
+        id: key,
+        name: item.product?.name || item.custom_product_name || 'Unknown item',
+        selling_price: Number(item.unit_price),
+        category: item.product?.category || null,
+        is_available: true,
+        unit: item.unit || item.product?.unit || 'piece',
+        unit_prices: item.product?.unit_prices || null,
+        image_url: item.product?.image_url || null,
+      },
+      quantity: Number(item.quantity),
+      original_unit: item.unit || item.product?.unit || 'piece',
+      original_price: Number(item.unit_price),
+    };
+  }
+  return cart;
+};
 
 interface Table {
   id: string;
@@ -53,6 +77,7 @@ function RestaurantPageContent() {
   const [takeAwayToken, setTakeAwayToken] = useState<number | null>(null);
   const [previousTakeaways, setPreviousTakeaways] = useState<TakeawayOrder[]>([]);
   const [expandedTakeaways, setExpandedTakeaways] = useState<Record<string, boolean>>({});
+  const [editingTakeawayOrder, setEditingTakeawayOrder] = useState<TakeawayOrder | null>(null);
 
   // QR Modal States
   const [showQrModal, setShowQrModal] = useState(false);
@@ -131,21 +156,32 @@ function RestaurantPageContent() {
   const handleTakeAwaySubmit = async (items: CartItem[]) => {
     if (!businessId || items.length === 0) return;
     try {
-      const res = await apiClient.post('/api/orders', {
-        businessId,
-        customerName: 'Take Away Guest',
-        orderType: 'take_away',
-        items: items.map(i => ({
-          productId: i.product.id,
-          quantity: i.quantity,
-          unitPrice: Number(i.product.selling_price)
-        }))
-      });
+      const payloadItems = items.map(i => ({
+        productId: i.product.id.startsWith('custom-') ? undefined : i.product.id,
+        customProductName: i.product.id.startsWith('custom-') ? i.product.name : undefined,
+        quantity: i.quantity,
+        unitPrice: Number(i.product.selling_price),
+        unit: i.product.unit || undefined
+      }));
+
+      if (editingTakeawayOrder) {
+        await apiClient.put(`/api/orders/${editingTakeawayOrder.id}/items`, {
+          items: payloadItems
+        }, { params: { businessId } });
+        setEditingTakeawayOrder(null);
+      } else {
+        const res = await apiClient.post('/api/orders', {
+          businessId,
+          customerName: 'Take Away Guest',
+          orderType: 'take_away',
+          items: payloadItems
+        });
+        setTakeAwayToken(res.data.token_number ?? null);
+      }
       setShowTakeAwayMenuModal(false);
-      setTakeAwayToken(res.data.token_number ?? null);
       loadPreviousTakeaways(businessId);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create take away order');
+      setError(err.response?.data?.message || 'Failed to submit takeaway order');
     }
   };
 
@@ -274,7 +310,22 @@ function RestaurantPageContent() {
 
                     {isExpanded && (
                       <div className="px-5 pb-4 pt-2 border-t border-white/30 bg-white/10 animate-in fade-in slide-in-from-top-1 duration-200">
-                        <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Order Items</div>
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Order Items</div>
+                          {order.status !== 'paid' && order.status !== 'cancelled' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTakeawayOrder(order);
+                                setShowTakeAwayMenuModal(true);
+                              }}
+                              className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 transition-colors px-2 py-0.5 rounded bg-amber-500/10"
+                            >
+                              <Pencil className="w-3 h-3" /> Edit Order
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-1.5">
                           {order.items && order.items.length > 0 ? (
                             order.items.map((item: any) => (
@@ -304,9 +355,13 @@ function RestaurantPageContent() {
           <MenuSelectionModal
             businessId={businessId}
             isOpen={showTakeAwayMenuModal}
-            onClose={() => setShowTakeAwayMenuModal(false)}
+            onClose={() => {
+              setShowTakeAwayMenuModal(false);
+              setEditingTakeawayOrder(null);
+            }}
             guestName="Take Away Guest"
             onSubmit={handleTakeAwaySubmit}
+            initialCart={editingTakeawayOrder ? convertOrderToCart(editingTakeawayOrder.items || []) : undefined}
           />
         )}
 

@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
+import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 
 interface Product {
   id: string;
@@ -25,6 +26,7 @@ interface Product {
   is_available: boolean;
   prescription_required: boolean;
   category: string | null;
+  barcode: string | null;
 }
 
 interface Category {
@@ -85,11 +87,48 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     stockQuantity: '',
     batchNumber: '',
     expiryDate: '',
+    barcode: '',
     prescriptionRequired: false,
     isAvailable: true,
     description: '',
   };
   const [form, setForm] = useState(emptyForm);
+
+  // Transient feedback for barcode scans; fixed-position so it never shifts layout.
+  const [scanToast, setScanToast] = useState<{ text: string; tone: 'ok' | 'new' } | null>(null);
+  const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showScanToast = (text: string, tone: 'ok' | 'new') => {
+    if (scanToastTimer.current) clearTimeout(scanToastTimer.current);
+    setScanToast({ text, tone });
+    scanToastTimer.current = setTimeout(() => setScanToast(null), 3500);
+  };
+  useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
+
+  useBarcodeScanner((code) => {
+    // With the medicine form open, a scan just fills the barcode field.
+    if (showItemForm) {
+      setForm((f) => ({ ...f, barcode: code }));
+      showScanToast(`Barcode captured: ${code}`, 'ok');
+      return;
+    }
+    // Otherwise: look the code up — show the match, or start a new medicine with it.
+    apiClient
+      .get<Product[]>('/api/products', { params: { businessId, search: code } })
+      .then((res) => {
+        const match = res.data.find((p) => p.barcode === code) || res.data[0];
+        if (match) {
+          setSelectedCategory(null);
+          setSearch(code);
+          showScanToast(`Found: ${match.name}`, 'ok');
+        } else {
+          setEditingItem(null);
+          setForm({ ...emptyForm, barcode: code });
+          setShowItemForm(true);
+          showScanToast(`New barcode ${code} — add this medicine`, 'new');
+        }
+      })
+      .catch(() => showScanToast('Scan lookup failed', 'new'));
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -186,6 +225,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
       batchNumber: form.batchNumber || undefined,
       expiryDate: form.expiryDate || undefined,
+      barcode: form.barcode || undefined,
       prescriptionRequired: form.prescriptionRequired,
       isAvailable: form.isAvailable,
       description: form.description || undefined,
@@ -228,6 +268,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       stockQuantity: String(p.stock_quantity ?? ''),
       batchNumber: p.batch_number || '',
       expiryDate: p.expiry_date ? p.expiry_date.slice(0, 10) : '',
+      barcode: p.barcode || '',
       prescriptionRequired: p.prescription_required,
       isAvailable: p.is_available,
       description: p.description || '',
@@ -352,6 +393,10 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 <Input className="h-11" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
               </div>
               <div className="space-y-1.5 md:col-span-2">
+                <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5"><ScanBarcode className="w-4 h-4 text-slate-400" /> Barcode</label>
+                <Input className="h-11" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Scan with the scanner gun, or type the number" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Usage / Dosage Notes</label>
                 <Input className="h-11" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Take 1 tablet twice daily after food" />
               </div>
@@ -473,6 +518,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
             </div>
           )}
         </div>
+
+        {/* Barcode scan feedback (fixed overlay — no layout impact) */}
+        {scanToast && (
+          <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg backdrop-blur-md ${
+            scanToast.tone === 'ok' ? 'bg-emerald-600/90' : 'bg-sky-600/90'
+          }`}>
+            <ScanBarcode className="w-4 h-4" /> {scanToast.text}
+          </div>
+        )}
       </div>
     </AppShell>
   );

@@ -37,12 +37,23 @@ interface MenuSelectionModalProps {
   guestName: string;
   onClose: () => void;
   onSubmit: (items: CartItem[]) => Promise<void>;
+  initialCart?: Record<string, CartItem>;
 }
 
-export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onSubmit }: MenuSelectionModalProps) {
+export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onSubmit, initialCart }: MenuSelectionModalProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialCart) {
+        setCart(initialCart);
+      } else {
+        setCart({});
+      }
+    }
+  }, [isOpen, initialCart]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   

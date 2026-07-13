@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
+import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 
 interface Product {
   id: string;
@@ -21,6 +22,8 @@ interface Product {
   batch_number?: string | null;
   expiry_date?: string | null;
   prescription_required?: boolean;
+  barcode?: string | null;
+  sku?: string | null;
 }
 
 interface Category {
@@ -198,7 +201,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
   const filteredProducts = products.filter(p => {
     if (selectedCategory && p.category !== selectedCategory) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !(p.barcode || '').includes(search)) return false;
     return true;
   });
 
@@ -390,9 +393,43 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const cartTotal = cartItems.reduce((acc, item) => acc + (Number(item.product.selling_price) * item.quantity), 0);
   const hasCustomerPrices = Object.keys(customerPrices).length > 0;
 
+  // Barcode scanner (keyboard-wedge): scanning an item while the modal is open
+  // drops it straight into the cart. Fixed-position toast, no layout impact.
+  const [scanToast, setScanToast] = useState<{ text: string; tone: 'ok' | 'miss' } | null>(null);
+  const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showScanToast = (text: string, tone: 'ok' | 'miss') => {
+    if (scanToastTimer.current) clearTimeout(scanToastTimer.current);
+    setScanToast({ text, tone });
+    scanToastTimer.current = setTimeout(() => setScanToast(null), 3000);
+  };
+  useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
+
+  useBarcodeScanner(
+    (code) => {
+      const match = products.find((p) => p.barcode === code || (p.sku && p.sku === code));
+      if (match) {
+        updateCart(match, 1);
+        const inCart = cart[match.id]?.quantity || 0;
+        showScanToast(`Added ${match.name} (×${inCart + 1})`, 'ok');
+      } else {
+        showScanToast(`No item with barcode ${code}`, 'miss');
+      }
+    },
+    { enabled: isOpen },
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
+
+        {/* Barcode scan feedback (fixed overlay — no layout impact) */}
+        {scanToast && (
+          <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg backdrop-blur-md ${
+            scanToast.tone === 'ok' ? 'bg-emerald-600/90' : 'bg-rose-600/90'
+          }`}>
+            <ScanBarcode className="w-4 h-4" /> {scanToast.text}
+          </div>
+        )}
 
         {/* Header */}
         <DialogHeader className="p-4 border-b border-slate-100 flex-shrink-0 space-y-3">

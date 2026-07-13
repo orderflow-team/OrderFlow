@@ -52,3 +52,12 @@ BadRequestException: Insufficient stock for one of the items in this order
     at async C:\Users\neel0\Projects\orderflow\node_modules\@nestjs\core\router\router-execution-context.js:47:62
     at async C:\Users\neel0\Projects\orderflow\node_modules\@nestjs\core\router\router-proxy.js:9:17
 
+BadRequestException: Insufficient stock for one of the items in this order
+    at OrdersService.decrementStock (C:\Users\neel0\Projects\orderflow\packages\api\src\modules\orders\orders.service.ts:299:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\neel0\Projects\orderflow\packages\api\src\modules\orders\orders.service.ts:161:11)
+    at async EntityManager.transaction (C:\Users\neel0\Projects\orderflow\src\entity-manager\EntityManager.ts:160:28)
+    at async OrdersController.create (C:\Users\neel0\Projects\orderflow\packages\api\src\modules\orders\orders.controller.ts:30:14)
+    at async C:\Users\neel0\Projects\orderflow\node_modules\@nestjs\core\router\router-execution-context.js:47:62
+    at async C:\Users\neel0\Projects\orderflow\node_modules\@nestjs\core\router\router-proxy.js:9:17
+
