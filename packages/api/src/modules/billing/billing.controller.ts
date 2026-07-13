@@ -27,7 +27,7 @@ export class BillingController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
-  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT, UserRole.SALESMAN)
   @Post('invoices/from-order/:orderId')
   generateInvoice(@Param('orderId') orderId: string, @Query('businessId') businessId: string) {
     return this.invoicesService.generateFromOrder(orderId, businessId);

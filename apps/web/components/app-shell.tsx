@@ -216,8 +216,11 @@ export function AppShell({ children, hideNavigation = false }: { children: React
 
   // Safety net: a salesman-role user has no admin tools — bounce away from
   // Products/Billing/Reports/Inventory even if they hit the URL directly.
+  // Exception: a single invoice's own page (/billing/invoices/:id) is where the
+  // Orders drawer sends them to print/share it — same page every other role uses.
   useEffect(() => {
     if (!isSalesmanRole) return;
+    if (pathname.startsWith('/billing/invoices/')) return;
     const adminOnlyPaths = ['/products', '/billing', '/reports', '/inventory'];
     if (adminOnlyPaths.some((p) => isActive(pathname, p))) {
       router.replace('/dashboard');
