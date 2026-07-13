@@ -13,6 +13,7 @@ import { Search, Eye, CheckCircle2, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Table {
+  id?: string;
   name: string;
 }
 
@@ -25,6 +26,7 @@ interface Order {
   total_amount: string | number;
   guest_count: number | null;
   table: Table | null;
+  table_id?: string | null;
   items?: any[];
 }
 
@@ -133,6 +135,11 @@ export function RestaurantBilling() {
       });
       // Optionally generate invoice automatically here if we want
       await apiClient.post(`/api/billing/invoices/from-order/${selectedOrder.id}`, {}, { params: { businessId } }).catch(() => null);
+
+      const tableId = selectedOrder.table_id || (selectedOrder.table as any)?.id;
+      if (tableId) {
+        await apiClient.post(`/api/restaurant/tables/${tableId}/release`, {}, { params: { businessId } }).catch(() => null);
+      }
 
       setShowPaymentModal(false);
       loadData(businessId);
