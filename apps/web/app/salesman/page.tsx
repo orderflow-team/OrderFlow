@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
-import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react';
+import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt } from 'lucide-react';
 
 interface Salesman {
   id: string;
@@ -197,6 +197,36 @@ export default function SalesmanPage() {
     if (!businessId) return;
     await apiClient.post(`/api/salesman/visits/${visitId}/check-out`, undefined, { params: { businessId } });
     if (selectedSalesman) loadVisits(selectedSalesman);
+  };
+
+  const handlePrintVisitReceipt = async (customerId: string) => {
+    if (!businessId) return;
+    try {
+      // Fetch the most recent order for this customer
+      const res = await apiClient.get<{ id: string; status: string }[]>('/api/orders', {
+        params: { businessId },
+      });
+      const orders = res.data;
+      // Find the latest non-cancelled order for this customer
+      const order = orders.find((o: any) => o.customer_id === customerId && o.status !== 'cancelled');
+      if (!order) {
+        setError('No order found for this customer. Create an order first.');
+        return;
+      }
+      const receiptRes = await apiClient.get(`/api/orders/${order.id}/receipt`, {
+        params: { businessId },
+        responseType: 'text',
+      });
+      const win = window.open('', '_blank');
+      if (!win) {
+        setError('Pop-up blocked — please allow pop-ups to print the receipt.');
+        return;
+      }
+      win.document.write(receiptRes.data);
+      win.document.close();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to open receipt');
+    }
   };
 
   if (!ready) return null;
@@ -442,13 +472,24 @@ export default function SalesmanPage() {
                           <p className="text-slate-800 font-medium">{customers.find((c) => c.id === v.customer_id)?.name || 'No customer'}</p>
                           <p className="text-slate-400 text-xs">{new Date(v.check_in_time).toLocaleString()}</p>
                         </div>
-                        {v.check_out_time ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-500 backdrop-blur-sm ring-1 ring-slate-500/20">Checked out</span>
-                        ) : (
-                          <button onClick={() => handleCheckOut(v.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
-                            Check Out
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {v.customer_id && (
+                            <button
+                              onClick={() => handlePrintVisitReceipt(v.customer_id as string)}
+                              className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                              title="Print Receipt"
+                            >
+                              <Receipt className="w-3.5 h-3.5" /> Receipt
+                            </button>
+                          )}
+                          {v.check_out_time ? (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-500 backdrop-blur-sm ring-1 ring-slate-500/20">Checked out</span>
+                          ) : (
+                            <button onClick={() => handleCheckOut(v.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
+                              Check Out
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

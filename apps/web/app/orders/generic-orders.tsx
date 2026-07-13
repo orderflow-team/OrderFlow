@@ -14,8 +14,11 @@ import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
-  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound, RotateCcw,
+  Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound, RotateCcw, Receipt,
+  Download, MessageCircle,
 } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
 interface Customer { id: string; name: string; phone?: string; }
 interface Product {
@@ -297,6 +300,96 @@ export function GenericOrders() {
     }
   };
 
+  // ── Helper: build an E.164-ish WhatsApp target from a local phone number ──
+  const buildWhatsappTarget = (phone?: string | null) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    return digits.length === 10 ? `91${digits}` : digits;
+  };
+
+  // ── Helper: ensure an invoice exists for drawerOrder, returning its ID ──
+  const ensureInvoice = async (): Promise<string | null> => {
+    if (!businessId || !drawerOrder) return null;
+    if (invoiceId) return invoiceId;
+    try {
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
+        params: { businessId, orderId: drawerOrder.id },
+      });
+      if (existing.data.length > 0) {
+        setInvoiceId(existing.data[0].id);
+        return existing.data[0].id;
+      }
+      const created = await apiClient.post<{ id: string }>(
+        `/api/billing/invoices/from-order/${drawerOrder.id}`,
+        {},
+        { params: { businessId } },
+      );
+      const newId = created.data?.id || null;
+      if (newId) setInvoiceId(newId);
+      return newId;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to generate invoice');
+      return null;
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    const ivId = await ensureInvoice();
+    if (!ivId || !drawerOrder) return;
+    try {
+      const res = await apiClient.get(`/api/billing/invoices/${ivId}/pdf`, {
+        params: { businessId },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${drawerOrder.order_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to download PDF');
+    }
+  };
+
+  const handleShareWhatsApp = async () => {
+    const ivId = await ensureInvoice();
+    if (!ivId || !drawerOrder) return;
+    try {
+      const { data } = await apiClient.get<{ url: string }>(`/api/billing/invoices/${ivId}/share-link`, {
+        params: { businessId },
+      });
+      const pdfUrl = `${API_BASE_URL}${data.url}`;
+      const customer = customers.find((c) => c.id === drawerOrder.customer_id);
+      const target = buildWhatsappTarget(customer?.phone);
+      const text = `Here is your invoice for order ${drawerOrder.order_number}: ${pdfUrl}`;
+      window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to share on WhatsApp');
+    }
+  };
+
+  const handlePrintReceipt = async (orderId: string) => {
+    if (!businessId) return;
+    try {
+      const res = await apiClient.get(`/api/orders/${orderId}/receipt`, {
+        params: { businessId },
+        responseType: 'text',
+      });
+      const win = window.open('', '_blank');
+      if (!win) {
+        setError('Pop-up blocked — please allow pop-ups to print the receipt.');
+        return;
+      }
+      win.document.write(res.data);
+      win.document.close();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to open receipt');
+    }
+  };
+
   const handleDelete = async () => {
     if (!businessId || !drawerOrder) return;
     try {
@@ -566,9 +659,18 @@ export function GenericOrders() {
                       );
                     })}
                     <button
+                      onClick={() => handlePrintReceipt(o.id)}
+                      className={`w-8 h-8 rounded-full bg-tile-mint text-tile-mint-fg flex items-center justify-center shrink-0 hover:brightness-95 transition-all`}
+                      aria-label="Print Receipt"
+                      title="Print Receipt"
+                    >
+                      <Receipt className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => quickInvoice(o)}
-                      className={`w-8 h-8 rounded-full bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0 ${o.status === 'returned' || o.status === 'cancelled' ? 'ml-auto' : ''}`}
+                      className={`w-8 h-8 rounded-full bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0 hover:brightness-95 transition-all ${o.status === 'returned' || o.status === 'cancelled' ? 'ml-auto' : ''}`}
                       aria-label="Invoice"
+                      title="Generate Invoice"
                     >
                       <Printer className="w-4 h-4" />
                     </button>
@@ -829,6 +931,37 @@ export function GenericOrders() {
                   Return & Refund Order
                 </Button>
               )}
+
+              {/* WhatsApp + Download row */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={handleShareWhatsApp}
+                  className="h-11 gap-2 bg-[#25D366] hover:bg-[#1ebd5b] text-white"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                  </svg>
+                  WhatsApp
+                </Button>
+                <Button
+                  onClick={handleDownloadPdf}
+                  variant="outline"
+                  className="h-11 gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download PDF
+                </Button>
+              </div>
+
+              {/* Print Receipt */}
+              <Button
+                onClick={() => handlePrintReceipt(drawerOrder.id)}
+                variant="outline"
+                className="w-full h-11 gap-2 border-emerald-500/30 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-500/50 transition-colors"
+              >
+                <Receipt className="w-4 h-4" />
+                Print Receipt
+              </Button>
 
               {/* Invoice */}
               <Button
