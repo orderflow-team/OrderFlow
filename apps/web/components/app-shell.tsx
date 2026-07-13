@@ -43,7 +43,7 @@ const CORE_MORE_NAV = [
 
 const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: typeof Warehouse }> = {
   inventory: { href: '/inventory', label: 'Inventory', icon: Warehouse },
-  restaurant: { href: '/restaurant', label: 'Restaurant', icon: UtensilsCrossed },
+  restaurant: { href: '/restaurant', label: 'Kitchen', icon: UtensilsCrossed },
   salesman: { href: '/salesman', label: 'Salesman', icon: UserRound },
 };
 
