@@ -332,7 +332,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           </div>
 
           {/* Menu Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
+          <div className="grid grid-cols-2 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
               const hasImage = !!p.image_url;

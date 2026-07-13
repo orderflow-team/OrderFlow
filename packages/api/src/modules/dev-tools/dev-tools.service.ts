@@ -43,7 +43,11 @@ interface SeedProduct {
   batchNumber?: string;
   expiryDate?: string;
   description?: string;
+  imageUrl?: string;
 }
+
+/** Bundled demo dish photos (uploads/seed/*.jpg, served statically at /uploads/seed). */
+const seedImage = (slug: string) => `/uploads/seed/${slug}.jpg`;
 
 /**
  * Per-category demo catalogs (PRD section 6: modules/category enable per
@@ -78,18 +82,18 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         ];
       case 'restaurant':
         return [
-          { name: 'Paneer Tikka', category: 'Starters', description: 'Marinated paneer chunks grilled to perfection.', unit: 'plate', purchasePrice: 70, sellingPrice: 180, taxPercentage: 5, stockQuantity: 50 },
-          { name: 'Crispy Corn', category: 'Starters', description: 'Fried sweet corn kernels tossed with Indian spices.', unit: 'plate', purchasePrice: 40, sellingPrice: 120, taxPercentage: 5, stockQuantity: 60 },
-          { name: 'Paneer Butter Masala', category: 'Main Course', description: 'Rich and creamy curry made with paneer, spices, onions, tomatoes, and butter.', unit: 'plate', purchasePrice: 80, sellingPrice: 220, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Dal Makhani', category: 'Main Course', description: 'Classic North Indian dish made with whole urad dal, rajma, butter and spices.', unit: 'plate', purchasePrice: 50, sellingPrice: 160, taxPercentage: 5, stockQuantity: 80 },
-          { name: 'Veg Biryani', category: 'Main Course', description: 'Aromatic basmati rice cooked with mixed vegetables and traditional spices.', unit: 'plate', purchasePrice: 60, sellingPrice: 190, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Butter Naan', category: 'Breads & Rice', description: 'Soft, buttery Indian flatbread baked in a tandoor.', unit: 'pcs', purchasePrice: 8, sellingPrice: 35, taxPercentage: 5, stockQuantity: 200 },
-          { name: 'Garlic Naan', category: 'Breads & Rice', description: 'Tandoori naan infused with fresh garlic and cilantro.', unit: 'pcs', purchasePrice: 10, sellingPrice: 45, taxPercentage: 5, stockQuantity: 150 },
-          { name: 'Jeera Rice', category: 'Breads & Rice', description: 'Basmati rice flavored with cumin seeds.', unit: 'plate', purchasePrice: 30, sellingPrice: 110, taxPercentage: 5, stockQuantity: 120 },
-          { name: 'Tandoori Roti', category: 'Tandoori Specials', description: 'Traditional whole wheat flatbread baked in tandoor.', unit: 'pcs', purchasePrice: 6, sellingPrice: 25, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Gulab Jamun', category: 'Desserts', description: 'Deep-fried sweet dumplings soaked in sugar syrup.', unit: 'pcs', purchasePrice: 10, sellingPrice: 40, taxPercentage: 5, stockQuantity: 100 },
-          { name: 'Masala Chai', category: 'Beverages', description: 'Indian tea brewed with milk, sugar, and aromatic spices.', unit: 'pcs', purchasePrice: 5, sellingPrice: 20, taxPercentage: 5, stockQuantity: 200 },
-          { name: 'Sweet Lassi', category: 'Beverages', description: 'Traditional creamy yogurt-based sweet drink.', unit: 'pcs', purchasePrice: 15, sellingPrice: 60, taxPercentage: 5, stockQuantity: 80 },
+          { name: 'Paneer Tikka', category: 'Starters', description: 'Marinated paneer chunks grilled to perfection.', unit: 'plate', purchasePrice: 70, sellingPrice: 180, taxPercentage: 5, stockQuantity: 50, imageUrl: seedImage('paneer-tikka') },
+          { name: 'Crispy Corn', category: 'Starters', description: 'Fried sweet corn kernels tossed with Indian spices.', unit: 'plate', purchasePrice: 40, sellingPrice: 120, taxPercentage: 5, stockQuantity: 60, imageUrl: seedImage('crispy-corn') },
+          { name: 'Paneer Butter Masala', category: 'Main Course', description: 'Rich and creamy curry made with paneer, spices, onions, tomatoes, and butter.', unit: 'plate', purchasePrice: 80, sellingPrice: 220, taxPercentage: 5, stockQuantity: 100, imageUrl: seedImage('paneer-butter-masala') },
+          { name: 'Dal Makhani', category: 'Main Course', description: 'Classic North Indian dish made with whole urad dal, rajma, butter and spices.', unit: 'plate', purchasePrice: 50, sellingPrice: 160, taxPercentage: 5, stockQuantity: 80, imageUrl: seedImage('dal-makhani') },
+          { name: 'Veg Biryani', category: 'Main Course', description: 'Aromatic basmati rice cooked with mixed vegetables and traditional spices.', unit: 'plate', purchasePrice: 60, sellingPrice: 190, taxPercentage: 5, stockQuantity: 100, imageUrl: seedImage('veg-biryani') },
+          { name: 'Butter Naan', category: 'Breads & Rice', description: 'Soft, buttery Indian flatbread baked in a tandoor.', unit: 'pcs', purchasePrice: 8, sellingPrice: 35, taxPercentage: 5, stockQuantity: 200, imageUrl: seedImage('butter-naan') },
+          { name: 'Garlic Naan', category: 'Breads & Rice', description: 'Tandoori naan infused with fresh garlic and cilantro.', unit: 'pcs', purchasePrice: 10, sellingPrice: 45, taxPercentage: 5, stockQuantity: 150, imageUrl: seedImage('garlic-naan') },
+          { name: 'Jeera Rice', category: 'Breads & Rice', description: 'Basmati rice flavored with cumin seeds.', unit: 'plate', purchasePrice: 30, sellingPrice: 110, taxPercentage: 5, stockQuantity: 120, imageUrl: seedImage('jeera-rice') },
+          { name: 'Tandoori Roti', category: 'Tandoori Specials', description: 'Traditional whole wheat flatbread baked in tandoor.', unit: 'pcs', purchasePrice: 6, sellingPrice: 25, taxPercentage: 5, stockQuantity: 100, imageUrl: seedImage('tandoori-roti') },
+          { name: 'Gulab Jamun', category: 'Desserts', description: 'Deep-fried sweet dumplings soaked in sugar syrup.', unit: 'pcs', purchasePrice: 10, sellingPrice: 40, taxPercentage: 5, stockQuantity: 100, imageUrl: seedImage('gulab-jamun') },
+          { name: 'Masala Chai', category: 'Beverages', description: 'Indian tea brewed with milk, sugar, and aromatic spices.', unit: 'pcs', purchasePrice: 5, sellingPrice: 20, taxPercentage: 5, stockQuantity: 200, imageUrl: seedImage('masala-chai') },
+          { name: 'Sweet Lassi', category: 'Beverages', description: 'Traditional creamy yogurt-based sweet drink.', unit: 'pcs', purchasePrice: 15, sellingPrice: 60, taxPercentage: 5, stockQuantity: 80, imageUrl: seedImage('sweet-lassi') },
         ];
       case 'wholesale':
         return [
