@@ -6,7 +6,7 @@ import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Coffee, ArrowLeft, Plus, XCircle, SplitSquareHorizontal, Clock, Users } from 'lucide-react';
+import { Coffee, ArrowLeft, Plus, XCircle, SplitSquareHorizontal, Clock, Users, CheckCircle2 } from 'lucide-react';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 
 interface Table {
@@ -54,15 +54,44 @@ export default function TableDetailsPage() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
 
+  // States to track payments in customer mode
+  const [trackedOrderId, setTrackedOrderId] = useState<string | null>(null);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [paidOrderDetails, setPaidOrderDetails] = useState<{ orderNumber: string; totalAmount: string } | null>(null);
+
   // Lock page scroll — this page is a single-screen layout
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
+  // Initialize tracked order ID from localStorage on mount
   useEffect(() => {
-    if (ready && businessId) loadTableData();
-  }, [ready, businessId]);
+    if (typeof window !== 'undefined' && id) {
+      const saved = localStorage.getItem(`tracked_order_id_${id}`);
+      if (saved) {
+        setTrackedOrderId(saved);
+      }
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (ready && businessId) {
+      loadTableData();
+
+      // Poll table and orders status in customer mode every 5 seconds
+      let interval: NodeJS.Timeout | null = null;
+      if (isCustomerMode) {
+        interval = setInterval(() => {
+          loadTableData(true);
+        }, 5000);
+      }
+
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }
+  }, [ready, businessId, isCustomerMode, trackedOrderId]);
 
   useEffect(() => {
     const isAvail = table?.status === 'available' && !activeSession;
@@ -71,8 +100,8 @@ export default function TableDetailsPage() {
     }
   }, [ready, table, activeSession, isCustomerMode]);
 
-  const loadTableData = async () => {
-    setLoading(true);
+  const loadTableData = async (isPoll = false) => {
+    if (!isPoll) setLoading(true);
     try {
       const tableRes = await apiClient.get<Table[]>(`/api/restaurant/tables`, { params: { businessId } });
       const currentTable = tableRes.data.find(t => t.id === id);
@@ -87,14 +116,37 @@ export default function TableDetailsPage() {
       if (active) {
         const detailedOrderRes = await apiClient.get<Order>(`/api/orders/${active.id}`, { params: { businessId } });
         setActiveSession(detailedOrderRes.data);
+
+        // Keep local storage & state synchronized with the active order
+        if (isCustomerMode) {
+          setTrackedOrderId(active.id);
+          localStorage.setItem(`tracked_order_id_${id}`, active.id);
+        }
       } else {
         setActiveSession(null);
       }
       setPreviousSessions(previous);
+
+      // Check if the order we are tracking was paid
+      if (isCustomerMode) {
+        const currentTrackedId = trackedOrderId || localStorage.getItem(`tracked_order_id_${id}`);
+        if (currentTrackedId) {
+          const trackedOrder = tableOrders.find(o => o.id === currentTrackedId);
+          if (trackedOrder && trackedOrder.status === 'paid') {
+            setPaidOrderDetails({
+              orderNumber: trackedOrder.order_number,
+              totalAmount: trackedOrder.total_amount,
+            });
+            setShowThankYou(true);
+            setTrackedOrderId(null);
+            localStorage.removeItem(`tracked_order_id_${id}`);
+          }
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isPoll) setLoading(false);
     }
   };
 
@@ -108,13 +160,18 @@ export default function TableDetailsPage() {
       if (activeSession) {
         await apiClient.post(`/api/orders/${activeSession.id}/items`, { items: payloadItems }, { params: { businessId } });
       } else {
-        await apiClient.post('/api/orders', {
+        const res = await apiClient.post('/api/orders', {
           businessId,
           customerName: `Table ${table?.name}`,
           tableId: table?.id,
           orderType: 'dine_in',
           items: payloadItems,
         });
+        // Immediately start tracking the new order ID
+        if (res.data?.id && isCustomerMode) {
+          setTrackedOrderId(res.data.id);
+          localStorage.setItem(`tracked_order_id_${id}`, res.data.id);
+        }
       }
       setShowMenuModal(false);
       loadTableData();
@@ -161,6 +218,55 @@ export default function TableDetailsPage() {
   );
 
   if (!table) return null;
+
+  if (showThankYou && isCustomerMode) {
+    return (
+      <AppShell hideNavigation={true}>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-120px)] p-6 bg-slate-50/50">
+          <div className="w-full max-w-md bg-white/60 backdrop-blur-lg rounded-3xl p-8 border border-white/50 shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 ring-4 ring-emerald-500/5 animate-bounce">
+                <CheckCircle2 className="w-12 h-12 stroke-[1.5]" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Payment Received</h2>
+              <p className="text-lg font-semibold text-emerald-600">Thank you for Visiting!</p>
+              <p className="text-slate-400 text-xs">We hope you had a wonderful dining experience.</p>
+            </div>
+
+            {paidOrderDetails && (
+              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100/50 text-left space-y-2.5">
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Order Number</span>
+                  <span className="font-mono font-bold text-slate-700">#{paidOrderDetails.orderNumber}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Table</span>
+                  <span className="font-semibold text-slate-700">Table {table.name}</span>
+                </div>
+                <div className="border-t border-slate-200/50 my-1 pt-2 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-slate-600">Total Paid</span>
+                  <span className="text-lg font-bold text-slate-800">₹{Number(paidOrderDetails.totalAmount).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={() => {
+                setShowThankYou(false);
+                setPaidOrderDetails(null);
+              }}
+              className="w-full h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md transition-all hover:scale-[1.02]"
+            >
+              Order Again
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const isAvailable = table.status === 'available' && !activeSession;
   const isEmpty = !activeSession || !activeSession.items?.length;

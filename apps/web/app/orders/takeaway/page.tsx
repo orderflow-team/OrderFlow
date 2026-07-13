@@ -6,7 +6,7 @@ import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Coffee, Plus, ShoppingBag, CheckCircle } from 'lucide-react';
+import { Coffee, Plus, ShoppingBag, CheckCircle, CheckCircle2 } from 'lucide-react';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 
 interface Order {
@@ -39,23 +39,53 @@ function TakeawayGuestContent() {
   const [loading, setLoading] = useState(true);
   const [showMenuModal, setShowMenuModal] = useState(false);
 
+  // States to track payments in customer mode
+  const [trackedOrderId, setTrackedOrderId] = useState<string | null>(null);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [paidOrderDetails, setPaidOrderDetails] = useState<{ orderNumber: string; totalAmount: string } | null>(null);
+
   // Lock page scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  const loadOrderData = async () => {
+  // Initialize tracked order ID from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('guest_takeaway_order_id');
+      if (saved) {
+        setTrackedOrderId(saved);
+      }
+    }
+  }, []);
+
+  const loadOrderData = async (isPoll = false) => {
     if (!businessId) return;
-    setLoading(true);
+    if (!isPoll) setLoading(true);
     try {
-      const orderId = localStorage.getItem('guest_takeaway_order_id');
+      const orderId = trackedOrderId || localStorage.getItem('guest_takeaway_order_id');
       if (orderId) {
         const orderRes = await apiClient.get<Order>(`/api/orders/${orderId}`, { params: { businessId } });
-        if (orderRes.data && orderRes.data.status !== 'paid' && orderRes.data.status !== 'cancelled') {
+        
+        // If order has transitioned to paid, show thank you page
+        if (orderRes.data && orderRes.data.status === 'paid') {
+          setPaidOrderDetails({
+            orderNumber: orderRes.data.order_number,
+            totalAmount: orderRes.data.total_amount,
+          });
+          setShowThankYou(true);
+          setActiveOrder(null);
+          setTrackedOrderId(null);
+          localStorage.removeItem('guest_takeaway_order_id');
+        } else if (orderRes.data && orderRes.data.status !== 'cancelled') {
           setActiveOrder(orderRes.data);
+          if (isCustomerMode && !trackedOrderId) {
+            setTrackedOrderId(orderRes.data.id);
+          }
         } else {
           setActiveOrder(null);
+          setTrackedOrderId(null);
           localStorage.removeItem('guest_takeaway_order_id');
         }
       } else {
@@ -65,15 +95,27 @@ function TakeawayGuestContent() {
       console.error(err);
       setActiveOrder(null);
     } finally {
-      setLoading(false);
+      if (!isPoll) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (ready && businessId) {
       loadOrderData();
+
+      // Poll order status in customer mode every 5 seconds
+      let interval: NodeJS.Timeout | null = null;
+      if (isCustomerMode) {
+        interval = setInterval(() => {
+          loadOrderData(true);
+        }, 5000);
+      }
+
+      return () => {
+        if (interval) clearInterval(interval);
+      };
     }
-  }, [ready, businessId]);
+  }, [ready, businessId, isCustomerMode, trackedOrderId]);
 
   useEffect(() => {
     if (ready && !activeOrder && !loading && isCustomerMode) {
@@ -100,6 +142,9 @@ function TakeawayGuestContent() {
         });
         if (res.data?.id) {
           localStorage.setItem('guest_takeaway_order_id', res.data.id);
+          if (isCustomerMode) {
+            setTrackedOrderId(res.data.id);
+          }
         }
       }
       setShowMenuModal(false);
@@ -117,6 +162,55 @@ function TakeawayGuestContent() {
       </div>
     </AppShell>
   );
+
+  if (showThankYou && isCustomerMode) {
+    return (
+      <AppShell hideNavigation={true}>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-120px)] p-6 bg-slate-50/50">
+          <div className="w-full max-w-md bg-white/60 backdrop-blur-lg rounded-3xl p-8 border border-white/50 shadow-xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 ring-4 ring-emerald-500/5 animate-bounce">
+                <CheckCircle2 className="w-12 h-12 stroke-[1.5]" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Payment Received</h2>
+              <p className="text-lg font-semibold text-emerald-600">Thank you for Visiting!</p>
+              <p className="text-slate-400 text-xs">Your self-service order is ready to collect at the counter.</p>
+            </div>
+
+            {paidOrderDetails && (
+              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100/50 text-left space-y-2.5">
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Order Number</span>
+                  <span className="font-mono font-bold text-slate-700">#{paidOrderDetails.orderNumber}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Type</span>
+                  <span className="font-semibold text-slate-700">Self-Service Takeaway</span>
+                </div>
+                <div className="border-t border-slate-200/50 my-1 pt-2 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-slate-600">Total Paid</span>
+                  <span className="text-lg font-bold text-slate-800">₹{Number(paidOrderDetails.totalAmount).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            <Button
+              onClick={() => {
+                setShowThankYou(false);
+                setPaidOrderDetails(null);
+              }}
+              className="w-full h-12 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md transition-all hover:scale-[1.02]"
+            >
+              Order Again
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell hideNavigation={isCustomerMode}>
