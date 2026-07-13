@@ -1,11 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Like } from 'typeorm';
-import { Payment } from '../../database/entities/payment.entity';
-import { Ledger } from '../../database/entities/ledger.entity';
-import { Customer } from '../../database/entities/customer.entity';
-import { Order } from '../../database/entities/order.entity';
-import { CreatePaymentDto } from './dto/create-payment.dto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, DataSource, Like } from "typeorm";
+import { Payment } from "../../database/entities/payment.entity";
+import { Ledger } from "../../database/entities/ledger.entity";
+import { Customer } from "../../database/entities/customer.entity";
+import { Order } from "../../database/entities/order.entity";
+import { Table } from "../../database/entities/table.entity";
+import { CreatePaymentDto } from "./dto/create-payment.dto";
 
 @Injectable()
 export class PaymentsService {
@@ -30,21 +35,26 @@ export class PaymentsService {
     return this.dataSource.transaction(async (manager) => {
       let order: Order | null = null;
       if (dto.orderId) {
-        order = await manager.findOne(Order, { where: { id: dto.orderId, business_id: dto.businessId } });
+        order = await manager.findOne(Order, {
+          where: { id: dto.orderId, business_id: dto.businessId },
+        });
         if (!order) {
-          throw new NotFoundException('Order not found');
+          throw new NotFoundException("Order not found");
         }
       }
 
       let paymentAmount = dto.amount;
       if (order) {
         const paid = await manager
-          .createQueryBuilder(Payment, 'payment')
-          .where('payment.order_id = :orderId', { orderId: order.id })
-          .select('SUM(payment.amount)', 'total')
+          .createQueryBuilder(Payment, "payment")
+          .where("payment.order_id = :orderId", { orderId: order.id })
+          .select("SUM(payment.amount)", "total")
           .getRawOne();
         const totalPaidSoFar = Number(paid.total || 0);
-        const orderRemaining = Math.max(0, Number(order.total_amount) - totalPaidSoFar);
+        const orderRemaining = Math.max(
+          0,
+          Number(order.total_amount) - totalPaidSoFar,
+        );
 
         if (paymentAmount > orderRemaining) {
           paymentAmount = orderRemaining;
@@ -56,14 +66,20 @@ export class PaymentsService {
           where: { id: dto.customerId, business_id: dto.businessId },
         });
         if (!customer) {
-          throw new NotFoundException('Customer not found');
+          throw new NotFoundException("Customer not found");
         }
 
         // Bill the order first if it hasn't been billed yet (e.g. restaurant
         // "Close Bill" pays a draft order directly, or order skipped confirmed state).
         let willBillOrder = false;
         if (order) {
-          const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
+          const billedStatuses = [
+            "confirmed",
+            "packed",
+            "dispatched",
+            "delivered",
+            "paid",
+          ];
           if (billedStatuses.includes(order.status)) {
             willBillOrder = false;
           } else {
@@ -79,37 +95,50 @@ export class PaymentsService {
         }
 
         if (willBillOrder) {
-          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', Number(order!.total_amount));
+          await manager.increment(
+            Customer,
+            { id: dto.customerId },
+            "outstanding_amount",
+            Number(order!.total_amount),
+          );
           await manager.save(
             Ledger,
             manager.create(Ledger, {
               business_id: dto.businessId,
               customer_id: dto.customerId,
-              type: 'DEBIT',
+              type: "DEBIT",
               amount: order!.total_amount,
               description: `Order ${order!.order_number} billed`,
             }),
           );
         }
 
-        if (dto.paymentMethod !== 'Credit') {
+        if (dto.paymentMethod !== "Credit") {
           // Computed from the balance as loaded, before the increments above
           // touch the DB row, so a payment can never push the customer into
           // a negative (business-owes-them) balance.
           const projectedOutstanding =
-            Number(customer.outstanding_amount) + (willBillOrder ? Number(order!.total_amount) : 0);
+            Number(customer.outstanding_amount) +
+            (willBillOrder ? Number(order!.total_amount) : 0);
           if (paymentAmount > projectedOutstanding + 0.01) {
-            throw new BadRequestException('Payment amount exceeds the outstanding balance');
+            throw new BadRequestException(
+              "Payment amount exceeds the outstanding balance",
+            );
           }
 
-          await manager.increment(Customer, { id: dto.customerId }, 'outstanding_amount', -paymentAmount);
+          await manager.increment(
+            Customer,
+            { id: dto.customerId },
+            "outstanding_amount",
+            -paymentAmount,
+          );
 
           const ledger = manager.create(Ledger, {
             business_id: dto.businessId,
             customer_id: dto.customerId,
-            type: 'CREDIT',
+            type: "CREDIT",
             amount: paymentAmount,
-            description: `Payment received (${dto.paymentMethod})${dto.orderId ? ` - order ${dto.orderId}` : ''}`,
+            description: `Payment received (${dto.paymentMethod})${dto.orderId ? ` - order ${dto.orderId}` : ""}`,
           });
           await manager.save(ledger);
         }
@@ -120,20 +149,27 @@ export class PaymentsService {
         order_id: dto.orderId,
         amount: paymentAmount,
         payment_method: dto.paymentMethod,
-        status: 'completed',
+        status: "completed",
         transaction_id: dto.transactionId,
       });
       const savedPayment = await manager.save(payment);
 
       if (order) {
         const paid = await manager
-          .createQueryBuilder(Payment, 'payment')
-          .where('payment.order_id = :orderId', { orderId: dto.orderId })
-          .select('SUM(payment.amount)', 'total')
+          .createQueryBuilder(Payment, "payment")
+          .where("payment.order_id = :orderId", { orderId: dto.orderId })
+          .select("SUM(payment.amount)", "total")
           .getRawOne();
         if (Number(paid.total) >= Number(order.total_amount)) {
-          order.status = 'paid';
+          order.status = "paid";
           await manager.save(order);
+          if (order.table_id) {
+            await manager.update(
+              Table,
+              { id: order.table_id },
+              { status: "available" },
+            );
+          }
         }
       }
 
@@ -143,18 +179,19 @@ export class PaymentsService {
 
   async findAll(businessId: string, orderId?: string, customerId?: string) {
     const qb = this.paymentsRepository
-      .createQueryBuilder('p')
-      .where('p.business_id = :businessId', { businessId });
+      .createQueryBuilder("p")
+      .where("p.business_id = :businessId", { businessId });
 
     if (orderId) {
-      qb.andWhere('p.order_id = :orderId', { orderId });
+      qb.andWhere("p.order_id = :orderId", { orderId });
     }
 
     if (customerId) {
-      qb.innerJoin('p.order', 'o')
-        .andWhere('o.customer_id = :customerId', { customerId });
+      qb.innerJoin("p.order", "o").andWhere("o.customer_id = :customerId", {
+        customerId,
+      });
     }
 
-    return qb.orderBy('p.created_at', 'DESC').getMany();
+    return qb.orderBy("p.created_at", "DESC").getMany();
   }
 }
