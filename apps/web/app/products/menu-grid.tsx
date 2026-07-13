@@ -230,6 +230,14 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     setShowItemForm(true);
   };
 
+  useEffect(() => {
+    const handleOpen = () => {
+      openCreate();
+    };
+    window.addEventListener('open-new-form', handleOpen);
+    return () => window.removeEventListener('open-new-form', handleOpen);
+  }, []);
+
   const filteredProducts = selectedCategory 
     ? products.filter(p => p.category === selectedCategory)
     : products;
