@@ -155,25 +155,19 @@ export default function InvoiceDetailPage() {
       // The PDF is rendered server-side via Puppeteer from plain HTML/CSS,
       // avoiding the oklch() colors Tailwind v4 emits that html2canvas
       // can't parse (the previous client-side screenshot approach failed here).
-      if (navigator.canShare) {
+      if (navigator.canShare && pdfBlobRef.current) {
         try {
-          // Use the prefetched blob so share() fires with no async gap after
-          // the click — only await if the prefetch genuinely hasn't landed yet.
-          const blob = pdfBlobRef.current || (await pdfBlobPromiseRef.current);
-          if (blob) {
-            const file = new File([blob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
-            if (navigator.canShare({ files: [file] })) {
-              await navigator.share({
-                files: [file],
-                title: `Invoice ${invoice?.invoice_number}`,
-                text: `Here is the invoice ${invoice?.invoice_number}`,
-              });
-              return; // Successfully shared the file directly
-            }
-            setShareFallbackReason('canShare({files}) returned false for this PDF — this browser reports Web Share support but refuses to share a PDF file specifically.');
-          } else {
-            setShareFallbackReason('PDF prefetch had not finished by the time you tapped Share.');
+          const blob = pdfBlobRef.current;
+          const file = new File([blob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Invoice ${invoice?.invoice_number}`,
+              text: `Here is the invoice ${invoice?.invoice_number}`,
+            });
+            return; // Successfully shared the file directly
           }
+          setShareFallbackReason('canShare({files}) returned false for this PDF — this browser reports Web Share support but refuses to share a PDF file specifically.');
         } catch (fileErr: any) {
           if (fileErr.name === 'AbortError') {
             return; // User cancelled the share dialog
@@ -182,7 +176,11 @@ export default function InvoiceDetailPage() {
           console.warn('Direct file share failed, falling back to share link:', fileErr);
         }
       } else {
-        setShareFallbackReason('navigator.canShare is not defined — this browser has no Web Share API (file sharing) support at all.');
+        if (!navigator.canShare) {
+          setShareFallbackReason('navigator.canShare is not defined — this browser has no Web Share API (file sharing) support at all.');
+        } else {
+          setShareFallbackReason('PDF prefetch had not finished by the time you tapped Share.');
+        }
       }
 
       // No file-sharing support (desktop browsers) — WhatsApp Web has no API
