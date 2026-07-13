@@ -67,6 +67,10 @@ export class CreateProductDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
 

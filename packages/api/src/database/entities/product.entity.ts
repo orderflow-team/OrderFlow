@@ -60,6 +60,9 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  image_url: string;
+
   @Column({ type: 'boolean', default: true })
   is_available: boolean;
 

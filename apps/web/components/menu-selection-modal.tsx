@@ -16,6 +16,7 @@ interface Product {
   is_available: boolean;
   unit?: string;
   unit_prices?: Record<string, number> | null;
+  image_url?: string | null;
 }
 
 interface Category {
@@ -334,21 +335,38 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
+              const hasImage = !!p.image_url;
               return (
                 <div
                   key={p.id}
-                  className={`relative p-3 rounded-2xl border cursor-pointer transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 ring-1 ring-white/50 hover:bg-white/60'}`}
+                  className={`relative rounded-2xl border cursor-pointer transition-all overflow-hidden flex flex-col min-h-[110px] group ${
+                    qty > 0 
+                      ? 'border-emerald-400 ring-1 ring-emerald-400' 
+                      : 'border-white/50 ring-1 ring-white/50 hover:bg-white/60 bg-white/40'
+                  }`}
                   onClick={() => updateCart(p, 1)}
+                  style={hasImage ? {
+                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.75)), url(${p.image_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                  } : {}}
                 >
+                  {/* Quantity Indicator */}
                   {qty > 0 && (
-                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center z-10 shadow-md">
                       {qty}
                     </span>
                   )}
-                  <h4 className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2 pr-4">{p.name}</h4>
-                  <div className="text-emerald-600 font-bold text-sm mt-2">
-                    ₹{Number(p.selling_price).toFixed(2)}
-                    {p.unit && <span className="text-xs text-slate-500 font-medium ml-1">/ {p.unit}</span>}
+                  
+                  <div className={`p-3 flex-1 flex flex-col justify-end ${hasImage ? 'text-white' : 'text-slate-800'}`}>
+                    <h4 className={`font-semibold text-sm leading-snug line-clamp-2 pr-4 ${hasImage ? 'text-white drop-shadow-md' : 'text-slate-800'}`}>
+                      {p.name}
+                    </h4>
+                    <div className={`font-bold text-sm mt-1.5 ${hasImage ? 'text-emerald-300 drop-shadow' : 'text-emerald-600'}`}>
+                      ₹{Number(p.selling_price).toFixed(2)}
+                      {p.unit && <span className={`text-[10px] font-medium ml-1 ${hasImage ? 'text-slate-200' : 'text-slate-500'}`}>/ {p.unit}</span>}
+                    </div>
                   </div>
                 </div>
               );
