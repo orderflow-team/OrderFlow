@@ -186,6 +186,7 @@ export class OrdersService {
       }
 
       let tokenNumber: number | null = null;
+      let resolvedCustomerName = dto.customerName;
       if (dto.orderType === 'take_away') {
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
@@ -198,6 +199,14 @@ export class OrdersService {
           .andWhere('order.created_at >= :startOfDay', { startOfDay })
           .getRawOne();
         tokenNumber = (max ?? 0) + 1;
+
+        const isDefaultName = !dto.customerName || 
+          dto.customerName.trim() === '' || 
+          dto.customerName.toLowerCase() === 'take away guest' || 
+          dto.customerName.toLowerCase() === 'guest';
+        if (isDefaultName) {
+          resolvedCustomerName = `Takeaway #${tokenNumber}`;
+        }
       }
 
       const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
@@ -206,7 +215,7 @@ export class OrdersService {
       const order = manager.create(Order, {
         business_id: dto.businessId,
         customer_id: resolvedCustomerId,
-        customer_name: dto.customerName,
+        customer_name: resolvedCustomerName,
         table_id: dto.tableId,
         guest_count: dto.guestCount,
         order_number: orderNumber,
