@@ -301,9 +301,9 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               {businessMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setBusinessMenuOpen(false)} />
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white/60 backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm rounded-3xl p-1.5 max-h-72 overflow-y-auto">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white shadow-xl ring-1 ring-slate-200/50 rounded-3xl p-1.5 max-h-72 overflow-y-auto">
                     {myBusinesses.length === 0 && businessId && (
-                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-2xl bg-white/40">
+                      <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-2xl bg-slate-50">
                         <Store className="w-3.5 h-3.5 text-sky-700 shrink-0" />
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-sm font-bold text-slate-800 truncate">{businessName}</p>
@@ -320,7 +320,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                           type="button"
                           onClick={() => handleSwitchBusiness(b.id)}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl text-left transition-colors ${
-                            active ? 'bg-sky-500/15' : 'hover:bg-white/50'
+                            active ? 'bg-sky-500/15' : 'hover:bg-slate-50'
                           }`}
                         >
                           <Store className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-sky-700' : 'text-slate-400'}`} />
@@ -332,11 +332,11 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                         </button>
                       );
                     })}
-                    <div className="my-1 border-t border-white/50" />
+                    <div className="my-1 border-t border-slate-100" />
                     <button
                       type="button"
                       onClick={() => handleSwitchBusiness(NEW_BUSINESS_OPTION)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl text-left text-sky-700 hover:bg-sky-500/10 transition-colors"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl text-left text-sky-700 hover:bg-sky-50 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5 shrink-0" />
                       <span className="text-sm font-bold">Add new business</span>
@@ -348,7 +348,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           )}
         </div>
         {notifOpen && (
-          <div className="mx-3 mb-2 bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-2xl p-3 max-h-64 overflow-y-auto space-y-2">
+          <div className="mx-3 mb-2 bg-white shadow-lg ring-1 ring-slate-200/50 rounded-2xl p-3 max-h-64 overflow-y-auto space-y-2">
             {notifications.length === 0 && <p className="text-xs text-slate-400">No new notifications</p>}
             {notifications.map((n) => (
               <button
@@ -519,7 +519,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       {mobileBusinessMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileBusinessMenuOpen(false)} />
-          <div className="absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
+          <div className="absolute bottom-0 inset-x-0 bg-white shadow-2xl border-t border-slate-100 rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <span className="text-base font-bold text-slate-800">Switch Business</span>
               <button onClick={() => setMobileBusinessMenuOpen(false)} className="text-slate-500 hover:text-slate-700 bg-white/50 ring-1 ring-white/50 p-1.5 rounded-full">
@@ -548,7 +548,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       handleSwitchBusiness(b.id);
                     }}
                     className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all ${
-                      active ? 'bg-sky-500/15 ring-1 ring-sky-500/25' : 'bg-white/40 hover:bg-white/60 ring-1 ring-white/50 glass-sheen-sm'
+                      active ? 'bg-sky-500/15 ring-1 ring-sky-500/25' : 'bg-slate-50 hover:bg-slate-100'
                     }`}
                   >
                     <Store className={`w-5 h-5 shrink-0 ${active ? 'text-sky-700' : 'text-slate-500'}`} />
@@ -560,14 +560,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                   </button>
                 );
               })}
-              <div className="my-2 border-t border-white/50" />
+              <div className="my-2 border-t border-slate-100" />
               <button
                 type="button"
                 onClick={() => {
                   setMobileBusinessMenuOpen(false);
                   handleSwitchBusiness(NEW_BUSINESS_OPTION);
                 }}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl text-left bg-sky-500/10 hover:bg-sky-500/20 transition-all text-sky-700 ring-1 ring-white/50 glass-sheen-sm"
+                className="w-full flex items-center gap-3 p-3 rounded-2xl text-left bg-sky-50 hover:bg-sky-100 transition-all text-sky-700"
               >
                 <Plus className="w-5 h-5 shrink-0" />
                 <span className="text-sm font-bold">Add new business</span>
