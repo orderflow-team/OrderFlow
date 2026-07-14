@@ -255,6 +255,23 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const handleToggleAvailability = async (product: Product) => {
+    try {
+      const nextAvailable = !product.is_available;
+      
+      // Optimistically update local state so the switch responds instantly
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_available: nextAvailable } : p));
+      
+      const payload = {
+        isAvailable: nextAvailable,
+      };
+      await apiClient.patch(`/api/products/${product.id}`, payload, { params: { businessId } });
+    } catch (err) {
+      console.error('Failed to toggle availability:', err);
+      loadData();
+    }
+  };
+
   const openEdit = (p: Product) => {
     setEditingItem(p);
     setForm({
@@ -450,11 +467,27 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 <CardContent className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-1 gap-2">
                     <h3 className="font-bold text-slate-800 text-lg leading-tight">{p.name}</h3>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm ${
-                      p.is_available ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
-                    }`}>
-                      {p.is_available ? 'In Stock' : 'Out of Stock'}
-                    </span>
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full shadow-sm shrink-0 cursor-pointer"
+                    >
+                      <span className="text-[10px] font-bold text-slate-600">
+                        {p.is_available ? 'In Stock' : 'Out of Stock'}
+                      </span>
+                      <button
+                        onClick={() => handleToggleAvailability(p)}
+                        className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          p.is_available ? 'bg-emerald-500' : 'bg-slate-500'
+                        }`}
+                        title={p.is_available ? 'Click to make Out of Stock' : 'Click to make In Stock'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                            p.is_available ? 'translate-x-3' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                   {(p.brand || p.generic_name) && (
                     <p className="text-xs text-slate-500 mb-2">
