@@ -15,6 +15,7 @@ import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
   Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound, RotateCcw,
+  Bot,
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
@@ -662,9 +663,21 @@ export function GenericOrders() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Items</p>
                   {!editMode && drawerOrder.status !== 'returned' && drawerOrder.status !== 'cancelled' ? (
-                    <button onClick={startEdit} className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:text-emerald-700">
-                      <Pencil className="w-3 h-3" /> Edit
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('open-order-assistant'));
+                          }
+                        }}
+                        className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700"
+                      >
+                        <Bot className="w-3.5 h-3.5" /> Edit with AI
+                      </button>
+                      <button onClick={startEdit} className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:text-emerald-700">
+                        <Pencil className="w-3 h-3" /> Edit
+                      </button>
+                    </div>
                   ) : editMode ? (
                     <div className="flex gap-2">
                       <button onClick={() => setEditMode(false)} className="text-xs text-slate-500 font-medium hover:text-slate-700">Cancel</button>
