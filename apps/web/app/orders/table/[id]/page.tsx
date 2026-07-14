@@ -184,9 +184,18 @@ export default function TableDetailsPage() {
     if (!activeSession) return;
     setBillingError('');
     try {
-      const status = Number(activeSession.total_amount) <= 0 ? 'cancelled' : 'paid';
-      await apiClient.patch(`/api/orders/${activeSession.id}/status`, { status }, { params: { businessId } });
-      await apiClient.post(`/api/restaurant/tables/${id}/release`, {}, { params: { businessId } });
+      // Recording the payment (not a bare status PATCH) is what actually makes this
+      // sale show up in the Billing revenue dashboard/transaction log and generates a
+      // receipt — PaymentsService marks the order paid and frees the table itself once
+      // the payment covers the total, matching the billing page's own "Close Bill" flow.
+      await apiClient.post('/api/billing/payments', {
+        businessId,
+        orderId: activeSession.id,
+        amount: Number(activeSession.total_amount),
+        paymentMethod: 'Cash',
+      });
+      await apiClient.post(`/api/billing/invoices/from-order/${activeSession.id}`, {}, { params: { businessId } }).catch(() => null);
+      await apiClient.post(`/api/restaurant/tables/${id}/release`, {}, { params: { businessId } }).catch(() => null);
       loadTableData();
     } catch (err: any) {
       setBillingError(err.response?.data?.message || 'Failed to close session');

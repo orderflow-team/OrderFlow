@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
@@ -184,13 +185,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [showSeedConfirm, setShowSeedConfirm] = useState(false);
   const [hasInventory, setHasInventory] = useState(false);
   const [isPharmacy, setIsPharmacy] = useState(false);
   const [isSalesman, setIsSalesman] = useState(false);
 
   const handleSeedDemoData = async () => {
     if (!businessId) return;
-    if (!confirm('Load demo data into every module? This adds sample customers, products, orders, invoices, etc.')) return;
+    setShowSeedConfirm(false);
     setSeeding(true);
     try {
       await apiClient.post('/api/dev/seed', {}, { params: { businessId } });
@@ -307,6 +309,7 @@ export default function DashboardPage() {
   }
 
   return (
+    <>
     <AppShell>
       <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
         <PageHeader
@@ -315,7 +318,7 @@ export default function DashboardPage() {
           action={
             !isSalesman && (
               <Button
-                onClick={handleSeedDemoData}
+                onClick={() => setShowSeedConfirm(true)}
                 disabled={seeding}
                 size="sm"
                 className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
@@ -468,5 +471,34 @@ export default function DashboardPage() {
         )}
       </div>
     </AppShell>
+
+    <Dialog open={showSeedConfirm} onOpenChange={setShowSeedConfirm}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-slate-800">
+            <Sparkles className="w-4 h-4 text-amber-500" /> Load Demo Data?
+          </DialogTitle>
+          <DialogDescription>
+            This adds sample customers, products, orders, and invoices to <strong>this business</strong>.
+            It&apos;s safe to run more than once — it only fills in whatever&apos;s missing and won&apos;t
+            create duplicate catalog items or a second round of demo orders.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setShowSeedConfirm(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSeedDemoData}
+            disabled={seeding}
+            className="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white"
+          >
+            {seeding ? 'Loading...' : 'Load Demo Data'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil } from 'lucide-react';
+import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil, History, Search, Clock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 import React from 'react';
@@ -55,7 +55,40 @@ interface TakeawayOrder {
   items?: any[];
 }
 
-type OrderTypeChoice = 'choice' | 'dine_in' | 'take_away';
+interface HistoryOrder {
+  id: string;
+  order_number: string;
+  order_type: string;
+  customer_name: string;
+  status: string;
+  total_amount: string | number;
+  token_number: number | null;
+  created_at: string;
+  table?: { id: string; name: string } | null;
+}
+
+type OrderTypeChoice = 'choice' | 'dine_in' | 'take_away' | 'history';
+
+type HistoryBucket = 'NEW' | 'UNPAID' | 'PAID';
+
+const historyBucket = (status: string): HistoryBucket | null => {
+  if (status === 'draft') return 'NEW';
+  if (status === 'paid') return 'PAID';
+  if (status === 'cancelled' || status === 'returned') return null;
+  return 'UNPAID';
+};
+
+const historyStatusColor = (status: string) => {
+  if (status === 'paid') return 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20';
+  if (status === 'cancelled' || status === 'returned') return 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20';
+  return 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20';
+};
+
+const orderLabel = (o: HistoryOrder) => {
+  if (o.order_type === 'take_away') return `Takeaway #${o.token_number ?? '—'}`;
+  if (o.table?.name) return `Table ${o.table.name}`;
+  return o.customer_name || 'Dine In';
+};
 
 function RestaurantPageContent() {
   const { businessId, ready } = useBusiness();
@@ -84,6 +117,12 @@ function RestaurantPageContent() {
   const [qrTable, setQrTable] = useState<Table | null>(null);
   const [showTakeAwayQrModal, setShowTakeAwayQrModal] = useState(false);
 
+  // Order History states
+  const [historyOrders, setHistoryOrders] = useState<HistoryOrder[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | HistoryBucket>('ALL');
+
   const handleShowQr = (table: Table) => {
     setQrTable(table);
     setShowQrModal(true);
@@ -107,6 +146,39 @@ function RestaurantPageContent() {
       setPreviousTakeaways(res.data.filter(o => o.order_type === 'take_away').slice(0, 10));
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const loadHistory = async (bizId: string) => {
+    setHistoryLoading(true);
+    try {
+      const res = await apiClient.get<HistoryOrder[]>('/api/orders', { params: { businessId: bizId } });
+      setHistoryOrders(res.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load order history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'history' && businessId) {
+      loadHistory(businessId);
+    }
+  }, [view, businessId]);
+
+  const openInvoice = async (order: HistoryOrder) => {
+    if (!businessId) return;
+    try {
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
+      if (existing.data.length > 0) {
+        router.push(`/billing/invoices/${existing.data[0].id}`);
+        return;
+      }
+      const created = await apiClient.post<{ id: string }>(`/api/billing/invoices/from-order/${order.id}`, {}, { params: { businessId } });
+      if (created.data?.id) router.push(`/billing/invoices/${created.data.id}`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to open invoice');
     }
   };
 
@@ -247,13 +319,22 @@ function RestaurantPageContent() {
                 <h1 className="text-3xl font-bold tracking-tight text-slate-800">Takeaway</h1>
                 <p className="text-slate-500 mt-1">Add items directly and track orders by token number</p>
               </div>
-              <Button
-                onClick={() => setShowTakeAwayQrModal(true)}
-                variant="outline"
-                className="gap-2 shrink-0 bg-white/60 hover:bg-white"
-              >
-                <QrCode className="w-4 h-4" /> Self-Service QR
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  onClick={() => setView('history')}
+                  variant="outline"
+                  className="gap-2 bg-white/60 hover:bg-white"
+                >
+                  <History className="w-4 h-4" /> History
+                </Button>
+                <Button
+                  onClick={() => setShowTakeAwayQrModal(true)}
+                  variant="outline"
+                  className="gap-2 bg-white/60 hover:bg-white"
+                >
+                  <QrCode className="w-4 h-4" /> Self-Service QR
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -488,6 +569,111 @@ function RestaurantPageContent() {
   );
 }
 
+  if (view === 'history') {
+    const filteredHistory = historyOrders.filter((o) => {
+      if (historyStatusFilter !== 'ALL' && historyBucket(o.status) !== historyStatusFilter) return false;
+      if (historySearch.trim()) {
+        const q = historySearch.trim().toLowerCase();
+        if (!orderLabel(o).toLowerCase().includes(q) && !o.order_number.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+
+    return (
+      <AppShell>
+        <div className="p-6 md:p-10 max-w-3xl mx-auto space-y-5">
+          <div className="flex flex-col gap-1 mb-2">
+            <button
+              onClick={() => setView('choice')}
+              className="text-sm text-slate-400 hover:text-slate-600 mb-1 self-start"
+            >
+              ← Change order type
+            </button>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Order History</h1>
+            <p className="text-slate-500 mt-1">Every dine-in and takeaway order, past and present</p>
+          </div>
+
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              placeholder="Search by table, token, or order number..."
+              className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-emerald-400/40"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            {(['ALL', 'NEW', 'UNPAID', 'PAID'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setHistoryStatusFilter(f)}
+                className={`px-4 h-9 rounded-full text-xs font-bold uppercase tracking-wide shrink-0 transition-colors ${
+                  historyStatusFilter === f ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-slate-500'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+
+          {historyLoading ? (
+            <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
+          ) : historyOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
+              <div className="w-24 h-24 bg-tile-peach rounded-full flex items-center justify-center mb-6">
+                <History className="w-10 h-10 text-tile-peach-fg" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">No orders yet</h2>
+              <p className="text-slate-500 text-sm">Orders will show up here once you start taking them.</p>
+            </div>
+          ) : filteredHistory.length === 0 ? (
+            <p className="p-10 text-center text-slate-400 text-sm">No orders match this filter.</p>
+          ) : (
+            <div className="space-y-3">
+              {filteredHistory.map((o) => (
+                <div
+                  key={o.id}
+                  className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 flex items-center gap-3"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0">
+                    {o.order_type === 'take_away' ? <ShoppingBag className="w-5 h-5" /> : <UtensilsCrossed className="w-5 h-5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-slate-800 text-sm truncate">{orderLabel(o)}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                      <span>{o.order_number}</span>
+                      <span>
+                        {new Date(o.created_at).toLocaleString([], { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full backdrop-blur-sm ${historyStatusColor(o.status)}`}>
+                      {historyBucket(o.status) === 'NEW' ? <Clock className="w-3 h-3" /> : historyBucket(o.status) === 'UNPAID' ? <AlertCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                      {o.status}
+                    </span>
+                    <p className="font-black text-emerald-600 text-base mt-1">₹{Number(o.total_amount).toFixed(2)}</p>
+                  </div>
+                  <button
+                    onClick={() => openInvoice(o)}
+                    className="w-9 h-9 rounded-full bg-tile-lavender text-tile-lavender-fg flex items-center justify-center shrink-0 hover:brightness-95 transition-all"
+                    aria-label="Invoice"
+                    title="View / Generate Invoice"
+                  >
+                    <Printer className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <>
       <AppShell>
@@ -507,6 +693,13 @@ function RestaurantPageContent() {
               <p className="text-slate-500 mt-1">Manage your restaurant tables and sessions</p>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setView('history')}
+                variant="outline"
+                className="gap-2 bg-white/60 hover:bg-white"
+              >
+                <History className="w-4 h-4" /> History
+              </Button>
               {businessId && <ClearModuleButton module="restaurant" businessId={businessId} />}
             </div>
           </div>

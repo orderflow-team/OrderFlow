@@ -8,6 +8,15 @@ import { Customer } from '../../database/entities/customer.entity';
 
 const ACTIVE_ORDER_STATUSES = ['draft', 'confirmed', 'packed', 'dispatched'];
 
+/**
+ * Revenue/tax/profit figures should only reflect orders that have actually
+ * been billed — a 'draft' order is still an open cart (a dine-in table still
+ * being ordered for, a not-yet-confirmed regular order) with no invoice or
+ * payment behind it yet, so counting it here would overstate GST collected
+ * and sales for anything still in progress.
+ */
+const UNBILLED_ORDER_STATUSES = ['draft', 'cancelled', 'returned'];
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -41,7 +50,7 @@ export class ReportsService {
         .createQueryBuilder('order')
         .where('order.business_id = :businessId', { businessId })
         .andWhere('order.created_at >= :startOfToday', { startOfToday })
-        .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] })
+        .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
         .select('COALESCE(SUM(order.total_amount), 0)', 'total')
         .getRawOne(),
       this.ordersRepository
@@ -134,7 +143,7 @@ export class ReportsService {
     const query = this.ordersRepository
       .createQueryBuilder('order')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });
@@ -178,7 +187,7 @@ export class ReportsService {
       .innerJoin('orders', 'order', 'order.id = item.order_id')
       .leftJoin('products', 'product', 'product.id = item.product_id')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });
@@ -208,7 +217,7 @@ export class ReportsService {
     const query = this.ordersRepository
       .createQueryBuilder('order')
       .where('order.business_id = :businessId', { businessId })
-      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: ['cancelled', 'returned'] });
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
 
     if (from) {
       query.andWhere('order.created_at >= :from', { from });

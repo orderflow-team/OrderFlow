@@ -142,12 +142,32 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     }
   }
 
+  /** Always seeded for every category (see the unconditional `demoCustomerSpecs` array below) — a stable, low-collision marker for "has this business already got its one-time demo orders/invoices/notifications". */
+  private static readonly DEMO_CUSTOMER_PHONES = ['9820000001', '9820000002', '9820000004'];
+
+  /**
+   * Idempotent per-entity: products/customers/suppliers/salesmen/tables are
+   * matched by a natural key (name or phone) and reused if already present,
+   * only creating whatever's actually missing — running this repeatedly tops
+   * up gaps instead of piling up duplicates.
+   *
+   * Orders/KOTs/invoices/payments/visits/purchase-orders/notifications have no
+   * natural key to dedupe against (they're one-time "demo activity", not
+   * catalog data), so that whole block only runs the first time — detected via
+   * DEMO_CUSTOMER_PHONES already existing — to avoid piling up duplicate demo
+   * transactions on every re-run.
+   */
   async seedAll(businessId: string) {
 
     const business = await this.dataSource.getRepository(Business).findOne({ where: { id: businessId } });
     if (!business) {
       throw new NotFoundException('Business not found');
     }
+
+    const alreadySeeded = (await this.dataSource.getRepository(Customer).count({
+      where: { business_id: businessId, phone: In(DevToolsService.DEMO_CUSTOMER_PHONES) },
+    })) > 0;
+
     const category = (business.category as CategoryKey) || 'others';
     const modules = this.getModulesForCategory(category);
     // The category default is just a starting point — the business's own explicit
@@ -155,24 +175,31 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     modules.inventory = business.inventory_enabled;
     const catalog = this.getCatalog(category);
 
-    // If it's a restaurant, also seed categories if they don't exist
-    if (modules.restaurant) {
-      const categories = [...new Set(catalog.map(c => c.category).filter(Boolean))];
-      for (const catName of categories) {
-        // Just post to products module? No, we don't have a category service injected here.
-        // We'll skip seeding Category entity directly here because the product creation itself creates products with a category string in the database.
-      }
-    }
-
-    const products = await Promise.all(catalog.map((p) => this.productsService.create({ businessId, ...p })));
+    // --- Products: reuse whatever already exists by name, only create what's missing ---
+    // is_archived: false — a soft-deleted product (products.service.ts falls back to
+    // archiving when a hard delete hits the order_items FK) is invisible everywhere else
+    // in the app, so it counts as "missing" here too and gets a fresh row recreated.
+    const productRepo = this.dataSource.getRepository(Product);
+    const existingProducts = await productRepo.find({
+      where: { business_id: businessId, name: In(catalog.map((c) => c.name)), is_archived: false },
+    });
+    const products = await Promise.all(
+      catalog.map(async (p) => existingProducts.find((ep) => ep.name === p.name) ?? this.productsService.create({ businessId, ...p })),
+    );
     const [itemA, itemB, itemC, itemD] = products;
 
+    // --- Customers: same idempotent approach, matched by phone ---
+    const demoCustomerSpecs = [
+      { name: 'Ramesh Kirana Store', phone: '9820000001', address: 'MG Road, Pune', creditLimit: 20000 },
+      { name: 'Sunita General Store', phone: '9820000002', address: 'Sector 21, Noida', creditLimit: 10000 },
+      { name: 'Walk-in Customer', phone: '9820000004' },
+    ];
+    const customerRepo = this.dataSource.getRepository(Customer);
+    const existingCustomers = await customerRepo.find({
+      where: { business_id: businessId, phone: In(demoCustomerSpecs.map((c) => c.phone)) },
+    });
     const customers = await Promise.all(
-      [
-        { name: 'Ramesh Kirana Store', phone: '9820000001', address: 'MG Road, Pune', creditLimit: 20000 },
-        { name: 'Sunita General Store', phone: '9820000002', address: 'Sector 21, Noida', creditLimit: 10000 },
-        { name: 'Walk-in Customer', phone: '9820000004' },
-      ].map((c) => this.customersService.create({ businessId, ...c })),
+      demoCustomerSpecs.map(async (c) => existingCustomers.find((ec) => ec.phone === c.phone) ?? this.customersService.create({ businessId, ...c })),
     );
     const [custA, custB] = customers;
 
@@ -183,7 +210,6 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     let invoicesCount = 0;
 
     if (modules.restaurant) {
-      // Dine-in orders tied to tables + KOT, the realistic flow for a restaurant business.
       // findOrCreate by name so re-running the seed doesn't pile up duplicate T1/T2/T3 tables.
       const existingTables = await this.restaurantService.findAllTables(businessId);
       const findOrCreateTable = async (name: string, capacity: number) => {
@@ -197,49 +223,52 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
       await findOrCreateTable('T3', 6);
       tablesCount = 3;
 
-      const dineInOrder1 = await this.ordersService.create({
-        businessId,
-        customerName: 'Table 1 Guest',
-        orderType: 'dine_in',
-        items: [
-          { productId: itemA.id, quantity: 2, unitPrice: Number(itemA.selling_price) },
-          { productId: itemB.id, quantity: 4, unitPrice: Number(itemB.selling_price) },
-        ],
-      });
-      const kot1 = await this.restaurantService.createKot({ businessId, orderId: dineInOrder1.id, tableId: table1.id, notes: 'No onions' });
-      // KOT status is a forward-only state machine — pending must pass through preparing.
-      await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'preparing' });
-      await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'ready' });
+      if (!alreadySeeded) {
+        // Dine-in orders tied to tables + KOT, the realistic flow for a restaurant business.
+        const dineInOrder1 = await this.ordersService.create({
+          businessId,
+          customerName: 'Table 1 Guest',
+          orderType: 'dine_in',
+          items: [
+            { productId: itemA.id, quantity: 2, unitPrice: Number(itemA.selling_price) },
+            { productId: itemB.id, quantity: 4, unitPrice: Number(itemB.selling_price) },
+          ],
+        });
+        const kot1 = await this.restaurantService.createKot({ businessId, orderId: dineInOrder1.id, tableId: table1.id, notes: 'No onions' });
+        // KOT status is a forward-only state machine — pending must pass through preparing.
+        await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'preparing' });
+        await this.restaurantService.updateKotStatus(kot1.id, businessId, { status: 'ready' });
 
-      const dineInOrder2 = await this.ordersService.create({
-        businessId,
-        customerName: 'Table 2 Guest',
-        orderType: 'dine_in',
-        items: [{ productId: itemC.id, quantity: 2, unitPrice: Number(itemC.selling_price) }],
-      });
-      await this.restaurantService.createKot({ businessId, orderId: dineInOrder2.id, tableId: table2.id });
-      orderCount += 2;
+        const dineInOrder2 = await this.ordersService.create({
+          businessId,
+          customerName: 'Table 2 Guest',
+          orderType: 'dine_in',
+          items: [{ productId: itemC.id, quantity: 2, unitPrice: Number(itemC.selling_price) }],
+        });
+        await this.restaurantService.createKot({ businessId, orderId: dineInOrder2.id, tableId: table2.id });
+        orderCount += 2;
 
-      // Billed + paid dine-in order, to showcase billing exports too.
-      const billedOrder = await this.ordersService.create({
-        businessId,
-        customerName: 'Walk-in Customer',
-        orderType: 'dine_in',
-        items: [{ productId: itemD.id, quantity: 3, unitPrice: Number(itemD.selling_price) }],
-      });
-      await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'confirmed' });
-      await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'delivered' });
-      await this.invoicesService.generateFromOrder(billedOrder.id, businessId);
-      await this.paymentsService.create({
-        businessId,
-        orderId: billedOrder.id,
-        amount: Number(billedOrder.total_amount),
-        paymentMethod: 'Cash',
-      });
-      await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'paid' });
-      orderCount += 1;
-      invoicesCount += 1;
-    } else {
+        // Billed + paid dine-in order, to showcase billing exports too.
+        const billedOrder = await this.ordersService.create({
+          businessId,
+          customerName: 'Walk-in Customer',
+          orderType: 'dine_in',
+          items: [{ productId: itemD.id, quantity: 3, unitPrice: Number(itemD.selling_price) }],
+        });
+        await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'confirmed' });
+        await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'delivered' });
+        await this.invoicesService.generateFromOrder(billedOrder.id, businessId);
+        await this.paymentsService.create({
+          businessId,
+          orderId: billedOrder.id,
+          amount: Number(billedOrder.total_amount),
+          paymentMethod: 'Cash',
+        });
+        await this.ordersService.updateStatus(billedOrder.id, businessId, { status: 'paid' });
+        orderCount += 1;
+        invoicesCount += 1;
+      }
+    } else if (!alreadySeeded) {
       // Confirmed + paid order with a real invoice, to showcase billing exports.
       const order1 = await this.ordersService.create({
         businessId,
@@ -289,44 +318,65 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     }
 
     if (modules.salesman) {
-      const salesman1 = await this.salesmanService.create({ businessId, name: 'Vikram Singh', phone: '9830000001', route: 'North Pune Route' });
-      await this.salesmanService.create({ businessId, name: 'Anita Desai', phone: '9830000002', route: 'East Pune Route' });
-      const visit1 = await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custA.id, gpsLocation: '18.5204,73.8567', notes: 'Discussed monthly order' });
-      await this.salesmanService.checkOut(visit1.id, businessId);
-      await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custB.id, gpsLocation: '18.5304,73.8467' });
+      // findOrCreate by name so re-running the seed doesn't pile up duplicate salesmen.
+      const salesmanRepo = this.dataSource.getRepository(Salesman);
+      const existingSalesmen = await salesmanRepo.find({
+        where: { business_id: businessId, name: In(['Vikram Singh', 'Anita Desai']) },
+      });
+      let salesman1 = existingSalesmen.find((s) => s.name === 'Vikram Singh');
+      if (!salesman1) {
+        salesman1 = await this.salesmanService.create({ businessId, name: 'Vikram Singh', phone: '9830000001', route: 'North Pune Route' });
+      }
+      if (!existingSalesmen.find((s) => s.name === 'Anita Desai')) {
+        await this.salesmanService.create({ businessId, name: 'Anita Desai', phone: '9830000002', route: 'East Pune Route' });
+      }
       salesmenCount = 2;
+
+      if (!alreadySeeded) {
+        const visit1 = await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custA.id, gpsLocation: '18.5204,73.8567', notes: 'Discussed monthly order' });
+        await this.salesmanService.checkOut(visit1.id, businessId);
+        await this.salesmanService.checkIn({ businessId, salesmanId: salesman1.id, customerId: custB.id, gpsLocation: '18.5304,73.8467' });
+      }
     }
 
     if (modules.inventory) {
+      // findOrCreate by name so re-running the seed doesn't pile up duplicate suppliers.
+      const supplierRepo = this.dataSource.getRepository(Supplier);
+      const supplierSpecs = [
+        { name: 'Sharma Wholesale Traders', phone: '9810000001', gstNumber: '07AASFS1234A1Z5' },
+        { name: 'Patel Distributors', phone: '9810000002', gstNumber: '24AASFS5678B1Z2' },
+      ];
+      const existingSuppliers = await supplierRepo.find({
+        where: { business_id: businessId, name: In(supplierSpecs.map((s) => s.name)) },
+      });
       const suppliers = await Promise.all(
-        [
-          { name: 'Sharma Wholesale Traders', phone: '9810000001', gstNumber: '07AASFS1234A1Z5' },
-          { name: 'Patel Distributors', phone: '9810000002', gstNumber: '24AASFS5678B1Z2' },
-        ].map((s) => this.suppliersService.create({ businessId, ...s })),
+        supplierSpecs.map(async (s) => existingSuppliers.find((es) => es.name === s.name) ?? this.suppliersService.create({ businessId, ...s })),
       );
 
-      const po1 = await this.inventoryService.createPurchaseOrder({
-        businessId,
-        supplierId: suppliers[0].id,
-        items: [
-          { productId: itemA.id, quantity: 50, unitPrice: Number(itemA.purchase_price) },
-          { productId: itemB.id, quantity: 30, unitPrice: Number(itemB.purchase_price) },
-        ],
-      });
-      await this.inventoryService.receivePurchaseOrder(po1.id, businessId);
+      if (!alreadySeeded) {
+        const po1 = await this.inventoryService.createPurchaseOrder({
+          businessId,
+          supplierId: suppliers[0].id,
+          items: [
+            { productId: itemA.id, quantity: 50, unitPrice: Number(itemA.purchase_price) },
+            { productId: itemB.id, quantity: 30, unitPrice: Number(itemB.purchase_price) },
+          ],
+        });
+        await this.inventoryService.receivePurchaseOrder(po1.id, businessId);
 
-      await this.inventoryService.createPurchaseOrder({
-        businessId,
-        supplierId: suppliers[1].id,
-        items: [{ productId: itemC.id, quantity: 20, unitPrice: Number(itemC.purchase_price) }],
-      });
-      purchaseOrdersCount = 2;
+        await this.inventoryService.createPurchaseOrder({
+          businessId,
+          supplierId: suppliers[1].id,
+          items: [{ productId: itemC.id, quantity: 20, unitPrice: Number(itemC.purchase_price) }],
+        });
+        purchaseOrdersCount = 2;
+      }
     }
 
     // A couple of sample notifications, since the real reminder cron only
     // fires on stale/overdue data (not present right after a fresh seed).
     // Stock/expiry alerts are meaningless for a business that isn't tracking inventory.
-    if (modules.inventory) {
+    if (modules.inventory && !alreadySeeded) {
       const lowStockItem = products.find((p) => p.stock_quantity <= 10) ?? products[0];
       const expiringItem = products.find((p) => p.expiry_date) ?? lowStockItem;
       await this.dataSource.getRepository(Notification).save([
@@ -346,7 +396,9 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     }
 
     return {
-      message: `Demo data seeded for category "${category}"`,
+      message: alreadySeeded
+        ? `Demo catalog data topped up for category "${category}" — demo orders/invoices were already present, so no new ones were added.`
+        : `Demo data seeded for category "${category}"`,
       category,
       products: products.length,
       customers: customers.length,
@@ -356,6 +408,28 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
       purchaseOrders: purchaseOrdersCount,
       invoices: invoicesCount,
     };
+  }
+
+  /**
+   * Runs every module's clear in one call. Order matters even though each
+   * clearModule() call is its own transaction: 'orders' removes order_items/
+   * KOT/payments/invoices tied to those orders first, so 'billing' and
+   * 'restaurant' are left with nothing but this business's standalone rows
+   * (e.g. an invoice never linked to a surviving order) to clean up.
+   */
+  private static readonly CLEAR_ALL_ORDER: DevModule[] = [
+    'orders', 'billing', 'restaurant', 'salesman', 'customers', 'products', 'inventory',
+  ];
+
+  async clearAll(businessId: string) {
+    const business = await this.dataSource.getRepository(Business).findOne({ where: { id: businessId } });
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+    for (const module of DevToolsService.CLEAR_ALL_ORDER) {
+      await this.clearModule(module, businessId);
+    }
+    return { message: 'All data cleared for this business' };
   }
 
   /**

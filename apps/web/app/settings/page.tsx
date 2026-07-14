@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { AlertTriangle } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -34,6 +36,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteAllError, setDeleteAllError] = useState('');
   const [form, setForm] = useState({
     name: '',
     category: 'others',
@@ -88,9 +94,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDeleteAllData = async () => {
+    if (!businessId) return;
+    setDeletingAll(true);
+    setDeleteAllError('');
+    try {
+      await apiClient.delete('/api/dev/clear-all', { params: { businessId } });
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      setDeleteAllError(err.response?.data?.message || 'Failed to delete data');
+      setDeletingAll(false);
+    }
+  };
+
   if (!ready) return null;
 
   return (
+    <>
     <AppShell>
       <div className="p-6 md:p-10 max-w-2xl mx-auto space-y-8">
         <PageHeader title="Settings" description="Manage your business profile and modules." />
@@ -184,7 +204,69 @@ export default function SettingsPage() {
             </Button>
           </form>
         )}
+
+        {!loading && (
+          <Card className="ring-rose-500/30 border border-rose-500/20 bg-rose-500/5">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2 text-rose-700">
+                <AlertTriangle className="w-4 h-4" /> Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-600 mb-4">
+                Permanently delete every customer, product, order, invoice, table, salesman, and supplier in
+                this business. This cannot be undone. The business itself and your login are not deleted.
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  setDeleteConfirmText('');
+                  setDeleteAllError('');
+                  setShowDeleteAllConfirm(true);
+                }}
+              >
+                Delete All Data
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </AppShell>
+
+    <Dialog open={showDeleteAllConfirm} onOpenChange={(open) => !deletingAll && setShowDeleteAllConfirm(open)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-rose-700">
+            <AlertTriangle className="w-4 h-4" /> Delete all data in {form.name || 'this business'}?
+          </DialogTitle>
+          <DialogDescription>
+            This permanently deletes every customer, product, order, invoice, table, salesman, and supplier
+            in this business. It cannot be undone. Type <strong>{form.name}</strong> below to confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          placeholder={form.name}
+          autoFocus
+        />
+        {deleteAllError && <p className="text-sm text-rose-600">{deleteAllError}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setShowDeleteAllConfirm(false)} disabled={deletingAll}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDeleteAllData}
+            disabled={deletingAll || deleteConfirmText !== form.name}
+          >
+            {deletingAll ? 'Deleting...' : 'Delete Everything'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

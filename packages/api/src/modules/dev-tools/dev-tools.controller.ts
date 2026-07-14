@@ -17,4 +17,9 @@ export class DevToolsController {
   clearModule(@Param('module') module: string, @Query('businessId') businessId: string) {
     return this.devToolsService.clearModule(module, businessId);
   }
+
+  @Delete('clear-all')
+  clearAll(@Query('businessId') businessId: string) {
+    return this.devToolsService.clearAll(businessId);
+  }
 }

@@ -10,6 +10,7 @@ import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { MailService } from './mail.service';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
@@ -185,7 +186,7 @@ export class AuthService {
       id: `guest-${table.id}`,
       email: `guest-${table.name.toLowerCase()}@orderflow.guest`,
       business_id: table.business_id,
-      role: 'salesman',
+      role: UserRole.GUEST,
     } as any;
 
     return this.issueTokens(guestUser);
@@ -202,7 +203,7 @@ export class AuthService {
       id: `guest-takeaway-${business.id}`,
       email: `guest-takeaway@orderflow.guest`,
       business_id: business.id,
-      role: 'salesman',
+      role: UserRole.GUEST,
     } as any;
 
     return this.issueTokens(guestUser);
