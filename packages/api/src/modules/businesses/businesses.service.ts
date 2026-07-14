@@ -1,10 +1,19 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Business } from '../../database/entities/business.entity';
 import { User } from '../../database/entities/user.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+
+/** Best-effort cleanup of a previously uploaded logo so replacing/removing it doesn't leak files under uploads/logos. */
+function deleteLogoFile(logoUrl: string | null | undefined) {
+  if (!logoUrl || !logoUrl.startsWith('/uploads/logos/')) return;
+  const filePath = path.join(process.cwd(), logoUrl);
+  fs.unlink(filePath, () => {});
+}
 
 @Injectable()
 export class BusinessesService {
@@ -101,6 +110,32 @@ export class BusinessesService {
       ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
     });
     return this.businessesRepository.save(business);
+  }
+
+  async updateLogo(id: string, logoUrl: string, requestingUserId: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('You do not have permission to edit this business');
+    }
+    const previousLogoUrl = business.logo_url;
+    business.logo_url = logoUrl;
+    const saved = await this.businessesRepository.save(business);
+    if (previousLogoUrl !== logoUrl) {
+      deleteLogoFile(previousLogoUrl);
+    }
+    return saved;
+  }
+
+  async removeLogo(id: string, requestingUserId: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('You do not have permission to edit this business');
+    }
+    const previousLogoUrl = business.logo_url;
+    business.logo_url = null as any;
+    const saved = await this.businessesRepository.save(business);
+    deleteLogoFile(previousLogoUrl);
+    return saved;
   }
 
   private async findOneOrFail(id: string) {

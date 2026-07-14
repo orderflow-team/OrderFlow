@@ -71,9 +71,19 @@ interface BusinessOption {
   id: string;
   name: string;
   category: string | null;
+  logo_url: string | null;
 }
 
 const NEW_BUSINESS_OPTION = '__new__';
+
+/** Business icon: the uploaded logo when set, otherwise the generic store glyph. */
+function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; size: string; active?: boolean }) {
+  if (logoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logoUrl} alt="" className={`${size} rounded-full object-cover shrink-0 bg-white ring-1 ring-slate-200/70`} />;
+  }
+  return <Store className={`${size} shrink-0 ${active ? 'text-sky-700' : 'text-slate-400'}`} />;
+}
 
 export function AppShell({ children, hideNavigation = false }: { children: React.ReactNode; hideNavigation?: boolean }) {
   const pathname = usePathname();
@@ -84,6 +94,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [notifOpen, setNotifOpen] = useState(false);
   const [businessName, setBusinessName] = useState<string>('');
   const [businessCategory, setBusinessCategory] = useState<string>('');
+  const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
   const [myBusinesses, setMyBusinesses] = useState<BusinessOption[]>([]);
   const [switching, setSwitching] = useState(false);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
@@ -118,10 +129,11 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setChatEnabled(cachedChatEnabled ?? true);
 
     apiClient
-      .get<{ name: string; category: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
+        setBusinessLogoUrl(res.data.logo_url || null);
         setCachedBusinessCategory(businessId, res.data.category);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
         const isChatEnabled = res.data.ai_chat_enabled !== false;
@@ -284,9 +296,13 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                   businessMenuOpen ? 'ring-sky-300/70' : 'ring-white/50'
                 }`}
               >
-                <div className="w-7 h-7 rounded-full bg-sky-500/20 text-sky-700 flex items-center justify-center shrink-0">
-                  <Store className="w-3.5 h-3.5" />
-                </div>
+                {businessLogoUrl ? (
+                  <BusinessAvatar logoUrl={businessLogoUrl} size="w-7 h-7" />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-sky-500/20 text-sky-700 flex items-center justify-center shrink-0">
+                    <Store className="w-3.5 h-3.5" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-bold text-slate-800 truncate leading-tight">{businessName}</p>
                   <p className="text-[11px] text-sky-700 font-bold tracking-wide uppercase truncate">
@@ -304,7 +320,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                   <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white shadow-xl ring-1 ring-slate-200/50 rounded-3xl p-1.5 max-h-72 overflow-y-auto">
                     {myBusinesses.length === 0 && businessId && (
                       <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-2xl bg-slate-50">
-                        <Store className="w-3.5 h-3.5 text-sky-700 shrink-0" />
+                        <BusinessAvatar logoUrl={businessLogoUrl} size="w-3.5 h-3.5" active />
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-sm font-bold text-slate-800 truncate">{businessName}</p>
                           <p className="text-[10px] text-slate-400 uppercase tracking-wide">{businessCategory || 'No category'}</p>
@@ -323,7 +339,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                             active ? 'bg-sky-500/15' : 'hover:bg-slate-50'
                           }`}
                         >
-                          <Store className={`w-3.5 h-3.5 shrink-0 ${active ? 'text-sky-700' : 'text-slate-400'}`} />
+                          <BusinessAvatar logoUrl={b.logo_url} size="w-3.5 h-3.5" active={active} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-slate-800 truncate">{b.name}</p>
                             <p className="text-[10px] text-slate-400 uppercase tracking-wide">{b.category || 'No category'}</p>
@@ -529,7 +545,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             <div className="space-y-2">
               {myBusinesses.length === 0 && businessId && (
                 <div className="flex items-center gap-3 p-3 rounded-2xl bg-sky-500/10 ring-1 ring-sky-500/20">
-                  <Store className="w-5 h-5 text-sky-700 shrink-0" />
+                  <BusinessAvatar logoUrl={businessLogoUrl} size="w-5 h-5" active />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{businessName}</p>
                     <p className="text-[10px] text-sky-700 uppercase font-medium">{businessCategory || 'No category'}</p>
@@ -551,7 +567,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       active ? 'bg-sky-500/15 ring-1 ring-sky-500/25' : 'bg-slate-50 hover:bg-slate-100'
                     }`}
                   >
-                    <Store className={`w-5 h-5 shrink-0 ${active ? 'text-sky-700' : 'text-slate-500'}`} />
+                    <BusinessAvatar logoUrl={b.logo_url} size="w-5 h-5" active={active} />
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold truncate ${active ? 'text-slate-800' : 'text-slate-700'}`}>{b.name}</p>
                       <p className={`text-[10px] uppercase font-medium ${active ? 'text-sky-700' : 'text-slate-500'}`}>{b.category || 'No category'}</p>

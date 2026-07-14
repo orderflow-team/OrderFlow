@@ -1,9 +1,28 @@
-import { Controller, Get, Post, Patch, Body, Param, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+
+const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 @UseGuards(JwtAuthGuard)
 @Controller('api/businesses')
@@ -51,5 +70,39 @@ export class BusinessesController {
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateBusinessDto) {
     return this.businessesService.update(id, dto, req.user.userId);
+  }
+
+  @Post(':id/logo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = './uploads/logos';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        cb(null, ALLOWED_LOGO_MIME_TYPES.has(file.mimetype));
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadLogo(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
+    }
+    return this.businessesService.updateLogo(id, `/uploads/logos/${file.filename}`, req.user.userId);
+  }
+
+  @Delete(':id/logo')
+  removeLogo(@Req() req: any, @Param('id') id: string) {
+    return this.businessesService.removeLogo(id, req.user.userId);
   }
 }

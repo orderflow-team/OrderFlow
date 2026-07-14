@@ -14,6 +14,32 @@ import { renderInvoiceHtml, renderThermalReceiptHtml } from './templates/invoice
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
 
+const LOGO_MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+
+/**
+ * Puppeteer's page.setContent() has no base URL (effectively about:blank), so a
+ * relative <img src="/uploads/..."> can't resolve the way it does in the browser.
+ * Inline the logo as a base64 data URI instead, read straight off disk.
+ */
+function loadLogoDataUri(business: Business | null): string | null {
+  if (!business?.logo_url) return null;
+  const mimeType = LOGO_MIME_TYPES[path.extname(business.logo_url).toLowerCase()];
+  if (!mimeType) return null;
+  const filePath = path.join(process.cwd(), business.logo_url);
+  try {
+    const buffer = fs.readFileSync(filePath);
+    return `data:${mimeType};base64,${buffer.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
 @Injectable()
 export class PdfService {
   constructor(
@@ -55,7 +81,7 @@ export class PdfService {
     }
 
     const { items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
-    const html = renderInvoiceHtml(invoice, items, business, customer, order);
+    const html = renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business));
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 

@@ -35,6 +35,7 @@ export function renderInvoiceHtml(
   business: Business | null,
   customer: Customer | null,
   order: any | null,
+  logoDataUri: string | null = null,
 ) {
   const timeZone = tz(business);
   const rows = items
@@ -60,9 +61,9 @@ export function renderInvoiceHtml(
 <meta charset="utf-8" />
 <style>
   body { font-family: Arial, sans-serif; color: #1e293b; padding: 32px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
   .muted { color: #64748b; font-size: 12px; }
-  .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 16px; }
+  .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 20px; }
   table { width: 100%; border-collapse: collapse; margin-top: 16px; }
   th, td { padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
   th { background: #f1f5f9; }
@@ -70,12 +71,18 @@ export function renderInvoiceHtml(
   .totals { margin-top: 16px; width: 280px; margin-left: auto; }
   .totals div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
   .totals .grand { font-weight: bold; font-size: 16px; border-top: 1px solid #0f172a; padding-top: 8px; }
+  .logo { height: 72px; max-width: 220px; object-fit: contain; }
+  .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+  .brand h1 { margin: 0; }
 </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>${business?.name ?? 'OrderFlow'}</h1>
+      <div class="brand">
+        ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${business?.name ?? 'Logo'}" />` : ''}
+        <h1>${business?.name ?? 'OrderFlow'}</h1>
+      </div>
       <div class="muted">${business?.address ?? ''}</div>
       <div class="muted">${business?.gst_number ? `GSTIN: ${business.gst_number}` : ''}</div>
     </div>

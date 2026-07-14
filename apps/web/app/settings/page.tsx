@@ -9,7 +9,7 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -26,6 +26,7 @@ interface BusinessProfile {
   phone: string | null;
   address: string | null;
   gst_number: string | null;
+  logo_url: string | null;
   inventory_enabled: boolean;
   ai_chat_enabled: boolean;
 }
@@ -46,9 +47,12 @@ export default function SettingsPage() {
     phone: '',
     address: '',
     gstNumber: '',
+    logoUrl: '',
     inventoryEnabled: true,
     aiChatEnabled: true,
   });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoError, setLogoError] = useState('');
 
   useEffect(() => {
     if (!ready || !businessId) return;
@@ -61,6 +65,7 @@ export default function SettingsPage() {
           phone: res.data.phone || '',
           address: res.data.address || '',
           gstNumber: res.data.gst_number || '',
+          logoUrl: res.data.logo_url || '',
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
         });
@@ -94,6 +99,43 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !businessId) return;
+
+    setLogoUploading(true);
+    setLogoError('');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await apiClient.post<BusinessProfile>(`/api/businesses/${businessId}/logo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm((prev) => ({ ...prev, logoUrl: res.data.logo_url || '' }));
+      // AppShell's business fetch is cached client-side — reload so the sidebar logo updates immediately.
+      window.location.reload();
+    } catch (err: any) {
+      setLogoError(err.response?.data?.message || 'Failed to upload logo');
+      setLogoUploading(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!businessId) return;
+    setLogoUploading(true);
+    setLogoError('');
+    try {
+      await apiClient.delete(`/api/businesses/${businessId}/logo`);
+      setForm((prev) => ({ ...prev, logoUrl: '' }));
+      window.location.reload();
+    } catch (err: any) {
+      setLogoError(err.response?.data?.message || 'Failed to remove logo');
+      setLogoUploading(false);
+    }
+  };
+
   const handleDeleteAllData = async () => {
     if (!businessId) return;
     setDeletingAll(true);
@@ -124,6 +166,42 @@ export default function SettingsPage() {
                 <CardTitle className="text-base">Business profile</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Logo</label>
+                  <p className="text-xs text-slate-500 mb-2">Shown on invoices and PDFs. PNG, JPG, WEBP or GIF up to 5MB.</p>
+                  <div className="flex items-center gap-4">
+                    {form.logoUrl ? (
+                      <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/35 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={form.logoUrl} alt="Business logo" className="w-full h-full object-contain" />
+                        <button
+                          type="button"
+                          onClick={handleLogoRemove}
+                          disabled={logoUploading}
+                          className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full p-1 shadow-md transition-colors disabled:opacity-50"
+                          title="Remove logo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-white/60 bg-white/25 backdrop-blur-md flex flex-col items-center justify-center cursor-pointer hover:bg-white/35 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          onChange={handleLogoUpload}
+                          disabled={logoUploading}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <ImageUp className="w-5 h-5 text-slate-400 mb-1" />
+                        <span className="text-[10px] font-medium text-slate-500">
+                          {logoUploading ? 'Uploading...' : 'Upload'}
+                        </span>
+                      </label>
+                    )}
+                    {logoError && <p className="text-xs text-rose-600 font-medium">{logoError}</p>}
+                  </div>
+                </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Business name</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
