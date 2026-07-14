@@ -451,6 +451,44 @@ export class OrdersService {
     return { ...order, items };
   }
 
+  async findActiveOrderByTable(tableId: string, businessId: string) {
+    const order = await this.ordersRepository.findOne({
+      where: {
+        business_id: businessId,
+        table_id: tableId,
+        status: In(['draft', 'confirmed', 'packed', 'dispatched', 'delivered']),
+      },
+      relations: { created_by: true },
+      order: { created_at: 'DESC' },
+    });
+    if (!order) return null;
+    this.sanitizeCreatedBy(order);
+    const items = await this.orderItemsRepository.find({
+      where: { order_id: order.id },
+      relations: { product: true }
+    });
+    return { ...order, items };
+  }
+
+  async findActiveOrderByToken(tokenNumber: number, businessId: string) {
+    const order = await this.ordersRepository.findOne({
+      where: {
+        business_id: businessId,
+        token_number: tokenNumber,
+        status: In(['draft', 'confirmed', 'packed', 'dispatched', 'delivered']),
+      },
+      relations: { created_by: true },
+      order: { created_at: 'DESC' },
+    });
+    if (!order) return null;
+    this.sanitizeCreatedBy(order);
+    const items = await this.orderItemsRepository.find({
+      where: { order_id: order.id },
+      relations: { product: true }
+    });
+    return { ...order, items };
+  }
+
   private async isOrderBilled(manager: import('typeorm').EntityManager, order: Order): Promise<boolean> {
     const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
     if (billedStatuses.includes(order.status)) {
