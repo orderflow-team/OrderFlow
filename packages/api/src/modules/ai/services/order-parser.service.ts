@@ -59,6 +59,67 @@ export class OrderParserService {
           return `${Number(i.quantity)}x "${name}"`;
         }).join(', ');
       }
+    } else {
+      // Deterministic regex parsing to detect if this is a direct edit command!
+      let editTarget: { type: 'table' | 'token'; value: string | number } | null = null;
+      let cleanMessage = message;
+
+      const tokenRegex = /\b(?:token|tk|tok)\s*(\d+)\b/i;
+      const tokenMatch = message.match(tokenRegex);
+      if (tokenMatch) {
+        editTarget = { type: 'token', value: Number(tokenMatch[1]) };
+        cleanMessage = message.replace(tokenRegex, '').trim();
+      } else {
+        const tableRegex = /\b(?:table|t)\s*([a-zA-Z\d]+)\b/i;
+        const tableMatch = message.match(tableRegex);
+        if (tableMatch) {
+          editTarget = { type: 'table', value: tableMatch[1] };
+          cleanMessage = message.replace(tableRegex, '').trim();
+        }
+      }
+
+      const hasModifyKeyword = /\b(add|remove|delete|plus|minus|change|cancel|extra)\b/i.test(cleanMessage);
+
+      if (editTarget && hasModifyKeyword) {
+        let resolvedOrderId: string | null = null;
+        
+        if (editTarget.type === 'table') {
+          const tableName = String(editTarget.value).trim();
+          const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase());
+          if (table) {
+            const activeOrder = await this.ordersService.findActiveOrderByTable(table.id, businessId);
+            if (activeOrder) {
+              resolvedOrderId = activeOrder.id;
+            } else {
+              return {
+                reply: `There is no active order for Table ${table.name} right now.`,
+                order: null,
+              };
+            }
+          } else {
+            return {
+              reply: `I couldn't find table "${tableName}" to edit. Available tables: ${tableNames.join(', ') || 'none'}.`,
+              order: null,
+            };
+          }
+        } else if (editTarget.type === 'token') {
+          const tokenNumber = Number(editTarget.value);
+          const activeOrder = await this.ordersService.findActiveOrderByToken(tokenNumber, businessId);
+          if (activeOrder) {
+            resolvedOrderId = activeOrder.id;
+          } else {
+            return {
+              reply: `There is no active order for Takeaway Token #${tokenNumber} right now.`,
+              order: null,
+            };
+          }
+        }
+
+        if (resolvedOrderId) {
+          // Recursively call parseChatOrder with the resolved order ID and the clean command!
+          return this.parseChatOrder(businessId, cleanMessage, resolvedOrderId);
+        }
+      }
     }
 
     if (!this.genAI) {
@@ -93,33 +154,19 @@ export class OrderParserService {
     } else {
       prompt = `
         You are an ordering assistant for a shop. The customer will describe what they want in plain
-        English or Hinglish.
-        
-        They might want to place a NEW order (e.g. "2 cokes", "for table 3 get a pizza"), or they might
-        want to EDIT an existing active order by referencing a table name or a takeaway token number
-        (e.g. "add t4 4 chai", "token 3 add 3 lassi", "remove table 2 1 coffee", "table 3 add sprite").
+        English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
+        ignore minor spelling differences): ${catalog}
 
-        First, determine if the message is instructing to edit an existing order by mentioning a table
-        or token number. 
-        - If they mention a table name (from the list below) or a token number AND they use modification words
-          like "add", "remove", "change", "delete", "extra", then set "isEditMode" to true.
-        - Otherwise, set "isEditMode" to false.
+        ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
+        The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
+        "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
+        to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
+        at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
 
-        Available tables in this restaurant: ${tableNames.join(', ') || 'None'}
-        Available catalog items: ${catalog}
+        Customer message: "${message}"
 
         Return ONLY JSON in this exact shape, no other text:
         {
-          "isEditMode": boolean,
-          
-          // Only populated if isEditMode is true:
-          "editTarget": {
-            "type": "table" | "token",
-            "value": "exact table name (string) from list above OR token number (number)"
-          } | null,
-          "editInstruction": "clean message for the edit action, e.g. 'add 4 chai' or 'remove 1 coffee'",
-
-          // Only populated if isEditMode is false:
           "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
           "unmatched": ["raw text for anything you couldn't confidently match"],
           "orderType": "dine_in" | "take_away",
@@ -129,13 +176,6 @@ export class OrderParserService {
     }
 
     let parsed: {
-      isEditMode?: boolean;
-      editTarget?: {
-        type: 'table' | 'token';
-        value: string | number;
-      } | null;
-      editInstruction?: string;
-
       matched: { menuName: string; quantity: number }[];
       unmatched: string[];
       orderType?: string;
@@ -148,48 +188,6 @@ export class OrderParserService {
       parsed = JSON.parse(jsonMatch[0]);
     } catch (error) {
       throw new BadRequestException(`Could not understand the order: ${error.message}`);
-    }
-
-    if (!existingOrder && parsed.isEditMode && parsed.editTarget) {
-      let resolvedOrderId: string | null = null;
-      if (parsed.editTarget.type === 'table') {
-        const tableName = String(parsed.editTarget.value).trim();
-        const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase());
-        if (!table) {
-          return {
-            reply: `I couldn't find table "${tableName}" to edit. Available tables: ${tableNames.join(', ') || 'none'}.`,
-            order: null,
-          };
-        }
-        const activeOrder = await this.ordersService.findActiveOrderByTable(table.id, businessId);
-        if (!activeOrder) {
-          return {
-            reply: `There is no active order for Table ${table.name} right now.`,
-            order: null,
-          };
-        }
-        resolvedOrderId = activeOrder.id;
-      } else if (parsed.editTarget.type === 'token') {
-        const tokenNumber = Number(parsed.editTarget.value);
-        if (isNaN(tokenNumber)) {
-          return {
-            reply: `Invalid token number "${parsed.editTarget.value}".`,
-            order: null,
-          };
-        }
-        const activeOrder = await this.ordersService.findActiveOrderByToken(tokenNumber, businessId);
-        if (!activeOrder) {
-          return {
-            reply: `There is no active order for Takeaway Token #${tokenNumber} right now.`,
-            order: null,
-          };
-        }
-        resolvedOrderId = activeOrder.id;
-      }
-
-      if (resolvedOrderId) {
-        return this.parseChatOrder(businessId, parsed.editInstruction || message, resolvedOrderId);
-      }
     }
 
     const matchedItems = (parsed.matched || [])
