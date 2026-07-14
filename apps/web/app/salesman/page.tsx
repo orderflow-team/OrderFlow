@@ -10,7 +10,9 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
-import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt } from 'lucide-react';
+import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt, Download, Share2 } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
 interface Salesman {
   id: string;
@@ -226,6 +228,122 @@ export default function SalesmanPage() {
       win.document.close();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to open receipt');
+    }
+  };
+
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [sharingInvoiceId, setSharingInvoiceId] = useState<string | null>(null);
+
+  const getOrCreateInvoiceForCustomer = async (customerId: string): Promise<{ invoiceId: string; invoiceNumber: string; customerPhone?: string | null } | null> => {
+    if (!businessId) return null;
+    
+    // 1. Fetch all orders
+    const res = await apiClient.get<{ id: string; status: string; customer_id: string; phone?: string | null }[]>('/api/orders', {
+      params: { businessId },
+    });
+    const orders = res.data;
+    const order = orders.find((o: any) => o.customer_id === customerId && o.status !== 'cancelled');
+    if (!order) {
+      setError('No order found for this customer. Create an order first.');
+      return null;
+    }
+
+    // 2. Fetch or generate the invoice for this order
+    const invoicesRes = await apiClient.get<{ id: string; invoice_number: string }[]>('/api/billing/invoices', {
+      params: { businessId, orderId: order.id },
+    });
+    
+    let invoice = invoicesRes.data?.[0];
+    if (!invoice) {
+      // Generate one if it doesn't exist
+      const generateRes = await apiClient.post<{ id: string; invoice_number: string }>(
+        `/api/billing/invoices/from-order/${order.id}`,
+        {},
+        { params: { businessId } }
+      );
+      invoice = generateRes.data;
+    }
+    
+    return {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      customerPhone: order.phone,
+    };
+  };
+
+  const handleDownloadVisitInvoice = async (customerId: string) => {
+    setDownloadingInvoiceId(customerId);
+    setError('');
+    try {
+      const res = await getOrCreateInvoiceForCustomer(customerId);
+      if (!res) return;
+
+      const pdfRes = await apiClient.get(`/api/billing/invoices/${res.invoiceId}/pdf`, {
+        params: { businessId },
+        responseType: 'blob',
+      });
+      const blob = pdfRes.data as Blob;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${res.invoiceNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to download invoice');
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
+  const handleShareVisitInvoice = async (customerId: string) => {
+    setSharingInvoiceId(customerId);
+    setError('');
+    try {
+      const res = await getOrCreateInvoiceForCustomer(customerId);
+      if (!res) return;
+
+      // Fetch the share link
+      const { data } = await apiClient.get<{ url: string }>(`/api/billing/invoices/${res.invoiceId}/share-link`, {
+        params: { businessId },
+      });
+      const pdfUrl = `${API_BASE_URL}${data.url}`;
+      
+      const text = `Here is your invoice ${res.invoiceNumber}: ${pdfUrl}`;
+      const target = res.customerPhone ? res.customerPhone.replace(/\D/g, '') : '';
+      const whatsappPhone = target.length === 10 ? `91${target}` : target;
+      
+      // Attempt Native Web Share first on supported mobile devices
+      if (navigator.canShare) {
+        try {
+          // Fetch the PDF blob to share the actual file if browser supports it
+          const pdfRes = await apiClient.get(`/api/billing/invoices/${res.invoiceId}/pdf`, {
+            params: { businessId },
+            responseType: 'blob',
+          });
+          const blob = pdfRes.data as Blob;
+          const file = new File([blob], `${res.invoiceNumber}.pdf`, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Invoice ${res.invoiceNumber}`,
+              text: `Here is the invoice ${res.invoiceNumber}`,
+            });
+            return;
+          }
+        } catch (shareErr) {
+          console.warn('Native share failed, falling back to WhatsApp link:', shareErr);
+        }
+      }
+
+      // Fallback/direct WhatsApp Link
+      window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(text)}`, '_blank');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to share invoice');
+    } finally {
+      setSharingInvoiceId(null);
     }
   };
 
@@ -474,13 +592,31 @@ export default function SalesmanPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           {v.customer_id && (
-                            <button
-                              onClick={() => handlePrintVisitReceipt(v.customer_id as string)}
-                              className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors"
-                              title="Print Receipt"
-                            >
-                              <Receipt className="w-3.5 h-3.5" /> Receipt
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handlePrintVisitReceipt(v.customer_id as string)}
+                                className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 px-2 py-1 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                                title="Print Receipt"
+                              >
+                                <Receipt className="w-3.5 h-3.5" /> Receipt
+                              </button>
+                              <button
+                                onClick={() => handleDownloadVisitInvoice(v.customer_id as string)}
+                                disabled={downloadingInvoiceId === v.customer_id}
+                                className="flex items-center gap-1 text-xs text-sky-600 font-semibold hover:text-sky-700 px-2 py-1 rounded-lg hover:bg-sky-500/10 transition-colors disabled:opacity-50"
+                                title="Download PDF"
+                              >
+                                <Download className="w-3.5 h-3.5" /> {downloadingInvoiceId === v.customer_id ? '...' : 'PDF'}
+                              </button>
+                              <button
+                                onClick={() => handleShareVisitInvoice(v.customer_id as string)}
+                                disabled={sharingInvoiceId === v.customer_id}
+                                className="flex items-center gap-1 text-xs text-teal-600 font-semibold hover:text-teal-700 px-2 py-1 rounded-lg hover:bg-teal-500/10 transition-colors disabled:opacity-50"
+                                title="Share Invoice"
+                              >
+                                <Share2 className="w-3.5 h-3.5" /> {sharingInvoiceId === v.customer_id ? '...' : 'Share'}
+                              </button>
+                            </>
                           )}
                           {v.check_out_time ? (
                             <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-500 backdrop-blur-sm ring-1 ring-slate-500/20">Checked out</span>
