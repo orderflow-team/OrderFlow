@@ -120,7 +120,9 @@ export class PaymentsService {
           const projectedOutstanding =
             Number(customer.outstanding_amount) +
             (willBillOrder ? Number(order!.total_amount) : 0);
-          if (paymentAmount > projectedOutstanding + 0.01) {
+          // Only check overall customer ledger balance for non-order account payments.
+          // Order-specific payments are already capped to the order's remaining balance.
+          if (!order && paymentAmount > projectedOutstanding + 0.01) {
             throw new BadRequestException(
               "Payment amount exceeds the outstanding balance",
             );
