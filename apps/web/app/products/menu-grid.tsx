@@ -207,23 +207,6 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     }
   };
 
-  const handleToggleAvailability = async (product: Product) => {
-    try {
-      const nextAvailable = !product.is_available;
-      
-      // Optimistically update local state so the switch responds instantly
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_available: nextAvailable } : p));
-      
-      const payload = {
-        isAvailable: nextAvailable,
-      };
-      await apiClient.patch(`/api/products/${product.id}`, payload, { params: { businessId } });
-    } catch (err) {
-      console.error('Failed to toggle availability:', err);
-      loadData();
-    }
-  };
-
   const openEdit = (p: Product) => {
     setEditingItem(p);
     setForm({
@@ -447,27 +430,11 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                     <Tag className="w-2.5 h-2.5 shrink-0" /> <span className="truncate">{p.category}</span>
                   </span>
                 ) : <span />}
-                <div 
-                  onClick={(e) => e.stopPropagation()} 
-                  className="flex items-center gap-1.5 bg-black/45 backdrop-blur-md ring-1 ring-white/35 px-2 py-1 rounded-full shadow-sm z-10 shrink-0 cursor-pointer"
-                >
-                  <span className="text-[9px] md:text-[10px] font-bold tracking-wide whitespace-nowrap text-white">
-                    {p.is_available ? 'Available' : 'Sold Out'}
-                  </span>
-                  <button
-                    onClick={() => handleToggleAvailability(p)}
-                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      p.is_available ? 'bg-emerald-500' : 'bg-slate-500'
-                    }`}
-                    title={p.is_available ? 'Click to make Sold Out' : 'Click to make Available'}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                        p.is_available ? 'translate-x-3' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
+                <span className={`px-2 md:px-2.5 py-1 rounded-full text-[9px] md:text-[10px] font-bold tracking-wide whitespace-nowrap shrink-0 backdrop-blur-md ring-1 ring-white/30 shadow-sm ${
+                  p.is_available ? 'bg-emerald-500/80 text-white' : 'bg-slate-700/80 text-white'
+                }`}>
+                  {p.is_available ? 'Available' : 'Sold Out'}
+                </span>
               </div>
 
               {/* Frosted glass info panel */}
