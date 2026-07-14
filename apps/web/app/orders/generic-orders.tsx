@@ -112,8 +112,8 @@ export function GenericOrders() {
   const [editLines, setEditLines] = useState<EditLine[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
-  const load = async (bizId: string) => {
-    setLoading(true);
+  const load = async (bizId: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [ordersRes, customersRes] = await Promise.all([
         apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
@@ -121,15 +121,35 @@ export function GenericOrders() {
       ]);
       setOrders(ordersRes.data);
       setCustomers(customersRes.data);
+
+      setDrawerOrder((currentDrawer) => {
+        if (!currentDrawer) return null;
+        const updated = ordersRes.data.find((o) => o.id === currentDrawer.id);
+        if (updated) {
+          setDrawerStatus(updated.status);
+          return updated;
+        }
+        return currentDrawer;
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load orders');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (ready && businessId) load(businessId);
+  }, [ready, businessId]);
+
+  useEffect(() => {
+    const handleOrderUpdated = () => {
+      if (ready && businessId) {
+        load(businessId, true); // Silent reload on background order updates
+      }
+    };
+    window.addEventListener('order-updated', handleOrderUpdated);
+    return () => window.removeEventListener('order-updated', handleOrderUpdated);
   }, [ready, businessId]);
 
   const openDrawer = async (o: Order) => {
@@ -139,6 +159,9 @@ export function GenericOrders() {
     setInvoiceId(null);
     setEditMode(false);
     setPaymentMethod('Cash');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: o.id, orderNumber: o.order_number } }));
+    }
     // Check for existing invoice
     if (businessId) {
       try {
@@ -156,6 +179,9 @@ export function GenericOrders() {
     setDrawerOrder(null);
     setDeleteConfirm(false);
     setPaymentMethod('Cash');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: null } }));
+    }
   };
 
   const handleStatusSave = async () => {

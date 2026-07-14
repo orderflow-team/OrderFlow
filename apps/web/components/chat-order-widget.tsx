@@ -23,6 +23,11 @@ function greetingFor(category: string | null) {
   return `Tell me what to order, e.g. "${example}".`;
 }
 
+interface EditingOrderInfo {
+  id: string;
+  orderNumber: string;
+}
+
 export function ChatOrderWidget({ businessId, businessCategory }: { businessId: string | null; businessCategory?: string | null }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -30,6 +35,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   ]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<EditingOrderInfo | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,6 +43,18 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
     const openAssistant = () => setOpen(true);
     window.addEventListener('open-order-assistant', openAssistant);
     return () => window.removeEventListener('open-order-assistant', openAssistant);
+  }, []);
+
+  useEffect(() => {
+    const handleSetActiveOrder = (e: CustomEvent<{ id: string | null; orderNumber?: string | null }>) => {
+      if (e.detail.id && e.detail.orderNumber) {
+        setEditingOrder({ id: e.detail.id, orderNumber: e.detail.orderNumber });
+      } else {
+        setEditingOrder(null);
+      }
+    };
+    window.addEventListener('set-active-order-id' as any, handleSetActiveOrder);
+    return () => window.removeEventListener('set-active-order-id' as any, handleSetActiveOrder);
   }, []);
 
   useEffect(() => {
@@ -83,7 +101,11 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
     setInput('');
     setSending(true);
     try {
-      const res = await apiClient.post('/api/ai/chat-order', { businessId, message: text });
+      const res = await apiClient.post('/api/ai/chat-order', {
+        businessId,
+        message: text,
+        orderId: editingOrder?.id || undefined,
+      });
       setMessages((prev) => [...prev, { role: 'assistant', text: res.data.reply }]);
     } catch (err: any) {
       setMessages((prev) => [
@@ -144,6 +166,22 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Active Order Editing Banner */}
+        {editingOrder && (
+          <div className="shrink-0 bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between text-xs text-amber-800 font-medium">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+              <span className="truncate">Editing Order: <strong className="font-bold">#{editingOrder.orderNumber}</strong></span>
+            </div>
+            <button
+              onClick={() => setEditingOrder(null)}
+              className="text-[10px] text-amber-600 hover:text-amber-700 bg-amber-500/20 hover:bg-amber-500/30 px-2 py-0.5 rounded-full transition-colors font-bold shrink-0 ml-2"
+            >
+              Start New
+            </button>
+          </div>
+        )}
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">

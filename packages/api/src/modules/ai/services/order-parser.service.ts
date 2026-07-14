@@ -31,7 +31,7 @@ export class OrderParserService {
    * (with a token number) when no table is mentioned or matched.
    * Unmatched items are surfaced back to the user instead of guessing a price.
    */
-  async parseChatOrder(businessId: string, message: string) {
+  async parseChatOrder(businessId: string, message: string, orderId?: string) {
     if (!message || message.trim().length === 0) {
       throw new BadRequestException('Message cannot be empty');
     }
@@ -49,31 +49,70 @@ export class OrderParserService {
     const catalog = available.map((p) => `${p.name} (₹${Number(p.selling_price)})`).join(', ');
     const tableNames = tables.map((t) => t.name);
 
+    let existingOrder: any = null;
+    let currentItemsDesc = '';
+    if (orderId) {
+      existingOrder = await this.ordersService.findOne(orderId, businessId);
+      if (existingOrder && existingOrder.items) {
+        currentItemsDesc = existingOrder.items.map((i: any) => {
+          const name = i.product?.name || i.custom_product_name || 'Unknown Item';
+          return `${Number(i.quantity)}x "${name}"`;
+        }).join(', ');
+      }
+    }
+
     if (!this.genAI) {
       throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
     }
     const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const prompt = `
-      You are an ordering assistant for a shop. The customer will describe what they want in plain
-      English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
-      ignore minor spelling differences): ${catalog}
 
-      ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
-      The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
-      "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
-      to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
-      at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
+    let prompt = '';
+    if (existingOrder) {
+      prompt = `
+        You are an ordering assistant editing an existing order for a shop.
+        Here is the product catalog (case-insensitive): ${catalog}
 
-      Customer message: "${message}"
+        The current items in this order are: ${currentItemsDesc || 'None'}
 
-      Return ONLY JSON in this exact shape, no other text:
-      {
-        "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
-        "unmatched": ["raw text for anything you couldn't confidently match"],
-        "orderType": "dine_in" | "take_away",
-        "tableName": "exact table name from the list above, or null"
-      }
-    `;
+        The customer is giving instructions to edit the order. They may want to:
+        - Add new items (append to the order or increment quantity).
+        - Remove items (delete them from the order completely).
+        - Change quantity of items (update the count).
+        - Replace items.
+
+        Please interpret the customer's instruction: "${message}"
+
+        Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
+
+        Return ONLY JSON in this exact shape, no other text:
+        {
+          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
+          "unmatched": ["raw text for anything you couldn't confidently match"]
+        }
+      `;
+    } else {
+      prompt = `
+        You are an ordering assistant for a shop. The customer will describe what they want in plain
+        English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
+        ignore minor spelling differences): ${catalog}
+
+        ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
+        The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
+        "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
+        to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
+        at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
+
+        Customer message: "${message}"
+
+        Return ONLY JSON in this exact shape, no other text:
+        {
+          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
+          "unmatched": ["raw text for anything you couldn't confidently match"],
+          "orderType": "dine_in" | "take_away",
+          "tableName": "exact table name from the list above, or null"
+        }
+      `;
+    }
 
     let parsed: {
       matched: { menuName: string; quantity: number }[];
@@ -96,6 +135,26 @@ export class OrderParserService {
         return product ? { productId: product.id, quantity: Number(m.quantity) || 1 } : null;
       })
       .filter((i): i is { productId: string; quantity: number } => i !== null);
+
+    if (existingOrder) {
+      const updatedOrder = await this.ordersService.replaceItems(orderId!, businessId, { items: matchedItems });
+
+      const summary = matchedItems
+        .map((i) => {
+          const product = available.find((p) => p.id === i.productId)!;
+          return `${i.quantity}x ${product.name}`;
+        })
+        .join(', ');
+
+      const unmatchedNote = parsed.unmatched?.length
+        ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
+        : '';
+
+      return {
+        reply: `Order #${updatedOrder.order_number} updated! New items: ${summary || 'None'}.${unmatchedNote}`,
+        order: updatedOrder,
+      };
+    }
 
     if (matchedItems.length === 0) {
       return {
@@ -132,7 +191,7 @@ export class OrderParserService {
       .join(', ');
 
     const unmatchedNote = parsed.unmatched?.length
-      ? ` (couldn't find: ${parsed.unmatched.join(', ')})`
+      ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
       : '';
 
     const placementNote = table ? `for Table ${table.name}` : `— Token #${order.token_number}`;
