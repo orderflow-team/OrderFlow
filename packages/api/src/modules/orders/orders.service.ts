@@ -862,6 +862,30 @@ export class OrdersService {
         resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
       }
 
+      let kotId: string | null = null;
+      const existingKot = await manager.findOne(KOT, {
+        where: { order_id: order.id },
+        order: { created_at: 'DESC' },
+      });
+
+      if (existingKot) {
+        kotId = existingKot.id;
+      } else {
+        const hasRealItems = dto.items.some(
+          (i) => i.customProductName?.trim().toLowerCase() !== TABLE_SESSION_PLACEHOLDER_ITEM
+        );
+        if (hasRealItems) {
+          const kot = manager.create(KOT, {
+            business_id: businessId,
+            order_id: order.id,
+            table_id: order.table_id || null,
+            status: 'pending',
+          });
+          const savedKot = await manager.save(KOT, kot);
+          kotId = savedKot.id;
+        }
+      }
+
       const orderItems = resolvedItems.map(({ item, unitPrice, subtotal, taxPercentage, taxAmount }) =>
         manager.create(OrderItem, {
           order_id: order.id,
@@ -873,6 +897,7 @@ export class OrdersService {
           subtotal,
           tax_percentage: taxPercentage,
           tax_amount: taxAmount,
+          kot_id: kotId,
         }),
       );
       await manager.save(OrderItem, orderItems);
