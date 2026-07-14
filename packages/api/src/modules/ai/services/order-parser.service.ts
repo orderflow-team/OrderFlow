@@ -137,6 +137,24 @@ export class OrderParserService {
       .filter((i): i is { productId: string; quantity: number } => i !== null);
 
     if (existingOrder) {
+      const originalCount = existingOrder.items?.length || 0;
+      const lowerMsg = message.toLowerCase();
+      const hasClearIntent = lowerMsg.includes('remove all') || 
+                             lowerMsg.includes('clear') || 
+                             lowerMsg.includes('delete all') || 
+                             lowerMsg.includes('empty') ||
+                             lowerMsg.includes('cancel');
+
+      if (matchedItems.length === 0 && originalCount > 0 && !hasClearIntent) {
+        const unmatchedNote = parsed.unmatched?.length
+          ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
+          : '';
+        return {
+          reply: `I couldn't understand what you wanted to change${unmatchedNote}. The items in Order #${existingOrder.order_number} remain unchanged. Try saying "add 2 cokes" or "remove milk".`,
+          order: existingOrder,
+        };
+      }
+
       const updatedOrder = await this.ordersService.replaceItems(orderId!, businessId, { items: matchedItems });
 
       const summary = matchedItems
