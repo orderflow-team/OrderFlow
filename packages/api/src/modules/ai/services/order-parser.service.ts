@@ -84,8 +84,15 @@ export class OrderParserService {
         let resolvedOrderId: string | null = null;
         
         if (editTarget.type === 'table') {
-          const tableName = String(editTarget.value).trim();
-          const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase());
+          const tableName = String(editTarget.value).trim().toLowerCase();
+          const table = tables.find((t) => {
+            const name = t.name.toLowerCase();
+            return name === tableName || 
+                   name === `t${tableName}` || 
+                   name === `table ${tableName}` ||
+                   `t${name}` === tableName ||
+                   `table ${name}` === tableName;
+          });
           if (table) {
             const activeOrder = await this.ordersService.findActiveOrderByTable(table.id, businessId);
             if (activeOrder) {
@@ -98,7 +105,7 @@ export class OrderParserService {
             }
           } else {
             return {
-              reply: `I couldn't find table "${tableName}" to edit. Available tables: ${tableNames.join(', ') || 'none'}.`,
+              reply: `I couldn't find table "${editTarget.value}" to edit. Available tables: ${tableNames.join(', ') || 'none'}.`,
               order: null,
             };
           }
