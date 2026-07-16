@@ -20,6 +20,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
     NotificationsModule,
     DevToolsModule,
     CategoriesModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [],

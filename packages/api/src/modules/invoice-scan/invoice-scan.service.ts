@@ -52,6 +52,7 @@ export class InvoiceScanService {
 
       const items = lines.map((line, index) => {
         const matched = this.findExistingProduct(existingProducts, line.productName);
+        const isOutOfStock = matched ? (matched.stock_quantity <= 0) : true;
         return this.itemsRepository.create({
           scan_id: scan.id,
           raw_product_name: line.productName,
@@ -59,7 +60,8 @@ export class InvoiceScanService {
           is_duplicate: !!matched,
           // Duplicates default excluded so the pharmacy doesn't double-enter a
           // product already in inventory; the user can still opt back in.
-          included: !matched,
+          // BUT if the matched product is out of stock, we default to including it so they can restock.
+          included: !matched || isOutOfStock,
           quantity: line.quantity,
           scheme_quantity: line.schemeQuantity ?? undefined,
           unit_price: line.unitPrice ?? undefined,
@@ -156,6 +158,45 @@ export class InvoiceScanService {
           }),
         );
         productId = product.id;
+      } else {
+        // Find existing product and update details if they have changed
+        const product = await this.productsRepository.findOne({
+          where: { id: productId, business_id: dto.businessId },
+        });
+        if (product) {
+          let hasChanges = false;
+          const updates: Partial<Product> = {};
+
+          if (item.productName && product.name !== item.productName) {
+            updates.name = item.productName;
+            hasChanges = true;
+          }
+
+          if (item.unitPrice !== undefined && item.unitPrice !== null && Number(product.purchase_price) !== Number(item.unitPrice)) {
+            updates.purchase_price = item.unitPrice;
+            updates.selling_price = item.unitPrice; // Sync selling price with new unit price
+            hasChanges = true;
+          }
+
+          if (item.batchNumber !== undefined && product.batch_number !== item.batchNumber) {
+            updates.batch_number = item.batchNumber;
+            hasChanges = true;
+          }
+
+          if (item.expiryMonthYear) {
+            const newExpiryDate = this.monthYearToDate(item.expiryMonthYear);
+            const newExpiryStr = this.formatDateLocal(newExpiryDate);
+            const currentExpiryStr = product.expiry_date ? this.formatDateLocal(new Date(product.expiry_date)) : '';
+            if (currentExpiryStr !== newExpiryStr) {
+              updates.expiry_date = newExpiryDate;
+              hasChanges = true;
+            }
+          }
+
+          if (hasChanges) {
+            await this.productsRepository.update({ id: product.id }, updates);
+          }
+        }
       }
 
       purchaseItems.push({

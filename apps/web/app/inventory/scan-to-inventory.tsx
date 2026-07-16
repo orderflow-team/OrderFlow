@@ -16,7 +16,7 @@ interface ScanItem {
   id: string;
   raw_product_name: string;
   matched_product_id: string | null;
-  matched_product?: { id: string; name: string } | null;
+  matched_product?: { id: string; name: string; stock_quantity: number } | null;
   is_duplicate: boolean;
   included: boolean;
   quantity: string | number;
@@ -261,6 +261,7 @@ export function ScanToInventoryDialog({
                             {item.is_duplicate && (
                               <span className="mt-1 inline-block text-[10px] text-amber-600 font-medium">
                                 Already in inventory{item.matched_product ? ` (${item.matched_product.name})` : ''}
+                                {item.matched_product && item.matched_product.stock_quantity <= 0 ? ' - Out of stock' : ''}
                               </span>
                             )}
                           </td>
