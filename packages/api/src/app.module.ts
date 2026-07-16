@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { databaseConfig } from './database/database.config';
@@ -51,4 +52,19 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
   controllers: [AppController],
   providers: [],
 })
-export class AppModule {}
+export class AppModule implements OnApplicationBootstrap {
+  constructor(private dataSource: DataSource) {}
+
+  async onApplicationBootstrap() {
+    try {
+      console.log('⏳ Running startup database corrections...');
+      // Fix products that have stock but are marked as unavailable
+      const result = await this.dataSource.query(
+        `UPDATE products SET is_available = true WHERE stock_quantity > 0 AND is_available = false`
+      );
+      console.log(`✅ Startup database correction complete.`, result);
+    } catch (err) {
+      console.error('❌ Failed to run startup database corrections:', err);
+    }
+  }
+}
