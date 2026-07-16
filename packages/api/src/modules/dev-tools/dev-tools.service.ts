@@ -28,6 +28,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { PriceHistory } from '../../database/entities/price-history.entity';
+import { ProductVariant, InvoiceScan, InvoiceScanItem } from '../../database/entities';
 
 export const DEV_MODULES = ['customers', 'products', 'orders', 'inventory', 'billing', 'restaurant', 'salesman'] as const;
 export type DevModule = (typeof DEV_MODULES)[number];
@@ -467,8 +468,10 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
           await manager.update(OrderItem, { product_id: this.inSubquery('products', businessId) }, { product_id: null });
           await manager.update(InvoiceItem, { product_id: this.inSubquery('products', businessId) }, { product_id: null });
           await manager.update(PriceHistory, { product_id: this.inSubquery('products', businessId) }, { product_id: null });
+          await manager.update(InvoiceScanItem, { matched_product_id: this.inSubquery('products', businessId) }, { matched_product_id: null });
           await manager.delete(Stock, { business_id: businessId });
           await manager.delete(PurchaseItem, { product_id: this.inSubquery('products', businessId) });
+          await manager.delete(ProductVariant, { business_id: businessId });
           await manager.delete(Product, { business_id: businessId });
           break;
         }
@@ -483,6 +486,8 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         }
 
         case 'inventory': {
+          await manager.delete(InvoiceScanItem, { scan_id: this.inSubquery('invoice_scans', businessId) });
+          await manager.delete(InvoiceScan, { business_id: businessId });
           await manager.delete(PurchaseItem, { purchase_order_id: this.inSubquery('purchase_orders', businessId) });
           await manager.delete(PurchaseOrder, { business_id: businessId });
           await manager.delete(Stock, { business_id: businessId });
