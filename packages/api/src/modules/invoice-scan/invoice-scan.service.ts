@@ -149,9 +149,10 @@ export class InvoiceScanService {
             stock_quantity: 0,
             batch_number: item.batchNumber,
             expiry_date: item.expiryMonthYear ? this.monthYearToDate(item.expiryMonthYear) : undefined,
-            // Scanned in with a placeholder selling price; keep it a draft
-            // until the pharmacy reviews/sets a real retail price.
-            is_draft: true,
+            // Not a draft: the verify screen (edit + confirm) before this point
+            // is already the review step, so these shouldn't also land in the
+            // dashboard's Quick Parchi draft-review queue.
+            is_draft: false,
           }),
         );
         productId = product.id;
