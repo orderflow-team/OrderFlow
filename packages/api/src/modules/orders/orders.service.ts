@@ -151,15 +151,20 @@ export class OrdersService {
           throw new BadRequestException('Each item needs either productId or customProductName');
         }
         const clientProvidedProductId = !!item.productId;
+
+        if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
+          const fulfilled = await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
+          if (fulfilled === 0) {
+            continue; // nothing in stock — leave this item out of the order entirely
+          }
+          item.quantity = fulfilled;
+        }
+
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(dto.businessId, dto.customerId, item);
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
         totalAmount += subtotal + taxAmount;
         totalTax += taxAmount;
-
-        if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
-          await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
-        }
 
         // Quick Parchi items are free text by default; auto-create a Product
         // master row the first time a name is used so it appears as a normal
@@ -273,31 +278,49 @@ export class OrdersService {
    * Decrements stock for a catalog product the caller explicitly selected
    * (never for a Quick-Parchi free-text item auto-linked to a fresh
    * zero-stock draft product — that would break the "sell without inventory
-   * tracking" workflow those exist for). Uses a single conditional UPDATE
-   * rather than read-then-write so concurrent orders can't both pass an
-   * insufficient-stock check and oversell the same units.
+   * tracking" workflow those exist for). Clamps to whatever is actually
+   * available instead of rejecting the whole order — requesting 5 with only
+   * 2 in stock sells 2, not zero — and flips the product to "out of stock"
+   * (is_available = false) the moment stock hits zero. Locks the product row
+   * for the rest of this transaction (pessimistic write) rather than the old
+   * lock-free conditional UPDATE, since the fulfilled quantity now depends on
+   * a prior read that must not race with another order against the same row.
+   * Returns the quantity actually fulfilled (0 if none available) so the
+   * caller can price/persist the order item against what was really sold.
    */
   private async decrementStock(
     manager: import('typeorm').EntityManager,
     businessId: string,
     productId: string,
-    quantity: number,
+    requestedQuantity: number,
     orderNumber: string,
-  ) {
-    const result = await manager
-      .createQueryBuilder()
-      .update(Product)
-      .set({ stock_quantity: () => `stock_quantity - ${Number(quantity)}` })
-      .where('id = :id AND business_id = :businessId AND stock_quantity >= :qty', {
-        id: productId,
-        businessId,
-        qty: Number(quantity),
-      })
-      .execute();
+  ): Promise<number> {
+    const product = await manager
+      .createQueryBuilder(Product, 'product')
+      .setLock('pessimistic_write')
+      .where('product.id = :id AND product.business_id = :businessId', { id: productId, businessId })
+      .getOne();
 
-    if (result.affected === 0) {
-      throw new BadRequestException('Insufficient stock for one of the items in this order');
+    if (!product) {
+      throw new NotFoundException('Product not found');
     }
+
+    const available = Number(product.stock_quantity);
+    const fulfilled = Math.max(0, Math.min(available, requestedQuantity));
+
+    if (fulfilled === 0) {
+      if (product.is_available) {
+        await manager.update(Product, { id: productId }, { is_available: false });
+      }
+      return 0;
+    }
+
+    const remaining = available - fulfilled;
+    await manager.update(
+      Product,
+      { id: productId },
+      { stock_quantity: remaining, ...(remaining <= 0 ? { is_available: false } : {}) },
+    );
 
     await manager.save(
       Stock,
@@ -305,11 +328,13 @@ export class OrdersService {
         business_id: businessId,
         product_id: productId,
         type: 'OUT',
-        quantity: Number(quantity),
+        quantity: fulfilled,
         reference: orderNumber,
         notes: 'Sold via order',
       }),
     );
+
+    return fulfilled;
   }
 
   /**
@@ -734,15 +759,20 @@ export class OrdersService {
           throw new BadRequestException('Each item needs either productId or customProductName');
         }
         const clientProvidedProductId = !!item.productId;
+
+        if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
+          const fulfilled = await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
+          if (fulfilled === 0) {
+            continue; // nothing in stock — leave this item out of the order entirely
+          }
+          item.quantity = fulfilled;
+        }
+
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(businessId, order.customer_id, item);
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
         additionalAmount += subtotal + taxAmount;
         additionalTax += taxAmount;
-
-        if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
-          await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
-        }
 
         const nameKey = item.customProductName?.trim().toLowerCase();
         if (!item.productId && item.customProductName && nameKey !== TABLE_SESSION_PLACEHOLDER_ITEM) {

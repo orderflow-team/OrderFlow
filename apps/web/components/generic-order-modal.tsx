@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getCachedBusinessCategory, hasRole } from '@/lib/auth';
+import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -24,6 +24,7 @@ interface Product {
   prescription_required?: boolean;
   barcode?: string | null;
   sku?: string | null;
+  stock_quantity?: number;
 }
 
 interface Category {
@@ -76,6 +77,32 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const searchInputRef = useRef<HTMLInputElement>(null);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
+  const [inventoryEnabled, setInventoryEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const cached = getCachedInventoryEnabled(businessId);
+    if (cached !== null) {
+      setInventoryEnabled(cached);
+    }
+    apiClient
+      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        setInventoryEnabled(res.data.inventory_enabled);
+        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+      })
+      .catch(() => {});
+  }, [businessId]);
+
+  // Stock-tracked products cap at what's actually on hand; free-text/draft
+  // items (never stock-tracked) and businesses without inventory tracking
+  // enabled are uncapped.
+  const getMaxQty = (product: Product): number => {
+    if (!inventoryEnabled || product.id.startsWith('draft-') || product.stock_quantity == null) {
+      return Infinity;
+    }
+    return Number(product.stock_quantity);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -209,8 +236,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setCart(prev => {
       const newCart = { ...prev };
       const current = newCart[product.id]?.quantity || 0;
-      
-      let next = current + delta;
+
+      let next = Math.min(current + delta, getMaxQty(product));
       let nextProduct = { ...product };
 
       if (current === 0 && delta > 0) {
@@ -236,9 +263,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setCart(prev => {
       const newCart = { ...prev };
       const existingItem = newCart[product.id];
-      newCart[product.id] = { 
-        product, 
-        quantity,
+      newCart[product.id] = {
+        product,
+        quantity: Math.min(quantity, getMaxQty(product)),
         original_unit: existingItem ? existingItem.original_unit : product.unit,
         original_price: existingItem ? existingItem.original_price : Number(product.selling_price)
       };
@@ -525,16 +552,20 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="grid grid-cols-2 gap-3 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
+              const maxQty = getMaxQty(p);
+              const atMax = Number.isFinite(maxQty) && qty >= maxQty;
               const hasPreviousPrice = customerPrices[p.id] !== undefined;
               const originalPrice = hasPreviousPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
               const hasCustomPrice = hasPreviousPrice && originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
               return (
                 <div
                   key={p.id}
-                  className={`relative p-3 rounded-2xl border cursor-pointer transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm flex flex-col justify-between ${
+                  className={`relative p-3 rounded-2xl border transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm flex flex-col justify-between ${
+                    atMax ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'
+                  } ${
                     qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
-                  onClick={() => updateCart(p, 1)}
+                  onClick={() => !atMax && updateCart(p, 1)}
                 >
                   {qty > 0 && (
                     <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -568,6 +599,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                     )}
                     {p.batch_number && (
                       <span className="text-[10px] text-slate-400">Batch {p.batch_number}</span>
+                    )}
+                    {atMax && (
+                      <span className="text-[10px] font-semibold text-rose-600">Only {maxQty} in stock — max added</span>
                     )}
                   </div>
                 </div>
@@ -643,7 +677,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                         onKeyDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <button onClick={() => updateCart(item.product, 1)} className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200">
+                      <button
+                        onClick={() => updateCart(item.product, 1)}
+                        disabled={item.quantity >= getMaxQty(item.product)}
+                        className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                      >
                         <Plus className="w-2.5 h-2.5" />
                       </button>
                     </div>

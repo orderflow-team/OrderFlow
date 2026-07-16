@@ -31,6 +31,9 @@ export class PurchaseOrder {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total_amount: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  tax_amount: number;
+
   @CreateDateColumn()
   created_at: Date;
 

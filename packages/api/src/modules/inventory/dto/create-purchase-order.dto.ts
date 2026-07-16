@@ -35,6 +35,11 @@ export class PurchaseItemDto {
   @IsNumber()
   @Min(0)
   schemeQuantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxPercentage?: number;
 }
 
 export class CreatePurchaseOrderDto {

@@ -20,7 +20,13 @@ export class InventoryService {
 
   async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
     return this.dataSource.transaction(async (manager) => {
-      const totalAmount = dto.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+      const pricedItems = dto.items.map((item) => {
+        const subtotal = item.quantity * item.unitPrice;
+        const taxAmount = subtotal * ((item.taxPercentage ?? 0) / 100);
+        return { item, subtotal, taxAmount };
+      });
+      const totalAmount = pricedItems.reduce((sum, p) => sum + p.subtotal + p.taxAmount, 0);
+      const totalTax = pricedItems.reduce((sum, p) => sum + p.taxAmount, 0);
 
       const purchaseOrder = manager.create(PurchaseOrder, {
         business_id: dto.businessId,
@@ -28,19 +34,22 @@ export class InventoryService {
         order_number: dto.orderNumber ?? `PO-${Date.now()}`,
         status: 'draft',
         total_amount: totalAmount,
+        tax_amount: totalTax,
       });
       const saved = await manager.save(purchaseOrder);
 
-      const items = dto.items.map((item) =>
+      const items = pricedItems.map(({ item, subtotal, taxAmount }) =>
         manager.create(PurchaseItem, {
           purchase_order_id: saved.id,
           product_id: item.productId,
           quantity: item.quantity,
           unit_price: item.unitPrice,
-          subtotal: item.quantity * item.unitPrice,
+          subtotal,
           batch_number: item.batchNumber,
           expiry_date: item.expiryDate ? new Date(item.expiryDate) : undefined,
           scheme_quantity: item.schemeQuantity,
+          tax_percentage: item.taxPercentage ?? 0,
+          tax_amount: taxAmount,
         }),
       );
       await manager.save(PurchaseItem, items);

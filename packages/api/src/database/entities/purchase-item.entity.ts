@@ -43,6 +43,12 @@ export class PurchaseItem {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   scheme_quantity: number;
 
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  tax_percentage: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  tax_amount: number;
+
   @CreateDateColumn()
   created_at: Date;
 }

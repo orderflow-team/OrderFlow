@@ -44,4 +44,9 @@ export class ReportsController {
   ) {
     return this.reportsService.taxReport(businessId, from, to);
   }
+
+  @Get('analytics')
+  analyticsDashboard(@Query('businessId') businessId: string, @Query('days') days?: string) {
+    return this.reportsService.analyticsDashboard(businessId, days ? Number(days) : 30);
+  }
 }

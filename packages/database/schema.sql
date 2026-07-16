@@ -184,6 +184,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   order_number VARCHAR(50),
   status VARCHAR(50) DEFAULT 'draft',
   total_amount DECIMAL(15, 2) DEFAULT 0,
+  tax_amount DECIMAL(15, 2) DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -201,6 +202,10 @@ CREATE TABLE IF NOT EXISTS purchase_items (
   batch_number VARCHAR(100),
   expiry_date DATE,
   scheme_quantity DECIMAL(15, 2),
+  -- Input GST paid on this line (rate/amount), so purchase-side tax can be
+  -- reported alongside sales-side output GST (order_items.tax_percentage/tax_amount).
+  tax_percentage DECIMAL(5, 2) DEFAULT 0,
+  tax_amount DECIMAL(15, 2) DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
