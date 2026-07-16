@@ -25,6 +25,7 @@ import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
+import { MergeProductsDto } from './dto/merge-products.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/products')
@@ -103,5 +104,12 @@ export class ProductsController {
   @Delete(':id')
   remove(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.productsService.remove(id, businessId);
+  }
+
+  /** Merges a duplicate product (e.g. from OCR spelling drift on a rescanned invoice) into another, reassigning its order/purchase/price history first. */
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post('merge')
+  merge(@Body() dto: MergeProductsDto) {
+    return this.productsService.mergeProducts(dto.businessId, dto.keepProductId, dto.removeProductId);
   }
 }

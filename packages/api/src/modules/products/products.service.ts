@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../../database/entities/product.entity';
 import { ProductVariant } from '../../database/entities/product-variant.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
+import { PurchaseItem } from '../../database/entities/purchase-item.entity';
+import { InvoiceItem } from '../../database/entities/invoice-item.entity';
+import { PriceHistory } from '../../database/entities/price-history.entity';
+import { InvoiceScanItem } from '../../database/entities/invoice-scan-item.entity';
+import { Stock } from '../../database/entities/stock.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
@@ -222,6 +227,40 @@ export class ProductsService {
       await this.productsRepository.update(product.id, { is_archived: true });
       return { deleted: true, softDeleted: true };
     }
+  }
+
+  /**
+   * Merges a duplicate product (e.g. a near-identical spelling from OCR drift
+   * on a rescanned invoice) into the surviving one: every order/purchase/price
+   * history row and invoice-scan match pointing at `removeId` gets repointed
+   * to `keepId`, the removed product's stock is folded into the survivor so
+   * no units are silently lost, and the now-unreferenced duplicate is deleted.
+   * product_variants intentionally aren't reassigned — they cascade-delete
+   * with the removed product instead, since merging variant rows risks a
+   * name collision with the survivor's own variants.
+   */
+  async mergeProducts(businessId: string, keepId: string, removeId: string) {
+    if (keepId === removeId) {
+      throw new BadRequestException('Cannot merge a product into itself');
+    }
+    const keep = await this.findOne(keepId, businessId);
+    const remove = await this.findOne(removeId, businessId);
+
+    return this.dataSource.transaction(async (manager) => {
+      await manager.update(OrderItem, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(PurchaseItem, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(InvoiceItem, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(PriceHistory, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(InvoiceScanItem, { matched_product_id: remove.id }, { matched_product_id: keep.id });
+      await manager.update(Stock, { product_id: remove.id }, { product_id: keep.id });
+
+      if (Number(remove.stock_quantity) > 0) {
+        await manager.increment(Product, { id: keep.id }, 'stock_quantity', Number(remove.stock_quantity));
+      }
+      await manager.delete(Product, { id: remove.id });
+
+      return { merged: true, keptProductId: keep.id, removedProductId: remove.id };
+    });
   }
 
   async adjustStock(id: string, businessId: string, delta: number) {

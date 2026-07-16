@@ -85,16 +85,70 @@ export class InvoiceScanService {
     return this.findOne(scan.id, businessId);
   }
 
-  /** Exact match first, then a loose substring match for OCR/wording drift (e.g. "Paracetamol 500" vs "Paracetamol 500mg Tab"). */
+  /**
+   * Exact match first, then a loose substring match for wording drift (e.g.
+   * "Paracetamol 500" vs "Paracetamol 500mg Tab"), then a tight fuzzy match
+   * for pure OCR spelling drift on a rescan of the same invoice (e.g.
+   * "COSVATE" misread as "COSVAITE", "GEM" misread as "EM") — otherwise every
+   * OCR hiccup on a repeat scan creates a brand-new duplicate product instead
+   * of recognizing the one that's already there.
+   *
+   * The fuzzy step requires the two names to have the exact same digit
+   * sequence (in the same order) before distance is even considered — a
+   * pharmacy can't afford to treat "Amlong 10" and "Amlong 5", or
+   * "Paracetamol 500" and "Paracetamol 650", as "close enough" just because
+   * they're a couple of characters apart. It also skips very short names,
+   * where a 1-character difference is more likely two genuinely different
+   * products than an OCR typo.
+   */
   private findExistingProduct(products: Product[], rawName: string): Product | undefined {
     const normalized = rawName.trim().toLowerCase();
-    return (
-      products.find((p) => p.name.trim().toLowerCase() === normalized) ??
-      products.find((p) => {
-        const name = p.name.trim().toLowerCase();
-        return normalized.includes(name) || name.includes(normalized);
-      })
-    );
+
+    const exact = products.find((p) => p.name.trim().toLowerCase() === normalized);
+    if (exact) return exact;
+
+    const substring = products.find((p) => {
+      const name = p.name.trim().toLowerCase();
+      return normalized.includes(name) || name.includes(normalized);
+    });
+    if (substring) return substring;
+
+    const rawDigits = this.digitSequence(normalized);
+    let best: { product: Product; distance: number } | null = null;
+    for (const p of products) {
+      const name = p.name.trim().toLowerCase();
+      const maxLen = Math.max(normalized.length, name.length);
+      if (maxLen < 8 || this.digitSequence(name) !== rawDigits) continue;
+
+      const distance = this.levenshteinDistance(normalized, name);
+      // Roughly one typo allowed per 8 characters, at least 1, capped at 3 so
+      // long names don't accumulate too much slack.
+      const threshold = Math.min(3, Math.max(1, Math.floor(maxLen / 8)));
+      if (distance <= threshold && (!best || distance < best.distance)) {
+        best = { product: p, distance };
+      }
+    }
+    return best?.product;
+  }
+
+  private digitSequence(text: string): string {
+    return (text.match(/\d+/g) ?? []).join(',');
+  }
+
+  private levenshteinDistance(a: string, b: string): number {
+    const rows = a.length + 1;
+    const cols = b.length + 1;
+    const dp: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+    for (let i = 0; i < rows; i++) dp[i][0] = i;
+    for (let j = 0; j < cols; j++) dp[0][j] = j;
+    for (let i = 1; i < rows; i++) {
+      for (let j = 1; j < cols; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
   }
 
   async findOne(id: string, businessId: string) {
@@ -107,7 +161,25 @@ export class InvoiceScanService {
       order: { sort_order: 'ASC' },
       relations: { matched_product: true },
     });
-    return { ...scan, items };
+    return { ...scan, items: items.map((item) => this.withLiveIncluded(item)) };
+  }
+
+  /**
+   * `included` is only ever used to seed the verify screen's checkboxes — the
+   * confirm step submits the frontend's own (possibly user-edited) state, so
+   * this stored value is never written back to. That makes it go stale: a
+   * duplicate-matched product that still had stock when the invoice was
+   * scanned but has since sold out to zero would stay pre-unchecked ("skip,
+   * already in inventory") forever, even though it now genuinely needs
+   * restocking. Recompute the "currently out of stock" override against the
+   * product's live stock on every read instead of trusting the parse-time
+   * snapshot.
+   */
+  private withLiveIncluded(item: InvoiceScanItem) {
+    if (item.is_duplicate && item.matched_product && Number(item.matched_product.stock_quantity) <= 0) {
+      return { ...item, included: true };
+    }
+    return item;
   }
 
   findAll(businessId: string) {
