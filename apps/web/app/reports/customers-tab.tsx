@@ -1,11 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, formatDate } from '@/lib/format-currency';
 import { KpiCard } from './kpi-card';
-import { Users, UserPlus, Repeat, Receipt, Clock3, Crown, CreditCard } from 'lucide-react';
+import { Users, UserPlus, Repeat, Receipt, Clock3, Crown, CreditCard, Layers } from 'lucide-react';
 import type { AnalyticsPayload, OutstandingCustomer } from './types';
 
-export function CustomersTab({ analytics, outstanding }: { analytics: AnalyticsPayload | null; outstanding: OutstandingCustomer[] }) {
+const TIER_STYLES: Record<string, string> = {
+  High: 'bg-emerald-500/10 text-emerald-700 ring-emerald-500/20',
+  Medium: 'bg-amber-500/10 text-amber-700 ring-amber-500/20',
+  Low: 'bg-slate-500/10 text-slate-600 ring-slate-500/20',
+};
+
+export function CustomersTab({ analytics, outstanding, days }: {
+  analytics: AnalyticsPayload | null;
+  outstanding: OutstandingCustomer[];
+  days: number;
+}) {
   const customers = analytics?.customers;
+  const customerCountDelta = analytics?.comparison.customerCountGrowthPercent || 0;
 
   return (
     <div className="space-y-8">
@@ -28,7 +39,7 @@ export function CustomersTab({ analytics, outstanding }: { analytics: AnalyticsP
           icon={Receipt}
           label="Average Order Value"
           value={formatCurrency(customers?.averageOrderValue || 0)}
-          sub="Last 30 days"
+          sub={`Last ${days} day${days !== 1 ? 's' : ''}`}
           tint="bg-violet-500/10 text-violet-600"
         />
         <KpiCard
@@ -46,7 +57,9 @@ export function CustomersTab({ analytics, outstanding }: { analytics: AnalyticsP
             <Users className="w-4 h-4 text-blue-600" />
             <CardTitle className="text-base">Top Customers</CardTitle>
           </div>
-          <CardDescription>By revenue in the last 30 days.</CardDescription>
+          <CardDescription>
+            By revenue in the last {days} day{days !== 1 ? 's' : ''} · Customer count {customerCountDelta >= 0 ? '+' : ''}{customerCountDelta.toFixed(1)}% vs previous period
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {(customers?.topCustomers.length || 0) === 0 ? (
@@ -145,6 +158,33 @@ export function CustomersTab({ analytics, outstanding }: { analytics: AnalyticsP
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20 shrink-0">
                     {c.utilizationPercent.toFixed(0)}%
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="ring-white/50 glass-sheen-sm">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-blue-600" />
+            <CardTitle className="text-base">Customer Value Segments</CardTitle>
+          </div>
+          <CardDescription>All period customers split into equal-count High/Medium/Low thirds by spend.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {(customers?.valueSegments.length || 0) === 0 ? (
+            <p className="p-10 text-center text-slate-400 text-sm">No customer orders in this period yet.</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {customers?.valueSegments.map((s) => (
+                <div key={s.tier} className="flex items-center justify-between px-4 py-3 gap-4">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ring-1 ${TIER_STYLES[s.tier]}`}>{s.tier}</span>
+                  <div className="text-right">
+                    <p className="font-bold text-slate-800">{formatCurrency(s.totalRevenue)}</p>
+                    <p className="text-xs text-slate-400">{s.customerCount} customer{s.customerCount !== 1 ? 's' : ''}</p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -7,7 +7,10 @@ export interface ParsedInvoiceLine {
   productName: string;
   quantity: number;
   schemeQuantity: number | null;
+  /** The distributor's billed per-unit rate (net of any discount) — the real cost basis, always <= mrp. */
   unitPrice: number | null;
+  /** Printed maximum retail price — the ceiling sale price, always >= unitPrice. */
+  mrp: number | null;
   batchNumber: string | null;
   expiryMonthYear: string | null;
 }
@@ -56,7 +59,14 @@ export class InvoiceVisionParserService {
         invoice (e.g. "03/26", "3-2026", "Mar 2026" all become "03/2026"). If no expiry is
         legible, use null.
       - If batch/lot number is not legible or absent, use null.
-      - If unit price is not legible or absent, use null.
+      - Each line usually has TWO separate price columns — extract them separately, never merge them:
+        - "M.R.P." (maximum retail price): the printed ceiling sale price. This is always the
+          HIGHER of the two prices.
+        - "RATE" (sometimes "N.RATE" or "NET RATE"): the distributor's actual billed per-unit
+          price, net of any trade discount. This is always the LOWER of the two prices.
+        Put the M.R.P. column into "mrp" and the RATE column into "unitPrice". If only one price
+        is printed on the line, put it in "unitPrice" and leave "mrp" null. If either is not
+        legible or absent, use null for that field.
 
       Return ONLY a JSON array (no other text, no markdown fences) in this exact shape:
       [
@@ -65,6 +75,7 @@ export class InvoiceVisionParserService {
           "quantity": number,
           "schemeQuantity": number | null,
           "unitPrice": number | null,
+          "mrp": number | null,
           "batchNumber": string | null,
           "expiryMonthYear": "MM/YYYY" | null
         }
@@ -101,6 +112,7 @@ export class InvoiceVisionParserService {
         quantity: Number(row.quantity) || 0,
         schemeQuantity: row.schemeQuantity != null && !isNaN(Number(row.schemeQuantity)) ? Number(row.schemeQuantity) : null,
         unitPrice: row.unitPrice != null && !isNaN(Number(row.unitPrice)) ? Number(row.unitPrice) : null,
+        mrp: row.mrp != null && !isNaN(Number(row.mrp)) ? Number(row.mrp) : null,
         batchNumber: typeof row.batchNumber === 'string' && row.batchNumber.trim().length > 0 ? row.batchNumber.trim() : null,
         expiryMonthYear: typeof row.expiryMonthYear === 'string' && /^\d{2}\/\d{4}$/.test(row.expiryMonthYear.trim())
           ? row.expiryMonthYear.trim()

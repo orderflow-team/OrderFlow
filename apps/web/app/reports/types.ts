@@ -6,10 +6,27 @@ export interface AnalyticsPayload {
     netCashFlow: number;
     taxSummary: {
       today: { outputGst: number; inputGst: number };
-      month: { outputGst: number; inputGst: number };
+      period: { outputGst: number; inputGst: number };
     };
   };
+  comparison: {
+    salesGrowthPercent: number;
+    purchasesGrowthPercent: number;
+    marginChangePercent: number;
+    netProfitGrowthPercent: number;
+    expensesGrowthPercent: number;
+    customerCountGrowthPercent: number;
+  };
   chart: { date: string; sales: number; purchases: number }[];
+  chartGranularity: 'day' | 'week' | 'month';
+  actionItems: {
+    id: string;
+    type: 'reorder' | 'expiry' | 'slow-moving' | 'credit';
+    severity: 'high' | 'medium' | 'low';
+    title: string;
+    subtitle: string;
+    value: number | null;
+  }[];
   purchaseHistory: { id: string; supplierName: string; orderNumber: string | null; status: string; totalAmount: number; createdAt: string }[];
   salesHistory: { id: string; customerName: string; orderNumber: string | null; status: string; totalAmount: number; createdAt: string }[];
   fastMoving: { productId: string; productName: string; totalQuantity: number; totalRevenue: number }[];
@@ -22,6 +39,7 @@ export interface AnalyticsPayload {
     inactiveCustomers: { customerId: string; customerName: string; lastOrderAt: string; lifetimeSpent: number }[];
     allTimeTopCustomers: { customerId: string; customerName: string; orderCount: number; totalSpent: number }[];
     creditExposure: { id: string; name: string; outstandingAmount: number; creditLimit: number; utilizationPercent: number }[];
+    valueSegments: { tier: 'High' | 'Medium' | 'Low'; customerCount: number; totalRevenue: number }[];
   };
   products: {
     categoryBreakdown: { category: string; totalRevenue: number; totalQuantity: number }[];
@@ -31,6 +49,7 @@ export interface AnalyticsPayload {
     rxOtcSplit: { rx: { totalRevenue: number; totalQuantity: number }; otc: { totalRevenue: number; totalQuantity: number } };
     expiryValueAtRisk: number;
     reorderSuggestions: { id: string; name: string; stockQuantity: number; velocityPerDay: number; daysLeft: number }[];
+    brandBreakdown: { brand: string; totalRevenue: number; totalQuantity: number }[];
   };
   suppliers: {
     topSuppliers: { supplierId: string; supplierName: string; orderCount: number; totalSpent: number }[];
@@ -45,7 +64,6 @@ export interface AnalyticsPayload {
       trend: { date: string; total: number }[];
     };
     netProfit: number;
-    monthOverMonthGrowthPercent: number;
     netGstPayable: number;
   };
   operations: {

@@ -2,10 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { formatCurrency } from '@/lib/format-currency';
 import { KpiCard } from './kpi-card';
 import { SimpleBarChart } from './simple-bar-chart';
-import { Package, Boxes, PackageSearch, TrendingUp, CalendarClock, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Package, Boxes, PackageSearch, TrendingUp, CalendarClock, RefreshCw, ShieldAlert, Tags } from 'lucide-react';
 import type { AnalyticsPayload } from './types';
 
-export function ProductsTab({ analytics, isPharmacy }: { analytics: AnalyticsPayload | null; isPharmacy: boolean }) {
+export function ProductsTab({ analytics, isPharmacy, days }: {
+  analytics: AnalyticsPayload | null;
+  isPharmacy: boolean;
+  days: number;
+}) {
   const products = analytics?.products;
 
   return (
@@ -22,7 +26,7 @@ export function ProductsTab({ analytics, isPharmacy }: { analytics: AnalyticsPay
           icon={PackageSearch}
           label="Slow-Moving Items"
           value={String(products?.slowMoving.length || 0)}
-          sub="In stock, zero sales in 30 days"
+          sub={`In stock, zero sales in ${days}d`}
           tint="bg-amber-500/10 text-amber-600"
         />
         <KpiCard
@@ -47,12 +51,28 @@ export function ProductsTab({ analytics, isPharmacy }: { analytics: AnalyticsPay
             <Package className="w-4 h-4 text-emerald-600" />
             <CardTitle className="text-base">Sales by Category</CardTitle>
           </div>
-          <CardDescription>Revenue by product category, last 30 days.</CardDescription>
+          <CardDescription>Revenue by product category, last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent>
           <SimpleBarChart
             data={(products?.categoryBreakdown || []).map((c) => ({ label: c.category, value: c.totalRevenue }))}
             color="#059669"
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="ring-white/50 glass-sheen-sm">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Tags className="w-4 h-4 text-blue-600" />
+            <CardTitle className="text-base">Sales by Brand</CardTitle>
+          </div>
+          <CardDescription>Revenue by product brand, last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SimpleBarChart
+            data={(products?.brandBreakdown || []).map((b) => ({ label: b.brand, value: b.totalRevenue }))}
+            color="#7c3aed"
           />
         </CardContent>
       </Card>
@@ -64,7 +84,7 @@ export function ProductsTab({ analytics, isPharmacy }: { analytics: AnalyticsPay
               <ShieldAlert className="w-4 h-4 text-rose-600" />
               <CardTitle className="text-base">Prescription vs OTC Sales</CardTitle>
             </div>
-            <CardDescription>Last 30 days.</CardDescription>
+            <CardDescription>Last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -142,7 +162,7 @@ export function ProductsTab({ analytics, isPharmacy }: { analytics: AnalyticsPay
         <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <CardTitle className="text-base">Slow-Moving / Dead Stock</CardTitle>
-            <CardDescription>In stock, zero units sold in 30 days — ranked by ₹ tied up.</CardDescription>
+            <CardDescription>In stock, zero units sold in {days} day{days !== 1 ? 's' : ''} — ranked by ₹ tied up.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {(products?.slowMoving.length || 0) === 0 ? (

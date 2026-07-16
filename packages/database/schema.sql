@@ -373,7 +373,8 @@ CREATE TABLE IF NOT EXISTS invoice_scan_items (
   included BOOLEAN DEFAULT TRUE, -- user's final include/skip choice on the verify screen
   quantity DECIMAL(15, 2) NOT NULL,
   scheme_quantity DECIMAL(15, 2),
-  unit_price DECIMAL(15, 2),
+  unit_price DECIMAL(15, 2), -- distributor's billed rate, net of discount -- used as purchase_price
+  mrp DECIMAL(15, 2), -- printed maximum retail price -- used as selling_price
   batch_number VARCHAR(100),
   expiry_month_year VARCHAR(7), -- standardized "MM/YYYY" as extracted
   sort_order INT DEFAULT 0,

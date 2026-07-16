@@ -6,14 +6,23 @@ import { SalesVsPurchaseChart } from './sales-vs-purchase-chart';
 import { PurchaseHistoryTable } from './purchase-history-table';
 import { SalesHistoryTable } from './sales-history-table';
 import { FastMovingWidget } from './fast-moving-widget';
+import { ActionItemsWidget } from './action-items-widget';
 import { IndianRupee, ShoppingCart, TrendingUp, Wallet, Receipt, AlertTriangle, CalendarClock } from 'lucide-react';
 import type { AnalyticsPayload } from './types';
 
-export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null }) {
+function deltaSub(percent: number | undefined) {
+  const value = percent || 0;
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}% vs previous period`;
+}
+
+export function OverviewTab({ analytics, days }: { analytics: AnalyticsPayload | null; days: number }) {
   const kpis = analytics?.kpis;
+  const comparison = analytics?.comparison;
 
   return (
     <div className="space-y-8">
+      <ActionItemsWidget items={analytics?.actionItems || []} />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           icon={IndianRupee}
@@ -31,7 +40,7 @@ export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null 
           icon={TrendingUp}
           label="Gross Profit Margin"
           value={`${(kpis?.grossProfitMargin || 0).toFixed(1)}%`}
-          sub="This month, current batch cost"
+          sub={`${(comparison?.marginChangePercent || 0) >= 0 ? '+' : ''}${(comparison?.marginChangePercent || 0).toFixed(1)}pt vs previous period`}
           tint="bg-emerald-500/10 text-emerald-600"
           valueClass="text-emerald-600"
         />
@@ -39,7 +48,7 @@ export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null 
           icon={Wallet}
           label="Net Cash Flow"
           value={formatCurrency(kpis?.netCashFlow || 0)}
-          sub="This month: sales − purchases"
+          sub="Selected period: sales − purchases"
           tint={(kpis?.netCashFlow || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}
           valueClass={(kpis?.netCashFlow || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
         />
@@ -64,12 +73,12 @@ export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null 
               <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(kpis?.taxSummary.today.inputGst || 0)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Output GST (month)</p>
-              <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(kpis?.taxSummary.month.outputGst || 0)}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Output GST (period)</p>
+              <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(kpis?.taxSummary.period.outputGst || 0)}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Input GST (month)</p>
-              <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(kpis?.taxSummary.month.inputGst || 0)}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Input GST (period)</p>
+              <p className="font-bold text-slate-800 mt-0.5">{formatCurrency(kpis?.taxSummary.period.inputGst || 0)}</p>
             </div>
           </div>
         </CardContent>
@@ -77,10 +86,16 @@ export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null 
 
       <Card className="ring-white/50 glass-sheen-sm">
         <CardHeader>
-          <CardTitle className="text-base">Sales vs Purchases (last 30 days)</CardTitle>
+          <CardTitle className="text-base">Sales vs Purchases (last {days} day{days !== 1 ? 's' : ''})</CardTitle>
+          <CardDescription>
+            Sales {deltaSub(comparison?.salesGrowthPercent)} · Purchases {deltaSub(comparison?.purchasesGrowthPercent)}
+            {analytics?.chartGranularity && analytics.chartGranularity !== 'day' && (
+              <> · grouped by {analytics.chartGranularity} to keep the chart readable</>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <SalesVsPurchaseChart data={analytics?.chart || []} />
+          <SalesVsPurchaseChart data={analytics?.chart || []} granularity={analytics?.chartGranularity} />
         </CardContent>
       </Card>
 
@@ -107,7 +122,7 @@ export function OverviewTab({ analytics }: { analytics: AnalyticsPayload | null 
       <Card className="ring-white/50 glass-sheen-sm">
         <CardHeader>
           <CardTitle className="text-base">Fast-Moving Inventory</CardTitle>
-          <CardDescription>Top 5 medicines by quantity sold in the last 30 days.</CardDescription>
+          <CardDescription>Top 5 medicines by quantity sold in the last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <FastMovingWidget rows={analytics?.fastMoving || []} />

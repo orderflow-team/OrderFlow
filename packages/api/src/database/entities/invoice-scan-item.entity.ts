@@ -40,8 +40,13 @@ export class InvoiceScanItem {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   scheme_quantity: number;
 
+  // The distributor's billed per-unit rate — the real cost basis, used as purchase_price.
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   unit_price: number;
+
+  // Printed maximum retail price — used as selling_price.
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  mrp: number;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   batch_number: string;

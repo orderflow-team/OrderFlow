@@ -30,6 +30,11 @@ export class ConfirmInvoiceScanItemDto {
   unitPrice?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  mrp?: number;
+
+  @IsOptional()
   @IsString()
   batchNumber?: string;
 

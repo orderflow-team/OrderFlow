@@ -12,7 +12,7 @@ function hourLabel(hour: number) {
   return hour < 12 ? `${hour}a` : `${hour - 12}p`;
 }
 
-export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | null }) {
+export function OperationsTab({ analytics, days }: { analytics: AnalyticsPayload | null; days: number }) {
   const operations = analytics?.operations;
 
   return (
@@ -20,7 +20,7 @@ export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | nul
       <div className="grid grid-cols-2 gap-4">
         <KpiCard
           icon={ClipboardList}
-          label="Orders (30 days)"
+          label={`Orders (${days}d)`}
           value={String((operations?.orderStatusBreakdown || []).reduce((s, r) => s + r.orderCount, 0))}
           tint="bg-blue-500/10 text-blue-600"
         />
@@ -38,7 +38,7 @@ export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | nul
             <ClipboardList className="w-4 h-4 text-blue-600" />
             <CardTitle className="text-base">Order Status Breakdown</CardTitle>
           </div>
-          <CardDescription>Last 30 days.</CardDescription>
+          <CardDescription>Last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {(operations?.orderStatusBreakdown.length || 0) === 0 ? (
@@ -65,7 +65,7 @@ export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | nul
             <CalendarDays className="w-4 h-4 text-emerald-600" />
             <CardTitle className="text-base">Sales by Day of Week</CardTitle>
           </div>
-          <CardDescription>Last 30 days — spot your peak days.</CardDescription>
+          <CardDescription>Last {days} day{days !== 1 ? 's' : ''} — spot your peak days.</CardDescription>
         </CardHeader>
         <CardContent>
           <SimpleBarChart
@@ -81,7 +81,7 @@ export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | nul
             <Clock4 className="w-4 h-4 text-blue-600" />
             <CardTitle className="text-base">Peak Sales Hours</CardTitle>
           </div>
-          <CardDescription>Last 30 days — spot your busiest hours.</CardDescription>
+          <CardDescription>Last {days} day{days !== 1 ? 's' : ''} — spot your busiest hours.</CardDescription>
         </CardHeader>
         <CardContent>
           <SimpleBarChart
@@ -98,7 +98,7 @@ export function OperationsTab({ analytics }: { analytics: AnalyticsPayload | nul
               <UserCog className="w-4 h-4 text-blue-600" />
               <CardTitle className="text-base">Salesman Performance</CardTitle>
             </div>
-            <CardDescription>Orders attributed to a salesman login, last 30 days.</CardDescription>
+            <CardDescription>Orders attributed to a salesman login, last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-slate-100">

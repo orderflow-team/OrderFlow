@@ -11,12 +11,19 @@ import { SimpleBarChart } from './simple-bar-chart';
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Receipt, Plus, Trash2, Landmark } from 'lucide-react';
 import type { AnalyticsPayload } from './types';
 
-export function FinanceTab({ analytics, businessId, onExpenseChanged }: {
+function deltaText(percent: number | undefined) {
+  const value = percent || 0;
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}% vs previous period`;
+}
+
+export function FinanceTab({ analytics, businessId, days, onExpenseChanged }: {
   analytics: AnalyticsPayload | null;
   businessId: string;
+  days: number;
   onExpenseChanged: () => void;
 }) {
   const finance = analytics?.finance;
+  const comparison = analytics?.comparison;
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -68,36 +75,37 @@ export function FinanceTab({ analytics, businessId, onExpenseChanged }: {
           icon={finance && finance.netProfit >= 0 ? TrendingUp : TrendingDown}
           label="Net Profit"
           value={formatCurrency(finance?.netProfit || 0)}
-          sub="This month, after expenses"
+          sub={deltaText(comparison?.netProfitGrowthPercent)}
           tint={(finance?.netProfit || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}
           valueClass={(finance?.netProfit || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
         />
         <KpiCard
           icon={Wallet}
-          label="Month-over-Month"
-          value={`${(finance?.monthOverMonthGrowthPercent || 0) >= 0 ? '+' : ''}${(finance?.monthOverMonthGrowthPercent || 0).toFixed(1)}%`}
-          sub="Sales vs last month"
-          tint={(finance?.monthOverMonthGrowthPercent || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}
-          valueClass={(finance?.monthOverMonthGrowthPercent || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+          label="Sales Growth"
+          value={`${(comparison?.salesGrowthPercent || 0) >= 0 ? '+' : ''}${(comparison?.salesGrowthPercent || 0).toFixed(1)}%`}
+          sub="vs previous period"
+          tint={(comparison?.salesGrowthPercent || 0) >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'}
+          valueClass={(comparison?.salesGrowthPercent || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}
         />
         <KpiCard
           icon={Receipt}
-          label="Expenses (this month)"
+          label="Expenses"
           value={formatCurrency(finance?.expenses.total || 0)}
+          sub={deltaText(comparison?.expensesGrowthPercent)}
           tint="bg-amber-500/10 text-amber-600"
         />
         <KpiCard
           icon={CreditCard}
           label="Payments Collected"
           value={formatCurrency((finance?.paymentMethodBreakdown || []).reduce((s, m) => s + m.total, 0))}
-          sub="Last 30 days, net of refunds"
+          sub={`Last ${days} day${days !== 1 ? 's' : ''}, net of refunds`}
           tint="bg-blue-500/10 text-blue-600"
         />
         <KpiCard
           icon={Landmark}
           label="Net GST Payable"
           value={formatCurrency(finance?.netGstPayable || 0)}
-          sub="This month: output − input"
+          sub="Selected period: output − input"
           tint="bg-violet-500/10 text-violet-600"
         />
       </div>
@@ -105,7 +113,7 @@ export function FinanceTab({ analytics, businessId, onExpenseChanged }: {
       <Card className="ring-white/50 glass-sheen-sm">
         <CardHeader>
           <CardTitle className="text-base">Payment Method Breakdown</CardTitle>
-          <CardDescription>Last 30 days, net of refunds.</CardDescription>
+          <CardDescription>Last {days} day{days !== 1 ? 's' : ''}, net of refunds.</CardDescription>
         </CardHeader>
         <CardContent>
           <SimpleBarChart
@@ -118,7 +126,7 @@ export function FinanceTab({ analytics, businessId, onExpenseChanged }: {
       <Card className="ring-white/50 glass-sheen-sm">
         <CardHeader>
           <CardTitle className="text-base">Expense Trend</CardTitle>
-          <CardDescription>Last 30 days.</CardDescription>
+          <CardDescription>Last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent>
           <SimpleBarChart
@@ -186,11 +194,11 @@ export function FinanceTab({ analytics, businessId, onExpenseChanged }: {
         <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
             <CardTitle className="text-base">Expenses by Category</CardTitle>
-            <CardDescription>This month.</CardDescription>
+            <CardDescription>Selected period.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {(finance?.expenses.byCategory.length || 0) === 0 ? (
-              <p className="p-10 text-center text-slate-400 text-sm">No expenses this month.</p>
+              <p className="p-10 text-center text-slate-400 text-sm">No expenses in this period.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {finance?.expenses.byCategory.map((c) => (

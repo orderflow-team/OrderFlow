@@ -7,6 +7,7 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { ReportTabBar } from './report-tab-bar';
+import { PeriodSelector } from './period-selector';
 import { OverviewTab } from './overview-tab';
 import { CustomersTab } from './customers-tab';
 import { ProductsTab } from './products-tab';
@@ -31,11 +32,12 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [days, setDays] = useState(30);
 
-  const load = useCallback((bizId: string) => {
+  const load = useCallback((bizId: string, selectedDays: number) => {
     setLoading(true);
     Promise.all([
-      apiClient.get<AnalyticsPayload>('/api/reports/analytics', { params: { businessId: bizId, days: 30 } }),
+      apiClient.get<AnalyticsPayload>('/api/reports/analytics', { params: { businessId: bizId, days: selectedDays } }),
       apiClient.get<OutstandingCustomer[]>('/api/reports/outstanding', { params: { businessId: bizId } }),
     ])
       .then(([analyticsRes, outstandingRes]) => {
@@ -48,8 +50,8 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!ready || !businessId) return;
-    load(businessId);
-  }, [ready, businessId, load]);
+    load(businessId, days);
+  }, [ready, businessId, days, load]);
 
   if (!ready) return null;
 
@@ -60,21 +62,24 @@ export default function ReportsPage() {
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
         <PageHeader title="Analytics" description="Every angle on the business — sales, purchases, customers, products, suppliers, and finance." />
 
-        <ReportTabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <ReportTabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
+          <PeriodSelector days={days} onChange={setDays} />
+        </div>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
         {loading ? (
           <p className="text-sm text-slate-400">Loading...</p>
         ) : (
           <>
-            {activeTab === 'overview' && <OverviewTab analytics={analytics} />}
-            {activeTab === 'customers' && <CustomersTab analytics={analytics} outstanding={outstanding} />}
-            {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} />}
-            {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} />}
+            {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} />}
+            {activeTab === 'customers' && <CustomersTab analytics={analytics} outstanding={outstanding} days={days} />}
+            {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} days={days} />}
+            {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} days={days} />}
             {activeTab === 'finance' && businessId && (
-              <FinanceTab analytics={analytics} businessId={businessId} onExpenseChanged={() => load(businessId)} />
+              <FinanceTab analytics={analytics} businessId={businessId} days={days} onExpenseChanged={() => load(businessId, days)} />
             )}
-            {activeTab === 'operations' && <OperationsTab analytics={analytics} />}
+            {activeTab === 'operations' && <OperationsTab analytics={analytics} days={days} />}
           </>
         )}
       </div>

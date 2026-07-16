@@ -3,7 +3,7 @@ import { formatCurrency } from '@/lib/format-currency';
 import { Truck, Clock } from 'lucide-react';
 import type { AnalyticsPayload } from './types';
 
-export function SuppliersTab({ analytics }: { analytics: AnalyticsPayload | null }) {
+export function SuppliersTab({ analytics, days }: { analytics: AnalyticsPayload | null; days: number }) {
   const topSuppliers = analytics?.suppliers.topSuppliers || [];
   const leadTime = analytics?.suppliers.leadTime || [];
 
@@ -15,7 +15,7 @@ export function SuppliersTab({ analytics }: { analytics: AnalyticsPayload | null
             <Truck className="w-4 h-4 text-blue-600" />
             <CardTitle className="text-base">Top Suppliers</CardTitle>
           </div>
-          <CardDescription>By received purchase spend, last 30 days.</CardDescription>
+          <CardDescription>By received purchase spend, last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {topSuppliers.length === 0 ? (
@@ -42,7 +42,7 @@ export function SuppliersTab({ analytics }: { analytics: AnalyticsPayload | null
             <Clock className="w-4 h-4 text-amber-600" />
             <CardTitle className="text-base">Average Lead Time</CardTitle>
           </div>
-          <CardDescription>Days from order to receipt, last 30 days.</CardDescription>
+          <CardDescription>Days from order to receipt, last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {leadTime.length === 0 ? (

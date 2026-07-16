@@ -528,6 +528,7 @@ export function GenericOrders() {
             customers={customers}
             onClose={() => setShowForm(false)}
             onSubmit={handleCreate}
+            onCustomerCreated={(c) => setCustomers((prev) => (prev.some((existing) => existing.id === c.id) ? prev : [c, ...prev]))}
           />
         )}
 

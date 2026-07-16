@@ -65,6 +65,7 @@ export class InvoiceScanService {
           quantity: line.quantity,
           scheme_quantity: line.schemeQuantity ?? undefined,
           unit_price: line.unitPrice ?? undefined,
+          mrp: line.mrp ?? undefined,
           batch_number: line.batchNumber ?? undefined,
           expiry_month_year: line.expiryMonthYear ?? undefined,
           sort_order: index,
@@ -139,15 +140,15 @@ export class InvoiceScanService {
     const purchaseItems = [];
     for (const item of includedItems) {
       let productId = item.matchedProductId;
+      const { purchasePrice, sellingPrice } = this.resolvePrices(item.unitPrice, item.mrp);
       if (!productId) {
-        const price = item.unitPrice ?? 0;
         const product = await this.productsRepository.save(
           this.productsRepository.create({
             business_id: dto.businessId,
             name: item.productName,
             unit: 'piece',
-            purchase_price: price,
-            selling_price: price,
+            purchase_price: purchasePrice,
+            selling_price: sellingPrice,
             stock_quantity: 0,
             batch_number: item.batchNumber,
             expiry_date: item.expiryMonthYear ? this.monthYearToDate(item.expiryMonthYear) : undefined,
@@ -172,10 +173,15 @@ export class InvoiceScanService {
             hasChanges = true;
           }
 
-          if (item.unitPrice !== undefined && item.unitPrice !== null && Number(product.purchase_price) !== Number(item.unitPrice)) {
-            updates.purchase_price = item.unitPrice;
-            updates.selling_price = item.unitPrice; // Sync selling price with new unit price
-            hasChanges = true;
+          if (item.unitPrice != null || item.mrp != null) {
+            if (Number(product.purchase_price) !== purchasePrice) {
+              updates.purchase_price = purchasePrice;
+              hasChanges = true;
+            }
+            if (Number(product.selling_price) !== sellingPrice) {
+              updates.selling_price = sellingPrice;
+              hasChanges = true;
+            }
           }
 
           if (item.batchNumber !== undefined && product.batch_number !== item.batchNumber) {
@@ -202,7 +208,7 @@ export class InvoiceScanService {
       purchaseItems.push({
         productId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice ?? 0,
+        unitPrice: purchasePrice,
         batchNumber: item.batchNumber,
         expiryDate: item.expiryMonthYear ? this.formatDateLocal(this.monthYearToDate(item.expiryMonthYear)) : undefined,
         schemeQuantity: item.schemeQuantity,
@@ -223,6 +229,31 @@ export class InvoiceScanService {
     await this.scansRepository.save(scan);
 
     return this.inventoryService.findOnePurchaseOrder(purchaseOrder.id, dto.businessId);
+  }
+
+  /**
+   * Invoices print two prices per line — the distributor's billed RATE and the
+   * printed M.R.P. — and RATE must always be the lower of the two (that's the
+   * definition of a maximum retail price). Rather than trust the extraction
+   * (vision OCR or a manually-typed correction) to always put the right number
+   * in the right field, enforce it here: whichever of the two values is lower
+   * becomes the purchase price, the higher becomes the selling price. If only
+   * one price is present, both purchase and selling price fall back to it, same
+   * as pre-mrp-field behavior.
+   */
+  private resolvePrices(rate: number | null | undefined, mrp: number | null | undefined) {
+    const hasRate = rate != null;
+    const hasMrp = mrp != null;
+    if (hasRate && hasMrp) {
+      return { purchasePrice: Math.min(rate, mrp), sellingPrice: Math.max(rate, mrp) };
+    }
+    if (hasRate) {
+      return { purchasePrice: rate, sellingPrice: rate };
+    }
+    if (hasMrp) {
+      return { purchasePrice: mrp, sellingPrice: mrp };
+    }
+    return { purchasePrice: 0, sellingPrice: 0 };
   }
 
   private monthYearToDate(monthYear: string): Date {

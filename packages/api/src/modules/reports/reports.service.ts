@@ -276,26 +276,32 @@ export class ReportsService {
    * is the honest substitute.
    */
   async analyticsDashboard(businessId: string, days = 30) {
+    const now = new Date();
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const startOfLastMonth = new Date(startOfMonth);
-    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
     const chartSince = this.daysFromNow(-days);
+    // The window immediately preceding the selected one, same length, so
+    // "vs previous period" is a fair comparison at any granularity the user
+    // picks (day/week/month/year) rather than always meaning calendar month.
+    const previousPeriodSince = this.daysFromNow(-2 * days);
 
     const [
       todaysSalesRevenue,
       todaysPurchaseExpenses,
-      monthSales,
-      monthPurchases,
-      lastMonthSales,
-      monthRevenueCost,
-      monthOutputTax,
-      monthInputTax,
+      periodSales,
+      periodPurchases,
+      previousPeriodSales,
+      previousPeriodPurchases,
+      periodRevenueCost,
+      previousPeriodRevenueCost,
+      periodOutputTax,
+      periodInputTax,
       todaysOutputTax,
       todaysInputTax,
+      periodExpensesForComparison,
+      previousPeriodExpenses,
+      periodCustomerCount,
+      previousPeriodCustomerCount,
       salesSeries,
       purchaseSeries,
       purchaseHistory,
@@ -324,17 +330,25 @@ export class ReportsService {
       expenseTrend,
       supplierLeadTime,
       salesByHourOfDay,
+      brandBreakdown,
+      valueSegments,
     ] = await Promise.all([
       this.sumOrders(businessId, startOfToday),
       this.sumReceivedPurchases(businessId, startOfToday),
-      this.sumOrders(businessId, startOfMonth),
-      this.sumReceivedPurchases(businessId, startOfMonth),
-      this.sumOrdersBetween(businessId, startOfLastMonth, startOfMonth),
-      this.revenueCostSince(businessId, startOfMonth),
-      this.sumOrderTax(businessId, startOfMonth),
-      this.sumPurchaseTax(businessId, startOfMonth),
+      this.sumOrdersBetween(businessId, chartSince, now),
+      this.sumReceivedPurchasesBetween(businessId, chartSince, now),
+      this.sumOrdersBetween(businessId, previousPeriodSince, chartSince),
+      this.sumReceivedPurchasesBetween(businessId, previousPeriodSince, chartSince),
+      this.revenueCostBetween(businessId, chartSince, now),
+      this.revenueCostBetween(businessId, previousPeriodSince, chartSince),
+      this.sumOrderTax(businessId, chartSince),
+      this.sumPurchaseTax(businessId, chartSince),
       this.sumOrderTax(businessId, startOfToday),
       this.sumPurchaseTax(businessId, startOfToday),
+      this.expenseSumBetween(businessId, chartSince, now),
+      this.expenseSumBetween(businessId, previousPeriodSince, chartSince),
+      this.distinctCustomerCountBetween(businessId, chartSince, now),
+      this.distinctCustomerCountBetween(businessId, previousPeriodSince, chartSince),
       this.ordersRepository
         .createQueryBuilder('order')
         .where('order.business_id = :businessId', { businessId })
@@ -422,7 +436,7 @@ export class ReportsService {
       this.topMarginProductsSince(businessId, chartSince),
       this.topSuppliersSince(businessId, chartSince),
       this.paymentMethodBreakdownSince(businessId, chartSince),
-      this.expenseSummarySince(businessId, startOfMonth),
+      this.expenseSummarySince(businessId, chartSince),
       this.recentExpenses(businessId),
       this.orderStatusBreakdownSince(businessId, chartSince),
       this.salesByDayOfWeekSince(businessId, chartSince),
@@ -433,32 +447,26 @@ export class ReportsService {
       this.expenseTrendSince(businessId, chartSince),
       this.supplierLeadTimeSince(businessId, chartSince),
       this.salesByHourOfDaySince(businessId, chartSince),
+      this.brandBreakdownSince(businessId, chartSince),
+      this.valueSegmentsSince(businessId, chartSince),
     ]);
 
-    const dateIndex = new Map<string, { sales: number; purchases: number }>();
-    for (const row of salesSeries) {
-      dateIndex.set(row.date, { sales: Number(row.total), purchases: 0 });
-    }
-    for (const row of purchaseSeries) {
-      const existing = dateIndex.get(row.date);
-      if (existing) {
-        existing.purchases = Number(row.total);
-      } else {
-        dateIndex.set(row.date, { sales: 0, purchases: Number(row.total) });
-      }
-    }
-    const chart = Array.from(dateIndex.entries())
-      .map(([date, v]) => ({ date, sales: v.sales, purchases: v.purchases }))
-      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    const { chart, chartGranularity } = this.buildChartSeries(salesSeries, purchaseSeries, chartSince, now, days);
 
     const periodSalesTotal = chart.reduce((sum, row) => sum + row.sales, 0);
-    const monthMargin = monthRevenueCost.revenue > 0
-      ? ((monthRevenueCost.revenue - monthRevenueCost.cost) / monthRevenueCost.revenue) * 100
+    const periodMargin = periodRevenueCost.revenue > 0
+      ? ((periodRevenueCost.revenue - periodRevenueCost.cost) / periodRevenueCost.revenue) * 100
       : 0;
-    const netProfit = monthRevenueCost.revenue - monthRevenueCost.cost - expenseSummary.total;
-    const momGrowthPercent = lastMonthSales > 0
-      ? ((monthSales - lastMonthSales) / lastMonthSales) * 100
-      : (monthSales > 0 ? 100 : 0);
+    const previousPeriodMargin = previousPeriodRevenueCost.revenue > 0
+      ? ((previousPeriodRevenueCost.revenue - previousPeriodRevenueCost.cost) / previousPeriodRevenueCost.revenue) * 100
+      : 0;
+    const netProfit = periodRevenueCost.revenue - periodRevenueCost.cost - expenseSummary.total;
+    const previousPeriodNetProfit = previousPeriodRevenueCost.revenue - previousPeriodRevenueCost.cost - previousPeriodExpenses;
+    // Percent change vs the immediately preceding period of equal length;
+    // when the previous period was zero, a positive current value reads as
+    // "+100%" (went from nothing to something) rather than a divide-by-zero.
+    const growthPercent = (current: number, previous: number) =>
+      previous !== 0 ? ((current - previous) / Math.abs(previous)) * 100 : (current > 0 ? 100 : 0);
     const cancellationCount = orderStatusBreakdown
       .filter((s) => s.status === 'cancelled' || s.status === 'returned')
       .reduce((sum, s) => sum + s.orderCount, 0);
@@ -467,21 +475,32 @@ export class ReportsService {
       (sum, p) => sum + Number(p.stock_quantity) * Number(p.purchase_price ?? 0),
       0,
     );
-    const netGstPayable = monthOutputTax - monthInputTax;
+    const netGstPayable = periodOutputTax - periodInputTax;
     const reorderSuggestions = await this.reorderSuggestions(businessId, chartSince, lowStockProducts, days);
+    const actionItems = this.buildActionItems(reorderSuggestions, expiringSoon, slowMoving, creditExposure);
 
     return {
       kpis: {
         todaysSalesRevenue,
         todaysPurchaseExpenses,
-        grossProfitMargin: monthMargin,
-        netCashFlow: monthSales - monthPurchases,
+        grossProfitMargin: periodMargin,
+        netCashFlow: periodSales - periodPurchases,
         taxSummary: {
           today: { outputGst: todaysOutputTax, inputGst: todaysInputTax },
-          month: { outputGst: monthOutputTax, inputGst: monthInputTax },
+          period: { outputGst: periodOutputTax, inputGst: periodInputTax },
         },
       },
+      comparison: {
+        salesGrowthPercent: growthPercent(periodSales, previousPeriodSales),
+        purchasesGrowthPercent: growthPercent(periodPurchases, previousPeriodPurchases),
+        marginChangePercent: periodMargin - previousPeriodMargin,
+        netProfitGrowthPercent: growthPercent(netProfit, previousPeriodNetProfit),
+        expensesGrowthPercent: growthPercent(periodExpensesForComparison, previousPeriodExpenses),
+        customerCountGrowthPercent: growthPercent(periodCustomerCount, previousPeriodCustomerCount),
+      },
       chart,
+      chartGranularity,
+      actionItems,
       purchaseHistory: purchaseHistory.map((p) => ({
         id: p.id,
         supplierName: p.supplierName ?? 'Unknown supplier',
@@ -513,6 +532,7 @@ export class ReportsService {
         inactiveCustomers,
         allTimeTopCustomers,
         creditExposure,
+        valueSegments,
       },
       products: {
         categoryBreakdown,
@@ -522,6 +542,7 @@ export class ReportsService {
         rxOtcSplit,
         expiryValueAtRisk,
         reorderSuggestions,
+        brandBreakdown,
       },
       suppliers: {
         topSuppliers,
@@ -531,7 +552,6 @@ export class ReportsService {
         paymentMethodBreakdown,
         expenses: { total: expenseSummary.total, byCategory: expenseSummary.byCategory, recent: recentExpenses, trend: expenseTrend },
         netProfit,
-        monthOverMonthGrowthPercent: momGrowthPercent,
         netGstPayable,
       },
       operations: {
@@ -587,6 +607,17 @@ export class ReportsService {
     return Number(result.total);
   }
 
+  private async sumReceivedPurchasesBetween(businessId: string, from: Date, to: Date) {
+    const result = await this.purchaseOrdersRepository
+      .createQueryBuilder('po')
+      .where('po.business_id = :businessId', { businessId })
+      .andWhere("po.status = 'received'")
+      .andWhere('po.created_at >= :from AND po.created_at < :to', { from, to })
+      .select('COALESCE(SUM(po.total_amount), 0)', 'total')
+      .getRawOne();
+    return Number(result.total);
+  }
+
   private async sumOrderTax(businessId: string, since: Date) {
     const result = await this.ordersRepository
       .createQueryBuilder('order')
@@ -610,20 +641,42 @@ export class ReportsService {
     return Number(result.total);
   }
 
-  /** Revenue and cost-of-goods for orders since the given date, excluding draft/synthetic products — feeds both margin % and net profit. */
-  private async revenueCostSince(businessId: string, since: Date) {
+  /** Revenue and cost-of-goods for orders in [from, to), excluding draft/synthetic products — feeds both margin % and net profit, for both the current and previous comparison period. */
+  private async revenueCostBetween(businessId: string, from: Date, to: Date) {
     const result = await this.orderItemsRepository
       .createQueryBuilder('item')
       .innerJoin('orders', 'order', 'order.id = item.order_id')
       .leftJoin('products', 'product', 'product.id = item.product_id')
       .where('order.business_id = :businessId', { businessId })
       .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
-      .andWhere('order.created_at >= :since', { since })
+      .andWhere('order.created_at >= :from AND order.created_at < :to', { from, to })
       .andWhere('(product.is_draft IS NULL OR product.is_draft = false)')
       .select('COALESCE(SUM(item.subtotal), 0)', 'revenue')
       .addSelect('COALESCE(SUM(item.quantity * COALESCE(product.purchase_price, 0)), 0)', 'cost')
       .getRawOne();
     return { revenue: Number(result.revenue), cost: Number(result.cost) };
+  }
+
+  private async expenseSumBetween(businessId: string, from: Date, to: Date) {
+    const result = await this.expensesRepository
+      .createQueryBuilder('expense')
+      .where('expense.business_id = :businessId', { businessId })
+      .andWhere('expense.expense_date >= :from AND expense.expense_date < :to', { from, to })
+      .select('COALESCE(SUM(expense.amount), 0)', 'total')
+      .getRawOne();
+    return Number(result.total);
+  }
+
+  private async distinctCustomerCountBetween(businessId: string, from: Date, to: Date) {
+    const result = await this.ordersRepository
+      .createQueryBuilder('order')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.customer_id IS NOT NULL')
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
+      .andWhere('order.created_at >= :from AND order.created_at < :to', { from, to })
+      .select('COUNT(DISTINCT order.customer_id)', 'count')
+      .getRawOne();
+    return Number(result.count);
   }
 
   private async topCustomersSince(businessId: string, since: Date, limit = 10) {
@@ -725,6 +778,39 @@ export class ReportsService {
     }));
   }
 
+  /** Every customer with a period order, ranked by spend and split into equal-count High/Medium/Low thirds — a coarser, whole-base view than the top-10 list. */
+  private async valueSegmentsSince(businessId: string, since: Date) {
+    const rows = await this.ordersRepository
+      .createQueryBuilder('order')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.customer_id IS NOT NULL')
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
+      .andWhere('order.created_at >= :since', { since })
+      .select('order.customer_id', 'customerId')
+      .addSelect('SUM(order.total_amount)', 'totalSpent')
+      .groupBy('order.customer_id')
+      .orderBy('"totalSpent"', 'DESC')
+      .getRawMany();
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const third = Math.ceil(rows.length / 3);
+    const tiers: { tier: 'High' | 'Medium' | 'Low'; rows: typeof rows }[] = [
+      { tier: 'High', rows: rows.slice(0, third) },
+      { tier: 'Medium', rows: rows.slice(third, third * 2) },
+      { tier: 'Low', rows: rows.slice(third * 2) },
+    ];
+    return tiers
+      .filter((t) => t.rows.length > 0)
+      .map((t) => ({
+        tier: t.tier,
+        customerCount: t.rows.length,
+        totalRevenue: t.rows.reduce((sum, r) => sum + Number(r.totalSpent), 0),
+      }));
+  }
+
   /** product.category is a denormalized string copy of Category.name (see categories.service.ts), not an FK — grouped directly, not joined. */
   private async categoryBreakdownSince(businessId: string, since: Date) {
     const rows = await this.orderItemsRepository
@@ -742,6 +828,28 @@ export class ReportsService {
       .getRawMany();
     return rows.map((r) => ({
       category: r.category,
+      totalRevenue: Number(r.totalRevenue),
+      totalQuantity: Number(r.totalQuantity),
+    }));
+  }
+
+  /** Same shape as categoryBreakdownSince but grouped by product.brand — a plain varchar column, same denormalization caveat applies. */
+  private async brandBreakdownSince(businessId: string, since: Date) {
+    const rows = await this.orderItemsRepository
+      .createQueryBuilder('item')
+      .innerJoin('orders', 'order', 'order.id = item.order_id')
+      .leftJoin('products', 'product', 'product.id = item.product_id')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
+      .andWhere('order.created_at >= :since', { since })
+      .select("COALESCE(product.brand, 'Unbranded')", 'brand')
+      .addSelect('SUM(item.subtotal)', 'totalRevenue')
+      .addSelect('SUM(item.quantity)', 'totalQuantity')
+      .groupBy("COALESCE(product.brand, 'Unbranded')")
+      .orderBy('"totalRevenue"', 'DESC')
+      .getRawMany();
+    return rows.map((r) => ({
+      brand: r.brand,
       totalRevenue: Number(r.totalRevenue),
       totalQuantity: Number(r.totalQuantity),
     }));
@@ -1098,6 +1206,158 @@ export class ReportsService {
       })
       .filter((r) => r.daysLeft !== null)
       .sort((a, b) => (a.daysLeft as number) - (b.daysLeft as number));
+  }
+
+  /**
+   * Merges reorder/expiry/dead-stock/credit signals into one ranked "what needs
+   * attention today" list, instead of making the owner check four separate tabs.
+   * Severity is ranked (high > medium > low) and ties broken by ₹ value where
+   * one exists, so the biggest, most urgent problems surface first.
+   */
+  private buildActionItems(
+    reorderSuggestions: { id: string; name: string; stockQuantity: number; velocityPerDay: number; daysLeft: number | null }[],
+    expiringSoon: Product[],
+    slowMoving: { id: string; name: string; stockQuantity: number; tiedUpValue: number }[],
+    creditExposure: { id: string; name: string; outstandingAmount: number; creditLimit: number; utilizationPercent: number }[],
+  ) {
+    type ActionItem = {
+      id: string;
+      type: 'reorder' | 'expiry' | 'slow-moving' | 'credit';
+      severity: 'high' | 'medium' | 'low';
+      title: string;
+      subtitle: string;
+      value: number | null;
+    };
+    const items: ActionItem[] = [];
+
+    for (const p of reorderSuggestions) {
+      if (p.daysLeft === null || p.daysLeft > 14) continue;
+      items.push({
+        id: `reorder-${p.id}`,
+        type: 'reorder',
+        severity: p.daysLeft <= 3 ? 'high' : 'medium',
+        title: p.name,
+        subtitle: p.daysLeft <= 0
+          ? `Out of stock · was selling ${p.velocityPerDay.toFixed(2)}/day`
+          : `${p.stockQuantity} left · ~${Math.round(p.daysLeft)} days of stock at current pace`,
+        value: null,
+      });
+    }
+
+    const now = Date.now();
+    for (const p of expiringSoon.slice(0, 5)) {
+      if (!p.expiry_date) continue;
+      const daysUntilExpiry = (new Date(p.expiry_date).getTime() - now) / 86400000;
+      items.push({
+        id: `expiry-${p.id}`,
+        type: 'expiry',
+        severity: daysUntilExpiry <= 120 ? 'high' : daysUntilExpiry <= 150 ? 'medium' : 'low',
+        title: p.name,
+        subtitle: `Batch ${p.batch_number ?? '—'} · expires ${new Date(p.expiry_date).toISOString().slice(0, 10)}`,
+        value: Number(p.stock_quantity) * Number(p.purchase_price ?? 0),
+      });
+    }
+
+    slowMoving.slice(0, 3).forEach((p, idx) => {
+      items.push({
+        id: `slow-moving-${p.id}`,
+        type: 'slow-moving',
+        severity: idx === 0 ? 'high' : 'medium',
+        title: p.name,
+        subtitle: `${p.stockQuantity} units in stock, zero sold this period`,
+        value: p.tiedUpValue,
+      });
+    });
+
+    for (const c of creditExposure.slice(0, 5)) {
+      items.push({
+        id: `credit-${c.id}`,
+        type: 'credit',
+        severity: c.utilizationPercent >= 100 ? 'high' : c.utilizationPercent >= 90 ? 'medium' : 'low',
+        title: c.name,
+        subtitle: `${c.utilizationPercent.toFixed(0)}% of credit limit used`,
+        value: c.outstandingAmount,
+      });
+    }
+
+    const severityRank = { high: 3, medium: 2, low: 1 };
+    return items
+      .sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || (b.value ?? 0) - (a.value ?? 0))
+      .slice(0, 12);
+  }
+
+  /**
+   * Zero-fills every calendar day in [chartSince, now] before bucketing, so a day
+   * with no sales/purchases shows as a flat bar instead of vanishing from the
+   * x-axis entirely — the raw GROUP BY query only returns days that had activity,
+   * which otherwise makes the timeline look denser/shorter than it really is.
+   * Long ranges are then bucketed to week/month so the chart stays readable
+   * instead of rendering hundreds of daily bars.
+   *
+   * Date keys are built from local y/m/d components throughout (never
+   * `Date#toISOString`, which normalizes to UTC) so they line up with the plain
+   * "YYYY-MM-DD" strings Postgres returns for `DATE(order.created_at)`.
+   */
+  private buildChartSeries(
+    salesSeries: { date: string; total: string | number }[],
+    purchaseSeries: { date: string; total: string | number }[],
+    chartSince: Date,
+    now: Date,
+    days: number,
+  ) {
+    const dailyMap = new Map<string, { sales: number; purchases: number }>();
+    const cursor = new Date(chartSince.getFullYear(), chartSince.getMonth(), chartSince.getDate());
+    const endKey = this.toDateKey(now);
+    while (this.toDateKey(cursor) <= endKey) {
+      dailyMap.set(this.toDateKey(cursor), { sales: 0, purchases: 0 });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    for (const row of salesSeries) {
+      const entry = dailyMap.get(row.date) ?? { sales: 0, purchases: 0 };
+      entry.sales = Number(row.total);
+      dailyMap.set(row.date, entry);
+    }
+    for (const row of purchaseSeries) {
+      const entry = dailyMap.get(row.date) ?? { sales: 0, purchases: 0 };
+      entry.purchases = Number(row.total);
+      dailyMap.set(row.date, entry);
+    }
+
+    const dailyRows = Array.from(dailyMap.entries())
+      .map(([date, v]) => ({ date, sales: v.sales, purchases: v.purchases }))
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+    const chartGranularity: 'day' | 'week' | 'month' = days <= 60 ? 'day' : days <= 180 ? 'week' : 'month';
+    if (chartGranularity === 'day') {
+      return { chart: dailyRows, chartGranularity };
+    }
+
+    const bucketMap = new Map<string, { sales: number; purchases: number }>();
+    for (const row of dailyRows) {
+      const bucketKey = chartGranularity === 'week' ? this.weekStartKey(row.date) : `${row.date.slice(0, 7)}-01`;
+      const entry = bucketMap.get(bucketKey) ?? { sales: 0, purchases: 0 };
+      entry.sales += row.sales;
+      entry.purchases += row.purchases;
+      bucketMap.set(bucketKey, entry);
+    }
+    const chart = Array.from(bucketMap.entries())
+      .map(([date, v]) => ({ date, sales: v.sales, purchases: v.purchases }))
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+    return { chart, chartGranularity };
+  }
+
+  private toDateKey(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private weekStartKey(dateKey: string) {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    date.setDate(date.getDate() - date.getDay());
+    return this.toDateKey(date);
   }
 
   private daysFromNow(days: number) {

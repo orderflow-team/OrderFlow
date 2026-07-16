@@ -51,9 +51,10 @@ interface GenericOrderModalProps {
   customers: Customer[];
   onClose: () => void;
   onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string) => Promise<void>;
+  onCustomerCreated?: (customer: Customer) => void;
 }
 
-export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSubmit }: GenericOrderModalProps) {
+export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
   // A salesman's job is just to record what the customer wants — pricing is
   // the owner's concern, so price stays read-only (and unit-price management
@@ -78,6 +79,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
   const [inventoryEnabled, setInventoryEnabled] = useState(true);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
 
   useEffect(() => {
     if (!businessId) return;
@@ -151,6 +154,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setCart({});
       setSearch('');
       setSelectedCategory(null);
+      setCreatingCustomer(false);
+      setJustCreatedCustomer(false);
     }
   }, [isOpen]);
 
@@ -175,7 +180,36 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setCustomerId(c.id);
     setCustomerName(c.name);
     setPhone(c.phone || '');
+    setJustCreatedCustomer(false);
     loadCustomerPrices(c.id);
+  };
+
+  // Registers a walk-in as a real customer the moment their phone + name are both
+  // captured, rather than only on order submit — so they show up in the customer
+  // list even if this visit doesn't end in a sale. Fires on blur of either field;
+  // safe to call repeatedly since it no-ops once a customer is already resolved.
+  const maybeCreateCustomer = async () => {
+    if (customerId || creatingCustomer) return;
+    const trimmedName = customerName.trim();
+    if (!trimmedName || !/^\d{10}$/.test(phone)) return;
+
+    const existing = customers.find((c) => c.phone === phone);
+    if (existing) {
+      selectCustomer(existing);
+      return;
+    }
+
+    setCreatingCustomer(true);
+    try {
+      const res = await apiClient.post<Customer>('/api/customers', { businessId, name: trimmedName, phone });
+      setCustomerId(res.data.id);
+      setJustCreatedCustomer(true);
+      onCustomerCreated?.(res.data);
+    } catch (err) {
+      console.error('[customer sync] failed to save new customer', err);
+    } finally {
+      setCreatingCustomer(false);
+    }
   };
 
   const deleteCategory = async (id: string) => {
@@ -212,6 +246,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     } else {
       setCustomerId('');
       setCustomerPrices({});
+      setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
   };
@@ -474,6 +509,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 value={phone}
                 list="customers-phone-list"
                 onChange={(e) => handlePhoneChange(e.target.value)}
+                onBlur={maybeCreateCustomer}
                 className="pl-8 h-10 text-sm text-[16px]"
               />
               <datalist id="customers-phone-list">
@@ -491,6 +527,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 placeholder="Customer name (Walk-in)"
                 value={customerName}
                 onChange={(e) => handleNameChange(e.target.value)}
+                onBlur={maybeCreateCustomer}
                 className="pl-8 h-10 text-sm"
               />
               <datalist id="customers-name-list">
@@ -511,11 +548,18 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             </p>
           )}
 
-          {/* Customer matched indicator */}
-          {customerId && (
+          {/* Customer matched / saved indicator */}
+          {creatingCustomer && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+              Saving {customerName} to your customer list…
+            </div>
+          )}
+          {!creatingCustomer && customerId && (
             <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {hasCustomerPrices
+              {justCreatedCustomer
+                ? `Saved ${customerName} as a new customer`
+                : hasCustomerPrices
                 ? `Showing ${customerName}'s personalised prices`
                 : `Matched: ${customerName}`}
             </div>

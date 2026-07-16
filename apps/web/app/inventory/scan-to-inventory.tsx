@@ -22,6 +22,7 @@ interface ScanItem {
   quantity: string | number;
   scheme_quantity: string | number | null;
   unit_price: string | number | null;
+  mrp: string | number | null;
   batch_number: string | null;
   expiry_month_year: string | null;
 }
@@ -124,6 +125,7 @@ export function ScanToInventoryDialog({
           quantity: Number(it.quantity) || 0,
           schemeQuantity: it.scheme_quantity !== null && it.scheme_quantity !== '' ? Number(it.scheme_quantity) : undefined,
           unitPrice: it.unit_price !== null && it.unit_price !== '' ? Number(it.unit_price) : undefined,
+          mrp: it.mrp !== null && it.mrp !== '' ? Number(it.mrp) : undefined,
           batchNumber: it.batch_number || undefined,
           expiryMonthYear: it.expiry_month_year || undefined,
         })),
@@ -228,7 +230,7 @@ export function ScanToInventoryDialog({
                   )}
                 </div>
 
-                <div className="overflow-y-auto scrollbar-subtle rounded-2xl ring-1 ring-white/50 bg-white/20">
+                <div className="overflow-auto scrollbar-subtle rounded-2xl ring-1 ring-white/50 bg-white/20">
                   <table className="w-full text-xs text-left">
                     <thead className="text-[10px] text-slate-500 uppercase bg-white/40 sticky top-0 backdrop-blur-sm">
                       <tr>
@@ -236,7 +238,8 @@ export function ScanToInventoryDialog({
                         <th className="px-2 py-2">Product</th>
                         <th className="px-2 py-2 w-16">Qty</th>
                         <th className="px-2 py-2 w-16">Scheme</th>
-                        <th className="px-2 py-2 w-20">Price</th>
+                        <th className="px-2 py-2 w-20">Rate (cost)</th>
+                        <th className="px-2 py-2 w-20">MRP (sale)</th>
                         <th className="px-2 py-2 w-24">Batch</th>
                         <th className="px-2 py-2 w-20">Expiry</th>
                       </tr>
@@ -286,6 +289,14 @@ export function ScanToInventoryDialog({
                               type="number"
                               value={item.unit_price ?? ''}
                               onChange={(e) => updateItem(item.id, { unit_price: e.target.value })}
+                              className="h-7 rounded-lg text-xs px-2 w-20"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 align-top">
+                            <Input
+                              type="number"
+                              value={item.mrp ?? ''}
+                              onChange={(e) => updateItem(item.id, { mrp: e.target.value })}
                               className="h-7 rounded-lg text-xs px-2 w-20"
                             />
                           </td>
