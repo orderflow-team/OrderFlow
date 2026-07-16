@@ -116,17 +116,16 @@ export class InventoryService {
       for (const item of items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
-          // Latest received batch/expiry becomes the product's current batch/expiry.
-          if (item.batch_number || item.expiry_date) {
-            await manager.update(
-              Product,
-              { id: item.product_id },
-              {
-                ...(item.batch_number ? { batch_number: item.batch_number } : {}),
-                ...(item.expiry_date ? { expiry_date: item.expiry_date } : {}),
-              },
-            );
-          }
+          // Set is_available to true since stock was added, and update latest batch/expiry if present.
+          await manager.update(
+            Product,
+            { id: item.product_id },
+            {
+              is_available: true,
+              ...(item.batch_number ? { batch_number: item.batch_number } : {}),
+              ...(item.expiry_date ? { expiry_date: item.expiry_date } : {}),
+            },
+          );
         }
         const stock = manager.create(Stock, {
           business_id: businessId,
@@ -158,6 +157,14 @@ export class InventoryService {
       }
 
       await manager.increment(Product, { id: product.id }, 'stock_quantity', delta);
+
+      // Set is_available dynamically based on the updated stock quantity
+      const newStock = Number(product.stock_quantity) + delta;
+      await manager.update(
+        Product,
+        { id: product.id },
+        { is_available: newStock > 0 },
+      );
 
       const stock = manager.create(Stock, {
         business_id: dto.businessId,
