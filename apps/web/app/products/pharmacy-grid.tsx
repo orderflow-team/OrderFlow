@@ -24,6 +24,7 @@ interface Product {
   expiry_date: string | null;
   description: string | null;
   is_available: boolean;
+  is_draft?: boolean;
   prescription_required: boolean;
   category: string | null;
   barcode: string | null;
@@ -134,7 +135,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId, search } }),
+        apiClient.get<Product[]>('/api/products', { params: { businessId, search, isDraft: 'all' } }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
       ]);
       const fetchedProducts = prodRes.data;
@@ -449,7 +450,12 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
               <Card key={p.id} className="overflow-hidden hover:ring-emerald-300/50 transition-all flex flex-col group">
                 <CardContent className="p-5 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-1 gap-2">
-                    <h3 className="font-bold text-slate-800 text-lg leading-tight">{p.name}</h3>
+                    <h3 className="font-bold text-slate-800 text-lg leading-tight">
+                      {p.name}
+                      {p.is_draft && (
+                        <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
+                      )}
+                    </h3>
                     <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm ${
                       p.is_available ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
                     }`}>

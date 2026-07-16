@@ -12,6 +12,7 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { Plus, X, AlertTriangle, Warehouse, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { ScanToInventoryDialog } from './scan-to-inventory';
 
 interface Supplier {
   id: string;
@@ -235,10 +236,15 @@ export default function InventoryPage() {
 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Purchase Orders</h2>
-          <Button variant="outline" onClick={() => setShowPoForm((s) => !s)} className="gap-1.5">
-            {showPoForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showPoForm ? 'Cancel' : 'New Purchase Order'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {isPharmacy && businessId && (
+              <ScanToInventoryDialog businessId={businessId} suppliers={suppliers} onConfirmed={() => load(businessId)} />
+            )}
+            <Button variant="outline" onClick={() => setShowPoForm((s) => !s)} className="gap-1.5">
+              {showPoForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {showPoForm ? 'Cancel' : 'New Purchase Order'}
+            </Button>
+          </div>
         </div>
         {showPoForm && (
           <Card className="ring-white/50 glass-sheen-sm">

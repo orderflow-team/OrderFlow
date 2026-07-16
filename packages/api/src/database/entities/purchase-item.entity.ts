@@ -38,6 +38,11 @@ export class PurchaseItem {
   @Column({ type: 'date', nullable: true })
   expiry_date: Date;
 
+  // Free "scheme" quantity billed alongside the paid quantity (distributor
+  // invoices often write this as e.g. "3+.15" — 3 billed, 0.15 scheme).
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  scheme_quantity: number;
+
   @CreateDateColumn()
   created_at: Date;
 }

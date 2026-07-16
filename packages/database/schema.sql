@@ -196,6 +196,11 @@ CREATE TABLE IF NOT EXISTS purchase_items (
   quantity DECIMAL(15, 2) NOT NULL,
   unit_price DECIMAL(15, 2) NOT NULL,
   subtotal DECIMAL(15, 2) NOT NULL,
+  -- Pharmacy-specific: batch/expiry of this specific shipment, and any free
+  -- "scheme" quantity billed alongside it (e.g. distributor invoice "3+.15").
+  batch_number VARCHAR(100),
+  expiry_date DATE,
+  scheme_quantity DECIMAL(15, 2),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -339,6 +344,37 @@ CREATE TABLE IF NOT EXISTS price_history (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Invoice Scans table (Scan-to-Inventory: distributor invoice upload -> Vision LLM extraction -> verify -> confirm)
+CREATE TABLE IF NOT EXISTS invoice_scans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  supplier_id UUID REFERENCES suppliers(id) ON DELETE SET NULL,
+  purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE SET NULL,
+  file_url TEXT NOT NULL,
+  file_type VARCHAR(20) NOT NULL, -- 'image' or 'pdf'
+  status VARCHAR(20) NOT NULL DEFAULT 'processing', -- 'processing', 'ready', 'confirmed', 'failed'
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Invoice Scan Items table (extracted line items, editable in the verify screen before confirm)
+CREATE TABLE IF NOT EXISTS invoice_scan_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scan_id UUID NOT NULL REFERENCES invoice_scans(id) ON DELETE CASCADE,
+  raw_product_name VARCHAR(255) NOT NULL,
+  matched_product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  is_duplicate BOOLEAN DEFAULT FALSE, -- auto-matched an existing product; excluded from confirm by default
+  included BOOLEAN DEFAULT TRUE, -- user's final include/skip choice on the verify screen
+  quantity DECIMAL(15, 2) NOT NULL,
+  scheme_quantity DECIMAL(15, 2),
+  unit_price DECIMAL(15, 2),
+  batch_number VARCHAR(100),
+  expiry_month_year VARCHAR(7), -- standardized "MM/YYYY" as extracted
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_customers_business_id ON customers(business_id);
 CREATE INDEX idx_products_business_id ON products(business_id);
@@ -355,6 +391,8 @@ CREATE INDEX idx_kot_order_id ON kot(order_id);
 CREATE INDEX idx_visits_salesman_id ON visits(salesman_id);
 CREATE INDEX idx_price_history_customer_id ON price_history(customer_id);
 CREATE INDEX idx_price_history_product_id ON price_history(product_id);
+CREATE INDEX idx_invoice_scans_business_id ON invoice_scans(business_id);
+CREATE INDEX idx_invoice_scan_items_scan_id ON invoice_scan_items(scan_id);
 
 -- Verify tables created
 SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;

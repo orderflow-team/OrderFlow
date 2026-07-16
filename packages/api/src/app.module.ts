@@ -13,6 +13,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { InvoiceScanModule } from './modules/invoice-scan/invoice-scan.module';
 import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { SalesmanModule } from './modules/salesman/salesman.module';
 import { BillingModule } from './modules/billing/billing.module';
@@ -36,6 +37,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
     OrdersModule,
     SuppliersModule,
     InventoryModule,
+    InvoiceScanModule,
     RestaurantModule,
     SalesmanModule,
     BillingModule,

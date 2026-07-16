@@ -30,6 +30,11 @@ export class PurchaseItemDto {
   @IsOptional()
   @IsDateString()
   expiryDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  schemeQuantity?: number;
 }
 
 export class CreatePurchaseOrderDto {

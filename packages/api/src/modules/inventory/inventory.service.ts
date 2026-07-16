@@ -40,6 +40,7 @@ export class InventoryService {
           subtotal: item.quantity * item.unitPrice,
           batch_number: item.batchNumber,
           expiry_date: item.expiryDate ? new Date(item.expiryDate) : undefined,
+          scheme_quantity: item.schemeQuantity,
         }),
       );
       await manager.save(PurchaseItem, items);
