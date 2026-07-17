@@ -484,7 +484,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
+      <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
 
         {/* Barcode scan feedback (fixed overlay — no layout impact) */}
         {scanToast && (
@@ -496,13 +496,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         )}
 
         {/* Header */}
-        <DialogHeader className="p-4 border-b border-slate-100 flex-shrink-0 space-y-3">
-          <DialogTitle className="text-lg">New Order</DialogTitle>
+        <DialogHeader className="bg-white/60 backdrop-blur-3xl backdrop-saturate-150 rounded-t-3xl p-3 px-4 border-b border-white/50 flex-shrink-0 space-y-2 z-10">
+          <DialogTitle className="text-base font-semibold">New Order</DialogTitle>
 
-          {/* Customer fields row */}
-          <div className="flex gap-2">
+          {/* Customer & Patient/Doctor fields layout */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2">
             {/* Phone */}
-            <div className="relative w-44 flex-shrink-0">
+            <div className="relative lg:w-44 flex-shrink-0">
               <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <Input
                 type="tel"
@@ -512,7 +512,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 list="customers-phone-list"
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 onBlur={maybeCreateCustomer}
-                className="pl-8 h-10 text-sm text-[16px]"
+                className="pl-8 h-9 text-sm text-[16px]"
               />
               <datalist id="customers-phone-list">
                 {customers.filter(c => c.phone).map(c => (
@@ -530,39 +530,39 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 value={customerName}
                 onChange={(e) => handleNameChange(e.target.value)}
                 onBlur={maybeCreateCustomer}
-                className="pl-8 h-10 text-sm"
+                className="pl-8 h-9 text-sm"
               />
               <datalist id="customers-name-list">
                 {customers.map(c => <option key={c.id} value={c.name} />)}
               </datalist>
             </div>
+
+            {isPharmacy && (
+              <>
+                {/* Patient name — printed on the Cash Memo invoice */}
+                <div className="relative flex-1">
+                  <UserRound className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Patient name (optional)"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    className="pl-8 h-9 text-sm"
+                  />
+                </div>
+
+                {/* Prescribing doctor — printed on the Cash Memo invoice */}
+                <div className="relative flex-1">
+                  <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Dr. name (optional)"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    className="pl-8 h-9 text-sm"
+                  />
+                </div>
+              </>
+            )}
           </div>
-
-          {isPharmacy && (
-            <div className="flex gap-2">
-              {/* Patient name — printed on the Cash Memo invoice */}
-              <div className="relative flex-1">
-                <UserRound className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Patient name (optional)"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  className="pl-8 h-10 text-sm"
-                />
-              </div>
-
-              {/* Prescribing doctor — printed on the Cash Memo invoice */}
-              <div className="relative flex-1">
-                <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Dr. name (optional)"
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  className="pl-8 h-10 text-sm"
-                />
-              </div>
-            </div>
-          )}
 
           {phoneError && (
             <p className="text-xs text-rose-600 font-medium">
@@ -595,7 +595,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         </DialogHeader>
 
         {/* Product area */}
-        <div className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0">
+        <div className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-3 relative z-0">
           {/* Categories */}
           <div className="shrink-0">
             <CategoryFilterPills
@@ -613,7 +613,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input
               ref={searchInputRef}
-              className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
+              className="pl-10 h-10 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
               placeholder={isPharmacy ? 'Search medicines...' : 'Search products...'}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -711,13 +711,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         </div>
 
         {/* Cart */}
-        <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 px-4 pt-4 pb-4 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
-          <div className="flex items-center gap-2 mb-3 font-semibold text-slate-800 text-sm">
+        <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 px-4 pt-3 pb-3 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
+          <div className="flex items-center gap-2 mb-2 font-semibold text-slate-800 text-sm">
             <ShoppingCart className="w-4 h-4" />
             Cart ({cartItems.length} items)
           </div>
 
-          <div className="max-h-36 overflow-y-auto space-y-2.5 mb-3 pr-1">
+          <div className="max-h-36 overflow-y-auto space-y-2 mb-2.5 pr-1">
             {cartItems.map(item => (
               <div key={item.product.id} className="flex flex-col gap-2 pb-3 border-b border-white/20 last:border-0 last:pb-0 text-sm">
                 <input
@@ -845,7 +845,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             )}
           </div>
 
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-between items-center mb-2.5">
             <span className="text-sm font-semibold text-slate-600">Total</span>
             <span className="font-bold text-lg text-slate-800">₹{cartTotal.toFixed(2)}</span>
           </div>
@@ -853,13 +853,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="flex gap-2">
             <Button
               type="button"
-              className="flex-1 h-11 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
+              className="flex-1 h-10 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
               onClick={focusSearch}
             >
               <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : 'Add Product'}
             </Button>
             <Button
-              className="flex-1 h-11 text-base font-semibold"
+              className="flex-1 h-10 text-base font-semibold"
               disabled={cartItems.length === 0 || submitting}
               onClick={handleSubmit}
             >
