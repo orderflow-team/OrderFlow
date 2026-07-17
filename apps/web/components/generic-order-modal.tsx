@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 
@@ -83,6 +83,17 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [inventoryEnabled, setInventoryEnabled] = useState(true);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+
+  const handleProductScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollTop = e.currentTarget.scrollTop;
+    if (scrollTop > 40 && !isHeaderCollapsed) {
+      setIsHeaderCollapsed(true);
+    } else if (scrollTop === 0 && isHeaderCollapsed) {
+      setIsHeaderCollapsed(false);
+    }
+  };
 
   useEffect(() => {
     if (!businessId) return;
@@ -158,6 +169,10 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setSelectedCategory(null);
       setCreatingCustomer(false);
       setJustCreatedCustomer(false);
+      setPatientName('');
+      setDoctorName('');
+      setIsHeaderCollapsed(false);
+      setShowOptionalFields(false);
     }
   }, [isOpen]);
 
@@ -496,106 +511,149 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         )}
 
         {/* Header */}
-        <DialogHeader className="p-4 border-b border-slate-100 flex-shrink-0 space-y-3">
-          <DialogTitle className="text-lg">New Order</DialogTitle>
+        <DialogHeader className="p-4 border-b border-slate-100 flex-shrink-0 relative">
+          <div className="flex justify-between items-center">
+            <DialogTitle className="text-lg flex items-center gap-2">
+              New Order
+              <button
+                type="button"
+                onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+                className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                title={isHeaderCollapsed ? "Show customer fields" : "Hide customer fields"}
+              >
+                {isHeaderCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              </button>
+            </DialogTitle>
+          </div>
 
-          {/* Customer fields row */}
-          <div className="flex gap-2">
-            {/* Phone */}
-            <div className="relative w-44 flex-shrink-0">
-              <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="tel"
-                inputMode="numeric"
-                placeholder="Phone"
-                value={phone}
-                list="customers-phone-list"
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                onBlur={maybeCreateCustomer}
-                className="pl-8 h-10 text-sm text-[16px]"
-              />
-              <datalist id="customers-phone-list">
-                {customers.filter(c => c.phone).map(c => (
-                  <option key={c.id} value={c.phone} />
-                ))}
-              </datalist>
-            </div>
+          {/* Collapsible Customer Fields Container */}
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            isHeaderCollapsed ? 'max-h-0 opacity-0 pointer-events-none mt-0' : 'max-h-48 opacity-100 mt-3'
+          }`}>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                {/* Phone */}
+                <div className="relative w-44 flex-shrink-0">
+                  <Phone className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="Phone"
+                    value={phone}
+                    list="customers-phone-list"
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    onBlur={maybeCreateCustomer}
+                    className="pl-8 h-10 text-sm text-[16px]"
+                  />
+                  <datalist id="customers-phone-list">
+                    {customers.filter(c => c.phone).map(c => (
+                      <option key={c.id} value={c.phone} />
+                    ))}
+                  </datalist>
+                </div>
 
-            {/* Name */}
-            <div className="relative flex-1">
-              <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input
-                list="customers-name-list"
-                placeholder="Customer name (Walk-in)"
-                value={customerName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                onBlur={maybeCreateCustomer}
-                className="pl-8 h-10 text-sm"
-              />
-              <datalist id="customers-name-list">
-                {customers.map(c => <option key={c.id} value={c.name} />)}
-              </datalist>
+                {/* Name */}
+                <div className="relative flex-1">
+                  <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    list="customers-name-list"
+                    placeholder="Customer name (Walk-in)"
+                    value={customerName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onBlur={maybeCreateCustomer}
+                    className="pl-8 h-10 text-sm"
+                  />
+                  <datalist id="customers-name-list">
+                    {customers.map(c => <option key={c.id} value={c.name} />)}
+                  </datalist>
+                </div>
+              </div>
+
+              {isPharmacy && (
+                <div>
+                  {!showOptionalFields ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowOptionalFields(true)}
+                      className="text-xs text-emerald-600 hover:text-emerald-700 hover:underline font-semibold flex items-center gap-1 mt-1 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add Patient / Doctor details (optional)
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        {/* Patient name — printed on the Cash Memo invoice */}
+                        <div className="relative flex-1">
+                          <UserRound className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="Patient name (optional)"
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                            className="pl-8 h-10 text-sm"
+                          />
+                        </div>
+
+                        {/* Prescribing doctor — printed on the Cash Memo invoice */}
+                        <div className="relative flex-1">
+                          <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            placeholder="Dr. name (optional)"
+                            value={doctorName}
+                            onChange={(e) => setDoctorName(e.target.value)}
+                            className="pl-8 h-10 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowOptionalFields(false)}
+                        className="text-xs text-rose-500 hover:text-rose-600 hover:underline font-semibold flex items-center gap-1 transition-colors"
+                      >
+                        Hide optional fields
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {isPharmacy && (
-            <div className="flex gap-2">
-              {/* Patient name — printed on the Cash Memo invoice */}
-              <div className="relative flex-1">
-                <UserRound className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Patient name (optional)"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  className="pl-8 h-10 text-sm"
-                />
-              </div>
-
-              {/* Prescribing doctor — printed on the Cash Memo invoice */}
-              <div className="relative flex-1">
-                <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="Dr. name (optional)"
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  className="pl-8 h-10 text-sm"
-                />
-              </div>
-            </div>
-          )}
-
-          {phoneError && (
-            <p className="text-xs text-rose-600 font-medium">
-              {phoneError}
-            </p>
-          )}
-
-          {validationError && (
-            <p className="text-xs text-rose-600 font-medium">
-              {validationError}
-            </p>
-          )}
-
-          {/* Customer matched / saved indicator */}
-          {creatingCustomer && (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-              Saving {customerName} to your customer list…
-            </div>
-          )}
-          {!creatingCustomer && customerId && (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {justCreatedCustomer
-                ? `Saved ${customerName} as a new customer`
-                : hasCustomerPrices
-                ? `Showing ${customerName}'s personalised prices`
-                : `Matched: ${customerName}`}
+          {(phoneError || validationError || creatingCustomer || (!creatingCustomer && customerId)) && (
+            <div className="mt-2 space-y-1">
+              {phoneError && (
+                <p className="text-xs text-rose-600 font-medium">
+                  {phoneError}
+                </p>
+              )}
+              {validationError && (
+                <p className="text-xs text-rose-600 font-medium">
+                  {validationError}
+                </p>
+              )}
+              {creatingCustomer && (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                  Saving {customerName} to your customer list…
+                </div>
+              )}
+              {!creatingCustomer && customerId && (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {justCreatedCustomer
+                    ? `Saved ${customerName} as a new customer`
+                    : hasCustomerPrices
+                    ? `Showing ${customerName}'s personalised prices`
+                    : `Matched: ${customerName}`}
+                </div>
+              )}
             </div>
           )}
         </DialogHeader>
 
         {/* Product area */}
-        <div className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0">
+        <div
+          onScroll={handleProductScroll}
+          className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0"
+        >
           {/* Categories */}
           <div className="shrink-0">
             <CategoryFilterPills

@@ -121,6 +121,14 @@ export class InvoicesService {
     const customer = order?.customer_id
       ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
       : null;
-    return { ...invoice, items, order_status: order?.status, customer, order_customer_name: order?.customer_name };
+    return {
+      ...invoice,
+      items,
+      order_status: order?.status,
+      customer,
+      order_customer_name: order?.customer_name,
+      patient_name: order?.patient_name,
+      doctor_name: order?.doctor_name,
+    };
   }
 }

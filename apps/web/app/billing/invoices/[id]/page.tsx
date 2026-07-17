@@ -36,6 +36,8 @@ interface Invoice {
   order_status?: string;
   customer?: { name: string; phone?: string | null } | null;
   order_customer_name?: string | null;
+  patient_name?: string | null;
+  doctor_name?: string | null;
   items: InvoiceItem[];
 }
 
@@ -259,11 +261,38 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
 
-            <div className="mb-6">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
-              <p className="text-slate-800 font-semibold">{invoice.customer?.name || invoice.order_customer_name || 'Walk-in Customer'}</p>
-              {invoice.customer?.phone && <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>}
-            </div>
+            {/* Customer Details (Billed To) - only shown if name or phone exists */}
+            {(invoice.customer?.name || invoice.order_customer_name || invoice.customer?.phone) && (
+              <div className="mb-6">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
+                {(invoice.customer?.name || invoice.order_customer_name) && (
+                  <p className="text-slate-800 font-semibold">
+                    {invoice.customer?.name || invoice.order_customer_name}
+                  </p>
+                )}
+                {invoice.customer?.phone && (
+                  <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>
+                )}
+              </div>
+            )}
+
+            {/* Pharmacy details (Patient & Doctor) - only shown if they exist */}
+            {(invoice.patient_name || invoice.doctor_name) && (
+              <div className="mb-6 grid grid-cols-2 gap-4">
+                {invoice.patient_name && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Patient Name</p>
+                    <p className="text-slate-800 font-semibold">{invoice.patient_name}</p>
+                  </div>
+                )}
+                {invoice.doctor_name && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Name</p>
+                    <p className="text-slate-800 font-semibold">{invoice.doctor_name}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left mb-6 min-w-[800px]">
               <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">

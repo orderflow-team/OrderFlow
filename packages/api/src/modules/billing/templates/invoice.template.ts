@@ -215,14 +215,30 @@ export function renderPharmacyCashMemoHtml(
       <div>Dated ${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })}</div>
     </div>
 
+    ${customer?.name || order?.customer_name ? `
+    <div class="patient-row">
+      <span class="label">Customer Name</span>
+      <span class="dots">${customer?.name ?? order?.customer_name ?? ''}</span>
+    </div>
+    ` : ''}
+    ${customer?.phone ? `
+    <div class="patient-row">
+      <span class="label">Mobile No.</span>
+      <span class="dots">${customer.phone}</span>
+    </div>
+    ` : ''}
+    ${order?.patient_name ? `
     <div class="patient-row">
       <span class="label">Patient Name</span>
-      <span class="dots">${order?.patient_name ?? ''}</span>
+      <span class="dots">${order.patient_name}</span>
     </div>
+    ` : ''}
+    ${order?.doctor_name ? `
     <div class="patient-row">
       <span class="label">Dr. Name</span>
-      <span class="dots">${order?.doctor_name ?? ''}</span>
+      <span class="dots">${order.doctor_name}</span>
     </div>
+    ` : ''}
 
     <table>
       <thead>
