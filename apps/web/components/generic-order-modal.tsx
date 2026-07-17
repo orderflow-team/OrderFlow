@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 
@@ -50,7 +50,7 @@ interface GenericOrderModalProps {
   isOpen: boolean;
   customers: Customer[];
   onClose: () => void;
-  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string) => Promise<void>;
+  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string) => Promise<void>;
   onCustomerCreated?: (customer: Customer) => void;
 }
 
@@ -64,6 +64,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [patientName, setPatientName] = useState('');
+  const [doctorName, setDoctorName] = useState('');
   const [validationError, setValidationError] = useState('');
   const [baseProducts, setBaseProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -442,7 +444,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setValidationError('');
     setPhoneError('');
     try {
-      await onSubmit(items, customerId, customerName, phone);
+      await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined);
       onClose();
     } catch (err) {
       console.error(err);
@@ -535,6 +537,32 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               </datalist>
             </div>
           </div>
+
+          {isPharmacy && (
+            <div className="flex gap-2">
+              {/* Patient name — printed on the Cash Memo invoice */}
+              <div className="relative flex-1">
+                <UserRound className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Patient name (optional)"
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  className="pl-8 h-10 text-sm"
+                />
+              </div>
+
+              {/* Prescribing doctor — printed on the Cash Memo invoice */}
+              <div className="relative flex-1">
+                <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Dr. name (optional)"
+                  value={doctorName}
+                  onChange={(e) => setDoctorName(e.target.value)}
+                  className="pl-8 h-10 text-sm"
+                />
+              </div>
+            </div>
+          )}
 
           {phoneError && (
             <p className="text-xs text-rose-600 font-medium">

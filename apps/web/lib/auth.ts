@@ -28,13 +28,18 @@ export function hasRole(...roles: string[]): boolean {
 }
 
 /**
- * Restricted-role users (salesman, kitchen staff) log into the SAME business
- * as the owner and never pick between businesses they own — skip
- * /select-business and land straight on the one page they're allowed to see.
+ * Restricted-role users (staff logins) log into the SAME business as the
+ * owner and never pick between businesses they own — skip /select-business
+ * and land straight on the one page they're allowed to see.
  */
 export function getPostLoginPath(role: string | null | undefined): string {
   if (role === 'salesman') return '/dashboard';
   if (role === 'kitchen_staff') return '/restaurant';
+  if (role === 'manager') return '/dashboard';
+  if (role === 'cashier') return '/billing';
+  if (role === 'waiter') return '/restaurant';
+  if (role === 'accountant') return '/reports';
+  if (role === 'delivery_person') return '/orders';
   return '/select-business';
 }
 

@@ -230,6 +230,8 @@ export class OrdersService {
         total_amount: totalAmount,
         tax_amount: totalTax,
         notes: dto.notes,
+        patient_name: dto.patientName,
+        doctor_name: dto.doctorName,
         created_by_user_id: createdByUserUuid,
       });
       const savedOrder = await manager.save(order);

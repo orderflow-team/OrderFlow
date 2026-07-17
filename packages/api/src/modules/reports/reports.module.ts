@@ -9,6 +9,7 @@ import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { Salesman } from '../../database/entities/salesman.entity';
+import { Business } from '../../database/entities/business.entity';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 
@@ -24,6 +25,7 @@ import { ReportsService } from './reports.service';
       Payment,
       Expense,
       Salesman,
+      Business,
     ]),
   ],
   controllers: [ReportsController],

@@ -17,6 +17,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { InvoiceScanModule } from './modules/invoice-scan/invoice-scan.module';
 import { RestaurantModule } from './modules/restaurant/restaurant.module';
 import { SalesmanModule } from './modules/salesman/salesman.module';
+import { StaffModule } from './modules/staff/staff.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
@@ -42,6 +43,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     InvoiceScanModule,
     RestaurantModule,
     SalesmanModule,
+    StaffModule,
     BillingModule,
     ReportsModule,
     NotificationsModule,

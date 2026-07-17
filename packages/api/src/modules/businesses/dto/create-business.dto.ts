@@ -14,6 +14,14 @@ export class CreateBusinessDto {
 
   @IsOptional()
   @IsString()
+  drugLicenseNumber1?: string;
+
+  @IsOptional()
+  @IsString()
+  drugLicenseNumber2?: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @IsOptional()

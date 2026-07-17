@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Business } from './business.entity';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @Entity('users')
 export class User {
@@ -27,8 +28,8 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   full_name: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'viewer' })
-  role: string;
+  @Column({ type: 'varchar', length: 50 })
+  role: UserRole;
 
   @Column({ type: 'boolean', default: true })
   is_active: boolean;

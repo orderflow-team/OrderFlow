@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
+import { Business } from '../../database/entities/business.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseItem } from '../../database/entities/purchase-item.entity';
@@ -36,11 +37,21 @@ export class ReportsService {
     @InjectRepository(Payment) private paymentsRepository: Repository<Payment>,
     @InjectRepository(Expense) private expensesRepository: Repository<Expense>,
     @InjectRepository(Salesman) private salesmenRepository: Repository<Salesman>,
+    @InjectRepository(Business) private businessesRepository: Repository<Business>,
   ) {}
+
+  /** Expiry only makes sense where stock/batches are actually tracked, and never applies to restaurants (no shelf-life concept for a cooked dish). Other inventory KPIs (stock levels, valuation) key off inventory_enabled alone. */
+  private async reportGatesFor(businessId: string) {
+    const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+    const inventoryEnabled = business?.inventory_enabled !== false;
+    const showExpiry = inventoryEnabled && business?.category !== 'restaurant';
+    return { category: business?.category ?? null, inventoryEnabled, showExpiry };
+  }
 
   async dashboard(businessId: string) {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
+    const { category, inventoryEnabled, showExpiry } = await this.reportGatesFor(businessId);
 
     const [
       todaysOrders,
@@ -81,23 +92,27 @@ export class ReportsService {
         .andWhere('customer.outstanding_amount > 0')
         .select('COALESCE(SUM(customer.outstanding_amount), 0)', 'total')
         .getRawOne(),
-      this.productsRepository
-        .createQueryBuilder('product')
-        .where('product.business_id = :businessId', { businessId })
-        .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
-        .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
-        .orderBy('product.stock_quantity', 'ASC')
-        .limit(10)
-        .getMany(),
-      this.productsRepository
-        .createQueryBuilder('product')
-        .where('product.business_id = :businessId', { businessId })
-        .andWhere('product.expiry_date IS NOT NULL')
-        .andWhere('product.expiry_date >= :today', { today: new Date() })
-        .andWhere(`product.expiry_date <= :soon`, { soon: this.daysFromNow(30) })
-        .orderBy('product.expiry_date', 'ASC')
-        .limit(10)
-        .getMany(),
+      inventoryEnabled
+        ? this.productsRepository
+            .createQueryBuilder('product')
+            .where('product.business_id = :businessId', { businessId })
+            .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
+            .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
+            .orderBy('product.stock_quantity', 'ASC')
+            .limit(10)
+            .getMany()
+        : Promise.resolve([]),
+      showExpiry
+        ? this.productsRepository
+            .createQueryBuilder('product')
+            .where('product.business_id = :businessId', { businessId })
+            .andWhere('product.expiry_date IS NOT NULL')
+            .andWhere('product.expiry_date >= :today', { today: new Date() })
+            .andWhere(`product.expiry_date <= :soon`, { soon: this.daysFromNow(30) })
+            .orderBy('product.expiry_date', 'ASC')
+            .limit(10)
+            .getMany()
+        : Promise.resolve([]),
       this.orderItemsRepository
         .createQueryBuilder('item')
         .innerJoin('orders', 'order', 'order.id = item.order_id')
@@ -129,6 +144,7 @@ export class ReportsService {
     ]);
 
     return {
+      meta: { category, inventoryEnabled },
       todaysOrders,
       todaysSales: Number(todaysSales.total),
       pendingOrders,
@@ -279,6 +295,7 @@ export class ReportsService {
     const now = new Date();
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
+    const { category, inventoryEnabled, showExpiry } = await this.reportGatesFor(businessId);
     const chartSince = this.daysFromNow(-days);
     // The window immediately preceding the selected one, same length, so
     // "vs previous period" is a fair comparison at any granularity the user
@@ -409,30 +426,36 @@ export class ReportsService {
         .orderBy('"totalQuantity"', 'DESC')
         .limit(5)
         .getRawMany(),
-      this.productsRepository
-        .createQueryBuilder('product')
-        .where('product.business_id = :businessId', { businessId })
-        .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
-        .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
-        .orderBy('product.stock_quantity', 'ASC')
-        .limit(10)
-        .getMany(),
-      this.productsRepository
-        .createQueryBuilder('product')
-        .where('product.business_id = :businessId', { businessId })
-        .andWhere('product.expiry_date IS NOT NULL')
-        .andWhere('product.expiry_date >= :minDate', { minDate: this.daysFromNow(90) })
-        .andWhere('product.expiry_date <= :maxDate', { maxDate: this.daysFromNow(180) })
-        .orderBy('product.expiry_date', 'ASC')
-        .limit(10)
-        .getMany(),
+      inventoryEnabled
+        ? this.productsRepository
+            .createQueryBuilder('product')
+            .where('product.business_id = :businessId', { businessId })
+            .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
+            .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
+            .orderBy('product.stock_quantity', 'ASC')
+            .limit(10)
+            .getMany()
+        : Promise.resolve([]),
+      showExpiry
+        ? this.productsRepository
+            .createQueryBuilder('product')
+            .where('product.business_id = :businessId', { businessId })
+            .andWhere('product.expiry_date IS NOT NULL')
+            .andWhere('product.expiry_date >= :minDate', { minDate: this.daysFromNow(90) })
+            .andWhere('product.expiry_date <= :maxDate', { maxDate: this.daysFromNow(180) })
+            .orderBy('product.expiry_date', 'ASC')
+            .limit(10)
+            .getMany()
+        : Promise.resolve([]),
       this.topCustomersSince(businessId, chartSince),
       this.newVsReturningSince(businessId, chartSince),
       this.orderCountSince(businessId, chartSince),
       this.inactiveCustomers(businessId),
       this.categoryBreakdownSince(businessId, chartSince),
-      this.slowMovingStock(businessId, chartSince),
-      this.inventoryValuation(businessId),
+      inventoryEnabled ? this.slowMovingStock(businessId, chartSince) : Promise.resolve([]),
+      inventoryEnabled
+        ? this.inventoryValuation(businessId)
+        : Promise.resolve({ totalValue: 0, skuCount: 0, totalUnits: 0 }),
       this.topMarginProductsSince(businessId, chartSince),
       this.topSuppliersSince(businessId, chartSince),
       this.paymentMethodBreakdownSince(businessId, chartSince),
@@ -480,6 +503,7 @@ export class ReportsService {
     const actionItems = this.buildActionItems(reorderSuggestions, expiringSoon, slowMoving, creditExposure);
 
     return {
+      meta: { category, inventoryEnabled },
       kpis: {
         todaysSalesRevenue,
         todaysPurchaseExpenses,

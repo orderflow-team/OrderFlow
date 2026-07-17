@@ -1,4 +1,5 @@
 export interface AnalyticsPayload {
+  meta: { category: string | null; inventoryEnabled: boolean };
   kpis: {
     todaysSalesRevenue: number;
     todaysPurchaseExpenses: number;

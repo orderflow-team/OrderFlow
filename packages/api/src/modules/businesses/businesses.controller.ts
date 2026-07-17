@@ -17,6 +17,9 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
@@ -24,7 +27,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 
 const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/businesses')
 export class BusinessesController {
   constructor(
@@ -67,11 +70,13 @@ export class BusinessesController {
     return this.businessesService.findOne(id, req.user.userId, req.user.businessId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateBusinessDto) {
     return this.businessesService.update(id, dto, req.user.userId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -101,6 +106,7 @@ export class BusinessesController {
     return this.businessesService.updateLogo(id, `/uploads/logos/${file.filename}`, req.user.userId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Delete(':id/logo')
   removeLogo(@Req() req: any, @Param('id') id: string) {
     return this.businessesService.removeLogo(id, req.user.userId);

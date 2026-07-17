@@ -442,7 +442,7 @@ export function GenericOrders() {
     }
   };
 
-  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string, phone?: string) => {
+  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string) => {
     if (!businessId) return;
     setSaving(true);
     setError('');
@@ -453,6 +453,8 @@ export function GenericOrders() {
         customerId: customerId || undefined,
         customerName: selectedCustomer?.name || customerName || 'Walk-in',
         phone: phone || undefined,
+        patientName: patientName || undefined,
+        doctorName: doctorName || undefined,
         orderType: 'regular',
         items: cartItems.map((it) => ({
           productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,

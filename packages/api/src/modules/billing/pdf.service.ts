@@ -9,7 +9,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
-import { renderInvoiceHtml, renderThermalReceiptHtml } from './templates/invoice.template';
+import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderThermalReceiptHtml } from './templates/invoice.template';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
@@ -81,7 +81,9 @@ export class PdfService {
     }
 
     const { items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
-    const html = renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business));
+    const html = business?.category === 'pharmacy'
+      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business))
+      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business));
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 

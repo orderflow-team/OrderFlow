@@ -26,6 +26,8 @@ interface BusinessProfile {
   phone: string | null;
   address: string | null;
   gst_number: string | null;
+  drug_license_number_1: string | null;
+  drug_license_number_2: string | null;
   logo_url: string | null;
   inventory_enabled: boolean;
   ai_chat_enabled: boolean;
@@ -47,6 +49,8 @@ export default function SettingsPage() {
     phone: '',
     address: '',
     gstNumber: '',
+    drugLicenseNumber1: '',
+    drugLicenseNumber2: '',
     logoUrl: '',
     inventoryEnabled: true,
     aiChatEnabled: true,
@@ -65,6 +69,8 @@ export default function SettingsPage() {
           phone: res.data.phone || '',
           address: res.data.address || '',
           gstNumber: res.data.gst_number || '',
+          drugLicenseNumber1: res.data.drug_license_number_1 || '',
+          drugLicenseNumber2: res.data.drug_license_number_2 || '',
           logoUrl: res.data.logo_url || '',
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
@@ -87,6 +93,8 @@ export default function SettingsPage() {
         phone: form.phone || undefined,
         address: form.address || undefined,
         gstNumber: form.gstNumber || undefined,
+        drugLicenseNumber1: form.drugLicenseNumber1 || undefined,
+        drugLicenseNumber2: form.drugLicenseNumber2 || undefined,
         inventoryEnabled: form.inventoryEnabled,
         aiChatEnabled: form.aiChatEnabled,
       });
@@ -234,6 +242,18 @@ export default function SettingsPage() {
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Address</label>
                   <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
                 </div>
+                {form.category === 'pharmacy' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 1</label>
+                      <Input value={form.drugLicenseNumber1} onChange={(e) => setForm({ ...form, drugLicenseNumber1: e.target.value })} placeholder="e.g. Retail" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 2</label>
+                      <Input value={form.drugLicenseNumber2} onChange={(e) => setForm({ ...form, drugLicenseNumber2: e.target.value })} placeholder="e.g. Wholesale" />
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

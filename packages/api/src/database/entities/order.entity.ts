@@ -27,6 +27,14 @@ export class Order {
   @Column({ type: 'varchar', length: 255 })
   customer_name: string;
 
+  // Pharmacy-specific: printed on the Cash Memo PDF invoice when captured at
+  // billing time. Optional — not every sale has a prescription behind it.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  patient_name: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  doctor_name: string;
+
   @Column({ type: 'uuid', nullable: true })
   table_id: string;
 

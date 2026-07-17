@@ -22,6 +22,7 @@ import {
   Plus,
   Check,
   Settings,
+  UserCog,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
@@ -40,6 +41,10 @@ const CORE_MORE_NAV = [
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
+
+const BILLING_NAV = CORE_MORE_NAV[0];
+const REPORTS_NAV = CORE_MORE_NAV[1];
+const STAFF_NAV = { href: '/staff', label: 'Staff', icon: UserCog };
 
 const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: typeof Warehouse }> = {
   inventory: { href: '/inventory', label: 'Inventory', icon: Warehouse },
@@ -109,10 +114,26 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [isSalesmanRole, setIsSalesmanRole] = useState(false);
   const [isCookRole, setIsCookRole] = useState(false);
+  const [isCashierRole, setIsCashierRole] = useState(false);
+  const [isWaiterRole, setIsWaiterRole] = useState(false);
+  const [isAccountantRole, setIsAccountantRole] = useState(false);
+  const [isDeliveryRole, setIsDeliveryRole] = useState(false);
+  // Tri-state (null = "not yet resolved") rather than a plain boolean: these
+  // gate "redirect away if NOT allowed" effects below, and a false default
+  // would bounce a legitimate admin/manager away for the one tick before
+  // hasRole() resolves on mount.
+  const [canManageStaff, setCanManageStaff] = useState<boolean | null>(null);
+  const [canViewReports, setCanViewReports] = useState<boolean | null>(null);
   useEffect(() => {
     setBusinessId(getCurrentUser()?.businessId ?? null);
     setIsSalesmanRole(hasRole('salesman'));
     setIsCookRole(hasRole('kitchen_staff'));
+    setIsCashierRole(hasRole('cashier'));
+    setIsWaiterRole(hasRole('waiter'));
+    setIsAccountantRole(hasRole('accountant'));
+    setIsDeliveryRole(hasRole('delivery_person'));
+    setCanManageStaff(hasRole('admin', 'manager'));
+    setCanViewReports(hasRole('admin', 'manager', 'accountant'));
   }, []);
 
   useEffect(() => {
@@ -196,17 +217,29 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   // are literally the same rows — no sync needed) but only gets a working
   // slice of the app: placing orders and logging visits, not admin tools.
   // A cook gets even less — nothing but the KOT screen, no dashboard even.
-  const moreNav = (isSalesmanRole || isCookRole)
+  // Cashier/waiter/accountant/delivery person are similarly restricted to
+  // the one or two pages their backend @Roles() guards actually let them hit
+  // — all of which are already folded into primaryNavBase below, so moreNav
+  // stays empty for them (nothing left to put in a "More" sheet).
+  const moreNav = (isSalesmanRole || isCookRole || isWaiterRole || isDeliveryRole || isCashierRole || isAccountantRole)
     ? []
     : optionalModules
-      ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV]
-      : CORE_MORE_NAV;
+      ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])]
+      : [...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])];
 
   const primaryNavBase = isCookRole
     ? [{ ...OPTIONAL_NAV.restaurant, label: 'KOTs' }]
-    : isSalesmanRole
-      ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
-      : CORE_PRIMARY_NAV;
+    : isWaiterRole
+      ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1], { ...OPTIONAL_NAV.restaurant, label: 'Tables' }]
+      : isSalesmanRole
+        ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
+        : isCashierRole
+          ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1], BILLING_NAV]
+          : isAccountantRole
+            ? [CORE_PRIMARY_NAV[0], REPORTS_NAV, BILLING_NAV]
+            : isDeliveryRole
+              ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1]]
+              : CORE_PRIMARY_NAV;
 
   const allNav = [...primaryNavBase.map(item => {
     if (item.href !== '/products') return item;
@@ -247,6 +280,58 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       router.replace('/restaurant');
     }
   }, [isCookRole, pathname, router]);
+
+  // Safety net: a cashier only has Dashboard/Orders/Billing.
+  useEffect(() => {
+    if (!isCashierRole) return;
+    const allowedPaths = ['/dashboard', '/orders', '/billing'];
+    if (!allowedPaths.some((p) => isActive(pathname, p))) {
+      router.replace('/billing');
+    }
+  }, [isCashierRole, pathname, router]);
+
+  // Safety net: a waiter only has Dashboard/Orders/Tables (restaurant module).
+  useEffect(() => {
+    if (!isWaiterRole) return;
+    const allowedPaths = ['/dashboard', '/orders', '/restaurant'];
+    if (!allowedPaths.some((p) => isActive(pathname, p))) {
+      router.replace('/restaurant');
+    }
+  }, [isWaiterRole, pathname, router]);
+
+  // Safety net: an accountant only has Dashboard/Reports/Billing.
+  useEffect(() => {
+    if (!isAccountantRole) return;
+    const allowedPaths = ['/dashboard', '/reports', '/billing'];
+    if (!allowedPaths.some((p) => isActive(pathname, p))) {
+      router.replace('/reports');
+    }
+  }, [isAccountantRole, pathname, router]);
+
+  // Safety net: a delivery person only has Dashboard/Orders.
+  useEffect(() => {
+    if (!isDeliveryRole) return;
+    const allowedPaths = ['/dashboard', '/orders'];
+    if (!allowedPaths.some((p) => isActive(pathname, p))) {
+      router.replace('/orders');
+    }
+  }, [isDeliveryRole, pathname, router]);
+
+  // Safety net: Reports is Admin/Manager/Accountant only.
+  useEffect(() => {
+    if (canViewReports !== false) return;
+    if (isActive(pathname, '/reports')) {
+      router.replace('/dashboard');
+    }
+  }, [canViewReports, pathname, router]);
+
+  // Safety net: Staff management is Admin/Manager only.
+  useEffect(() => {
+    if (canManageStaff !== false) return;
+    if (isActive(pathname, '/staff')) {
+      router.replace('/dashboard');
+    }
+  }, [canManageStaff, pathname, router]);
 
   const logout = () => {
     localStorage.removeItem('access_token');

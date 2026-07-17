@@ -66,6 +66,14 @@ export class CreateOrderDto {
   @IsString()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  patientName?: string;
+
+  @IsOptional()
+  @IsString()
+  doctorName?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

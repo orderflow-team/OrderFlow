@@ -40,7 +40,7 @@ export class AuthService {
       password_hash,
       full_name: dto.fullName,
       business_id: dto.businessId,
-      role: 'admin',
+      role: UserRole.ADMIN,
     });
 
     const saved = await this.usersRepository.save(user);
@@ -143,7 +143,7 @@ export class AuthService {
     let user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
     if (!user) {
       user = await this.usersRepository.save(
-        this.usersRepository.create({ email, role: 'admin' }),
+        this.usersRepository.create({ email, role: UserRole.ADMIN }),
       );
     }
 

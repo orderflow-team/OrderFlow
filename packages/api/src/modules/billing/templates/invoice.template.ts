@@ -7,6 +7,12 @@ function money(n: number | string) {
   return Number(n).toFixed(2);
 }
 
+/** Classic Indian ledger convention: rupees and paise as two separate table columns. */
+function splitRupeesPaise(n: number | string): { rupees: string; paise: string } {
+  const [rupees, paise] = money(n).split('.');
+  return { rupees, paise };
+}
+
 /**
  * `toLocaleString`/`toLocaleDateString` without an explicit `timeZone` fall
  * back to whatever timezone the rendering environment happens to be in
@@ -109,6 +115,154 @@ export function renderInvoiceHtml(
   <div class="totals">
     <div><span>Tax</span><span>₹${money(invoice.tax_amount)}</span></div>
     <div class="grand"><span>Total</span><span>₹${money(invoice.total_amount)}</span></div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Pharmacy-only A4 layout, matching the traditional Indian chemist "Cash
+ * Memo" pad: license numbers, shop name/tagline/address, memo No./date,
+ * blank-unless-captured Patient Name / Dr. Name lines, and a minimal
+ * Qty/Particulars/Batch/Exp. Dt/Amount table with rupees and paise as
+ * separate columns — no per-unit price or GST breakdown, since the
+ * reference pad has none.
+ */
+export function renderPharmacyCashMemoHtml(
+  invoice: Invoice,
+  items: InvoiceItem[],
+  business: Business | null,
+  customer: Customer | null,
+  order: any | null,
+  logoDataUri: string | null = null,
+) {
+  const timeZone = tz(business);
+  const rows = items
+    .map((item) => {
+      const p = item.product;
+      const expiry = p?.expiry_date
+        ? new Date(p.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone })
+        : '';
+      const { rupees, paise } = splitRupeesPaise(item.subtotal);
+      return `
+        <tr>
+          <td class="num">${money(item.quantity)}</td>
+          <td>${item.product?.name ?? item.custom_product_name ?? '-'}</td>
+          <td>${p?.batch_number ?? ''}</td>
+          <td>${expiry}</td>
+          <td class="num rs">${rupees}</td>
+          <td class="num ps">${paise}</td>
+        </tr>`;
+    })
+    .join('');
+
+  const subtotalAmount = Number(invoice.total_amount) - Number(invoice.tax_amount);
+  const { rupees: subtotalRupees, paise: subtotalPaise } = splitRupeesPaise(subtotalAmount);
+  const { rupees: taxRupees, paise: taxPaise } = splitRupeesPaise(invoice.tax_amount);
+  const { rupees: totalRupees, paise: totalPaise } = splitRupeesPaise(invoice.total_amount);
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { font-family: Arial, sans-serif; color: #1e293b; padding: 28px; }
+  .frame { border: 1.5px solid #0f172a; padding: 20px 24px; }
+  .top-row { display: flex; justify-content: space-between; align-items: flex-start; font-size: 12px; }
+  .top-row .lic div { margin-bottom: 2px; }
+  .memo-label { font-weight: bold; text-decoration: underline; letter-spacing: 1px; align-self: center; }
+  .brand { text-align: center; margin: 6px 0 2px; }
+  .brand .logo { height: 56px; max-width: 200px; object-fit: contain; margin-bottom: 4px; }
+  .brand h1 { margin: 0; font-size: 26px; letter-spacing: 0.5px; }
+  .tagline { text-align: center; font-size: 13px; font-weight: bold; text-decoration: underline; margin-top: 2px; }
+  .address { text-align: center; font-size: 12px; color: #334155; margin-top: 4px; }
+  .memo-meta { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 10px; border-top: 1px solid #0f172a; font-size: 13px; }
+  .patient-row { display: flex; margin-top: 14px; font-size: 13px; }
+  .patient-row .label { white-space: nowrap; margin-right: 6px; }
+  .patient-row .dots { flex: 1; border-bottom: 1px dotted #64748b; padding-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+  th, td { padding: 6px 8px; border: 1px solid #cbd5e1; font-size: 12px; text-align: left; }
+  th { background: #f1f5f9; font-size: 11px; text-transform: uppercase; }
+  .num { text-align: right; }
+  .rs { border-right: none; }
+  .ps { border-left: none; text-align: left; }
+  .summary-row td { border: none; padding: 2px 8px; color: #475569; }
+  .summary-row:first-of-type td { padding-top: 10px; }
+  .total-row td { border: none; border-top: 1px solid #0f172a; padding-top: 6px; margin-top: 4px; font-weight: bold; }
+  .footer { display: flex; justify-content: space-between; margin-top: 40px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="top-row">
+      <div class="lic">
+        ${business?.drug_license_number_1 ? `<div>Lic. No. ${business.drug_license_number_1}</div>` : ''}
+        ${business?.drug_license_number_2 ? `<div>Lic. No. ${business.drug_license_number_2}</div>` : ''}
+      </div>
+      <div class="memo-label">CASH MEMO</div>
+      <div>${business?.phone ? `Mob. ${business.phone}` : ''}</div>
+    </div>
+
+    <div class="brand">
+      ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${business?.name ?? 'Logo'}" />` : ''}
+      <h1>${(business?.name ?? 'OrderFlow').toUpperCase()}</h1>
+    </div>
+    <div class="tagline">RETAIL CHEMIST COSMETICS &amp; DRUGGIST</div>
+    ${business?.address ? `<div class="address">${business.address}</div>` : ''}
+
+    <div class="memo-meta">
+      <div>No. <strong>${invoice.invoice_number}</strong></div>
+      <div>Dated ${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })}</div>
+    </div>
+
+    <div class="patient-row">
+      <span class="label">Patient Name</span>
+      <span class="dots">${order?.patient_name ?? ''}</span>
+    </div>
+    <div class="patient-row">
+      <span class="label">Dr. Name</span>
+      <span class="dots">${order?.doctor_name ?? ''}</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="num">Qty</th>
+          <th>Particulars</th>
+          <th>Batch</th>
+          <th>Exp. Dt</th>
+          <th class="num" colspan="2">Amount</th>
+        </tr>
+        <tr>
+          <th colspan="4"></th>
+          <th class="num rs">Rs.</th>
+          <th class="ps">P.</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+        <tr class="summary-row">
+          <td colspan="4"></td>
+          <td class="num rs">Subtotal ₹${subtotalRupees}</td>
+          <td class="ps">${subtotalPaise}</td>
+        </tr>
+        <tr class="summary-row">
+          <td colspan="4"></td>
+          <td class="num rs">Tax (GST) ₹${taxRupees}</td>
+          <td class="ps">${taxPaise}</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="4"></td>
+          <td class="num rs">Total ₹${totalRupees}</td>
+          <td class="ps">${totalPaise}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>E. &amp; O.E.</div>
+      <div>For ${business?.name ?? 'OrderFlow'}</div>
+    </div>
   </div>
 </body>
 </html>`;

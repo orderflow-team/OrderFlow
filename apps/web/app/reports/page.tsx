@@ -5,7 +5,7 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { getCachedBusinessCategory } from '@/lib/auth';
+import { getCachedBusinessCategory, getCachedInventoryEnabled } from '@/lib/auth';
 import { ReportTabBar } from './report-tab-bar';
 import { PeriodSelector } from './period-selector';
 import { OverviewTab } from './overview-tab';
@@ -55,7 +55,14 @@ export default function ReportsPage() {
 
   if (!ready) return null;
 
-  const isPharmacy = businessId ? getCachedBusinessCategory(businessId) === 'pharmacy' : false;
+  // Prefer the fresh values the analytics response just computed server-side;
+  // fall back to the cached ones only before the first load completes.
+  const category = analytics ? analytics.meta.category : (businessId ? getCachedBusinessCategory(businessId) : null);
+  const inventoryEnabled = analytics
+    ? analytics.meta.inventoryEnabled
+    : (businessId ? getCachedInventoryEnabled(businessId) ?? true : true);
+  const showExpiry = inventoryEnabled && category !== 'restaurant';
+  const isPharmacy = category === 'pharmacy';
 
   return (
     <AppShell>
@@ -72,9 +79,9 @@ export default function ReportsPage() {
           <p className="text-sm text-slate-400">Loading...</p>
         ) : (
           <>
-            {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} />}
+            {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} />}
             {activeTab === 'customers' && <CustomersTab analytics={analytics} outstanding={outstanding} days={days} />}
-            {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} days={days} />}
+            {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} />}
             {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} days={days} />}
             {activeTab === 'finance' && businessId && (
               <FinanceTab analytics={analytics} businessId={businessId} days={days} onExpenseChanged={() => load(businessId, days)} />

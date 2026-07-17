@@ -23,6 +23,15 @@ export class Business {
   @Column({ type: 'varchar', length: 20, nullable: true })
   gst_number: string;
 
+  // Pharmacy-specific: printed on the Cash Memo PDF invoice. Typically a
+  // retail + a wholesale drug license, but left generic since not every
+  // pharmacy holds both.
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  drug_license_number_1: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  drug_license_number_2: string;
+
   @Column({ type: 'varchar', default: 'INR' })
   currency: string;
 
