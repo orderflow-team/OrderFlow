@@ -227,9 +227,17 @@ function CustomersPageContent() {
     : customers;
   const totalOutstanding = customers.reduce((sum, c) => sum + Number(c.outstanding_amount || 0), 0);
 
+  // Rail stats (desktop-only side panel)
+  const customersWithDues = customers.filter((c) => Number(c.outstanding_amount) > 0.01);
+  const topOutstanding = [...customersWithDues]
+    .sort((a, b) => Number(b.outstanding_amount) - Number(a.outstanding_amount))
+    .slice(0, 5);
+
   return (
     <AppShell>
-      <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
+      <div className="p-4 md:p-10 max-w-3xl lg:max-w-6xl mx-auto">
+      <div className="lg:flex lg:gap-6 lg:items-start">
+      <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Clients</h1>
           {!showForm && (
@@ -445,6 +453,47 @@ function CustomersPageContent() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Rail — desktop-only outstanding balances */}
+      <aside className="hidden lg:block w-72 shrink-0 space-y-4 sticky top-10 self-start">
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-5 space-y-3.5">
+          <h3 className="text-sm font-bold text-slate-800">Quick stats</h3>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Total clients</span>
+            <span className="text-sm font-bold text-slate-800">{customers.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Clients with dues</span>
+            <span className="text-sm font-bold text-slate-800">{customersWithDues.length}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Total outstanding</span>
+            <span className="text-sm font-bold text-rose-600">₹{totalOutstanding.toFixed(2)}</span>
+          </div>
+        </div>
+
+        {topOutstanding.length > 0 && (
+          <div className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-5 space-y-3">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Top outstanding balances
+            </h3>
+            <div className="space-y-2.5">
+              {topOutstanding.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setHistoryCustomer(c)}
+                  className="flex items-center justify-between gap-2 w-full text-left hover:bg-white/40 rounded-lg -mx-1 px-1 py-0.5 transition-colors"
+                >
+                  <span className="text-xs text-slate-600 truncate">{c.name}</span>
+                  <span className="text-xs font-semibold text-rose-600 shrink-0">₹{Number(c.outstanding_amount).toFixed(2)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </aside>
+      </div>
       </div>
 
       <Dialog open={!!historyCustomer} onOpenChange={(open) => {

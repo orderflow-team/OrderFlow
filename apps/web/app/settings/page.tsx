@@ -162,7 +162,9 @@ export default function SettingsPage() {
   return (
     <>
     <AppShell>
-      <div className="p-6 md:p-10 max-w-2xl mx-auto space-y-8">
+      <div className="p-6 md:p-10 max-w-2xl lg:max-w-5xl mx-auto">
+      <div className="lg:flex lg:gap-6 lg:items-start">
+      <div className="lg:flex-1 lg:min-w-0 space-y-8">
         <PageHeader title="Settings" description="Manage your business profile and modules." />
 
         {loading ? (
@@ -329,6 +331,44 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Rail — desktop-only live invoice header preview */}
+      <aside className="hidden lg:block w-72 shrink-0 space-y-4 sticky top-10 self-start">
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-800">Invoice preview</h3>
+          <div className="bg-white rounded-xl ring-1 ring-slate-100 p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              {form.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-slate-50 ring-1 ring-slate-100" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0">
+                  <ImageUp className="w-5 h-5" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-bold text-slate-800 text-sm truncate">{form.name || 'Your business name'}</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                  {CATEGORY_LABELS[form.category] || form.category}
+                </p>
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-500 space-y-0.5 pt-2 border-t border-slate-100">
+              {form.address && <p className="truncate">{form.address}</p>}
+              {form.phone && <p>Ph: {form.phone}</p>}
+              {form.gstNumber && <p>GST: {form.gstNumber}</p>}
+              {form.drugLicenseNumber1 && <p>DL1: {form.drugLicenseNumber1}</p>}
+              {form.drugLicenseNumber2 && <p>DL2: {form.drugLicenseNumber2}</p>}
+              {!form.address && !form.phone && !form.gstNumber && !form.drugLicenseNumber1 && !form.drugLicenseNumber2 && (
+                <p className="text-slate-300 italic">Fill in details to see them here</p>
+              )}
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400">This is how your business header appears on invoices and PDFs.</p>
+        </div>
+      </aside>
+      </div>
       </div>
     </AppShell>
 

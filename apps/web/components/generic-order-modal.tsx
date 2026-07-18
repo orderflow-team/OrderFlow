@@ -499,7 +499,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
+      <DialogContent className="sm:max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
 
         {/* Barcode scan feedback (fixed overlay — no layout impact) */}
         {scanToast && (
@@ -678,8 +678,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             />
           </div>
 
-          {/* Product grid */}
-          <div className="grid grid-cols-2 gap-3 pb-4">
+          {/* Product list */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pb-4">
             {filteredProducts.map(p => {
               const qty = cart[p.id]?.quantity || 0;
               const maxQty = getMaxQty(p);
@@ -687,53 +687,66 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               const hasPreviousPrice = customerPrices[p.id] !== undefined;
               const originalPrice = hasPreviousPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
               const hasCustomPrice = hasPreviousPrice && originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
+              const metaBits = [
+                hasPreviousPrice ? 'Last purchased price' : null,
+                p.batch_number ? `Batch ${p.batch_number}` : null,
+                atMax ? `Only ${maxQty} in stock — max added` : null,
+              ].filter(Boolean);
               return (
                 <div
                   key={p.id}
-                  className={`relative p-3 rounded-2xl border transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm flex flex-col justify-between ${
+                  className={`relative flex items-center gap-2 pl-3 pr-8 py-2 min-h-[68px] rounded-xl border transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${
                     atMax ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'
                   } ${
                     qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
                   onClick={() => !atMax && updateCart(p, 1)}
                 >
-                  {qty > 0 && (
-                    <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
-                      {qty}
-                    </span>
-                  )}
-                  <h4 className="font-semibold text-slate-800 text-sm leading-snug pr-5 flex items-center gap-1.5">
-                    {p.name}
-                    {p.prescription_required && (
-                      <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20">
-                        Rx
-                      </span>
-                    )}
-                  </h4>
-                  <div className="flex flex-col gap-1 mt-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-sm text-emerald-600">
-                        ₹{Number(p.selling_price).toFixed(2)}
-                        {p.unit && <span className="text-xs text-slate-500 font-medium ml-1">/ {p.unit}</span>}
-                      </span>
-                      {hasCustomPrice && originalPrice !== undefined && (
-                        <span className="text-xs text-slate-400 line-through">
-                          ₹{Number(originalPrice).toFixed(2)}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-1.5">
+                      <h4 className="font-semibold text-slate-800 text-sm leading-snug break-words">{p.name}</h4>
+                      {p.prescription_required && (
+                        <span className="shrink-0 mt-0.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20">
+                          Rx
                         </span>
                       )}
                     </div>
-                    {hasPreviousPrice && (
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-500/20 px-1.5 py-0.5 rounded w-fit border border-emerald-500/30">
-                        Last purchased price
-                      </span>
-                    )}
-                    {p.batch_number && (
-                      <span className="text-[10px] text-slate-400">Batch {p.batch_number}</span>
-                    )}
-                    {atMax && (
-                      <span className="text-[10px] font-semibold text-rose-600">Only {maxQty} in stock — max added</span>
+                    {metaBits.length > 0 && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {metaBits.map((bit, i) => (
+                          <span
+                            key={i}
+                            className={
+                              bit === 'Last purchased price'
+                                ? 'font-semibold text-emerald-700'
+                                : bit?.startsWith('Only')
+                                  ? 'font-semibold text-rose-600'
+                                  : ''
+                            }
+                          >
+                            {i > 0 && <span className="text-slate-300"> · </span>}
+                            {bit}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {hasCustomPrice && originalPrice !== undefined && (
+                      <span className="text-xs text-slate-400 line-through">
+                        ₹{Number(originalPrice).toFixed(2)}
+                      </span>
+                    )}
+                    <span className="font-bold text-sm text-emerald-600 whitespace-nowrap">
+                      ₹{Number(p.selling_price).toFixed(2)}
+                      {p.unit && <span className="text-[10px] text-slate-500 font-medium ml-0.5">/ {p.unit}</span>}
+                    </span>
+                  </div>
+                  {qty > 0 && (
+                    <span className="absolute top-1/2 -translate-y-1/2 right-2 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {qty}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -743,7 +756,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               const parsed = parseQuantityUnit(search.trim());
               return (
                 <div
-                  className="p-3 rounded-xl border border-dashed border-emerald-400/50 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20 flex flex-col items-center justify-center text-center gap-1"
+                  className="flex items-center gap-2 px-3 py-2 min-h-[68px] rounded-xl border border-dashed border-emerald-400/50 bg-emerald-500/10 cursor-pointer hover:bg-emerald-500/20"
                   onClick={() => {
                     const tempProduct: Product = {
                       id: 'draft-' + Date.now(),
@@ -757,11 +770,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                     setSearch('');
                   }}
                 >
-                  <Plus className="w-6 h-6 text-emerald-600" />
-                  <h4 className="font-medium text-emerald-800 text-sm leading-snug">Add "{search.trim()}"</h4>
-                  <div className="text-emerald-600/70 text-[10px]">
+                  <Plus className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <h4 className="font-medium text-emerald-800 text-sm leading-snug break-words min-w-0 flex-1">Add "{search.trim()}"</h4>
+                  <span className="text-emerald-600/70 text-[10px] flex-shrink-0 ml-auto">
                     {parsed ? `${parsed.quantity} ${parsed.unit}` : 'draft product'}
-                  </div>
+                  </span>
                 </div>
               );
             })()}

@@ -62,6 +62,17 @@ const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   cancelled:  { color: 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20',     icon: XCircle },
 };
 
+const STATUS_BAR_COLOR: Record<string, string> = {
+  draft: 'bg-orange-500',
+  confirmed: 'bg-blue-500',
+  packed: 'bg-indigo-500',
+  dispatched: 'bg-purple-500',
+  delivered: 'bg-teal-500',
+  paid: 'bg-emerald-500',
+  returned: 'bg-yellow-500',
+  cancelled: 'bg-rose-500',
+};
+
 function StatusBadge({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? { color: 'bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20', icon: Clock };
   return (
@@ -484,9 +495,24 @@ export function GenericOrders() {
     return true;
   });
 
+  // Rail stats (desktop-only side panel) — derived from data already loaded above, no extra API calls
+  const activeOrders = orders.filter((o) => o.status !== 'cancelled');
+  const todayStr = new Date().toDateString();
+  const todaysSales = activeOrders
+    .filter((o) => new Date(o.created_at).toDateString() === todayStr)
+    .reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const pendingOrders = orders.filter((o) => orderBucket(o.status) === 'UNPAID');
+  const pendingAmount = pendingOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+  const statusCounts = STATUSES
+    .map((status) => ({ status, count: orders.filter((o) => o.status === status).length }))
+    .filter((s) => s.count > 0);
+  const maxStatusCount = Math.max(1, ...statusCounts.map((s) => s.count));
+
   return (
     <AppShell>
-      <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
+      <div className="p-4 md:p-10 max-w-3xl lg:max-w-6xl mx-auto">
+      <div className="lg:flex lg:gap-6 lg:items-start">
+      <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
           {!showForm && (
@@ -609,6 +635,49 @@ export function GenericOrders() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Rail — desktop-only quick stats & status breakdown */}
+      <aside className="hidden lg:block w-72 shrink-0 space-y-4 sticky top-10 self-start">
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-5 space-y-3.5">
+          <h3 className="text-sm font-bold text-slate-800">Quick stats</h3>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Today's sales</span>
+            <span className="text-sm font-bold text-emerald-600">₹{todaysSales.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Pending payments</span>
+            <span className="text-sm font-bold text-accent-orange">₹{pendingAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500">Total orders</span>
+            <span className="text-sm font-bold text-slate-800">{orders.length}</span>
+          </div>
+        </div>
+
+        {statusCounts.length > 0 && (
+          <div className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-5 space-y-3">
+            <h3 className="text-sm font-bold text-slate-800">Status breakdown</h3>
+            <div className="space-y-2.5">
+              {statusCounts.map(({ status, count }) => (
+                <div key={status} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 capitalize">{status}</span>
+                    <span className="font-semibold text-slate-800">{count}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-900/5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${STATUS_BAR_COLOR[status] || 'bg-slate-400'}`}
+                      style={{ width: `${(count / maxStatusCount) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </aside>
+      </div>
       </div>
 
       {/* ── Order Detail Drawer ── */}
