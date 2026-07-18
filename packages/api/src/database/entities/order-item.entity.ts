@@ -50,6 +50,10 @@ export class OrderItem {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   tax_amount: number;
 
+  // How many of `quantity` units have been returned so far (supports partial-quantity returns).
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  returned_quantity: number;
+
   @CreateDateColumn()
   created_at: Date;
 

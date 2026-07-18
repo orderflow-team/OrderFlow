@@ -16,7 +16,7 @@ import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
+import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto, ReturnOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @UseGuards(JwtAuthGuard, BusinessScopeGuard)
@@ -90,8 +90,9 @@ export class OrdersController {
   returnOrder(
     @Param('id') id: string,
     @Query('businessId') businessId: string,
+    @Body() dto: ReturnOrderDto,
   ) {
-    return this.ordersService.returnOrder(id, businessId);
+    return this.ordersService.returnOrder(id, businessId, dto?.items);
   }
 
   @Post(':id/items')

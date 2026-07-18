@@ -30,12 +30,14 @@ interface Product {
   prescription_required?: boolean;
 }
 interface OrderItem {
+  id: string;
   quantity: string | number;
   unit_price: string | number;
   subtotal: string | number;
   unit?: string | null;
   product?: Product;
   custom_product_name?: string;
+  returned_quantity?: string | number;
 }
 interface Order {
   id: string;
@@ -115,6 +117,13 @@ export function GenericOrders() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Credit'>('Cash');
 
+  // Return-selection state — lets the user pick how many units of each item to return
+  const [returnMode, setReturnMode] = useState(false);
+  const [returnQty, setReturnQty] = useState<Record<string, number>>({});
+  const [returning, setReturning] = useState(false);
+
+  const returnRemaining = (item: OrderItem) => Number(item.quantity) - Number(item.returned_quantity || 0);
+
   // Edit-items state
   type EditLine = {
     name: string; qty: string; price: string; productId?: string; unit?: string;
@@ -171,6 +180,8 @@ export function GenericOrders() {
     setInvoiceId(null);
     setEditMode(false);
     setPaymentMethod('Cash');
+    setReturnMode(false);
+    setReturnQty({});
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: o.id, orderNumber: o.order_number } }));
     }
@@ -191,6 +202,8 @@ export function GenericOrders() {
     setDrawerOrder(null);
     setDeleteConfirm(false);
     setPaymentMethod('Cash');
+    setReturnMode(false);
+    setReturnQty({});
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: null } }));
     }
@@ -237,21 +250,59 @@ export function GenericOrders() {
     }
   };
 
-  const handleReturnOrder = async () => {
+  const startReturn = () => {
+    if (!drawerOrder) return;
+    setReturnMode(true);
+    // Default every item to its full remaining quantity — matches the old "return everything" behavior;
+    // the user can then dial individual items down (or to 0) with the stepper.
+    const initial: Record<string, number> = {};
+    (drawerOrder.items ?? []).forEach((i) => {
+      const remaining = returnRemaining(i);
+      if (remaining > 0) initial[i.id] = remaining;
+    });
+    setReturnQty(initial);
+  };
+
+  const cancelReturn = () => {
+    setReturnMode(false);
+    setReturnQty({});
+  };
+
+  const setItemReturnQty = (item: OrderItem, qty: number) => {
+    const clamped = Math.max(0, Math.min(qty, returnRemaining(item)));
+    setReturnQty((prev) => ({ ...prev, [item.id]: clamped }));
+  };
+
+  const returnUnitsSelected = Object.values(returnQty).reduce((sum, q) => sum + q, 0);
+
+  const confirmReturn = async () => {
     if (!businessId || !drawerOrder) return;
-    if (!confirm('Are you sure you want to return this order and process the refund? This will restore stock and adjust customer ledger.')) {
+    const items = Object.entries(returnQty)
+      .filter(([, qty]) => qty > 0)
+      .map(([itemId, quantity]) => ({ id: itemId, quantity }));
+    if (items.length === 0) return;
+
+    const totalRemaining = (drawerOrder.items ?? []).reduce((sum, i) => sum + returnRemaining(i), 0);
+    const isFull = returnUnitsSelected >= totalRemaining;
+    if (!confirm(
+      isFull
+        ? 'Are you sure you want to return this order and process the refund? This will restore stock and adjust customer ledger.'
+        : `Return ${returnUnitsSelected} unit(s) and process the refund? This will restore stock and adjust customer ledger.`
+    )) {
       return;
     }
-    setStatusSaving(true);
+    setReturning(true);
     try {
-      await apiClient.post(`/api/orders/${drawerOrder.id}/return`, {}, { params: { businessId } });
-      setDrawerOrder({ ...drawerOrder, status: 'returned' });
-      setDrawerStatus('returned');
-      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'returned' } : o));
+      const res = await apiClient.post<Order>(`/api/orders/${drawerOrder.id}/return`, { items }, { params: { businessId } });
+      setDrawerOrder(res.data);
+      setDrawerStatus(res.data.status);
+      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: res.data.status, total_amount: res.data.total_amount } : o));
+      setReturnMode(false);
+      setReturnQty({});
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to return order');
     } finally {
-      setStatusSaving(false);
+      setReturning(false);
     }
   };
 
@@ -766,8 +817,41 @@ export function GenericOrders() {
                       const details: string[] = [];
                       if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
                       if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`);
+                      const remaining = returnRemaining(item);
+                      const alreadyReturned = Number(item.returned_quantity || 0) > 0;
+                      const qty = returnQty[item.id] || 0;
                       return (
-                      <div key={idx} className="flex items-center justify-between px-4 py-3 border-b border-slate-100 last:border-0">
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between px-4 py-3 border-b border-slate-100 last:border-0 ${returnMode && qty > 0 ? 'bg-amber-500/10' : ''} ${remaining === 0 ? 'opacity-50' : ''}`}
+                      >
+                        {returnMode && (
+                          <div className="shrink-0 mr-3">
+                            {remaining === 0 ? (
+                              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Returned</span>
+                            ) : (
+                              <div className="flex items-center gap-1.5 bg-white/60 ring-1 ring-white/60 rounded-lg px-1.5 py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setItemReturnQty(item, qty - 1)}
+                                  disabled={qty <= 0}
+                                  className="w-5 h-5 flex items-center justify-center rounded text-amber-700 hover:bg-amber-500/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="w-5 text-center text-xs font-bold text-slate-800">{qty}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setItemReturnQty(item, qty + 1)}
+                                  disabled={qty >= remaining}
+                                  className="w-5 h-5 flex items-center justify-center rounded text-amber-700 hover:bg-amber-500/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-700 truncate flex items-center gap-1.5">
                             {item.product?.name || item.custom_product_name || 'Unknown'}
@@ -777,7 +861,10 @@ export function GenericOrders() {
                               </span>
                             )}
                           </p>
-                          <p className="text-xs text-slate-400">×{Number(item.quantity)} · ₹{Number(item.unit_price).toFixed(2)} each</p>
+                          <p className="text-xs text-slate-400">
+                            ×{Number(item.quantity)} · ₹{Number(item.unit_price).toFixed(2)} each
+                            {alreadyReturned && remaining > 0 && ` · ${Number(item.returned_quantity)} already returned`}
+                          </p>
                           {details.length > 0 && (
                             <p className="text-[11px] text-slate-400 mt-0.5">{details.join('  •  ')}</p>
                           )}
@@ -931,15 +1018,36 @@ export function GenericOrders() {
 
               {/* Return & Refund Order */}
               {['confirmed', 'packed', 'dispatched', 'delivered', 'paid'].includes(drawerOrder.status) && (
-                <Button
-                  onClick={handleReturnOrder}
-                  disabled={statusSaving}
-                  variant="outline"
-                  className="w-full h-11 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
-                >
-                  <RotateCcw className="w-4 h-4 text-amber-500" />
-                  Return & Refund Order
-                </Button>
+                returnMode ? (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={cancelReturn}
+                      disabled={returning}
+                      variant="outline"
+                      className="flex-1 h-11"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={confirmReturn}
+                      disabled={returning || returnUnitsSelected === 0}
+                      className="flex-1 h-11 gap-2 bg-amber-500 hover:bg-amber-600 text-white"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      {returning ? 'Processing…' : `Return Selected (${returnUnitsSelected})`}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={startReturn}
+                    disabled={statusSaving}
+                    variant="outline"
+                    className="w-full h-11 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4 text-amber-500" />
+                    Return & Refund Order
+                  </Button>
+                )
               )}
 
               {/* Invoice */}

@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS order_items (
   subtotal DECIMAL(15, 2) NOT NULL,
   tax_percentage DECIMAL(5, 2) DEFAULT 0,
   tax_amount DECIMAL(15, 2) DEFAULT 0,
+  returned_quantity DECIMAL(15, 2) DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

@@ -625,8 +625,8 @@ export class OrdersService {
     });
   }
 
-  async returnOrder(id: string, businessId: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async returnOrder(id: string, businessId: string, items?: { id: string; quantity: number }[]) {
+    await this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
         where: { id, business_id: businessId },
         relations: { items: true },
@@ -642,32 +642,78 @@ export class OrdersService {
         throw new BadRequestException('Cancelled orders cannot be returned');
       }
 
-      const business = await manager.findOne(Business, { where: { id: businessId } });
-      const inventoryEnabled = business?.inventory_enabled !== false;
+      // Units still eligible to be returned per line item (skips units already
+      // returned in a prior partial return).
+      const remainingByItem = new Map<string, number>();
+      for (const item of order.items) {
+        const remaining = Number(item.quantity) - Number(item.returned_quantity || 0);
+        if (remaining > 0.0001) remainingByItem.set(item.id, remaining);
+      }
 
-      // 1. Restore stock
-      if (inventoryEnabled) {
+      // Resolve how many units of each item this call is returning, capped at
+      // what's actually left outstanding.
+      const targets: { item: OrderItem; qty: number }[] = [];
+      if (items && items.length > 0) {
+        for (const req of items) {
+          const remaining = remainingByItem.get(req.id);
+          if (!remaining) continue;
+          const item = order.items.find((i) => i.id === req.id)!;
+          const qty = Math.min(Number(req.quantity), remaining);
+          if (qty > 0.0001) targets.push({ item, qty });
+        }
+      } else {
         for (const item of order.items) {
-          if (item.product_id) {
-            await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
-            await manager.save(
-              Stock,
-              manager.create(Stock, {
-                business_id: businessId,
-                product_id: item.product_id,
-                type: 'IN',
-                quantity: Number(item.quantity),
-                reference: order.order_number,
-                notes: 'Restored via return',
-              }),
-            );
-          }
+          const remaining = remainingByItem.get(item.id);
+          if (remaining) targets.push({ item, qty: remaining });
         }
       }
 
-      // 2. Financial Adjustments & Repay Paid Amount
+      if (targets.length === 0) {
+        throw new BadRequestException('No items selected to return');
+      }
+
+      const totalRemaining = Array.from(remainingByItem.values()).reduce((sum, q) => sum + q, 0);
+      const totalReturning = targets.reduce((sum, t) => sum + t.qty, 0);
+      const isFullReturn = totalReturning >= totalRemaining - 0.0001;
+
+      const business = await manager.findOne(Business, { where: { id: businessId } });
+      const inventoryEnabled = business?.inventory_enabled !== false;
+
+      let returnedAmount = 0;
+      let returnedTax = 0;
+
+      for (const { item, qty } of targets) {
+        const itemQty = Number(item.quantity);
+        const taxPerUnit = itemQty > 0 ? Number(item.tax_amount) / itemQty : 0;
+        const itemReturnedSubtotal = Number(item.unit_price) * qty;
+        const itemReturnedTax = taxPerUnit * qty;
+        returnedAmount += itemReturnedSubtotal + itemReturnedTax;
+        returnedTax += itemReturnedTax;
+
+        // 1. Restore stock for the returned quantity only
+        if (inventoryEnabled && item.product_id) {
+          await manager.increment(Product, { id: item.product_id }, 'stock_quantity', qty);
+          await manager.save(
+            Stock,
+            manager.create(Stock, {
+              business_id: businessId,
+              product_id: item.product_id,
+              type: 'IN',
+              quantity: qty,
+              reference: order.order_number,
+              notes: 'Restored via return',
+            }),
+          );
+        }
+
+        // Track how many units of this line item have been returned so far
+        await manager.increment(OrderItem, { id: item.id }, 'returned_quantity', qty);
+      }
+
+      // 2. Financial Adjustments & Repay Paid Amount — scoped to the returned units' share
       const payments = await manager.find(Payment, { where: { order_id: id } });
       const paidSum = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const refundAmount = Math.min(Math.max(paidSum, 0), returnedAmount);
 
       if (order.customer_id) {
         const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered', 'paid'];
@@ -680,30 +726,30 @@ export class OrdersService {
         })) > 0;
 
         if (wasBilled) {
-          // Credit the customer outstanding for the returned order total
-          await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', -Number(order.total_amount));
+          // Credit the customer outstanding for the returned units' amount
+          await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', -returnedAmount);
           await manager.save(
             Ledger,
             manager.create(Ledger, {
               business_id: businessId,
               customer_id: order.customer_id,
               type: 'CREDIT',
-              amount: order.total_amount,
-              description: `Order ${order.order_number} returned`,
+              amount: returnedAmount,
+              description: isFullReturn ? `Order ${order.order_number} returned` : `${totalReturning} unit(s) returned from order ${order.order_number}`,
             }),
           );
 
           // Debit the customer outstanding for the refund cash/UPI paid back to them
-          if (paidSum > 0) {
-            await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', paidSum);
+          if (refundAmount > 0) {
+            await manager.increment(Customer, { id: order.customer_id }, 'outstanding_amount', refundAmount);
             await manager.save(
               Ledger,
               manager.create(Ledger, {
                 business_id: businessId,
                 customer_id: order.customer_id,
                 type: 'DEBIT',
-                amount: paidSum,
-                description: `Refund for returned order ${order.order_number}`,
+                amount: refundAmount,
+                description: `Refund for returned item(s) on order ${order.order_number}`,
               }),
             );
 
@@ -714,7 +760,7 @@ export class OrdersService {
               manager.create(Payment, {
                 business_id: businessId,
                 order_id: id,
-                amount: -paidSum,
+                amount: -refundAmount,
                 payment_method: lastPayment?.payment_method || 'Cash',
                 status: 'completed',
                 transaction_id: lastPayment?.transaction_id ? `REF-${lastPayment.transaction_id}` : `REF-${Date.now()}`,
@@ -724,15 +770,22 @@ export class OrdersService {
         }
       }
 
-      // 3. Release restaurant table
-      if (order.table_id) {
-        await manager.update(Table, { id: order.table_id }, { status: 'available' });
+      // 3. Shrink the order total to what's left owing
+      order.total_amount = Math.max(0, Number(order.total_amount) - returnedAmount);
+      order.tax_amount = Math.max(0, Number(order.tax_amount) - returnedTax);
+
+      // 4. Full return: release the table and close out the order
+      if (isFullReturn) {
+        if (order.table_id) {
+          await manager.update(Table, { id: order.table_id }, { status: 'available' });
+        }
+        order.status = 'returned';
       }
 
-      // 4. Update status and save
-      order.status = 'returned';
-      return manager.save(order);
+      await manager.save(order);
     });
+
+    return this.findOne(id, businessId);
   }
 
   async addItems(id: string, businessId: string, dto: AddOrderItemsDto) {

@@ -88,3 +88,23 @@ export class AddOrderItemsDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 }
+
+export class ReturnOrderItemDto {
+  @IsUUID()
+  id: string;
+
+  @IsNumber()
+  @Min(0.01)
+  quantity: number;
+}
+
+export class ReturnOrderDto {
+  // Which items — and how many units of each — to return. Omitted (or a quantity
+  // covering every unit still outstanding) returns the whole order; anything less
+  // does a partial return of just those units.
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnOrderItemDto)
+  items?: ReturnOrderItemDto[];
+}
