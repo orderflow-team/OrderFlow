@@ -21,6 +21,27 @@ export class MailService {
 
   /** Returns true if the OTP was actually emailed, false if it was only logged (no SMTP / send failure). */
   async sendOtpEmail(email: string, code: string): Promise<boolean> {
+    return this.sendEmail(
+      email,
+      'Your Login OTP Code',
+      `Your OTP code is: ${code}. It is valid for 10 minutes.`,
+      `<p>Your OTP code is: <strong>${code}</strong></p><p>It is valid for 10 minutes.</p>`,
+      code,
+    );
+  }
+
+  /** Returns true if the reset code was actually emailed, false if it was only logged (no SMTP / send failure). */
+  async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
+    return this.sendEmail(
+      email,
+      'Reset Your OrderFlow Password',
+      `Your password reset code is: ${code}. It is valid for 10 minutes. If you didn't request this, you can ignore this email.`,
+      `<p>Your password reset code is: <strong>${code}</strong></p><p>It is valid for 10 minutes.</p><p>If you didn't request this, you can ignore this email.</p>`,
+      code,
+    );
+  }
+
+  private async sendEmail(email: string, subject: string, text: string, html: string, logCode: string): Promise<boolean> {
     const host = this.configService.get<string>('SMTP_HOST');
     const port = this.configService.get<number>('SMTP_PORT');
     const user = this.configService.get<string>('SMTP_USER');
@@ -30,9 +51,9 @@ export class MailService {
       try {
         const payload = {
           email,
-          subject: 'Your Login OTP Code',
-          text: `Your OTP code is: ${code}. It is valid for 10 minutes.`,
-          html: `<p>Your OTP code is: <strong>${code}</strong></p><p>It is valid for 10 minutes.</p>`,
+          subject,
+          text,
+          html,
           secret: 'vrc_proxy_8f92a1_super_secure_internal',
           smtp: {
             host,
@@ -57,15 +78,15 @@ export class MailService {
           throw new Error(`Vercel Proxy returned ${response.status}: ${errorText}`);
         }
 
-        this.logger.log(`OTP email securely proxied to Vercel and sent to ${email}`);
+        this.logger.log(`Email securely proxied to Vercel and sent to ${email}`);
         return true;
       } catch (error) {
-        this.logger.error(`Failed to send OTP email to ${email} via proxy`, (error as Error).stack);
-        this.logger.warn(`[DEV FALLBACK] OTP for ${email}: ${code}`);
+        this.logger.error(`Failed to send email to ${email} via proxy`, (error as Error).stack);
+        this.logger.warn(`[DEV FALLBACK] Code for ${email}: ${logCode}`);
         return false;
       }
     } else {
-      this.logger.warn(`[DEV] OTP for ${email}: ${code} (no email provider configured — logged instead of sent)`);
+      this.logger.warn(`[DEV] Code for ${email}: ${logCode} (no email provider configured — logged instead of sent)`);
       return false;
     }
   }

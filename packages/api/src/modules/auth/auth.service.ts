@@ -9,6 +9,9 @@ import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { MailService } from './mail.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 
@@ -92,6 +95,7 @@ export class AuthService {
     const recent = await this.otpCodesRepository
       .createQueryBuilder('otp')
       .where('otp.email ILIKE :email', { email })
+      .andWhere('otp.purpose = :purpose', { purpose: 'login' })
       .andWhere(`otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`)
       .getOne();
     if (recent) {
@@ -101,7 +105,7 @@ export class AuthService {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    const otp = this.otpCodesRepository.create({ email, code, expires_at });
+    const otp = this.otpCodesRepository.create({ email, code, expires_at, purpose: 'login' });
     await this.otpCodesRepository.save(otp);
 
     const emailSent = await this.mailService.sendOtpEmail(email, code);
@@ -120,7 +124,7 @@ export class AuthService {
     // (not the specific code guessed) so a lockout can't be reset by simply
     // trying a different wrong code.
     const latest = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), consumed: false },
+      where: { email: ILike(email), purpose: 'login', consumed: false },
       order: { created_at: 'DESC' },
     });
 
@@ -152,6 +156,106 @@ export class AuthService {
     }
 
     return this.issueTokens(user);
+  }
+
+  /**
+   * Requests a password reset code. Always returns the same generic response
+   * regardless of whether the email is registered, so the endpoint can't be
+   * used to enumerate accounts — only actually sends/stores a code if a user
+   * with a password exists for that email.
+   */
+  async requestPasswordReset(dto: RequestPasswordResetDto) {
+    const email = dto.email.toLowerCase();
+    const genericResponse = { message: 'If an account exists for that email, a reset code has been sent.' };
+
+    const user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    if (!user) {
+      return genericResponse;
+    }
+
+    const recent = await this.otpCodesRepository
+      .createQueryBuilder('otp')
+      .where('otp.email ILIKE :email', { email })
+      .andWhere('otp.purpose = :purpose', { purpose: 'password_reset' })
+      .andWhere(`otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`)
+      .getOne();
+    if (recent) {
+      return genericResponse;
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    const otp = this.otpCodesRepository.create({ email, code, expires_at, purpose: 'password_reset' });
+    await this.otpCodesRepository.save(otp);
+
+    const emailSent = await this.mailService.sendPasswordResetEmail(email, code);
+
+    const devOnly = !emailSent && process.env.NODE_ENV !== 'production' ? { devCode: code } : {};
+    return { ...genericResponse, ...devOnly };
+  }
+
+  /** Verifies a password-reset code and, if valid, updates the password and logs the user in. */
+  async resetPassword(dto: ResetPasswordDto) {
+    const email = dto.email.toLowerCase();
+
+    const latest = await this.otpCodesRepository.findOne({
+      where: { email: ILike(email), purpose: 'password_reset', consumed: false },
+      order: { created_at: 'DESC' },
+    });
+
+    if (!latest || latest.expires_at < new Date()) {
+      throw new BadRequestException('Invalid or expired code');
+    }
+    if (latest.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new BadRequestException('Too many incorrect attempts. Request a new code.');
+    }
+    if (latest.code !== dto.code) {
+      latest.attempts += 1;
+      await this.otpCodesRepository.save(latest);
+      throw new BadRequestException('Invalid or expired code');
+    }
+
+    const user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    latest.consumed = true;
+    await this.otpCodesRepository.save(latest);
+
+    user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersRepository.save(user);
+
+    return this.issueTokens(user);
+  }
+
+  /**
+   * Changes the password for an already-authenticated user. Requires the
+   * current password to match — unless the account has none yet (e.g. it
+   * was created via passwordless OTP signup), in which case this simply
+   * sets one for the first time.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.password_hash) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Current password is required');
+      }
+      const matches = await bcrypt.compare(dto.currentPassword, user.password_hash);
+      if (!matches) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+    }
+
+    user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersRepository.save(user);
+
+    return { message: 'Password updated' };
   }
 
   private issueTokens(user: User) {

@@ -168,6 +168,12 @@ function PasswordLoginForm() {
         </button>
       </div>
 
+      <div className="flex justify-end -mt-1">
+        <a href="/forgot-password" className="text-sm font-semibold text-sky-700 hover:text-sky-800">
+          Forgot password?
+        </a>
+      </div>
+
       {error && (
         <div className="flex items-center space-x-2 text-rose-700 bg-rose-500/15 backdrop-blur-sm p-3 rounded-2xl ring-1 ring-rose-400/30 text-sm animate-in slide-in-from-top-2">
           <p className="font-semibold">{error}</p>

@@ -58,6 +58,11 @@ export default function SettingsPage() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState('');
 
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSaved, setPasswordSaved] = useState(false);
+
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
@@ -141,6 +146,29 @@ export default function SettingsPage() {
     } catch (err: any) {
       setLogoError(err.response?.data?.message || 'Failed to remove logo');
       setLogoUploading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSaved(false);
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('New password and confirmation do not match');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await apiClient.post('/auth/password/change', {
+        currentPassword: passwordForm.currentPassword || undefined,
+        newPassword: passwordForm.newPassword,
+      });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordSaved(true);
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -303,6 +331,54 @@ export default function SettingsPage() {
               {saving ? 'Saving...' : 'Save changes'}
             </Button>
           </form>
+        )}
+
+        {!loading && (
+          <Card className="ring-white/50 glass-sheen-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Change Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Current password</label>
+                  <Input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                    placeholder="Leave blank if you haven't set one yet"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1.5 block">New password</label>
+                    <Input
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1.5 block">Confirm new password</label>
+                    <Input
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+                {passwordError && <p className="text-sm text-rose-600">{passwordError}</p>}
+                {passwordSaved && <p className="text-sm text-emerald-600">Password updated.</p>}
+                <Button type="submit" disabled={changingPassword} className="w-full sm:w-auto">
+                  {changingPassword ? 'Updating...' : 'Update Password'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         )}
 
         {!loading && (

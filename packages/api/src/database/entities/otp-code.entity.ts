@@ -11,6 +11,10 @@ export class OtpCode {
   @Column({ type: 'varchar', length: 6 })
   code: string;
 
+  /** Scopes a code to what it's allowed to authorize, so a leaked login code can't also reset the password. */
+  @Column({ type: 'varchar', length: 20, default: 'login' })
+  purpose: 'login' | 'password_reset';
+
   @Column({ type: 'timestamp' })
   expires_at: Date;
 
