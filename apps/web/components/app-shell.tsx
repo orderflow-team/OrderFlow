@@ -56,6 +56,19 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** Human-readable badge for whichever login is active — lets anyone glance at the header and tell which staff account is signed in. */
+const ROLE_BADGE: Record<string, string> = {
+  admin: 'Owner',
+  manager: 'Manager',
+  cashier: 'Cashier',
+  waiter: 'Waiter',
+  kitchen_staff: 'Cook',
+  delivery_person: 'Delivery',
+  accountant: 'Accountant',
+  salesman: 'Salesman',
+  guest: 'Guest',
+};
+
 const NAV_TINTS = [
   { chip: 'bg-tile-peach/50', fg: 'text-tile-peach-fg', activeBg: 'bg-tile-peach/40', ring: 'ring-tile-peach-fg/25' },
   { chip: 'bg-tile-lavender/50', fg: 'text-tile-lavender-fg', activeBg: 'bg-tile-lavender/40', ring: 'ring-tile-lavender-fg/25' },
@@ -112,6 +125,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   // means the first client render still matches the server (null), and the
   // real value arrives as a normal post-mount update instead.
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isSalesmanRole, setIsSalesmanRole] = useState(false);
   const [isCookRole, setIsCookRole] = useState(false);
   const [isCashierRole, setIsCashierRole] = useState(false);
@@ -126,6 +140,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [canViewReports, setCanViewReports] = useState<boolean | null>(null);
   useEffect(() => {
     setBusinessId(getCurrentUser()?.businessId ?? null);
+    setUserRole(getCurrentUser()?.role ?? null);
     setIsSalesmanRole(hasRole('salesman'));
     setIsCookRole(hasRole('kitchen_staff'));
     setIsCashierRole(hasRole('cashier'));
@@ -390,8 +405,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 )}
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-sm font-bold text-slate-800 truncate leading-tight">{businessName}</p>
-                  <p className="text-[11px] text-sky-700 font-bold tracking-wide uppercase truncate">
-                    {switching ? 'Switching...' : businessCategory || 'No category'}
+                  <p className="text-[11px] font-bold tracking-wide uppercase truncate">
+                    <span className="text-sky-700">{switching ? 'Switching...' : businessCategory || 'No category'}</span>
+                    {userRole && ROLE_BADGE[userRole] && (
+                      <>
+                        <span className="text-slate-300 mx-1">&middot;</span>
+                        <span className="text-emerald-700">{ROLE_BADGE[userRole]}</span>
+                      </>
+                    )}
                   </p>
                 </div>
                 <ChevronDown
@@ -519,6 +540,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider shrink-0">
               {switching ? 'Switching...' : businessCategory}
             </span>
+            {userRole && ROLE_BADGE[userRole] && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider shrink-0">
+                  {ROLE_BADGE[userRole]}
+                </span>
+              </>
+            )}
             <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
           </button>
         )}

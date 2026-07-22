@@ -48,6 +48,10 @@ interface KOT {
 export default function KitchenDisplayPage() {
   const { businessId, ready } = useBusiness();
   const isCookRole = hasRole('kitchen_staff');
+  // Kitchen-staff management is admin/manager only on the backend (@Roles guard on
+  // /api/restaurant/kitchen-staff) — any other non-cook role (waiter, cashier, etc.)
+  // must not see or call it, or the list/add-cook requests 403.
+  const canManageKitchenStaff = hasRole('admin', 'manager');
   const [kots, setKots] = useState<KOT[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,8 +100,8 @@ export default function KitchenDisplayPage() {
   }, [businessId, ready]);
 
   useEffect(() => {
-    if (ready && !isCookRole) fetchKitchenStaff();
-  }, [businessId, ready, isCookRole]);
+    if (ready && canManageKitchenStaff) fetchKitchenStaff();
+  }, [businessId, ready, canManageKitchenStaff]);
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
@@ -203,7 +207,7 @@ export default function KitchenDisplayPage() {
           }
         />
 
-        {!isCookRole && (
+        {canManageKitchenStaff && (
           <Card className="ring-white/50 glass-sheen-sm mt-6 shrink-0">
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
