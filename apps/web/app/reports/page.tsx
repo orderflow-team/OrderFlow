@@ -79,7 +79,7 @@ export default function ReportsPage() {
           <p className="text-sm text-slate-400">Loading...</p>
         ) : (
           <>
-            {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} />}
+            {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} isPharmacy={isPharmacy} />}
             {activeTab === 'customers' && <CustomersTab analytics={analytics} outstanding={outstanding} days={days} />}
             {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} />}
             {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} days={days} />}

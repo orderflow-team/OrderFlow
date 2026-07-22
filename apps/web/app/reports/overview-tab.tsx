@@ -15,11 +15,12 @@ function deltaSub(percent: number | undefined) {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}% vs previous period`;
 }
 
-export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry }: {
+export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isPharmacy }: {
   analytics: AnalyticsPayload | null;
   days: number;
   inventoryEnabled: boolean;
   showExpiry: boolean;
+  isPharmacy: boolean;
 }) {
   const kpis = analytics?.kpis;
   const comparison = analytics?.comparison;
@@ -127,7 +128,7 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry }: {
       <Card className="ring-white/50 glass-sheen-sm">
         <CardHeader>
           <CardTitle className="text-base">Fast-Moving Inventory</CardTitle>
-          <CardDescription>Top 5 medicines by quantity sold in the last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
+          <CardDescription>Top 5 {isPharmacy ? 'medicines' : 'products'} by quantity sold in the last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <FastMovingWidget rows={analytics?.fastMoving || []} />

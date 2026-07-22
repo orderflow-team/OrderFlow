@@ -230,6 +230,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
           businessId,
           customerName: 'Table 1 Guest',
           orderType: 'dine_in',
+          tableId: table1.id,
           items: [
             { productId: itemA.id, quantity: 2, unitPrice: Number(itemA.selling_price) },
             { productId: itemB.id, quantity: 4, unitPrice: Number(itemB.selling_price) },
@@ -244,6 +245,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
           businessId,
           customerName: 'Table 2 Guest',
           orderType: 'dine_in',
+          tableId: table2.id,
           items: [{ productId: itemC.id, quantity: 2, unitPrice: Number(itemC.selling_price) }],
         });
         await this.restaurantService.createKot({ businessId, orderId: dineInOrder2.id, tableId: table2.id });
