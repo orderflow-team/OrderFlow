@@ -309,3 +309,24 @@
 .scan-beam {
   animation: scan-sweep 1.8s ease-in-out infinite;
 }
+
+/* Landing page: slow ambient drift on the background gradient blobs, so the page
+   still feels "live" below the hero even where there's no WebGL canvas. */
+@keyframes drift-a {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-46%, -54%) scale(1.06); }
+}
+@keyframes drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, 4%) scale(1.08); }
+}
+@keyframes drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-3%, -3%) scale(1.05); }
+}
+.drift-a { animation: drift-a 22s ease-in-out infinite; }
+.drift-b { animation: drift-b 26s ease-in-out infinite; }
+.drift-c { animation: drift-c 30s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .drift-a, .drift-b, .drift-c { animation: none; }
+}
