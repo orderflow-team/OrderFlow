@@ -2,7 +2,9 @@
   "name": "orderflow",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=web",
+    "build:api": "turbo run build --filter=api",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
