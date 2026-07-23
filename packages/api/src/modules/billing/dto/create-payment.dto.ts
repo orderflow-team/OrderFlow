@@ -24,4 +24,10 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   transactionId?: string;
+
+  // Set by the offline outbox (apps/web/lib/offline-db.ts) so a retried sync
+  // of the same queued payment is recognized instead of double-recording it.
+  @IsOptional()
+  @IsString()
+  clientRequestId?: string;
 }

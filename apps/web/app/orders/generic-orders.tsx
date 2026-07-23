@@ -11,11 +11,14 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
+import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
+import { useOfflineStore } from '@/lib/offline-store';
+import { buildReceiptHtml, printReceiptHtml } from '@/lib/receipt-template';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
   Pencil, Minus, Check, Search, MapPin, Calendar, AlertCircle, Printer, UserRound, RotateCcw,
-  Bot,
+  Bot, CloudOff,
 } from 'lucide-react';
 
 interface Customer { id: string; name: string; phone?: string; }
@@ -62,6 +65,8 @@ const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   paid:       { color: 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20', icon: IndianRupee },
   returned:   { color: 'bg-yellow-500/10 text-yellow-700 ring-1 ring-yellow-500/20', icon: RotateCcw },
   cancelled:  { color: 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20',     icon: XCircle },
+  queued:     { color: 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20',  icon: CloudOff },
+  sync_failed: { color: 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20',   icon: AlertCircle },
 };
 
 const STATUS_BAR_COLOR: Record<string, string> = {
@@ -73,7 +78,37 @@ const STATUS_BAR_COLOR: Record<string, string> = {
   paid: 'bg-emerald-500',
   returned: 'bg-yellow-500',
   cancelled: 'bg-rose-500',
+  queued: 'bg-amber-500',
+  sync_failed: 'bg-rose-500',
 };
+
+/** Turns a still-unsynced outbox order into an Order-shaped row so it stays visible in the list (and survives a page refresh) until it syncs. */
+function syntheticOrderFromOutbox(item: OutboxOrderItem, productsById: Map<string, Product>): Order {
+  const payload = item.payload as {
+    customerId?: string;
+    customerName?: string;
+    items: { productId?: string; customProductName?: string; unit?: string; quantity: number; unitPrice: number }[];
+  };
+  const items: OrderItem[] = payload.items.map((it, idx) => ({
+    id: `${item.id}-${idx}`,
+    quantity: it.quantity,
+    unit_price: it.unitPrice,
+    subtotal: it.quantity * it.unitPrice,
+    unit: it.unit,
+    product: it.productId ? productsById.get(it.productId) : undefined,
+    custom_product_name: it.customProductName,
+  }));
+  return {
+    id: item.id,
+    order_number: 'Queued…',
+    customer_name: payload.customerName || 'Walk-in',
+    customer_id: payload.customerId,
+    status: item.status === 'failed' ? 'sync_failed' : 'queued',
+    total_amount: items.reduce((sum, it) => sum + Number(it.subtotal), 0),
+    created_at: new Date(item.createdAt).toISOString(),
+    items,
+  };
+}
 
 function StatusBadge({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? { color: 'bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20', icon: Clock };
@@ -97,6 +132,7 @@ export function GenericOrders() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'NEW' | 'UNPAID' | 'PAID'>('ALL');
+  const enqueueOrder = useOfflineStore((s) => s.enqueueOrder);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowForm(true);
@@ -133,6 +169,20 @@ export function GenericOrders() {
   const [editLines, setEditLines] = useState<EditLine[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
+  /** Prepends any not-yet-synced offline sales so they stay visible (and survive a refresh) until the sync engine lands them. */
+  const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
+    const [outbox, cachedProducts] = await Promise.all([
+      listOutbox(bizId),
+      getCached<Product[]>(bizId, 'products'),
+    ]);
+    const productsById = new Map((cachedProducts || []).map((p) => [p.id, p]));
+    const queued = outbox
+      .filter((item): item is OutboxOrderItem => item.type === 'order' && item.status !== 'synced')
+      .map((item) => syntheticOrderFromOutbox(item, productsById))
+      .reverse();
+    return [...queued, ...baseOrders];
+  };
+
   const load = async (bizId: string, silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -140,7 +190,9 @@ export function GenericOrders() {
         apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
         apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } }),
       ]);
-      setOrders(ordersRes.data);
+      setCached(bizId, 'orders', ordersRes.data);
+      setCached(bizId, 'customers', customersRes.data);
+      setOrders(await withQueuedOrders(bizId, ordersRes.data));
       setCustomers(customersRes.data);
 
       setDrawerOrder((currentDrawer) => {
@@ -153,6 +205,19 @@ export function GenericOrders() {
         return currentDrawer;
       });
     } catch (err: any) {
+      // Network failure — fall back to the last-cached orders/customers instead
+      // of blanking the screen, so the counter stays usable offline.
+      if (!err.response) {
+        const [cachedOrders, cachedCustomers] = await Promise.all([
+          getCached<Order[]>(bizId, 'orders'),
+          getCached<Customer[]>(bizId, 'customers'),
+        ]);
+        if (cachedOrders || cachedCustomers) {
+          setOrders(await withQueuedOrders(bizId, cachedOrders || []));
+          setCustomers(cachedCustomers || []);
+          return;
+        }
+      }
       setError(err.response?.data?.message || 'Failed to load orders');
     } finally {
       if (!silent) setLoading(false);
@@ -182,7 +247,10 @@ export function GenericOrders() {
     setPaymentMethod('Cash');
     setReturnMode(false);
     setReturnQty({});
-    if (typeof window !== 'undefined') {
+    // A queued/sync_failed order's id is only a local outbox uuid — don't let
+    // the AI chat assistant latch onto it as "the order being edited", since
+    // any edit it sends would 404 against the server.
+    if (typeof window !== 'undefined' && o.status !== 'queued' && o.status !== 'sync_failed') {
       window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: o.id, orderNumber: o.order_number } }));
     }
     // Check for existing invoice
@@ -508,37 +576,77 @@ export function GenericOrders() {
     if (!businessId) return;
     setSaving(true);
     setError('');
+    const selectedCustomer = customers.find((c) => c.id === customerId);
+    const resolvedCustomerName = selectedCustomer?.name || customerName || 'Walk-in';
+    const orderPayload = {
+      businessId,
+      customerId: customerId || undefined,
+      customerName: resolvedCustomerName,
+      phone: phone || undefined,
+      patientName: patientName || undefined,
+      doctorName: doctorName || undefined,
+      orderType: 'regular',
+      items: cartItems.map((it) => ({
+        productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
+        customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
+        // Always record the unit actually shown/priced in the cart — not just
+        // for draft items — so editing the order later sees the same packaging
+        // (e.g. "100g") instead of falling back to the product's base unit.
+        unit: it.product.unit,
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.product.selling_price),
+      })),
+    };
+
+    const receiptItems = cartItems.map((it) => ({
+      name: it.product.name,
+      quantity: it.quantity,
+      unit: it.product.unit,
+      unitPrice: Number(it.product.selling_price),
+      subtotal: it.quantity * Number(it.product.selling_price),
+    }));
+    const totalAmount = receiptItems.reduce((sum, it) => sum + it.subtotal, 0);
+    const printReceipt = async (orderNumber: string, createdAt: string, queued: boolean) => {
+      const business = await getCached(businessId, 'business-profile');
+      printReceiptHtml(
+        buildReceiptHtml({
+          business: business as any,
+          orderNumber,
+          createdAt,
+          customerName: resolvedCustomerName,
+          items: receiptItems,
+          totalAmount,
+          queued,
+        }),
+      );
+    };
+
     try {
-      const selectedCustomer = customers.find((c) => c.id === customerId);
-      await apiClient.post('/api/orders', {
-        businessId,
-        customerId: customerId || undefined,
-        customerName: selectedCustomer?.name || customerName || 'Walk-in',
-        phone: phone || undefined,
-        patientName: patientName || undefined,
-        doctorName: doctorName || undefined,
-        orderType: 'regular',
-        items: cartItems.map((it) => ({
-          productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
-          customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
-          // Always record the unit actually shown/priced in the cart — not just
-          // for draft items — so editing the order later sees the same packaging
-          // (e.g. "100g") instead of falling back to the product's base unit.
-          unit: it.product.unit,
-          quantity: Number(it.quantity),
-          unitPrice: Number(it.product.selling_price),
-        })),
-      });
+      const res = await apiClient.post('/api/orders', orderPayload);
       setShowForm(false);
+      await printReceipt(res.data.order_number, res.data.created_at || new Date().toISOString(), false);
       load(businessId);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create order');
+      if (!err.response) {
+        // Offline — queue the sale instead of losing it, print from what we know locally.
+        await enqueueOrder(businessId, orderPayload);
+        setShowForm(false);
+        await printReceipt('Queued…', new Date().toISOString(), true);
+        load(businessId, true);
+      } else {
+        setError(err.response?.data?.message || 'Failed to create order');
+      }
     } finally {
       setSaving(false);
     }
   };
 
   if (!ready) return null;
+
+  // A queued/sync_failed row is just a local placeholder — its id is an
+  // outbox uuid, not a real order id, so payment/edit/invoice/delete/return
+  // actions (which PATCH/DELETE by id) would just 404 against the server.
+  const isUnsyncedOrder = drawerOrder?.status === 'queued' || drawerOrder?.status === 'sync_failed';
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'ALL' && orderBucket(o.status) !== statusFilter) return false;
@@ -785,7 +893,7 @@ export function GenericOrders() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Items</p>
-                  {!editMode && drawerOrder.status !== 'returned' && drawerOrder.status !== 'cancelled' ? (
+                  {!editMode && !isUnsyncedOrder && drawerOrder.status !== 'returned' && drawerOrder.status !== 'cancelled' ? (
                     <div className="flex gap-3">
                       <button
                         onClick={() => {
@@ -962,31 +1070,40 @@ export function GenericOrders() {
               </div>
 
               {/* Status */}
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Update Status</p>
-                <div className="flex gap-2">
-                  <select
-                    value={drawerStatus}
-                    onChange={(e) => setDrawerStatus(e.target.value)}
-                    disabled={drawerOrder.status === 'returned' || drawerOrder.status === 'cancelled'}
-                    className="flex-1 h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm font-medium text-slate-700 capitalize disabled:opacity-50"
-                  >
-                    {STATUSES.filter(s => s !== 'returned').map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <Button
-                    onClick={handleStatusSave}
-                    disabled={statusSaving || drawerStatus === drawerOrder.status}
-                    className="h-10 bg-slate-800/85 backdrop-blur-md hover:bg-slate-800/95 text-white"
-                  >
-                    {statusSaving ? 'Saving…' : 'Save'}
-                  </Button>
+              {!isUnsyncedOrder && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Update Status</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={drawerStatus}
+                      onChange={(e) => setDrawerStatus(e.target.value)}
+                      disabled={drawerOrder.status === 'returned' || drawerOrder.status === 'cancelled'}
+                      className="flex-1 h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm font-medium text-slate-700 capitalize disabled:opacity-50"
+                    >
+                      {STATUSES.filter(s => s !== 'returned').map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <Button
+                      onClick={handleStatusSave}
+                      disabled={statusSaving || drawerStatus === drawerOrder.status}
+                      className="h-10 bg-slate-800/85 backdrop-blur-md hover:bg-slate-800/95 text-white"
+                    >
+                      {statusSaving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Footer actions */}
             <div className="shrink-0 px-5 py-4 border-t border-white/40 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-
+              {isUnsyncedOrder ? (
+                <p className="text-xs text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-2xl px-4 py-3 text-center font-medium">
+                  {drawerOrder.status === 'sync_failed'
+                    ? "Sync failed — check the sidebar's sync status for details, or try again once you're back online."
+                    : "This sale hasn't synced yet — payment, editing, invoicing, and returns unlock once it syncs automatically."}
+                </p>
+              ) : (
+                <>
               {/* Mark as Paid */}
               {drawerOrder.status !== 'paid' && drawerOrder.status !== 'cancelled' && drawerOrder.status !== 'returned' && (
                 <div className="space-y-2">
@@ -1085,6 +1202,8 @@ export function GenericOrders() {
                     Confirm Delete
                   </button>
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>

@@ -10,6 +10,8 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { StatusBadge } from '@/components/status-badge';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
+import { useOfflineStore } from '@/lib/offline-store';
 import { Receipt, FileText } from 'lucide-react';
 
 interface Order {
@@ -19,6 +21,18 @@ interface Order {
   customer_name: string;
   status: string;
   total_amount: string | number;
+}
+
+function syntheticOrderFromOutbox(item: OutboxOrderItem): Order {
+  const payload = item.payload as { customerId?: string; customerName?: string; items: { quantity: number; unitPrice: number }[] };
+  return {
+    id: item.id,
+    order_number: 'Queued…',
+    customer_id: payload.customerId || null,
+    customer_name: payload.customerName || 'Walk-in',
+    status: item.status === 'failed' ? 'sync_failed' : 'queued',
+    total_amount: payload.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0),
+  };
 }
 
 interface Invoice {
@@ -52,6 +66,16 @@ export function StandardBilling() {
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('Cash');
   const [saving, setSaving] = useState(false);
+  const enqueuePayment = useOfflineStore((s) => s.enqueuePayment);
+
+  const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
+    const outbox = await listOutbox(bizId);
+    const queued = outbox
+      .filter((item): item is OutboxOrderItem => item.type === 'order' && item.status !== 'synced')
+      .map(syntheticOrderFromOutbox)
+      .reverse();
+    return [...queued, ...baseOrders];
+  };
 
   const load = async (bizId: string) => {
     setLoading(true);
@@ -61,10 +85,26 @@ export function StandardBilling() {
         apiClient.get<Invoice[]>('/api/billing/invoices', { params: { businessId: bizId } }),
         apiClient.get<Payment[]>('/api/billing/payments', { params: { businessId: bizId } }),
       ]);
-      setOrders(ordersRes.data);
+      setCached(bizId, 'orders', ordersRes.data);
+      setCached(bizId, 'invoices', invoicesRes.data);
+      setCached(bizId, 'payments', paymentsRes.data);
+      setOrders(await withQueuedOrders(bizId, ordersRes.data));
       setInvoices(invoicesRes.data);
       setPayments(paymentsRes.data);
     } catch (err: any) {
+      if (!err.response) {
+        const [cachedOrders, cachedInvoices, cachedPayments] = await Promise.all([
+          getCached<Order[]>(bizId, 'orders'),
+          getCached<Invoice[]>(bizId, 'invoices'),
+          getCached<Payment[]>(bizId, 'payments'),
+        ]);
+        if (cachedOrders || cachedInvoices || cachedPayments) {
+          setOrders(await withQueuedOrders(bizId, cachedOrders || []));
+          setInvoices(cachedInvoices || []);
+          setPayments(cachedPayments || []);
+          return;
+        }
+      }
       setError(err.response?.data?.message || 'Failed to load billing data');
     } finally {
       setLoading(false);
@@ -73,6 +113,18 @@ export function StandardBilling() {
 
   useEffect(() => {
     if (ready && businessId) load(businessId);
+  }, [ready, businessId]);
+
+  // The offline sync engine (triggered from AppShell, globally) dispatches
+  // this after syncing queued orders/payments in the background — without
+  // this listener the screen would keep showing "Queued…" and stale
+  // remaining-balance figures even after everything has actually synced.
+  useEffect(() => {
+    const handleOrderUpdated = () => {
+      if (ready && businessId) load(businessId);
+    };
+    window.addEventListener('order-updated', handleOrderUpdated);
+    return () => window.removeEventListener('order-updated', handleOrderUpdated);
   }, [ready, businessId]);
 
   const handleGenerateInvoice = async (orderId: string) => {
@@ -100,20 +152,35 @@ export function StandardBilling() {
       return;
     }
     setSaving(true);
+    const order = orders.find((o) => o.id === payOrderId);
+    // An order still shown as 'queued'/'sync_failed' hasn't synced yet — its id
+    // is only a local outbox id, not a real order id the payments API knows.
+    const isLocalOrder = order?.status === 'queued' || order?.status === 'sync_failed';
+    const paymentPayload = {
+      businessId,
+      orderId: isLocalOrder ? undefined : payOrderId,
+      customerId: order?.customer_id || undefined,
+      amount: Number(payAmount),
+      paymentMethod: payMethod,
+    };
     try {
-      const order = orders.find((o) => o.id === payOrderId);
-      await apiClient.post('/api/billing/payments', {
-        businessId,
-        orderId: payOrderId,
-        customerId: order?.customer_id || undefined,
-        amount: Number(payAmount),
-        paymentMethod: payMethod,
-      });
+      if (isLocalOrder) {
+        await enqueuePayment(businessId, paymentPayload, payOrderId);
+      } else {
+        await apiClient.post('/api/billing/payments', paymentPayload);
+      }
       setPayOrderId('');
       setPayAmount('');
       load(businessId);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to record payment');
+      if (!err.response) {
+        await enqueuePayment(businessId, paymentPayload, isLocalOrder ? payOrderId : undefined);
+        setPayOrderId('');
+        setPayAmount('');
+        load(businessId);
+      } else {
+        setError(err.response?.data?.message || 'Failed to record payment');
+      }
     } finally {
       setSaving(false);
     }
@@ -229,7 +296,9 @@ export function StandardBilling() {
                         }
                         return null;
                       })()}
-                      {invoiceByOrderId.has(o.id) ? (
+                      {o.status === 'queued' || o.status === 'sync_failed' ? (
+                        <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
+                      ) : invoiceByOrderId.has(o.id) ? (
                         <a
                           href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
                           className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"

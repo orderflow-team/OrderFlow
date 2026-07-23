@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
+import { getCached, setCached } from '@/lib/offline-db';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp } from 'lucide-react';
@@ -129,24 +130,35 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setBaseProducts(fetchedProducts);
       const seen = new Set<string>();
       const combinedCategories: Category[] = [];
-      
+
       for (const c of catRes.data) {
         if (!seen.has(c.name)) {
           seen.add(c.name);
           combinedCategories.push(c);
         }
       }
-      
+
       for (const p of fetchedProducts) {
         if (p.category && !seen.has(p.category)) {
           seen.add(p.category);
           combinedCategories.push({ id: `cat-${p.category}`, name: p.category });
         }
       }
-      
+
       setCategories(combinedCategories);
+      // Write-through cache so the cart can still be built with zero network.
+      setCached(businessId, 'products', fetchedProducts);
+      setCached(businessId, 'categories', combinedCategories);
     } catch (err) {
-      console.error(err);
+      // Network failure (offline) — fall back to the last-cached catalog so the
+      // counter can keep taking sales instead of showing a blank/error screen.
+      const [cachedProducts, cachedCategories] = await Promise.all([
+        getCached<Product[]>(businessId, 'products'),
+        getCached<Category[]>(businessId, 'categories'),
+      ]);
+      if (cachedProducts) setBaseProducts(cachedProducts);
+      if (cachedCategories) setCategories(cachedCategories);
+      if (!cachedProducts) console.error(err);
     } finally {
       setLoading(false);
     }

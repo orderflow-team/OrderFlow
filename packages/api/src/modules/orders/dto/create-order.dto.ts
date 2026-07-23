@@ -79,6 +79,12 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  // Set by the offline outbox (apps/web/lib/offline-db.ts) so a retried sync
+  // of the same queued sale is recognized as the same order, not a duplicate.
+  @IsOptional()
+  @IsString()
+  clientRequestId?: string;
 }
 
 export class AddOrderItemsDto {

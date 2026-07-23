@@ -14,6 +14,7 @@ import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
+import { Notification } from '../../database/entities/notification.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
@@ -94,6 +95,18 @@ export class OrdersService {
    * GST tax_percentage (free-text items have no tax, since there's no rate to apply).
    */
   async create(dto: CreateOrderDto, createdByUserId?: string) {
+    // Idempotency: a queued offline sale can be retried (e.g. the sync request
+    // succeeded server-side but the client never saw the response before
+    // going offline again) — recognize the same clientRequestId instead of
+    // creating a second order.
+    if (dto.clientRequestId) {
+      const existing = await this.ordersRepository.findOne({
+        where: { business_id: dto.businessId, client_request_id: dto.clientRequestId },
+      });
+      if (existing) {
+        return { ...existing, items: await this.orderItemsRepository.find({ where: { order_id: existing.id }, relations: { product: true } }) };
+      }
+    }
     return this.dataSource.transaction(async (manager) => {
       const orderNumber = `ORD-${Date.now()}`;
       const business = await manager.findOne(Business, { where: { id: dto.businessId } });
@@ -145,6 +158,7 @@ export class OrdersService {
       // Guards against two items in the same order with the same custom name
       // (e.g. two "Maggi" lines) creating two separate Product rows.
       const newlyCreatedProductIds = new Map<string, string>();
+      const shortfalls: { productName: string; requested: number; fulfilled: number }[] = [];
 
       for (const item of dto.items) {
         if (!item.productId && !item.customProductName) {
@@ -153,7 +167,11 @@ export class OrdersService {
         const clientProvidedProductId = !!item.productId;
 
         if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
-          const fulfilled = await this.decrementStock(manager, dto.businessId, item.productId!, Number(item.quantity), orderNumber);
+          const requestedQuantity = Number(item.quantity);
+          const { fulfilled, productName } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber);
+          if (fulfilled < requestedQuantity) {
+            shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
+          }
           if (fulfilled === 0) {
             continue; // nothing in stock — leave this item out of the order entirely
           }
@@ -233,8 +251,20 @@ export class OrdersService {
         patient_name: dto.patientName,
         doctor_name: dto.doctorName,
         created_by_user_id: createdByUserUuid,
+        client_request_id: dto.clientRequestId,
       });
       const savedOrder = await manager.save(order);
+
+      if (shortfalls.length > 0) {
+        await manager.save(
+          Notification,
+          manager.create(Notification, {
+            business_id: dto.businessId,
+            type: 'stock_shortfall',
+            message: this.buildShortfallMessage(resolvedCustomerName, orderNumber, shortfalls),
+          }),
+        );
+      }
 
       if (dto.tableId) {
         await manager.update(Table, { id: dto.tableId }, { status: 'occupied' });
@@ -296,7 +326,7 @@ export class OrdersService {
     productId: string,
     requestedQuantity: number,
     orderNumber: string,
-  ): Promise<number> {
+  ): Promise<{ fulfilled: number; productName: string }> {
     const product = await manager
       .createQueryBuilder(Product, 'product')
       .setLock('pessimistic_write')
@@ -314,7 +344,7 @@ export class OrdersService {
       if (product.is_available) {
         await manager.update(Product, { id: productId }, { is_available: false });
       }
-      return 0;
+      return { fulfilled: 0, productName: product.name };
     }
 
     const remaining = available - fulfilled;
@@ -336,7 +366,27 @@ export class OrdersService {
       }),
     );
 
-    return fulfilled;
+    return { fulfilled, productName: product.name };
+  }
+
+  /**
+   * decrementStock() clamps a request to whatever's actually on the shelf
+   * instead of failing the whole order — correct, but silent: the order just
+   * ends up with fewer/no units of that item and nobody's told. Builds the
+   * one notification message summarizing everything that came up short, so
+   * staff can follow up with the customer instead of it going unnoticed.
+   */
+  private buildShortfallMessage(
+    customerName: string,
+    orderNumber: string,
+    shortfalls: { productName: string; requested: number; fulfilled: number }[],
+  ): string {
+    const clauses = shortfalls.map((s) =>
+      s.fulfilled === 0
+        ? `dropped ${s.productName} entirely (out of stock)`
+        : `got only ${s.fulfilled} of ${s.requested} ${s.productName} (not enough in stock)`,
+    );
+    return `${customerName}'s order ${orderNumber} ${clauses.join('; ')} — follow up with the customer.`;
   }
 
   /**
@@ -808,6 +858,7 @@ export class OrdersService {
       }> = [];
 
       const newlyCreatedProductIds = new Map<string, string>();
+      const shortfalls: { productName: string; requested: number; fulfilled: number }[] = [];
 
       for (const item of dto.items) {
         if (!item.productId && !item.customProductName) {
@@ -816,7 +867,11 @@ export class OrdersService {
         const clientProvidedProductId = !!item.productId;
 
         if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
-          const fulfilled = await this.decrementStock(manager, businessId, item.productId!, Number(item.quantity), order.order_number);
+          const requestedQuantity = Number(item.quantity);
+          const { fulfilled, productName } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number);
+          if (fulfilled < requestedQuantity) {
+            shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
+          }
           if (fulfilled === 0) {
             continue; // nothing in stock — leave this item out of the order entirely
           }
@@ -896,6 +951,17 @@ export class OrdersService {
       order.tax_amount = Number(order.tax_amount) + additionalTax;
 
       const savedOrder = await manager.save(order);
+
+      if (shortfalls.length > 0) {
+        await manager.save(
+          Notification,
+          manager.create(Notification, {
+            business_id: businessId,
+            type: 'stock_shortfall',
+            message: this.buildShortfallMessage(order.customer_name, order.order_number, shortfalls),
+          }),
+        );
+      }
 
       // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
       await this.invoicesService.syncFromOrder(order.id, manager);
@@ -1121,6 +1187,8 @@ export class OrdersService {
     const dummyInvoice = {
       invoice_number: order.order_number.replace('ORD-', 'REC-'),
       created_at: order.created_at,
+      tax_amount: order.tax_amount,
+      total_amount: order.total_amount,
     } as any;
 
     const mappedItems = items.map((item) => ({

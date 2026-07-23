@@ -32,6 +32,15 @@ export class PaymentsService {
    * Posting the missing debit first keeps the books correct either way.
    */
   async create(dto: CreatePaymentDto) {
+    // Idempotency: the offline outbox (apps/web/lib/offline-db.ts) can retry a
+    // queued payment if a prior sync succeeded server-side but the response
+    // was lost — recognize the same clientRequestId instead of double-recording it.
+    if (dto.clientRequestId) {
+      const existing = await this.paymentsRepository.findOne({
+        where: { business_id: dto.businessId, client_request_id: dto.clientRequestId },
+      });
+      if (existing) return existing;
+    }
     return this.dataSource.transaction(async (manager) => {
       let order: Order | null = null;
       if (dto.orderId) {
@@ -153,6 +162,7 @@ export class PaymentsService {
         payment_method: dto.paymentMethod,
         status: "completed",
         transaction_id: dto.transactionId,
+        client_request_id: dto.clientRequestId,
       });
       const savedPayment = await manager.save(payment);
 

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
+import { getCached, setCached } from '@/lib/offline-db';
 import { ShoppingCart, Plus, Minus, Search, Save, Check, Trash2 } from 'lucide-react';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -102,8 +103,16 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
       }
       
       setCategories(combinedCategories);
+      setCached(businessId, 'products', fetchedProducts);
+      setCached(businessId, 'categories', combinedCategories);
     } catch (err) {
-      console.error(err);
+      const [cachedProducts, cachedCategories] = await Promise.all([
+        getCached<Product[]>(businessId, 'products'),
+        getCached<Category[]>(businessId, 'categories'),
+      ]);
+      if (cachedProducts) setProducts(cachedProducts);
+      if (cachedCategories) setCategories(cachedCategories);
+      if (!cachedProducts) console.error(err);
     } finally {
       setLoading(false);
     }

@@ -37,6 +37,7 @@ import { BentoGrid } from './bento-grid';
 import { HardwareBar } from './hardware-bar';
 import { FaqSection } from './faq-section';
 import { StepVisualizer } from './step-visualizer';
+import { ContactSection } from './contact-section';
 
 const OrbitScene = dynamic(() => import('./orbit-scene').then((m) => m.OrbitScene), { ssr: false });
 const FlowPath = dynamic(() => import('./flow-path').then((m) => m.FlowPath), { ssr: false });
@@ -164,6 +165,7 @@ export function LandingPage() {
             <a href="#hardware" className="hover:text-emerald-700 transition-colors">Hardware</a>
             <a href="#roles" className="hover:text-emerald-700 transition-colors">Staff Roles</a>
             <a href="#faq" className="hover:text-emerald-700 transition-colors">FAQ</a>
+            <a href="#contact" className="hover:text-emerald-700 transition-colors">Contact</a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -195,6 +197,7 @@ export function LandingPage() {
             <a href="#hardware" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Hardware Ecosystem</a>
             <a href="#roles" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Staff Roles</a>
             <a href="#faq" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">FAQ</a>
+            <a href="#contact" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Contact</a>
             <div className="pt-4 border-t border-slate-800 flex gap-4">
               <Link href="/login" className="px-4 py-2 bg-slate-800 rounded-xl text-center w-full">Sign in</Link>
               <Link href="/signup" className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-center w-full">Sign up</Link>
@@ -542,6 +545,13 @@ export function LandingPage() {
         </Reveal>
       </section>
 
+      {/* Contact Section */}
+      <section id="contact" className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80">
+        <Reveal>
+          <ContactSection />
+        </Reveal>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-slate-200 py-10 bg-slate-100/60">
         <div className="max-w-[100rem] mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
@@ -559,6 +569,7 @@ export function LandingPage() {
             <a href="#hardware" className="hover:text-slate-900">Hardware</a>
             <a href="#roles" className="hover:text-slate-900">Roles</a>
             <a href="#faq" className="hover:text-slate-900">FAQ</a>
+            <a href="#contact" className="hover:text-slate-900">Contact</a>
             <Link href="/login" className="hover:text-slate-900">Sign in</Link>
             <Link href="/signup" className="text-emerald-700 hover:underline">Get Started</Link>
           </div>

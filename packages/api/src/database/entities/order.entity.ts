@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { Business } from './business.entity';
 import { Customer } from './customer.entity';
 import { Table } from './table.entity';
@@ -6,6 +6,7 @@ import { OrderItem } from './order-item.entity';
 import { User } from './user.entity';
 
 @Entity('orders')
+@Index(['business_id', 'client_request_id'], { unique: true })
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -47,6 +48,12 @@ export class Order {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   order_number: string;
+
+  // Client-generated UUID from the offline outbox (apps/web/lib/offline-db.ts)
+  // — lets a retried sync of the same queued sale be recognized as the same
+  // order instead of creating a duplicate. Null for orders created live.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  client_request_id: string;
 
   @Column({ type: 'int', nullable: true })
   token_number: number;

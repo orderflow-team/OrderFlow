@@ -23,8 +23,12 @@ import {
   Check,
   Settings,
   UserCog,
+  CloudOff,
+  RefreshCw,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+import { setCached } from '@/lib/offline-db';
+import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
@@ -151,6 +155,12 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setCanViewReports(hasRole('admin', 'manager', 'accountant'));
   }, []);
 
+  useOfflineSync(businessId);
+  const isOnline = useOfflineStore((s) => s.isOnline);
+  const pendingCount = useOfflineStore((s) => s.pendingCount);
+  const syncing = useOfflineStore((s) => s.syncing);
+  const syncNow = useOfflineStore((s) => s.syncNow);
+
   useEffect(() => {
     if (!businessId) {
       setOptionalModules(getOptionalModulesForCategory(null));
@@ -165,7 +175,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setChatEnabled(cachedChatEnabled ?? true);
 
     apiClient
-      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; gst_number?: string | null }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
@@ -176,6 +186,13 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         setCachedChatEnabled(businessId, isChatEnabled);
         setChatEnabled(isChatEnabled);
         setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled));
+        // Cached so the client-side receipt renderer can print a business
+        // header (name/address/GSTIN) even with zero network.
+        setCached(businessId, 'business-profile', {
+          name: res.data.name,
+          address: res.data.address,
+          gst_number: res.data.gst_number,
+        });
       })
       .catch(() => {
         // Keep whatever we had (cached or "show everything") if the lookup fails.
@@ -467,6 +484,28 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 </>
               )}
             </div>
+          )}
+          {businessId && (isOnline === false || pendingCount > 0) && (
+            <button
+              type="button"
+              onClick={() => isOnline && pendingCount > 0 && !syncing && syncNow(businessId)}
+              disabled={!isOnline || pendingCount === 0 || syncing}
+              title={isOnline && pendingCount > 0 ? 'Click to sync now' : undefined}
+              className={`w-full flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-bold ring-1 transition-colors disabled:cursor-default ${
+                !isOnline
+                  ? 'bg-slate-500/10 text-slate-600 ring-slate-400/30'
+                  : 'bg-amber-500/10 text-amber-700 ring-amber-500/30 hover:bg-amber-500/20 cursor-pointer'
+              }`}
+            >
+              {!isOnline ? (
+                <CloudOff className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} />
+              )}
+              <span className="truncate">
+                {!isOnline ? 'Offline — sales are queued locally' : `${pendingCount} pending sync`}
+              </span>
+            </button>
           )}
         </div>
         {notifOpen && (

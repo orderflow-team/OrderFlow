@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Business } from './business.entity';
 import { Order } from './order.entity';
 
 @Entity('payments')
+@Index(['business_id', 'client_request_id'], { unique: true })
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -32,6 +33,11 @@ export class Payment {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   transaction_id: string;
+
+  // Client-generated UUID from the offline outbox — lets a retried sync of
+  // the same queued payment be recognized instead of double-recording it.
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  client_request_id: string;
 
   @CreateDateColumn()
   created_at: Date;

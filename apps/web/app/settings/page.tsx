@@ -9,7 +9,8 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { AlertTriangle, Trash2, ImageUp } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2 } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -63,6 +64,12 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
 
+  const [supportCategory, setSupportCategory] = useState('others');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [sendingSupport, setSendingSupport] = useState(false);
+  const [supportError, setSupportError] = useState('');
+  const [supportSent, setSupportSent] = useState(false);
+
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
@@ -80,6 +87,7 @@ export default function SettingsPage() {
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
         });
+        setSupportCategory(res.data.category || 'others');
       })
       .catch((err: any) => setError(err.response?.data?.message || 'Failed to load business settings'))
       .finally(() => setLoading(false));
@@ -169,6 +177,34 @@ export default function SettingsPage() {
       setPasswordError(err.response?.data?.message || 'Failed to change password');
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSendingSupport(true);
+    setSupportError('');
+    setSupportSent(false);
+    const user = getCurrentUser();
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: user?.fullName || form.name || 'OrderFlow User',
+          email: user?.email || '',
+          businessCategory: supportCategory,
+          message: supportMessage,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to send message');
+      setSupportSent(true);
+      setSupportMessage('');
+    } catch (err: any) {
+      setSupportError(err.message || 'Failed to send message');
+    } finally {
+      setSendingSupport(false);
     }
   };
 
@@ -375,6 +411,54 @@ export default function SettingsPage() {
                 {passwordSaved && <p className="text-sm text-emerald-600">Password updated.</p>}
                 <Button type="submit" disabled={changingPassword} className="w-full sm:w-auto">
                   {changingPassword ? 'Updating...' : 'Update Password'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && (
+          <Card className="ring-white/50 glass-sheen-sm">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Mail className="w-4 h-4 text-emerald-600" /> Contact Support
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSupportSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Business category</label>
+                  <select
+                    value={supportCategory}
+                    onChange={(e) => setSupportCategory(e.target.value)}
+                    className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Message</label>
+                  <textarea
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    required
+                    rows={4}
+                    placeholder="Tell us what you need help with..."
+                    className="w-full rounded-2xl border border-transparent bg-white/35 backdrop-blur-md px-4 py-3 text-sm text-slate-800 placeholder:text-slate-500 outline-none transition-all ring-1 ring-white/50 focus:ring-2 focus:ring-emerald-400/70 resize-none"
+                  />
+                </div>
+                {supportError && <p className="text-sm text-rose-600">{supportError}</p>}
+                {supportSent && (
+                  <p className="text-sm text-emerald-600 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" /> Message sent — we&apos;ll reply by email soon.
+                  </p>
+                )}
+                <Button type="submit" disabled={sendingSupport} className="w-full sm:w-auto">
+                  {sendingSupport ? 'Sending...' : 'Send message'}
                 </Button>
               </form>
             </CardContent>

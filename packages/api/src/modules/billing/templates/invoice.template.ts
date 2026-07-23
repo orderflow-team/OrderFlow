@@ -7,6 +7,18 @@ function money(n: number | string) {
   return Number(n).toFixed(2);
 }
 
+/**
+ * Product/customer/business names are free text entered by staff — escape
+ * before interpolating into HTML. These templates are rendered both via
+ * Puppeteer (PDF) and, for the thermal receipt, directly in the cashier's
+ * browser via document.write(), where an unescaped "<script>" in e.g. a
+ * custom item name would execute with access to the authenticated app.
+ */
+function escapeHtml(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** Classic Indian ledger convention: rupees and paise as two separate table columns. */
 function splitRupeesPaise(n: number | string): { rupees: string; paise: string } {
   const [rupees, paise] = money(n).split('.');
@@ -28,7 +40,7 @@ function tz(business: Business | null): string {
 function itemDetails(item: InvoiceItem, timeZone: string): string[] {
   const p = item.product;
   const details: string[] = [];
-  if (p?.batch_number) details.push(`Batch: ${p.batch_number}`);
+  if (p?.batch_number) details.push(`Batch: ${escapeHtml(p.batch_number)}`);
   if (p?.expiry_date) details.push(`Exp: ${new Date(p.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone })}`);
   if (p?.prescription_required) details.push('Rx');
   return details;
@@ -52,7 +64,7 @@ export function renderInvoiceHtml(
         : '';
       return `
         <tr>
-          <td>${item.product?.name ?? item.custom_product_name ?? '-'}${detailsHtml}</td>
+          <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}${detailsHtml}</td>
           <td class="num">${money(item.quantity)}</td>
           <td class="num">₹${money(item.unit_price)}</td>
           <td class="num">${money(item.tax_percentage)}%</td>
@@ -86,24 +98,24 @@ export function renderInvoiceHtml(
   <div class="header">
     <div>
       <div class="brand">
-        ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${business?.name ?? 'Logo'}" />` : ''}
-        <h1>${business?.name ?? 'OrderFlow'}</h1>
+        ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${escapeHtml(business?.name ?? 'Logo')}" />` : ''}
+        <h1>${escapeHtml(business?.name ?? 'OrderFlow')}</h1>
       </div>
-      <div class="muted">${business?.address ?? ''}</div>
-      <div class="muted">${business?.gst_number ? `GSTIN: ${business.gst_number}` : ''}</div>
+      <div class="muted">${escapeHtml(business?.address ?? '')}</div>
+      <div class="muted">${business?.gst_number ? `GSTIN: ${escapeHtml(business.gst_number)}` : ''}</div>
     </div>
     <div>
       <div class="muted">Invoice No.</div>
-      <div><strong>${invoice.invoice_number}</strong></div>
+      <div><strong>${escapeHtml(invoice.invoice_number)}</strong></div>
       <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })} ${new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone })}</div>
-      ${order?.status ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${order.status}</div>` : ''}
+      ${order?.status ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${escapeHtml(String(order.status))}</div>` : ''}
     </div>
   </div>
 
   <div class="muted">Billed To</div>
-  <div><strong>${customer?.name ?? order?.customer_name ?? 'Walk-in Customer'}</strong></div>
-  <div class="muted">${customer?.phone ?? ''}</div>
-  <div class="muted">${customer?.gst_number ? `GSTIN: ${customer.gst_number}` : ''}</div>
+  <div><strong>${escapeHtml(customer?.name ?? order?.customer_name ?? 'Walk-in Customer')}</strong></div>
+  <div class="muted">${escapeHtml(customer?.phone ?? '')}</div>
+  <div class="muted">${customer?.gst_number ? `GSTIN: ${escapeHtml(customer.gst_number)}` : ''}</div>
 
   <table>
     <thead>
@@ -147,8 +159,8 @@ export function renderPharmacyCashMemoHtml(
       return `
         <tr>
           <td class="num">${money(item.quantity)}</td>
-          <td>${item.product?.name ?? item.custom_product_name ?? '-'}</td>
-          <td>${p?.batch_number ?? ''}</td>
+          <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}</td>
+          <td>${escapeHtml(p?.batch_number ?? '')}</td>
           <td>${expiry}</td>
           <td class="num rs">${rupees}</td>
           <td class="num ps">${paise}</td>
@@ -196,47 +208,47 @@ export function renderPharmacyCashMemoHtml(
   <div class="frame">
     <div class="top-row">
       <div class="lic">
-        ${business?.drug_license_number_1 ? `<div>Lic. No. ${business.drug_license_number_1}</div>` : ''}
-        ${business?.drug_license_number_2 ? `<div>Lic. No. ${business.drug_license_number_2}</div>` : ''}
+        ${business?.drug_license_number_1 ? `<div>Lic. No. ${escapeHtml(business.drug_license_number_1)}</div>` : ''}
+        ${business?.drug_license_number_2 ? `<div>Lic. No. ${escapeHtml(business.drug_license_number_2)}</div>` : ''}
       </div>
       <div class="memo-label">CASH MEMO</div>
-      <div>${business?.phone ? `Mob. ${business.phone}` : ''}</div>
+      <div>${business?.phone ? `Mob. ${escapeHtml(business.phone)}` : ''}</div>
     </div>
 
     <div class="brand">
-      ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${business?.name ?? 'Logo'}" />` : ''}
-      <h1>${(business?.name ?? 'OrderFlow').toUpperCase()}</h1>
+      ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${escapeHtml(business?.name ?? 'Logo')}" />` : ''}
+      <h1>${escapeHtml((business?.name ?? 'OrderFlow').toUpperCase())}</h1>
     </div>
     <div class="tagline">RETAIL CHEMIST COSMETICS &amp; DRUGGIST</div>
-    ${business?.address ? `<div class="address">${business.address}</div>` : ''}
+    ${business?.address ? `<div class="address">${escapeHtml(business.address)}</div>` : ''}
 
     <div class="memo-meta">
-      <div>No. <strong>${invoice.invoice_number}</strong></div>
+      <div>No. <strong>${escapeHtml(invoice.invoice_number)}</strong></div>
       <div>Dated ${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })}</div>
     </div>
 
     ${customer?.name || order?.customer_name ? `
     <div class="patient-row">
       <span class="label">Customer Name</span>
-      <span class="dots">${customer?.name ?? order?.customer_name ?? ''}</span>
+      <span class="dots">${escapeHtml(customer?.name ?? order?.customer_name ?? '')}</span>
     </div>
     ` : ''}
     ${customer?.phone ? `
     <div class="patient-row">
       <span class="label">Mobile No.</span>
-      <span class="dots">${customer.phone}</span>
+      <span class="dots">${escapeHtml(customer.phone)}</span>
     </div>
     ` : ''}
     ${order?.patient_name ? `
     <div class="patient-row">
       <span class="label">Patient Name</span>
-      <span class="dots">${order.patient_name}</span>
+      <span class="dots">${escapeHtml(order.patient_name)}</span>
     </div>
     ` : ''}
     ${order?.doctor_name ? `
     <div class="patient-row">
       <span class="label">Dr. Name</span>
-      <span class="dots">${order.doctor_name}</span>
+      <span class="dots">${escapeHtml(order.doctor_name)}</span>
     </div>
     ` : ''}
 
@@ -277,7 +289,7 @@ export function renderPharmacyCashMemoHtml(
 
     <div class="footer">
       <div>E. &amp; O.E.</div>
-      <div>For ${business?.name ?? 'OrderFlow'}</div>
+      <div>For ${escapeHtml(business?.name ?? 'OrderFlow')}</div>
     </div>
   </div>
 </body>
@@ -296,7 +308,7 @@ export function renderThermalReceiptHtml(
   const line = '-'.repeat(32);
   const rows = items
     .map((item) => {
-      const name = (item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20);
+      const name = escapeHtml(item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20);
       const row = `${name.padEnd(20)}${String(money(item.quantity)).padStart(4)} ${`₹${money(item.subtotal)}`.padStart(8)}`;
       const details = itemDetails(item, timeZone);
       return details.length ? `${row}\n  ${details.join('  ')}` : row;
@@ -313,14 +325,14 @@ export function renderThermalReceiptHtml(
   @media print { body { width: 76mm; } }
 </style>
 </head>
-<body>${business?.name ?? 'OrderFlow'}
-${business?.address ?? ''}
-${business?.gst_number ? `GSTIN: ${business.gst_number}` : ''}
+<body>${escapeHtml(business?.name ?? 'OrderFlow')}
+${escapeHtml(business?.address ?? '')}
+${business?.gst_number ? `GSTIN: ${escapeHtml(business.gst_number)}` : ''}
 ${line}
-Invoice: ${invoice.invoice_number}
+Invoice: ${escapeHtml(invoice.invoice_number)}
 Date: ${new Date(invoice.created_at).toLocaleString('en-IN', { timeZone })}
-${order?.status ? `Status: ${String(order.status).toUpperCase()}\n` : ''}
-Customer: ${customer?.name ?? order?.customer_name ?? 'Walk-in'}
+${order?.status ? `Status: ${escapeHtml(String(order.status).toUpperCase())}\n` : ''}
+Customer: ${escapeHtml(customer?.name ?? order?.customer_name ?? 'Walk-in')}
 ${line}
 ${rows}
 ${line}
