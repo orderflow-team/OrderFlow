@@ -2,9 +2,10 @@
   "name": "orderflow",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "build:web": "turbo run build --filter=web",
-    "build:api": "turbo run build --filter=api",
+    "build": "npm run build --prefix apps/web",
+    "build:web": "npm run build --prefix apps/web",
+    "build:api": "npm run build --prefix packages/api",
+    "build:turbo": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

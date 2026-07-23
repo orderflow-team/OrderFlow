@@ -1,0 +1,13 @@
+# Vercel upload ignore file
+node_modules
+.next
+.turbo
+dist
+build
+coverage
+uploads
+.git
+.vscode
+.claude
+*.log
+*.pdf

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build --prefix apps/web",
+  "installCommand": "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install",
+  "outputDirectory": "apps/web/.next"
+}
