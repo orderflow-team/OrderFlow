@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getCurrentUser, setCurrentUser, getPostLoginPath } from '@/lib/auth';
 import { categoryDefaultsToInventory } from '@/lib/business-modules';
-import { Plus, Store } from 'lucide-react';
+import { Plus, Store, Sliders } from 'lucide-react';
+import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 
 interface Business {
   id: string;
@@ -22,7 +23,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pharmacy: 'Pharmacy',
   wholesale: 'Wholesale',
   salesman: 'Salesman Order Collection',
-  others: 'Others',
+  others: 'Others (Customized Stepwise)',
 };
 
 function categoryLabel(category: string | null) {
@@ -36,13 +37,22 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   const [inventoryEnabled, setInventoryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showCustomWizard, setShowCustomWizard] = useState(false);
 
   const handleCategoryChange = (value: string) => {
     setCategory(value);
+    setInventoryEnabled(categoryDefaultsToInventory(value));
+    if (value === 'others') {
+      setShowCustomWizard(true);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleStandardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (category === 'others') {
+      setShowCustomWizard(true);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -57,6 +67,36 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     }
   };
 
+  const handleWizardComplete = async (wizardData: any) => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await apiClient.post('/api/businesses/onboard', wizardData);
+      localStorage.setItem('access_token', response.data.access_token);
+      setCurrentUser(response.data.user);
+      onCreated();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Could not create custom business');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (showCustomWizard || category === 'others') {
+    return (
+      <CustomBusinessWizard
+        initialName={name}
+        onComplete={handleWizardComplete}
+        onCancel={() => {
+          setShowCustomWizard(false);
+          setCategory('grocery');
+        }}
+        loading={loading}
+      />
+    );
+  }
+
   return (
     <Card className="ring-white/50 glass-sheen-sm">
       <CardHeader>
@@ -64,38 +104,50 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
         <CardDescription>Set up another workspace for a different category.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleStandardSubmit} className="space-y-4">
           <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <select
-            value={category}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-            className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
-          >
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
-            <input
-              type="checkbox"
-              checked={inventoryEnabled}
-              onChange={(e) => setInventoryEnabled(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            />
-            <span className="text-sm font-medium text-slate-700">
-              Enable Inventory module
-              <span className="block text-xs font-normal text-slate-500">Track stock, purchase orders, and low-stock alerts</span>
-            </span>
-          </label>
+          <div>
+            <label className="text-xs font-medium text-slate-600 mb-1 block">Category</label>
+            <select
+              value={category}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+            >
+              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {category === 'others' ? (
+            <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
+              <Sliders className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>Selecting <strong>Others</strong> opens the Stepwise Custom Builder to customize every module & term from scratch.</span>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+              <input
+                type="checkbox"
+                checked={inventoryEnabled}
+                onChange={(e) => setInventoryEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm font-medium text-slate-700">
+                Enable Inventory module
+                <span className="block text-xs font-normal text-slate-500">Track stock, purchase orders, and low-stock alerts</span>
+              </span>
+            </label>
+          )}
+
           {error && <p className="text-sm text-rose-600">{error}</p>}
           <div className="flex gap-3">
             <Button type="button" variant="outline" className="flex-1 h-11 rounded-xl" onClick={onCancel} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" className="flex-1 h-11 rounded-xl" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Business'}
+              {loading ? 'Creating...' : category === 'others' ? 'Configure Stepwise Wizard' : 'Create Business'}
             </Button>
           </div>
         </form>
@@ -132,10 +184,6 @@ export default function SelectBusinessPage() {
       router.push('/login');
       return;
     }
-    // Restricted-role users (salesman, kitchen staff) belong to exactly one
-    // business (the owner's) and never "own" it, so /api/businesses/mine
-    // would come back empty for them — send them straight to the one page
-    // they're allowed to see instead of "add a business".
     const role = getCurrentUser()?.role;
     if (role === 'salesman' || role === 'kitchen_staff') {
       router.push(getPostLoginPath(role));
@@ -166,6 +214,8 @@ export default function SelectBusinessPage() {
     );
   }
 
+  const isWideWizard = showNewForm;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -173,7 +223,7 @@ export default function SelectBusinessPage() {
         <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-emerald-300/50 blur-3xl" />
         <div className="absolute -top-1/4 -right-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-teal-300/50 blur-3xl" />
       </div>
-      <div className="w-full max-w-md space-y-6 relative z-10 animate-in fade-in zoom-in-95 duration-700">
+      <div className={`w-full ${isWideWizard ? 'max-w-2xl' : 'max-w-md'} space-y-6 relative z-10 animate-in fade-in zoom-in-95 duration-700 transition-all`}>
         <div className="text-center space-y-1">
           <h1 className="text-2xl font-bold text-slate-800">Choose a business</h1>
           <p className="text-sm text-slate-500">Pick a workspace to continue, or add a new category.</p>

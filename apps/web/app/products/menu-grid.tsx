@@ -330,7 +330,24 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Description</label>
-                <Input className="h-11" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="e.g. Aromatic lamb curry with Kashmiri spices" />
+                <Input
+                  className="h-11"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder={
+                    categoryStr === 'restaurant'
+                      ? 'e.g. Aromatic lamb curry with Kashmiri spices'
+                      : categoryStr === 'grocery'
+                      ? 'e.g. Fresh organic farm apples, 1 kg pack'
+                      : categoryStr === 'pharmacy'
+                      ? 'e.g. Paracetamol 500mg tablets, strip of 10'
+                      : categoryStr === 'retail'
+                      ? 'e.g. Premium 100% cotton slim fit formal shirt'
+                      : categoryStr === 'wholesale'
+                      ? 'e.g. Bulk 50kg grain sack, Grade A quality'
+                      : 'e.g. Premium quality item details, specifications & warranty'
+                  }
+                />
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Product Image</label>

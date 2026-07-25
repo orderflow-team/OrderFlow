@@ -30,7 +30,7 @@ import apiClient from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
 import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
-import { getOptionalModulesForCategory, OptionalModule } from '@/lib/business-modules';
+import { getOptionalModulesForCategory, getBusinessTerminology, CustomBusinessSettings, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
 
 const CORE_PRIMARY_NAV = [
@@ -54,6 +54,9 @@ const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: 
   inventory: { href: '/inventory', label: 'Inventory', icon: Warehouse },
   restaurant: { href: '/restaurant', label: 'Kitchen', icon: UtensilsCrossed },
   salesman: { href: '/salesman', label: 'Salesman', icon: UserRound },
+  expenses: { href: '/billing', label: 'Purchases', icon: Receipt },
+  staff: { href: '/staff', label: 'Staff', icon: UserCog },
+  loyalty: { href: '/customers', label: 'Loyalty', icon: Users },
 };
 
 function isActive(pathname: string, href: string) {
@@ -117,6 +120,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [businessName, setBusinessName] = useState<string>('');
   const [businessCategory, setBusinessCategory] = useState<string>('');
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
+  const [customSettings, setCustomSettings] = useState<CustomBusinessSettings | null>(null);
   const [myBusinesses, setMyBusinesses] = useState<BusinessOption[]>([]);
   const [switching, setSwitching] = useState(false);
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
@@ -175,17 +179,16 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setChatEnabled(cachedChatEnabled ?? true);
 
     apiClient
-      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; gst_number?: string | null }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
         setBusinessLogoUrl(res.data.logo_url || null);
-        setCachedBusinessCategory(businessId, res.data.category);
-        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
-        const isChatEnabled = res.data.ai_chat_enabled !== false;
+        setCustomSettings(res.data.custom_settings || null);
+        const isChatEnabled = res.data.ai_chat_enabled !== false && res.data.custom_settings?.modules?.ai_assistant !== false;
         setCachedChatEnabled(businessId, isChatEnabled);
         setChatEnabled(isChatEnabled);
-        setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled));
+        setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings));
         // Cached so the client-side receipt renderer can print a business
         // header (name/address/GSTIN) even with zero network.
         setCached(businessId, 'business-profile', {
@@ -259,26 +262,84 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])]
       : [...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])];
 
+  const terminology = getBusinessTerminology(customSettings);
+
   const primaryNavBase = isCookRole
     ? [{ ...OPTIONAL_NAV.restaurant, label: 'KOTs' }]
     : isWaiterRole
-      ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1], { ...OPTIONAL_NAV.restaurant, label: 'Tables' }]
+      ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/orders', label: terminology.ordersLabel, icon: ShoppingCart }, { ...OPTIONAL_NAV.restaurant, label: 'Tables' }]
       : isSalesmanRole
-        ? CORE_PRIMARY_NAV.map((item) => (item.href === '/products' ? OPTIONAL_NAV.salesman : item))
+        ? [
+            { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { href: '/orders', label: terminology.ordersLabel, icon: ShoppingCart },
+            { href: '/customers', label: terminology.customersLabel, icon: Users },
+            OPTIONAL_NAV.salesman,
+          ]
         : isCashierRole
-          ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1], BILLING_NAV]
+          ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/orders', label: terminology.ordersLabel, icon: ShoppingCart }, BILLING_NAV]
           : isAccountantRole
-            ? [CORE_PRIMARY_NAV[0], REPORTS_NAV, BILLING_NAV]
+            ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, REPORTS_NAV, BILLING_NAV]
             : isDeliveryRole
-              ? [CORE_PRIMARY_NAV[0], CORE_PRIMARY_NAV[1]]
-              : CORE_PRIMARY_NAV;
+              ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/orders', label: terminology.ordersLabel, icon: ShoppingCart }]
+              : [
+                  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                  { href: '/orders', label: terminology.ordersLabel, icon: ShoppingCart },
+                  { href: '/customers', label: terminology.customersLabel, icon: Users },
+                  { href: '/products', label: terminology.productsLabel, icon: Package },
+                ];
 
-  const allNav = [...primaryNavBase.map(item => {
-    if (item.href !== '/products') return item;
-    if (businessCategory === 'restaurant') return { ...item, label: 'Menu' };
-    if (businessCategory === 'pharmacy') return { ...item, label: 'Medicines' };
-    return item;
-  }), ...moreNav];
+  const rawAllNav = [
+    ...primaryNavBase.map((item) => {
+      if (item.href === '/products') {
+        if (customSettings?.terminology?.productsLabel) return { ...item, label: customSettings.terminology.productsLabel };
+        if (businessCategory === 'restaurant') return { ...item, label: 'Menu' };
+        if (businessCategory === 'pharmacy') return { ...item, label: 'Medicines' };
+      }
+      if (item.href === '/orders' && customSettings?.terminology?.ordersLabel) {
+        return { ...item, label: customSettings.terminology.ordersLabel };
+      }
+      if (item.href === '/customers' && customSettings?.terminology?.customersLabel) {
+        return { ...item, label: customSettings.terminology.customersLabel };
+      }
+      return item;
+    }),
+    ...moreNav.map((item) => {
+      if (item.href === '/staff' && customSettings?.terminology?.staffLabel) {
+        return { ...item, label: customSettings.terminology.staffLabel };
+      }
+      if (item.href === '/salesman') {
+        if (customSettings?.terminology?.staffLabel) {
+          return { ...item, label: `${customSettings.terminology.staffLabel} Field` };
+        }
+        return { ...item, label: 'Field Mode' };
+      }
+      return item;
+    }),
+  ];
+
+  // Strictly filter and deduplicate navigation items according to customSettings.modules for all 12 modules
+  const seenHrefs = new Set<string>();
+  const allNav = rawAllNav.filter((item) => {
+    if (!item?.href) return false;
+
+    if (customSettings?.modules) {
+      if (item.href === '/products' && customSettings.modules.products === false) return false;
+      if (item.href === '/orders' && customSettings.modules.orders === false) return false;
+      if (item.href === '/customers' && customSettings.modules.customers === false) return false;
+      if (item.href === '/billing' && customSettings.modules.billing === false && customSettings.modules.expenses === false) return false;
+      if (item.href === '/reports' && customSettings.modules.reports === false) return false;
+      if (item.href === '/staff' && customSettings.modules.staff === false) return false;
+      if (item.href === '/restaurant' && customSettings.modules.restaurant === false) return false;
+      if (item.href === '/salesman' && customSettings.modules.salesman === false) return false;
+      if (item.href === '/inventory' && customSettings.modules.inventory === false) return false;
+    }
+
+    if (seenHrefs.has(item.href)) {
+      return false;
+    }
+    seenHrefs.add(item.href);
+    return true;
+  });
 
   // Safety net: if a category-restricted module is hidden, bounce away from its URL.
   useEffect(() => {
@@ -375,11 +436,18 @@ export function AppShell({ children, hideNavigation = false }: { children: React
 
   return (
     <div className="min-h-screen flex bg-slate-50 relative isolate">
-      {/* Ambient glass backdrop */}
+      {/* Dynamic Theme Color Accent Ambient Glass Backdrop */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[32rem] h-[32rem] rounded-full bg-orange-300/40 blur-3xl" />
-        <div className="absolute top-1/3 -left-24 w-96 h-96 rounded-full bg-sky-300/35 blur-3xl" />
-        <div className="absolute -bottom-32 right-0 w-[32rem] h-[32rem] rounded-full bg-violet-300/35 blur-3xl" />
+        <div className={`absolute -top-40 -left-40 w-[32rem] h-[32rem] rounded-full blur-3xl transition-all duration-700 ${
+          customSettings?.branding?.themeColor === 'sky' ? 'bg-sky-300/45' :
+          customSettings?.branding?.themeColor === 'violet' ? 'bg-violet-300/45' :
+          customSettings?.branding?.themeColor === 'amber' ? 'bg-amber-300/45' :
+          customSettings?.branding?.themeColor === 'rose' ? 'bg-rose-300/45' :
+          customSettings?.branding?.themeColor === 'slate' ? 'bg-slate-400/45' :
+          'bg-emerald-300/45'
+        }`} />
+        <div className="absolute top-1/3 -left-24 w-96 h-96 rounded-full bg-cyan-300/35 blur-3xl" />
+        <div className="absolute -bottom-32 right-0 w-[32rem] h-[32rem] rounded-full bg-slate-300/35 blur-3xl" />
       </div>
 
       {/* Desktop sidebar */}

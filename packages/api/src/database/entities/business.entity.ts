@@ -47,6 +47,9 @@ export class Business {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  custom_settings: Record<string, any>;
+
   @CreateDateColumn()
   created_at: Date;
 

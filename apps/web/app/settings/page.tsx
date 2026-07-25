@@ -10,7 +10,8 @@ import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
-import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders } from 'lucide-react';
+import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -58,6 +59,33 @@ export default function SettingsPage() {
   });
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState('');
+  const [showCustomWizard, setShowCustomWizard] = useState(false);
+
+  const handleWizardComplete = async (wizardData: any) => {
+    if (!businessId) return;
+    setSaving(true);
+    setError('');
+    try {
+      await apiClient.patch(`/api/businesses/${businessId}`, {
+        name: wizardData.name,
+        category: 'others',
+        inventoryEnabled: wizardData.inventoryEnabled,
+        currency: wizardData.currency,
+        timezone: wizardData.timezone,
+        address: wizardData.address,
+        phone: wizardData.phone,
+        gstNumber: wizardData.gstNumber,
+        customSettings: wizardData.customSettings,
+      });
+      setShowCustomWizard(false);
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update custom business settings');
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [changingPassword, setChangingPassword] = useState(false);
@@ -233,8 +261,38 @@ export default function SettingsPage() {
 
         {loading ? (
           <p className="text-sm text-slate-400">Loading...</p>
+        ) : showCustomWizard ? (
+          <CustomBusinessWizard
+            initialName={form.name}
+            onComplete={handleWizardComplete}
+            onCancel={() => setShowCustomWizard(false)}
+            loading={saving}
+          />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Others Category 6-Step Builder Launcher Card */}
+            {form.category === 'others' && (
+              <Card className="ring-emerald-400/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border border-emerald-300/50 shadow-md">
+                <CardContent className="p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-sm">
+                      <Sliders className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-800">Others Category 6-Step Workspace Builder</h4>
+                      <p className="text-xs text-slate-600">Re-configure all 6 steps: Identity, Modules, Security, Thermal Receipts, 20 Presets & Attributes</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setShowCustomWizard(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 h-10 rounded-xl shrink-0 shadow-sm"
+                  >
+                    Launch 6-Step Wizard
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
             <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <CardTitle className="text-base">Business profile</CardTitle>

@@ -296,7 +296,19 @@ function ProductsPageContent() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products..."
+              placeholder={
+                category === 'restaurant'
+                  ? 'Search starters, main course, dishes or drinks...'
+                  : category === 'grocery'
+                  ? 'Search fruits, vegetables, dairy or items...'
+                  : category === 'pharmacy'
+                  ? 'Search medicines, tablets, syrups or healthcare...'
+                  : category === 'retail'
+                  ? 'Search clothing, accessories, items or SKU...'
+                  : category === 'wholesale'
+                  ? 'Search bulk goods, sacks, or batch code...'
+                  : 'Search products, items, SKU, or categories...'
+              }
               className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-lavender-fg/40"
             />
           </div>
@@ -347,15 +359,27 @@ function ProductsPageContent() {
             <CardContent>
               <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input
-                  placeholder="Name"
+                  placeholder={
+                    category === 'restaurant'
+                      ? 'Dish Name (e.g. Paneer Butter Masala)'
+                      : category === 'grocery'
+                      ? 'Item Name (e.g. Fresh Toned Milk 1L)'
+                      : category === 'pharmacy'
+                      ? 'Medicine Name (e.g. Paracetamol 500mg)'
+                      : category === 'retail'
+                      ? 'Product Name (e.g. Cotton Formal Shirt)'
+                      : category === 'wholesale'
+                      ? 'Bulk Item Name (e.g. Grade A Sugar 50kg Sack)'
+                      : 'Item / Service / Product Name'
+                  }
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
                   className="sm:col-span-2"
                 />
-                <Input placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+                <Input placeholder="SKU / Barcode Code" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
                 <input 
-                  placeholder="Unit (e.g. 350 ml, kg...)" 
+                  placeholder={category === 'restaurant' ? 'Unit (e.g. plate, bowl)' : 'Unit (e.g. kg, pcs, pack)'} 
                   value={form.unit} 
                   onChange={(e) => setForm({ ...form, unit: e.target.value })} 
                   list="unit-options"

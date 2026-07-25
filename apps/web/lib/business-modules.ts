@@ -4,7 +4,145 @@
  * tracking, etc. Core modules (orders/customers/products/billing/reports)
  * are useful to every business type and always shown.
  */
-export type OptionalModule = 'inventory' | 'restaurant' | 'salesman';
+export type OptionalModule = 'inventory' | 'restaurant' | 'salesman' | 'expenses' | 'staff' | 'loyalty';
+
+export interface CustomBusinessSettings {
+  branding?: {
+    themeColor?: 'emerald' | 'sky' | 'violet' | 'amber' | 'rose' | 'slate';
+    tagline?: string;
+    logoUrl?: string;
+    bannerUrl?: string;
+    websiteUrl?: string;
+    registrationNumber?: string;
+    stateCountry?: string;
+    zipCode?: string;
+    email?: string;
+  };
+  modules?: {
+    products?: boolean;
+    orders?: boolean;
+    inventory?: boolean;
+    billing?: boolean;
+    customers?: boolean;
+    reports?: boolean;
+    restaurant?: boolean;
+    salesman?: boolean;
+    ai_assistant?: boolean;
+    expenses?: boolean;
+    staff?: boolean;
+    loyalty?: boolean;
+  };
+  moduleConfig?: {
+    inventorySettings?: {
+      lowStockAlertThreshold?: number;
+      enableBatchExpiry?: boolean;
+      enablePurchaseOrders?: boolean;
+    };
+    restaurantSettings?: {
+      diningMode?: 'dine_in' | 'takeaway' | 'delivery' | 'all';
+      enableKDS?: boolean;
+      serviceChargePercent?: number;
+      enableTableReservation?: boolean;
+    };
+    crmSettings?: {
+      enableCreditLimit?: boolean;
+      defaultCreditLimit?: number;
+      enablePaymentReminders?: boolean;
+      customerTiers?: boolean;
+    };
+    salesmanSettings?: {
+      enableGpsTracking?: boolean;
+      commissionRatePercent?: number;
+    };
+  };
+  features?: {
+    autoPdfInvoice?: boolean;
+    splitPayment?: boolean;
+    lowStockAlerts?: boolean;
+    customerCreditLimit?: boolean;
+    itemDiscounts?: boolean;
+    orderDiscounts?: boolean;
+    cashierPriceOverride?: boolean;
+    loyaltyProgram?: boolean;
+    whatsappSharing?: boolean;
+  };
+  permissions?: {
+    cashierCanDiscount?: boolean;
+    cashierCanDeleteOrder?: boolean;
+    cashierCanOverridePrice?: boolean;
+    cashierCanRefund?: boolean;
+    staffViewCostPrice?: boolean;
+    staffViewProfitMargins?: boolean;
+    staffEditStock?: boolean;
+    staffExportReports?: boolean;
+    staffManageCreditLimit?: boolean;
+    waiterCanDiscountTable?: boolean;
+    managerClearData?: boolean;
+    requireAdminApprovalHighValue?: boolean;
+  };
+  localization?: {
+    dateFormat?: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+    numberFormat?: 'lakhs' | 'international';
+  };
+  automation?: {
+    autoSendWhatsappOnDelivery?: boolean;
+    autoDraftPOOnLowStock?: boolean;
+  };
+  payments?: {
+    methods?: string[];
+  };
+  notifications?: {
+    sendCustomerSms?: boolean;
+    sendCustomerWhatsapp?: boolean;
+    lowStockEmail?: boolean;
+  };
+  aiConfig?: {
+    personality?: 'concise' | 'consultative' | 'friendly';
+    language?: 'en' | 'hi' | 'hinglish' | 'es' | 'ar';
+  };
+  receipt?: {
+    template?: 'standard' | 'minimal' | 'formal';
+    paperSize?: '2inch' | '3inch' | 'a4';
+    footerMessage?: string;
+    invoicePrefix?: string;
+    showLogoOnReceipt?: boolean;
+    showUpiQrCode?: boolean;
+    showTermsAndConditions?: boolean;
+    receiptCopyCount?: number;
+    autoCutPaper?: boolean;
+    autoKickCashDrawer?: boolean;
+  };
+  taxes?: {
+    taxEnabled?: boolean;
+    taxName?: string;
+    defaultTaxRate?: number;
+    pricesIncludeTax?: boolean;
+  };
+  formatting?: {
+    currencySymbolPosition?: 'prefix' | 'suffix';
+    decimalPrecision?: number;
+  };
+  terminology?: {
+    preset?: string;
+    productsLabel?: string;
+    skuLabel?: string;
+    priceLabel?: string;
+    ordersLabel?: string;
+    customersLabel?: string;
+    staffLabel?: string;
+  };
+  workflow?: {
+    posMode?: 'counter' | 'detailed' | 'table' | 'field';
+    landingPage?: string;
+    enableBarcode?: boolean;
+    enableBatchExpiry?: boolean;
+    enableThermalPrint?: boolean;
+    enableKhataCredit?: boolean;
+    operatingHours?: string;
+  };
+  customFields?: { name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[];
+  categories?: string[];
+}
 
 const CATEGORY_MODULES: Record<string, OptionalModule[]> = {
   grocery: ['inventory'],
@@ -13,22 +151,32 @@ const CATEGORY_MODULES: Record<string, OptionalModule[]> = {
   wholesale: ['inventory', 'salesman'],
   salesman: ['salesman'],
   restaurant: ['restaurant'],
+  others: ['inventory'],
 };
 
-const ALL_OPTIONAL_MODULES: OptionalModule[] = ['inventory', 'restaurant', 'salesman'];
+const DEFAULT_OTHERS_MODULES: OptionalModule[] = ['inventory'];
 
 /**
- * Unknown/missing category (e.g. "others") falls back to showing everything.
- * `inventoryEnabled` is a separate, explicit owner choice made at
- * signup/onboarding that overrides the category default for that one module —
- * `undefined` means "not known yet" and defers to the category default;
- * `false` always hides it regardless of category.
+ * Resolves active optional modules for a business.
+ * Supports category defaults, inventoryEnabled flag, and deep custom_settings overrides.
  */
 export function getOptionalModulesForCategory(
   category: string | null | undefined,
   inventoryEnabled?: boolean,
+  customSettings?: CustomBusinessSettings | null,
 ): OptionalModule[] {
-  const modules = !category ? ALL_OPTIONAL_MODULES : (CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES);
+  if (customSettings?.modules) {
+    const active: OptionalModule[] = [];
+    if (customSettings.modules.inventory !== false) active.push('inventory');
+    if (customSettings.modules.restaurant === true) active.push('restaurant');
+    if (customSettings.modules.salesman === true) active.push('salesman');
+    if (customSettings.modules.expenses === true) active.push('expenses');
+    if (customSettings.modules.staff === true) active.push('staff');
+    if (customSettings.modules.loyalty === true) active.push('loyalty');
+    return active;
+  }
+
+  const modules = !category ? DEFAULT_OTHERS_MODULES : (CATEGORY_MODULES[category] ?? DEFAULT_OTHERS_MODULES);
   if (inventoryEnabled === false) {
     return modules.filter((m) => m !== 'inventory');
   }
@@ -40,7 +188,7 @@ export function getOptionalModulesForCategory(
 
 /** Smart default for the onboarding checkbox: pre-checked only for categories that normally ship with inventory. */
 export function categoryDefaultsToInventory(category: string): boolean {
-  return (CATEGORY_MODULES[category] ?? ALL_OPTIONAL_MODULES).includes('inventory');
+  return (CATEGORY_MODULES[category] ?? DEFAULT_OTHERS_MODULES).includes('inventory');
 }
 
 /** Default item categories seeded the first time a business opens Products, per business type. */
@@ -63,8 +211,26 @@ const DEFAULT_ITEM_CATEGORIES: Record<string, string[]> = {
   restaurant: ['Starters', 'Main Course', 'Breads & Rice', 'Tandoori Specials', 'Desserts', 'Beverages'],
 };
 
-/** Unknown/missing category (e.g. "others", "salesman") gets no default categories — user adds their own. */
-export function getDefaultItemCategories(category: string | null | undefined): string[] {
+/** Resolves default or user-customized item categories. */
+export function getDefaultItemCategories(
+  category: string | null | undefined,
+  customSettings?: CustomBusinessSettings | null,
+): string[] {
+  if (customSettings?.categories && customSettings.categories.length > 0) {
+    return customSettings.categories;
+  }
   if (!category) return [];
   return DEFAULT_ITEM_CATEGORIES[category] ?? [];
+}
+
+/** Dynamic terminology helper for UI custom labels. */
+export function getBusinessTerminology(customSettings?: CustomBusinessSettings | null) {
+  return {
+    productsLabel: customSettings?.terminology?.productsLabel?.trim() || 'Products',
+    skuLabel: customSettings?.terminology?.skuLabel?.trim() || 'SKU / Code',
+    priceLabel: customSettings?.terminology?.priceLabel?.trim() || 'Price',
+    ordersLabel: customSettings?.terminology?.ordersLabel?.trim() || 'Orders',
+    customersLabel: customSettings?.terminology?.customersLabel?.trim() || 'Customers',
+    staffLabel: customSettings?.terminology?.staffLabel?.trim() || 'Staff',
+  };
 }

@@ -686,7 +686,15 @@ export function GenericOrders() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by client name..."
+            placeholder={
+              getCachedBusinessCategory(businessId || '') === 'restaurant'
+                ? 'Search by guest name, table # or order ID...'
+                : getCachedBusinessCategory(businessId || '') === 'pharmacy'
+                ? 'Search by patient name, prescription or Rx #...'
+                : getCachedBusinessCategory(businessId || '') === 'wholesale'
+                ? 'Search by dealer name, PO # or invoice ID...'
+                : 'Search by customer name, phone # or order ID...'
+            }
             className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-accent-orange/40"
           />
         </div>

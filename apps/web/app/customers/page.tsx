@@ -9,6 +9,7 @@ import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { getCachedBusinessCategory } from '@/lib/auth';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -289,13 +290,21 @@ function CustomersPageContent() {
             <CardContent className="pb-4">
               <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
-                  placeholder="Name"
+                  placeholder={
+                    getCachedBusinessCategory(businessId || '') === 'restaurant'
+                      ? 'Guest / Customer Name (e.g. Rahul Sharma)'
+                      : getCachedBusinessCategory(businessId || '') === 'pharmacy'
+                      ? 'Patient Name (e.g. Anita Roy)'
+                      : getCachedBusinessCategory(businessId || '') === 'wholesale'
+                      ? 'Dealer / Buyer Firm Name (e.g. Sunrise Wholesalers)'
+                      : 'Customer / Client Name (e.g. Ramesh Kumar)'
+                  }
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
                 />
                 <Input
-                  placeholder="Phone"
+                  placeholder="10-Digit Mobile # (e.g. 9876543210)"
                   value={form.phone}
                   onChange={(e) => {
                     setForm({ ...form, phone: e.target.value });
@@ -303,18 +312,18 @@ function CustomersPageContent() {
                   }}
                 />
                 <Input
-                  placeholder="Email"
+                  placeholder="Email (e.g. client@domain.com)"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
                 <Input
-                  placeholder="Credit limit"
+                  placeholder="Khata Credit Limit (₹ e.g. 10000)"
                   type="number"
                   value={form.creditLimit}
                   onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
                 />
                 <Input
-                  placeholder="Address"
+                  placeholder="Store / Delivery Address (e.g. Shop 12, Main Market)"
                   className="sm:col-span-2"
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}

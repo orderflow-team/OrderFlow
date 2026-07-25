@@ -37,6 +37,7 @@ export class BusinessesService {
       logo_url: dto.logoUrl,
       inventory_enabled: dto.inventoryEnabled ?? true,
       ai_chat_enabled: dto.aiChatEnabled ?? true,
+      custom_settings: dto.customSettings ?? null,
     });
     return this.businessesRepository.save(business);
   }
@@ -112,6 +113,7 @@ export class BusinessesService {
       logo_url: dto.logoUrl ?? business.logo_url,
       inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
       ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
+      custom_settings: dto.customSettings ?? business.custom_settings,
     });
     return this.businessesRepository.save(business);
   }

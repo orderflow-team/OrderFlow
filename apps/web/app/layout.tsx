@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
@@ -15,8 +15,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OrderFlow",
-  description: "Multi-industry order management & billing",
+  title: "OrderFlow - Universal Multi-Industry Platform",
+  description: "Multi-industry order management, billing, inventory & POS",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "OrderFlow",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#059669",
 };
 
 export default function RootLayout({
@@ -27,9 +42,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${sans.variable} ${geistMono.variable} h-full antialiased selection:bg-emerald-500/30`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-[#090d16] text-slate-100 font-sans">
         <SwRegister />
         {children}
       </body>
