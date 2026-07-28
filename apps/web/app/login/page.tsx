@@ -130,6 +130,22 @@ function PasswordLoginForm() {
     }
   };
 
+  const handleSeedSuperAdmin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiClient.post('/api/platform-admin-bootstrap');
+      setEmail('admin@orderflow.com');
+      setPassword('admin123');
+      alert(res.data?.message || 'Super Admin account admin@orderflow.com seeded with password admin123!');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Could not connect to production backend API to seed admin.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <form onSubmit={handleLogin} className="space-y-4">
       <Input
@@ -162,7 +178,7 @@ function PasswordLoginForm() {
             </svg>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-4 8-11 8-11-8-11-8z"></path>
               <circle cx="12" cy="12" r="3"></circle>
             </svg>
           )}
@@ -176,7 +192,7 @@ function PasswordLoginForm() {
       </div>
 
       {error && (
-        <div className="flex items-center space-x-2 text-rose-700 bg-rose-500/15 backdrop-blur-sm p-3 rounded-2xl ring-1 ring-rose-400/30 text-sm animate-in slide-in-from-top-2">
+        <div className="flex flex-col space-y-2 text-rose-700 bg-rose-500/15 backdrop-blur-sm p-3 rounded-2xl ring-1 ring-rose-400/30 text-sm animate-in slide-in-from-top-2">
           <p className="font-semibold">{error}</p>
         </div>
       )}
@@ -188,6 +204,16 @@ function PasswordLoginForm() {
       >
         {loading ? 'Signing in...' : 'Sign In'}
       </Button>
+
+      <div className="pt-2 text-center">
+        <button
+          type="button"
+          onClick={handleSeedSuperAdmin}
+          className="text-xs font-bold text-sky-700 hover:text-sky-800 underline flex items-center justify-center gap-1 mx-auto"
+        >
+          ⚡ Restore / Seed Super Admin (admin@orderflow.com)
+        </button>
+      </div>
     </form>
   );
 }
