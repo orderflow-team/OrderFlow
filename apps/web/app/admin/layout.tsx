@@ -70,10 +70,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       icon: LayoutDashboard,
     },
     {
-      name: 'Manage User ',
+      name: 'Manage User',
       href: '/admin/users',
       icon: Users,
-      
     },
     {
       name: 'Stores',
@@ -184,14 +183,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 transition ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-600 dark:text-indigo-400'}`} />
+                      <Icon className={`w-4 h-4 transition ${isActive ? 'text-white' : 'text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400'}`} />
                       <span>{item.name}</span>
                     </div>
-                    {item.badge && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${isActive ? 'bg-white/20 text-white' : 'bg-secondary text-indigo-600 dark:text-indigo-400'}`}>
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 );
               })}
