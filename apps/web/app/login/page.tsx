@@ -118,18 +118,7 @@ function PasswordLoginForm() {
     setLoading(true);
     setError('');
     try {
-      let response;
-      try {
-        response = await apiClient.post('/auth/login', { email, password });
-      } catch (firstErr: any) {
-        // Auto-seed production super admin if logging in with admin@orderflow.com
-        if (email.toLowerCase().trim() === 'admin@orderflow.com') {
-          await apiClient.post('/api/platform-admin-bootstrap').catch(() => {});
-          response = await apiClient.post('/auth/login', { email, password });
-        } else {
-          throw firstErr;
-        }
-      }
+      const response = await apiClient.post('/auth/login', { email, password });
 
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
