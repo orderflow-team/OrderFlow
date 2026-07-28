@@ -39,9 +39,14 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      // Temporarily removed the window.location.href redirect entirely
-      // to prevent ANY possible forced page reloads.
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && currentPath !== '/signup') {
+          window.location.href = '/login';
+        }
+      }
     }
     return Promise.reject(error);
   },

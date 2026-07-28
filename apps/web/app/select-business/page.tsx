@@ -172,6 +172,10 @@ export default function SelectBusinessPage() {
       setBusinesses(response.data);
       setShowNewForm(response.data.length === 0);
     } catch (err: any) {
+      if (err.response?.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       setError(err.response?.data?.message || 'Failed to load your businesses');
     } finally {
       setLoading(false);

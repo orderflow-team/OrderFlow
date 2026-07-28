@@ -149,14 +149,21 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [canManageStaff, setCanManageStaff] = useState<boolean | null>(null);
   const [canViewReports, setCanViewReports] = useState<boolean | null>(null);
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
     setBusinessId(getCurrentUser()?.businessId ?? null);
-    setUserRole(getCurrentUser()?.role ?? null);
     setIsSalesmanRole(hasRole('salesman'));
     setIsCookRole(hasRole('kitchen_staff'));
     setIsCashierRole(hasRole('cashier'));
     setIsWaiterRole(hasRole('waiter'));
     setIsAccountantRole(hasRole('accountant'));
     setIsDeliveryRole(hasRole('delivery_person'));
+    const role = getCurrentUser()?.role || 'owner';
+    setUserRole(role);
+    setCanManageSettings(hasRole('admin'));
     setCanManageStaff(hasRole('admin', 'manager'));
     setCanViewReports(hasRole('admin', 'manager', 'accountant'));
   }, []);
