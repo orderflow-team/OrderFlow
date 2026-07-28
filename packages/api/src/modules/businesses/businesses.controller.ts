@@ -111,4 +111,11 @@ export class BusinessesController {
   removeLogo(@Req() req: any, @Param('id') id: string) {
     return this.businessesService.removeLogo(id, req.user.userId);
   }
+
+  /** Permanently deletes the business and everything in it. Owner-only (checked in the service). */
+  @Roles(UserRole.ADMIN)
+  @Delete(':id')
+  deleteAccount(@Req() req: any, @Param('id') id: string, @Body('confirmName') confirmName: string) {
+    return this.businessesService.deleteAccount(id, req.user.userId, confirmName);
+  }
 }

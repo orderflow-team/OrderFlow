@@ -54,5 +54,6 @@ import { DevToolsService } from './dev-tools.service';
   ],
   controllers: [DevToolsController],
   providers: [DevToolsService],
+  exports: [DevToolsService],
 })
 export class DevToolsModule {}

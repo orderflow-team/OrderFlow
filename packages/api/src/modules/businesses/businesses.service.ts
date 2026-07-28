@@ -1,12 +1,16 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Business } from '../../database/entities/business.entity';
 import { User } from '../../database/entities/user.entity';
+import { Category } from '../../database/entities/category.entity';
+import { Waiter } from '../../database/entities/waiter.entity';
+import { Notification } from '../../database/entities/notification.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { DevToolsService } from '../dev-tools/dev-tools.service';
 
 /** Best-effort cleanup of a previously uploaded logo so replacing/removing it doesn't leak files under uploads/logos. */
 function deleteLogoFile(logoUrl: string | null | undefined) {
@@ -20,6 +24,8 @@ export class BusinessesService {
   constructor(
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(User) private usersRepository: Repository<User>,
+    private devToolsService: DevToolsService,
+    private dataSource: DataSource,
   ) {}
 
   async create(dto: CreateBusinessDto, ownerUserId?: string) {
@@ -142,6 +148,38 @@ export class BusinessesService {
     const saved = await this.businessesRepository.save(business);
     deleteLogoFile(previousLogoUrl);
     return saved;
+  }
+
+  /**
+   * Permanently deletes this business and everything tied to it — products,
+   * orders, customers, staff logins, the lot. Owner-only, and the caller
+   * must supply the business's exact current name — checked here too
+   * (not just client-side) since this is irreversible.
+   */
+  async deleteAccount(id: string, requestingUserId: string, confirmName: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('Only the business owner can delete this account');
+    }
+    if (!confirmName || confirmName !== business.name) {
+      throw new BadRequestException('Business name confirmation does not match');
+    }
+
+    // Reuses the same module-by-module cleanup the "Delete All Data" danger-zone
+    // action uses for orders/billing/restaurant/salesman/customers/products/inventory.
+    await this.devToolsService.clearAll(id);
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(Category, { business_id: id });
+      await manager.delete(Waiter, { business_id: id });
+      await manager.delete(Notification, { business_id: id });
+      // Deleting staff/owner logins cascades their Attendance and Commission
+      // rows (both declare onDelete: 'CASCADE' on the User relation).
+      await manager.delete(User, { business_id: id });
+      await manager.delete(Business, { id });
+    });
+
+    return { message: `"${business.name}" and all associated data have been permanently deleted.` };
   }
 
   private async findOneOrFail(id: string) {

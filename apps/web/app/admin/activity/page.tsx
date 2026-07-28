@@ -167,15 +167,15 @@ export default function AdminActivityPage() {
   const getActionBadgeColor = (action: string) => {
     switch (action) {
       case 'USER_LOGIN':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
       case 'UPDATE_USER':
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
       case 'UPDATE_STORE':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30';
       case 'SYSTEM_BOOTSTRAP':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30';
       default:
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30';
     }
   };
 
@@ -185,13 +185,13 @@ export default function AdminActivityPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Activity className="w-7 h-7 text-emerald-400" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <Activity className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
             System & User Activity Logs
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             Real-time audit trail of all {totalLogs} system activities, logins, store configuration changes, and user management events.
           </p>
         </div>
@@ -208,7 +208,7 @@ export default function AdminActivityPage() {
 
           <button
             onClick={fetchLogs}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground text-sm font-medium rounded-xl border border-border transition"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -217,10 +217,10 @@ export default function AdminActivityPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-card p-4 rounded-xl border border-border">
         {/* Search */}
         <div className="relative col-span-1 sm:col-span-2">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
           <input
             type="text"
             placeholder="Search by action name, user, or email..."
@@ -229,7 +229,7 @@ export default function AdminActivityPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-emerald-500"
           />
         </div>
 
@@ -241,7 +241,7 @@ export default function AdminActivityPage() {
               setActionFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 capitalize"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-500 capitalize"
           >
             <option value="">All Action Events</option>
             {ACTION_TYPES.map((action) => (
@@ -256,7 +256,7 @@ export default function AdminActivityPage() {
                 setActionFilter('');
                 setPage(1);
               }}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl border border-slate-700"
+              className="p-2 text-muted-foreground hover:text-foreground bg-secondary rounded-xl border border-border"
               title="Clear Action Filter"
             >
               <X className="w-4 h-4" />
@@ -266,10 +266,10 @@ export default function AdminActivityPage() {
       </div>
 
       {/* Logs Table */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+          <table className="w-full text-left text-sm text-foreground">
+            <thead className="bg-muted text-xs font-semibold uppercase text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-6 py-4">Action Event</th>
                 <th className="px-6 py-4">User</th>
@@ -278,17 +278,17 @@ export default function AdminActivityPage() {
                 <th className="px-6 py-4 text-right">Timestamp</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+            <tbody className="divide-y divide-border font-mono text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-sans">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400" />
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-sans">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600 dark:text-emerald-400" />
                     Loading audit trail logs...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-sans">
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-sans">
                     No activity logs recorded matching criteria.
                   </td>
                 </tr>
@@ -297,7 +297,7 @@ export default function AdminActivityPage() {
                   <tr
                     key={log.id}
                     onClick={() => openLogInspector(log)}
-                    className="hover:bg-slate-800/40 cursor-pointer transition"
+                    className="hover:bg-accent cursor-pointer transition"
                   >
                     <td className="px-6 py-4 font-sans font-semibold">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${getActionBadgeColor(log.action)}`}>
@@ -306,19 +306,19 @@ export default function AdminActivityPage() {
                     </td>
 
                     <td className="px-6 py-4 font-sans">
-                      <div className="text-slate-200 font-medium">{log.user?.full_name || 'System / Admin'}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">{log.user?.email || 'system'}</div>
+                      <div className="text-foreground font-medium">{log.user?.full_name || 'System / Admin'}</div>
+                      <div className="text-[11px] text-muted-foreground font-mono">{log.user?.email || 'system'}</div>
                     </td>
 
-                    <td className="px-6 py-4 font-sans text-slate-300">
+                    <td className="px-6 py-4 font-sans text-foreground">
                       {log.business?.name || 'Platform Wide'}
                     </td>
 
-                    <td className="px-6 py-4 text-[11px] text-slate-400 max-w-xs truncate font-mono">
+                    <td className="px-6 py-4 text-[11px] text-muted-foreground max-w-xs truncate font-mono">
                       {log.metadata ? JSON.stringify(log.metadata) : '-'}
                     </td>
 
-                    <td className="px-6 py-4 text-right text-slate-400 font-sans text-xs">
+                    <td className="px-6 py-4 text-right text-muted-foreground font-sans text-xs">
                       {formatDateTime(log.created_at)}
                     </td>
                   </tr>
@@ -329,15 +329,15 @@ export default function AdminActivityPage() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+        <div className="px-6 py-4 bg-muted border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>
-              Showing <span className="font-bold text-white">{totalLogs > 0 ? startRecord : 0}</span> to{' '}
-              <span className="font-bold text-white">{endRecord}</span> of{' '}
-              <span className="font-bold text-white">{totalLogs}</span> activity logs
+              Showing <span className="font-bold text-foreground">{totalLogs > 0 ? startRecord : 0}</span> to{' '}
+              <span className="font-bold text-foreground">{endRecord}</span> of{' '}
+              <span className="font-bold text-foreground">{totalLogs}</span> activity logs
             </span>
 
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
+            <div className="flex items-center gap-2 border-l border-border pl-4">
               <span>Per page:</span>
               <select
                 value={limit}
@@ -345,7 +345,7 @@ export default function AdminActivityPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-emerald-500"
               >
                 <option value={15}>15</option>
                 <option value={25}>25</option>
@@ -359,7 +359,7 @@ export default function AdminActivityPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
             </button>
@@ -371,13 +371,13 @@ export default function AdminActivityPage() {
                 const showDots = prev && pNum - prev > 1;
                 return (
                   <React.Fragment key={pNum}>
-                    {showDots && <span className="px-1 text-slate-600">...</span>}
+                    {showDots && <span className="px-1 text-muted-foreground">...</span>}
                     <button
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
                           ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                          : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >
                       {pNum}
@@ -389,7 +389,7 @@ export default function AdminActivityPage() {
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
@@ -400,14 +400,14 @@ export default function AdminActivityPage() {
       {/* Log Inspector Modal */}
       {inspectModalOpen && selectedLog && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="bg-card border border-border rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-600 dark:text-emerald-400">
                   <Activity className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                     Activity Log Inspection
                   </h3>
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${getActionBadgeColor(selectedLog.action)}`}>
@@ -417,45 +417,45 @@ export default function AdminActivityPage() {
               </div>
               <button
                 onClick={() => setInspectModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-2 gap-3 bg-background p-4 rounded-xl border border-border">
                 <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Trigger User</span>
-                  <span className="font-semibold text-slate-200">{selectedLog.user?.full_name || 'System / Admin'}</span>
-                  <span className="block text-[11px] text-slate-400 font-mono">{selectedLog.user?.email || 'N/A'}</span>
+                  <span className="text-muted-foreground block text-[10px] font-bold uppercase">Trigger User</span>
+                  <span className="font-semibold text-foreground">{selectedLog.user?.full_name || 'System / Admin'}</span>
+                  <span className="block text-[11px] text-muted-foreground font-mono">{selectedLog.user?.email || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Associated Store</span>
-                  <span className="font-semibold text-slate-200">{selectedLog.business?.name || 'Platform Wide'}</span>
+                  <span className="text-muted-foreground block text-[10px] font-bold uppercase">Associated Store</span>
+                  <span className="font-semibold text-foreground">{selectedLog.business?.name || 'Platform Wide'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">IP Address</span>
-                  <span className="font-mono text-slate-300">{selectedLog.ip_address || '127.0.0.1'}</span>
+                  <span className="text-muted-foreground block text-[10px] font-bold uppercase">IP Address</span>
+                  <span className="font-mono text-foreground">{selectedLog.ip_address || '127.0.0.1'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px] font-bold uppercase">Timestamp</span>
-                  <span className="font-mono text-slate-300">{formatDateTime(selectedLog.created_at)}</span>
+                  <span className="text-muted-foreground block text-[10px] font-bold uppercase">Timestamp</span>
+                  <span className="font-mono text-foreground">{formatDateTime(selectedLog.created_at)}</span>
                 </div>
               </div>
 
               <div>
-                <span className="text-slate-400 font-bold block mb-1">Payload & Metadata JSON</span>
-                <pre className="p-4 bg-slate-950 rounded-xl border border-slate-800 text-emerald-400 font-mono text-xs overflow-x-auto">
+                <span className="text-muted-foreground font-bold block mb-1">Payload & Metadata JSON</span>
+                <pre className="p-4 bg-background rounded-xl border border-border text-emerald-600 dark:text-emerald-400 font-mono text-xs overflow-x-auto">
                   {JSON.stringify(selectedLog.metadata || {}, null, 2)}
                 </pre>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-800">
+            <div className="flex justify-end pt-2 border-t border-border">
               <button
                 onClick={() => setInspectModalOpen(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition"
+                className="px-4 py-2 bg-secondary hover:bg-accent text-foreground font-semibold text-xs rounded-xl transition"
               >
                 Close Inspector
               </button>

@@ -180,16 +180,16 @@ export default function AdminUsersPage() {
   const getRoleBadgeColor = (role: string) => {
     switch (role?.toLowerCase()) {
       case 'super_admin':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30';
       case 'admin':
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
       case 'manager':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30';
       case 'salesman':
       case 'cashier':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
       default:
-        return 'bg-slate-800 text-slate-400 border-slate-700';
+        return 'bg-secondary text-muted-foreground border-border';
     }
   };
 
@@ -199,19 +199,19 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Users className="w-7 h-7 text-indigo-400" />
-            User Control Table
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <Users className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+           Manage User  
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             Complete platform tabular view to monitor, edit, update roles, reassign stores, and manage status for all {totalUsers} registered users.
           </p>
         </div>
         <button
           onClick={() => fetchUsers()}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground text-sm font-medium rounded-xl border border-border transition"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -219,19 +219,19 @@ export default function AdminUsersPage() {
       </div>
 
       {successMessage && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm flex items-center gap-2">
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm flex items-center gap-2">
           <CheckCircle className="w-5 h-5 flex-shrink-0" />
           {successMessage}
         </div>
       )}
 
       {error && (
-        <div className="p-5 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+        <div className="p-5 bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 rounded-2xl text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
           <div className="flex items-center gap-3">
-            <XCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
+            <XCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 flex-shrink-0" />
             <div>
-              <div className="font-bold text-white text-base">Authentication Required</div>
-              <div className="text-rose-300/80 text-xs mt-0.5">
+              <div className="font-bold text-foreground text-base">Authentication Required</div>
+              <div className="text-rose-700 dark:text-rose-300/80 text-xs mt-0.5">
                 {error}. Please log in with an Admin account to access developer platform features.
               </div>
             </div>
@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
             </a>
             <a
               href="/login"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition"
+              className="px-4 py-2 bg-secondary hover:bg-accent text-foreground font-semibold text-xs rounded-xl border border-border transition"
             >
               Log In
             </a>
@@ -254,10 +254,10 @@ export default function AdminUsersPage() {
       )}
 
       {/* Filter & Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-card p-4 rounded-xl border border-border">
         {/* Search */}
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -266,7 +266,7 @@ export default function AdminUsersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-indigo-500"
           />
         </div>
 
@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
               setSelectedRole(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 capitalize"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize"
           >
             <option value="">All Roles</option>
             {rolesList.map((r) => (
@@ -297,7 +297,7 @@ export default function AdminUsersPage() {
               setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
           >
             <option value="">All Statuses</option>
             <option value="true">Active Only</option>
@@ -314,7 +314,7 @@ export default function AdminUsersPage() {
               setSelectedStatus('');
               setPage(1);
             }}
-            className="w-full py-2 px-3 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition"
+            className="w-full py-2 px-3 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary hover:bg-accent rounded-xl border border-border transition"
           >
             Reset Filters
           </button>
@@ -322,44 +322,44 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Main Tabular Data View */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+          <table className="w-full text-left text-sm text-foreground">
+            <thead className="bg-muted text-xs font-semibold uppercase text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-6 py-4">User Details</th>
                 <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">Assigned Store</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Joined Date</th>
-                <th className="px-6 py-4 text-right">Actions / Control</th>
+                <th className="px-6 py-4 text-right">Control</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600 dark:text-indigo-400" />
                     Loading user records...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     No user accounts found matching criteria.
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-800/30 transition">
+                  <tr key={user.id} className="hover:bg-accent transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-slate-800 to-indigo-950 border border-slate-700 flex items-center justify-center font-bold text-sm text-indigo-400">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-secondary to-indigo-200 dark:to-indigo-950 border border-border flex items-center justify-center font-bold text-sm text-indigo-600 dark:text-indigo-400">
                           {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                         </div>
                         <div>
-                          <div className="font-semibold text-white">{user.full_name || 'Unnamed User'}</div>
-                          <div className="text-xs text-slate-400 font-mono">{user.email}</div>
+                          <div className="font-semibold text-foreground">{user.full_name || 'Unnamed User'}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{user.email}</div>
                         </div>
                       </div>
                     </td>
@@ -372,10 +372,14 @@ export default function AdminUsersPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-300 text-xs font-medium">
-                        <Store className="w-3.5 h-3.5 text-slate-500" />
-                        {user.business_name || 'Unassigned'}
-                      </div>
+                      {user.email === 'admin@orderflow.com' ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex items-center gap-2 text-foreground text-xs font-medium">
+                          <Store className="w-3.5 h-3.5 text-muted-foreground" />
+                          {user.business_name || 'Unassigned'}
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
@@ -383,8 +387,8 @@ export default function AdminUsersPage() {
                         onClick={() => handleToggleStatus(user)}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border transition ${
                           user.is_active
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
                         }`}
                       >
                         {user.is_active ? (
@@ -399,7 +403,7 @@ export default function AdminUsersPage() {
                       </button>
                     </td>
 
-                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                    <td className="px-6 py-4 text-xs text-muted-foreground font-mono">
                       {new Date(user.created_at).toLocaleDateString()}
                     </td>
 
@@ -407,7 +411,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium rounded-lg transition"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-medium rounded-lg transition"
                         >
                           <Edit2 className="w-3.5 h-3.5" /> Edit
                         </button>
@@ -421,15 +425,15 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+        <div className="px-6 py-4 bg-muted border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>
-              Showing <span className="font-bold text-white">{totalUsers > 0 ? startRecord : 0}</span> to{' '}
-              <span className="font-bold text-white">{endRecord}</span> of{' '}
-              <span className="font-bold text-white">{totalUsers}</span> users
+              Showing <span className="font-bold text-foreground">{totalUsers > 0 ? startRecord : 0}</span> to{' '}
+              <span className="font-bold text-foreground">{endRecord}</span> of{' '}
+              <span className="font-bold text-foreground">{totalUsers}</span> users
             </span>
 
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
+            <div className="flex items-center gap-2 border-l border-border pl-4">
               <span>Per page:</span>
               <select
                 value={limit}
@@ -437,7 +441,7 @@ export default function AdminUsersPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -451,7 +455,7 @@ export default function AdminUsersPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
             </button>
@@ -463,13 +467,13 @@ export default function AdminUsersPage() {
                 const showDots = prev && pNum - prev > 1;
                 return (
                   <React.Fragment key={pNum}>
-                    {showDots && <span className="px-1 text-slate-600">...</span>}
+                    {showDots && <span className="px-1 text-muted-foreground">...</span>}
                     <button
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
                           ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                          : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >
                       {pNum}
@@ -481,7 +485,7 @@ export default function AdminUsersPage() {
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
@@ -492,15 +496,15 @@ export default function AdminUsersPage() {
       {/* Edit User Modal Dialog */}
       {editModalOpen && currentUser && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-indigo-400" />
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 Edit User Data
               </h3>
               <button
                 onClick={() => setEditModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -508,34 +512,34 @@ export default function AdminUsersPage() {
 
             <form onSubmit={handleSaveUser} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                <label className="block text-xs font-semibold text-foreground mb-1">Full Name</label>
                 <input
                   type="text"
                   required
                   value={editForm.full_name}
                   onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <label className="block text-xs font-semibold text-foreground mb-1">Email Address</label>
                 <input
                   type="email"
                   required
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">System Role</label>
+                  <label className="block text-xs font-semibold text-foreground mb-1">System Role</label>
                   <select
                     value={editForm.role}
                     onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 capitalize"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize"
                   >
                     {rolesList.map((r) => (
                       <option key={r} value={r}>
@@ -546,11 +550,11 @@ export default function AdminUsersPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Assigned Store</label>
+                  <label className="block text-xs font-semibold text-foreground mb-1">Assigned Store</label>
                   <select
                     value={editForm.business_id}
                     onChange={(e) => setEditForm({ ...editForm, business_id: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">-- No Store Assigned --</option>
                     {stores.map((s) => (
@@ -563,35 +567,35 @@ export default function AdminUsersPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-indigo-400" /> Reset Password (Optional)
+                <label className="block text-xs font-semibold text-foreground mb-1 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Reset Password (Optional)
                 </label>
                 <input
                   type="password"
                   placeholder="Leave blank to keep existing password"
                   value={editForm.password}
                   onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="flex items-center gap-3 pt-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs font-semibold text-foreground cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editForm.is_active}
                     onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-background border-border text-indigo-600 focus:ring-0"
                   />
                   Account Active & Enabled
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 rounded-xl transition"
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition"
                 >
                   Cancel
                 </button>

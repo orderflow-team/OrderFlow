@@ -19,7 +19,6 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Tag,
   Boxes,
   Key,
@@ -55,12 +54,12 @@ interface ProductItem {
 
 const CATEGORY_PRESETS = [
   { id: 'grocery', label: 'Grocery', icon: '🛒', color: 'bg-sky-500/10 text-sky-400 border-sky-500/30' },
-  { id: 'pharmacy', label: 'Pharmacy', icon: '💊', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' },
-  { id: 'restaurant', label: 'Restaurant', icon: '🍔', color: 'bg-amber-500/10 text-amber-400 border-amber-500/30' },
-  { id: 'retail', label: 'Retail Store', icon: '🛍️', color: 'bg-purple-500/10 text-purple-400 border-purple-500/30' },
-  { id: 'wholesale', label: 'Wholesale', icon: '📦', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30' },
-  { id: 'salesman', label: 'Sales Field / FMCG', icon: '💼', color: 'bg-blue-500/10 text-blue-400 border-blue-500/30' },
-  { id: 'others', label: 'Other Business', icon: '🏬', color: 'bg-slate-800 text-slate-300 border-slate-700' },
+  { id: 'pharmacy', label: 'Pharmacy', icon: '💊', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' },
+  { id: 'restaurant', label: 'Restaurant', icon: '🍔', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' },
+  { id: 'retail', label: 'Retail Store', icon: '🛍️', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30' },
+  { id: 'wholesale', label: 'Wholesale', icon: '📦', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30' },
+  { id: 'salesman', label: 'Sales Field / FMCG', icon: '💼', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' },
+  { id: 'others', label: 'Other Business', icon: '🏬', color: 'bg-secondary text-foreground border-border' },
 ];
 
 export default function AdminStoresPage() {
@@ -208,7 +207,7 @@ export default function AdminStoresPage() {
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 border border-slate-700 capitalize">
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-secondary text-foreground border border-border capitalize">
         <span>🏪</span>
         <span>{category || 'General'}</span>
       </span>
@@ -221,19 +220,19 @@ export default function AdminStoresPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Store className="w-7 h-7 text-purple-400" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <Store className="w-7 h-7 text-purple-600 dark:text-purple-400" />
             Store Industry Directory
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             Manage all {totalStores} tenant businesses and inspect products, user volumes, and feature modules per store.
           </p>
         </div>
         <button
           onClick={fetchStores}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground text-sm font-medium rounded-xl border border-border transition"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -241,17 +240,17 @@ export default function AdminStoresPage() {
       </div>
 
       {message && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm flex items-center gap-2">
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-sm flex items-center gap-2">
           <CheckCircle className="w-5 h-5 flex-shrink-0" />
           {message}
         </div>
       )}
 
       {/* Filter & Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-card p-4 rounded-xl border border-border">
         {/* Search */}
         <div className="relative col-span-1 sm:col-span-2">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
           <input
             type="text"
             placeholder="Search store name, industry category, or owner email..."
@@ -260,7 +259,7 @@ export default function AdminStoresPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-purple-500"
           />
         </div>
 
@@ -272,7 +271,7 @@ export default function AdminStoresPage() {
               setSelectedCategory(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500 capitalize"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 capitalize"
           >
             <option value="">All Industry Categories</option>
             {CATEGORY_PRESETS.map((cat) => (
@@ -284,7 +283,7 @@ export default function AdminStoresPage() {
           {selectedCategory && (
             <button
               onClick={() => setSelectedCategory('')}
-              className="p-2 text-slate-400 hover:text-white bg-slate-800 rounded-xl border border-slate-700"
+              className="p-2 text-muted-foreground hover:text-foreground bg-secondary rounded-xl border border-border"
               title="Clear Category Filter"
             >
               <X className="w-4 h-4" />
@@ -294,143 +293,157 @@ export default function AdminStoresPage() {
       </div>
 
       {/* Stores Table */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-950/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+          <table className="w-full text-left text-sm text-foreground">
+            <thead className="bg-muted text-xs font-semibold uppercase text-muted-foreground border-b border-border">
               <tr>
-                <th className="px-6 py-4">Store Name</th>
-                <th className="px-6 py-4">Industry Category</th>
-                <th className="px-6 py-4">Users</th>
-                <th className="px-6 py-4">Store Products</th>
-                <th className="px-6 py-4">Orders</th>
-                <th className="px-6 py-4">Active Modules</th>
-                <th className="px-6 py-4 text-right">Actions / Controls</th>
+                <th className="px-4 py-3">Store</th>
+                <th className="px-3 py-3 hidden xl:table-cell">Category</th>
+                <th className="px-3 py-3">Users</th>
+                <th className="px-3 py-3">Products</th>
+                <th className="px-3 py-3 hidden xl:table-cell">Orders</th>
+                <th className="px-3 py-3 hidden xl:table-cell">Modules</th>
+                <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-400" />
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600 dark:text-purple-400" />
                     Loading store catalog...
                   </td>
                 </tr>
               ) : stores.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                     No store accounts found matching criteria.
                   </td>
                 </tr>
               ) : (
-                stores.map((store) => (
-                  <tr key={store.id} className="hover:bg-slate-800/30 transition">
-                    <td className="px-6 py-4 font-semibold text-white">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center font-bold text-purple-400 text-base">
+                stores.map((store) => {
+                  // The platform admin's own account gets a "Dev" business shell
+                  // automatically — it's not a real tenant, so category/product
+                  // metrics for it would just be noise.
+                  const isDevAccount = store.owner_email === 'admin@orderflow.com';
+                  return (
+                  <tr key={store.id} className="hover:bg-accent transition">
+                    <td className="px-4 py-3 font-semibold text-foreground max-w-[170px] xl:max-w-[220px]">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 shrink-0 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center font-bold text-purple-600 dark:text-purple-400 text-sm">
                           🏬
                         </div>
-                        <div>
-                          <div className="text-white font-semibold">{store.name}</div>
+                        <div className="min-w-0">
+                          <div className="text-foreground font-semibold truncate">{store.name}</div>
                           {store.owner_email && store.owner_email !== 'N/A' && (
                             <button
                               onClick={() => {
                                 setSearch(store.owner_email!);
                                 setPage(1);
                               }}
-                              className="text-[11px] text-purple-400 hover:underline font-mono block text-left"
-                              title="Click to view all stores registered under this email"
+                              className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-mono block text-left truncate max-w-full"
+                              title={store.owner_email}
                             >
-                              📧 {store.owner_email}
+                              {store.owner_email}
                             </button>
                           )}
                           {store.gst_number && (
-                            <div className="text-[10px] text-slate-400 font-mono">GST: {store.gst_number}</div>
+                            <div className="text-[10px] text-muted-foreground font-mono truncate">GST: {store.gst_number}</div>
                           )}
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      {renderCategoryBadge(store.category)}
+                    <td className="px-3 py-3 hidden xl:table-cell">
+                      {isDevAccount ? <span className="text-muted-foreground">—</span> : renderCategoryBadge(store.category)}
                     </td>
 
-                    <td className="px-6 py-4 font-semibold text-slate-200">
+                    <td className="px-3 py-3 font-semibold text-foreground">
                       <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-400" /> {store.user_count}
+                        <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> {store.user_count}
                       </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => openProductsModal(store)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold rounded-lg transition"
-                      >
-                        <Package className="w-3.5 h-3.5" />
-                        {store.product_count} Products <Eye className="w-3 h-3 opacity-60 ml-0.5" />
-                      </button>
+                    <td className="px-3 py-3">
+                      {isDevAccount ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <button
+                          onClick={() => openProductsModal(store)}
+                          title="View Products"
+                          className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold rounded-lg transition"
+                        >
+                          <Package className="w-3.5 h-3.5" />
+                          {store.product_count}
+                        </button>
+                      )}
                     </td>
 
-                    <td className="px-6 py-4 font-semibold text-slate-200">
+                    <td className="px-3 py-3 font-semibold text-foreground hidden xl:table-cell">
                       <div className="flex items-center gap-1.5">
-                        <ShoppingCart className="w-3.5 h-3.5 text-amber-400" /> {store.order_count}
+                        <ShoppingCart className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> {store.order_count}
                       </div>
                     </td>
 
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 py-3 hidden xl:table-cell">
+                      <div className="flex items-center gap-1">
                         {store.inventory_enabled && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Inventory
+                          <span title="Inventory module enabled" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            Inv
                           </span>
                         )}
                         {store.ai_chat_enabled && (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                            AI Chat
+                          <span title="AI Chat module enabled" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                            AI
                           </span>
                         )}
                       </div>
                     </td>
 
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleImpersonateStore(store)}
-                          className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold rounded-lg border border-amber-500/30 transition flex items-center gap-1"
+                          title="Login as Store"
+                          className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-500/30 transition"
                         >
-                          <Key className="w-3.5 h-3.5" /> Login as Store
+                          <Key className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => openProductsModal(store)}
-                          className="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-xs font-medium rounded-lg border border-indigo-500/30 transition flex items-center gap-1"
+                          title="View Catalog"
+                          className="p-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 rounded-lg border border-indigo-500/30 transition"
                         >
-                          <Package className="w-3.5 h-3.5" /> View Catalog
+                          <Package className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => openEditModal(store)}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition"
+                          title="Configure"
+                          className="p-2 bg-secondary hover:bg-accent text-foreground rounded-lg border border-border transition"
                         >
-                          Configure
+                          <Edit className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination Footer */}
-        <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+        <div className="px-6 py-4 bg-muted border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>
-              Showing <span className="font-bold text-white">{totalStores > 0 ? startRecord : 0}</span> to{' '}
-              <span className="font-bold text-white">{endRecord}</span> of{' '}
-              <span className="font-bold text-white">{totalStores}</span> stores
+              Showing <span className="font-bold text-foreground">{totalStores > 0 ? startRecord : 0}</span> to{' '}
+              <span className="font-bold text-foreground">{endRecord}</span> of{' '}
+              <span className="font-bold text-foreground">{totalStores}</span> stores
             </span>
 
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
+            <div className="flex items-center gap-2 border-l border-border pl-4">
               <span>Per page:</span>
               <select
                 value={limit}
@@ -438,7 +451,7 @@ export default function AdminStoresPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -452,7 +465,7 @@ export default function AdminStoresPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
             </button>
@@ -464,13 +477,13 @@ export default function AdminStoresPage() {
                 const showDots = prev && pNum - prev > 1;
                 return (
                   <React.Fragment key={pNum}>
-                    {showDots && <span className="px-1 text-slate-600">...</span>}
+                    {showDots && <span className="px-1 text-muted-foreground">...</span>}
                     <button
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
                           ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                          : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >
                       {pNum}
@@ -482,7 +495,7 @@ export default function AdminStoresPage() {
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary hover:bg-accent disabled:opacity-40 disabled:hover:bg-accent text-foreground text-xs font-semibold rounded-lg transition"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
@@ -493,24 +506,24 @@ export default function AdminStoresPage() {
       {/* Inspect Store Products Modal */}
       {productsModalOpen && inspectStore && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="bg-card border border-border rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-600 dark:text-emerald-400">
                   📦
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                     {inspectStore.name} — Product Catalog
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     Inspecting {totalStoreProducts} registered products in this store
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setProductsModalOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -518,7 +531,7 @@ export default function AdminStoresPage() {
 
             {/* Product Search Bar */}
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
               <input
                 type="text"
                 placeholder={`Search products in ${inspectStore.name}...`}
@@ -527,14 +540,14 @@ export default function AdminStoresPage() {
                   setProductSearch(e.target.value);
                   setProductPage(1);
                 }}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             {/* Store Products Data Table */}
-            <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60 max-h-96 overflow-y-auto">
-              <table className="w-full text-left text-xs text-slate-300">
-                <thead className="bg-slate-950 text-[11px] font-semibold uppercase text-slate-400 sticky top-0 border-b border-slate-800">
+            <div className="border border-border rounded-xl overflow-hidden bg-muted max-h-96 overflow-y-auto">
+              <table className="w-full text-left text-xs text-foreground">
+                <thead className="bg-background text-[11px] font-semibold uppercase text-muted-foreground sticky top-0 border-b border-border">
                   <tr>
                     <th className="px-4 py-3">Product Name</th>
                     <th className="px-4 py-3">SKU</th>
@@ -544,39 +557,39 @@ export default function AdminStoresPage() {
                     <th className="px-4 py-3 text-right">Stock Level</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60">
+                <tbody className="divide-y divide-border">
                   {loadingProducts ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-400" />
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-600 dark:text-emerald-400" />
                         Loading products for {inspectStore.name}...
                       </td>
                     </tr>
                   ) : storeProducts.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                         No products registered in this store.
                       </td>
                     </tr>
                   ) : (
                     storeProducts.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-800/30 transition">
-                        <td className="px-4 py-3 font-semibold text-white">
+                      <tr key={p.id} className="hover:bg-accent transition">
+                        <td className="px-4 py-3 font-semibold text-foreground">
                           <div className="flex items-center gap-2">
                             <span>📦</span> {p.name}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono text-slate-400">{p.sku || '-'}</td>
-                        <td className="px-4 py-3 capitalize text-slate-300">{p.category || 'General'}</td>
-                        <td className="px-4 py-3 font-bold text-emerald-400">₹{(p.price || 0).toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3 text-slate-400">₹{(p.cost_price || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 font-mono text-muted-foreground">{p.sku || '-'}</td>
+                        <td className="px-4 py-3 capitalize text-foreground">{p.category || 'General'}</td>
+                        <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">₹{(p.price || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-muted-foreground">₹{(p.cost_price || 0).toLocaleString('en-IN')}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={`inline-flex items-center justify-center whitespace-nowrap px-2.5 py-0.5 font-semibold rounded-full border text-[10px] ${
                             p.current_stock > 10
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                               : p.current_stock > 0
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                           }`}>
                             {p.current_stock} in stock
                           </span>
@@ -589,22 +602,22 @@ export default function AdminStoresPage() {
             </div>
 
             {/* Modal Pagination Footer */}
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
               <div>
-                Page <span className="font-bold text-white">{productPage}</span> of <span className="font-bold text-white">{productTotalPages}</span> ({totalStoreProducts} products)
+                Page <span className="font-bold text-foreground">{productPage}</span> of <span className="font-bold text-foreground">{productTotalPages}</span> ({totalStoreProducts} products)
               </div>
               <div className="flex items-center gap-2">
                 <button
                   disabled={productPage <= 1}
                   onClick={() => setProductPage((p) => Math.max(1, p - 1))}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg transition"
+                  className="px-3 py-1 bg-secondary hover:bg-accent disabled:opacity-40 text-foreground rounded-lg transition"
                 >
                   Prev
                 </button>
                 <button
                   disabled={productPage >= productTotalPages}
                   onClick={() => setProductPage((p) => Math.min(productTotalPages, p + 1))}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg transition"
+                  className="px-3 py-1 bg-secondary hover:bg-accent disabled:opacity-40 text-foreground rounded-lg transition"
                 >
                   Next
                 </button>
@@ -617,35 +630,35 @@ export default function AdminStoresPage() {
       {/* Edit Store Modal */}
       {editModalOpen && currentStore && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Store className="w-5 h-5 text-purple-400" />
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Store className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 Configure Store & Category
               </h3>
-              <button onClick={() => setEditModalOpen(false)} className="text-slate-400 hover:text-white p-1">
+              <button onClick={() => setEditModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveStore} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Store Name</label>
+                <label className="block text-xs font-semibold text-foreground mb-1">Store Name</label>
                 <input
                   type="text"
                   required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Industry Category</label>
+                <label className="block text-xs font-semibold text-foreground mb-1">Industry Category</label>
                 <select
                   value={editForm.category}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500 capitalize"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 capitalize"
                 >
                   <option value="">-- Select Industry Preset --</option>
                   {CATEGORY_PRESETS.map((cat) => (
@@ -657,42 +670,42 @@ export default function AdminStoresPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">GST Number</label>
+                <label className="block text-xs font-semibold text-foreground mb-1">GST Number</label>
                 <input
                   type="text"
                   value={editForm.gst_number}
                   onChange={(e) => setEditForm({ ...editForm, gst_number: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500 font-mono uppercase"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 font-mono uppercase"
                 />
               </div>
 
               <div className="space-y-3 pt-2">
-                <label className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
-                  <span className="text-xs font-semibold text-slate-200">Inventory Module Enabled</span>
+                <label className="flex items-center justify-between p-3 bg-background rounded-xl border border-border cursor-pointer">
+                  <span className="text-xs font-semibold text-foreground">Inventory Module Enabled</span>
                   <input
                     type="checkbox"
                     checked={editForm.inventory_enabled}
                     onChange={(e) => setEditForm({ ...editForm, inventory_enabled: e.target.checked })}
-                    className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-card border-border text-purple-600 focus:ring-0"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800 cursor-pointer">
-                  <span className="text-xs font-semibold text-slate-200">AI Order Assistant Enabled</span>
+                <label className="flex items-center justify-between p-3 bg-background rounded-xl border border-border cursor-pointer">
+                  <span className="text-xs font-semibold text-foreground">AI Order Assistant Enabled</span>
                   <input
                     type="checkbox"
                     checked={editForm.ai_chat_enabled}
                     onChange={(e) => setEditForm({ ...editForm, ai_chat_enabled: e.target.checked })}
-                    className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-card border-border text-purple-600 focus:ring-0"
                   />
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 rounded-xl transition"
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition"
                 >
                   Cancel
                 </button>

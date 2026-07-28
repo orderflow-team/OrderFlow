@@ -45,6 +45,10 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletingAll, setDeletingAll] = useState(false);
   const [deleteAllError, setDeleteAllError] = useState('');
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deleteAccountConfirmText, setDeleteAccountConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
   const [form, setForm] = useState({
     name: '',
     category: 'others',
@@ -246,6 +250,21 @@ export default function SettingsPage() {
     } catch (err: any) {
       setDeleteAllError(err.response?.data?.message || 'Failed to delete data');
       setDeletingAll(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!businessId) return;
+    setDeletingAccount(true);
+    setDeleteAccountError('');
+    try {
+      await apiClient.delete(`/api/businesses/${businessId}`, { data: { confirmName: deleteAccountConfirmText } });
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    } catch (err: any) {
+      setDeleteAccountError(err.response?.data?.message || 'Failed to delete account');
+      setDeletingAccount(false);
     }
   };
 
@@ -546,6 +565,24 @@ export default function SettingsPage() {
               >
                 Delete All Data
               </Button>
+
+              <div className="mt-6 pt-6 border-t border-rose-500/20">
+                <p className="text-sm text-slate-600 mb-4">
+                  Permanently delete this entire business account — the business itself, every staff login,
+                  and everything above. This cannot be undone and cannot be recovered.
+                </p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    setDeleteAccountConfirmText('');
+                    setDeleteAccountError('');
+                    setShowDeleteAccountConfirm(true);
+                  }}
+                >
+                  Delete Account
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -619,6 +656,40 @@ export default function SettingsPage() {
             disabled={deletingAll || deleteConfirmText !== form.name}
           >
             {deletingAll ? 'Deleting...' : 'Delete Everything'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showDeleteAccountConfirm} onOpenChange={(open) => !deletingAccount && setShowDeleteAccountConfirm(open)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-rose-700">
+            <AlertTriangle className="w-4 h-4" /> Permanently delete {form.name || 'this business'}?
+          </DialogTitle>
+          <DialogDescription>
+            This permanently deletes the business itself, every staff login, and everything in it. It cannot
+            be undone. Type <strong>{form.name}</strong> below to confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          value={deleteAccountConfirmText}
+          onChange={(e) => setDeleteAccountConfirmText(e.target.value)}
+          placeholder={form.name}
+          autoFocus
+        />
+        {deleteAccountError && <p className="text-sm text-rose-600">{deleteAccountError}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setShowDeleteAccountConfirm(false)} disabled={deletingAccount}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={handleDeleteAccount}
+            disabled={deletingAccount || deleteAccountConfirmText !== form.name}
+          >
+            {deletingAccount ? 'Deleting...' : 'Delete Account'}
           </Button>
         </DialogFooter>
       </DialogContent>
