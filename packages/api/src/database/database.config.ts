@@ -6,7 +6,10 @@ export const databaseConfig: TypeOrmModuleOptions = {
   ...(process.env.DATABASE_URL
     ? { 
         url: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        // DATABASE_URL is only ever set for managed Postgres (Render etc.), which requires SSL
+        // for external connections regardless of NODE_ENV — the local docker-compose DB uses
+        // the DB_HOST branch below instead and never hits this.
+        ssl: { rejectUnauthorized: false }
       }
     : {
         host: process.env.DB_HOST || 'localhost',

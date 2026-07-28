@@ -89,6 +89,13 @@ export default function LoginPage() {
           </div>
 
           {mode === 'password' ? <PasswordLoginForm /> : <OtpLoginForm />}
+
+          <p className="text-center text-sm text-slate-600 mt-6">
+            Don't have an account?{' '}
+            <a href="/signup" className="font-semibold text-orange-600 hover:text-orange-700">
+              Sign up
+            </a>
+          </p>
         </div>
       </div>
     </div>
