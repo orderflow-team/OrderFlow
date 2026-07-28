@@ -1,0 +1,543 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import {
+  Users,
+  Search,
+  Filter,
+  Edit2,
+  Key,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Plus,
+  Shield,
+  Store,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  UserCheck,
+  UserX,
+  X,
+  Save,
+  Lock,
+} from 'lucide-react';
+import apiClient from '@/lib/api-client';
+
+interface UserData {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  business_id: string;
+  business_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface StoreItem {
+  id: string;
+  name: string;
+}
+
+export default function AdminUsersPage() {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // Filters & Pagination
+  const [search, setSearch] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  // Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    email: '',
+    role: '',
+    business_id: '',
+    is_active: true,
+    password: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const rolesList = [
+    'super_admin',
+    'admin',
+    'manager',
+    'salesman',
+    'cashier',
+    'waiter',
+    'kitchen_staff',
+    'delivery_person',
+    'accountant',
+  ];
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiClient.get('/api/platform-admin/users', {
+        params: {
+          search,
+          role: selectedRole,
+          is_active: selectedStatus,
+          page,
+          limit: 10,
+        },
+      });
+      setUsers(res.data.data);
+      setTotalPages(res.data.meta.totalPages);
+      setTotalUsers(res.data.meta.total);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to load users data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStores = async () => {
+    try {
+      const res = await apiClient.get('/api/platform-admin/stores', { params: { limit: 100 } });
+      setStores(res.data.data);
+    } catch (err) {
+      console.error('Failed to load stores list:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [search, selectedRole, selectedStatus, page]);
+
+  useEffect(() => {
+    fetchStores();
+  }, []);
+
+  const handleToggleStatus = async (user: UserData) => {
+    try {
+      await apiClient.patch(`/api/platform-admin/users/${user.id}/status`, {
+        is_active: !user.is_active,
+      });
+      setSuccessMessage(`User ${user.full_name || user.email} ${!user.is_active ? 'activated' : 'disabled'}`);
+      fetchUsers();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update user status');
+    }
+  };
+
+  const openEditModal = (user: UserData) => {
+    setCurrentUser(user);
+    setEditForm({
+      full_name: user.full_name || '',
+      email: user.email || '',
+      role: user.role || 'admin',
+      business_id: user.business_id || '',
+      is_active: user.is_active,
+      password: '',
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+    setSaving(true);
+    try {
+      const payload: any = {
+        full_name: editForm.full_name,
+        email: editForm.email,
+        role: editForm.role,
+        business_id: editForm.business_id || null,
+        is_active: editForm.is_active,
+      };
+      if (editForm.password) {
+        payload.password = editForm.password;
+      }
+
+      await apiClient.patch(`/api/platform-admin/users/${currentUser.id}`, payload);
+      setSuccessMessage(`User ${editForm.full_name || editForm.email} updated successfully!`);
+      setEditModalOpen(false);
+      fetchUsers();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update user details');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role?.toLowerCase()) {
+      case 'super_admin':
+        return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+      case 'admin':
+        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+      case 'manager':
+        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+      case 'salesman':
+      case 'cashier':
+        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      default:
+        return 'bg-slate-800 text-slate-400 border-slate-700';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 border border-slate-800 p-6 rounded-2xl backdrop-blur-sm">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Users className="w-7 h-7 text-indigo-400" />
+            User Control Table
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Complete platform tabular view to monitor, edit, update roles, reassign stores, and manage status for all {totalUsers} registered users.
+          </p>
+        </div>
+        <button
+          onClick={() => fetchUsers()}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {successMessage && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm flex items-center gap-2">
+          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          {successMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm flex items-center gap-2">
+          <XCircle className="w-5 h-5 flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Filter & Search Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+        {/* Search */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Role Filter */}
+        <div>
+          <select
+            value={selectedRole}
+            onChange={(e) => {
+              setSelectedRole(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 capitalize"
+          >
+            <option value="">All Roles</option>
+            {rolesList.map((r) => (
+              <option key={r} value={r}>
+                {r.replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status Filter */}
+        <div>
+          <select
+            value={selectedStatus}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+          >
+            <option value="">All Statuses</option>
+            <option value="true">Active Only</option>
+            <option value="false">Disabled Only</option>
+          </select>
+        </div>
+
+        {/* Clear Filters */}
+        <div className="flex items-center">
+          <button
+            onClick={() => {
+              setSearch('');
+              setSelectedRole('');
+              setSelectedStatus('');
+              setPage(1);
+            }}
+            className="w-full py-2 px-3 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition"
+          >
+            Reset Filters
+          </button>
+        </div>
+      </div>
+
+      {/* Main Tabular Data View */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-300">
+            <thead className="bg-slate-950/80 text-xs font-semibold uppercase text-slate-400 border-b border-slate-800">
+              <tr>
+                <th className="px-6 py-4">User Details</th>
+                <th className="px-6 py-4">Role</th>
+                <th className="px-6 py-4">Assigned Store</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Joined Date</th>
+                <th className="px-6 py-4 text-right">Actions / Control</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-400" />
+                    Loading user records...
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    No user accounts found matching criteria.
+                  </td>
+                </tr>
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-slate-800/30 transition">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-slate-800 to-indigo-950 border border-slate-700 flex items-center justify-center font-bold text-sm text-indigo-400">
+                          {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white">{user.full_name || 'Unnamed User'}</div>
+                          <div className="text-xs text-slate-400 font-mono">{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border capitalize ${getRoleBadgeColor(user.role)}`}>
+                        <Shield className="w-3 h-3" />
+                        {user.role?.replace('_', ' ')}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-slate-300 text-xs font-medium">
+                        <Store className="w-3.5 h-3.5 text-slate-500" />
+                        {user.business_name || 'Unassigned'}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleToggleStatus(user)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border transition ${
+                          user.is_active
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                        }`}
+                      >
+                        {user.is_active ? (
+                          <>
+                            <UserCheck className="w-3.5 h-3.5" /> Active
+                          </>
+                        ) : (
+                          <>
+                            <UserX className="w-3.5 h-3.5" /> Disabled
+                          </>
+                        )}
+                      </button>
+                    </td>
+
+                    <td className="px-6 py-4 text-xs text-slate-400 font-mono">
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </td>
+
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-medium rounded-lg transition"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="px-6 py-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
+          <div className="text-xs text-slate-400">
+            Showing Page <span className="font-bold text-slate-200">{page}</span> of <span className="font-bold text-slate-200">{totalPages}</span> ({totalUsers} total users)
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg transition"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Edit User Modal Dialog */}
+      {editModalOpen && currentUser && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-indigo-400" />
+                Edit User Data
+              </h3>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">System Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 capitalize"
+                  >
+                    {rolesList.map((r) => (
+                      <option key={r} value={r}>
+                        {r.replace('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Assigned Store</label>
+                  <select
+                    value={editForm.business_id}
+                    onChange={(e) => setEditForm({ ...editForm, business_id: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">-- No Store Assigned --</option>
+                    {stores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" /> Reset Password (Optional)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Leave blank to keep existing password"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                    className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                  />
+                  Account Active & Enabled
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 bg-slate-800 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-600/30 transition"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

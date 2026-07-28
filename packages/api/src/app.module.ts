@@ -23,6 +23,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     DevToolsModule,
     CategoriesModule,
     ExpensesModule,
+    PlatformAdminModule,
   ],
   controllers: [AppController],
   providers: [],

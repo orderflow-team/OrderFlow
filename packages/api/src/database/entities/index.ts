@@ -28,3 +28,4 @@ export * from './visit.entity';
 export * from './waiter.entity';
 export * from './attendance.entity';
 export * from './commission.entity';
+export * from './user-activity-log.entity';
