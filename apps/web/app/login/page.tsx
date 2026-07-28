@@ -121,7 +121,7 @@ function PasswordLoginForm() {
       const response = await apiClient.post('/auth/login', { email, password });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push(getPostLoginPath(response.data.user.role));
+      window.location.href = getPostLoginPath(response.data.user.role, response.data.user.email);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
@@ -223,7 +223,7 @@ function OtpLoginForm() {
       const response = await apiClient.post('/auth/otp/verify', { email, code });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push(getPostLoginPath(response.data.user.role));
+      window.location.href = getPostLoginPath(response.data.user.role, response.data.user.email);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired code');
     } finally {

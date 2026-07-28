@@ -14,11 +14,18 @@ import {
   RefreshCw,
   ShieldCheck,
   Zap,
+  HeartPulse,
+  Bell,
+  FileSpreadsheet,
+  Cpu,
+  Clock,
+  CheckCircle,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
 export default function AdminOverviewDashboard() {
   const [stats, setStats] = useState<any>(null);
+  const [health, setHealth] = useState<any>(null);
   const [recentSignups, setRecentSignups] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,10 +33,15 @@ export default function AdminOverviewDashboard() {
   const fetchOverview = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/api/platform-admin/overview');
-      setStats(res.data.stats);
-      setRecentSignups(res.data.recentSignups || []);
-      setRecentActivities(res.data.recentActivities || []);
+      const [resOverview, resHealth] = await Promise.all([
+        apiClient.get('/api/platform-admin/overview'),
+        apiClient.get('/api/platform-admin/health').catch(() => null),
+      ]);
+
+      setStats(resOverview.data.stats);
+      setRecentSignups(resOverview.data.recentSignups || []);
+      setRecentActivities(resOverview.data.recentActivities || []);
+      if (resHealth) setHealth(resHealth.data);
     } catch (err) {
       console.error('Failed to load overview metrics:', err);
     } finally {
@@ -45,15 +57,15 @@ export default function AdminOverviewDashboard() {
     {
       title: 'Total Registered Users',
       value: stats?.totalUsers || 0,
-      subtext: `${stats?.activeUsers || 0} Active`,
+      subtext: `${stats?.activeUsers || 0} Active Users`,
       icon: Users,
       color: 'from-blue-600 to-indigo-600',
       href: '/admin/users',
     },
     {
-      title: 'Total Stores / Tenants',
+      title: 'Total Registered Stores',
       value: stats?.totalStores || 0,
-      subtext: `${stats?.activeStores || 0} Stores active`,
+      subtext: `${stats?.activeStores || 0} Active Stores`,
       icon: Store,
       color: 'from-purple-600 to-pink-600',
       href: '/admin/stores',
@@ -61,18 +73,18 @@ export default function AdminOverviewDashboard() {
     {
       title: 'Global Catalog Products',
       value: stats?.totalProducts || 0,
-      subtext: 'Across all stores',
+      subtext: 'Across all tenant stores',
       icon: Package,
       color: 'from-emerald-600 to-teal-600',
       href: '/admin/products',
     },
     {
-      title: 'Total Platform Orders',
+      title: 'Gross Platform Orders',
       value: stats?.totalOrders || 0,
-      subtext: `₹${(stats?.totalRevenue || 0).toLocaleString('en-IN')} GMV`,
+      subtext: `₹${(stats?.totalRevenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })} Gross Volume`,
       icon: ShoppingCart,
       color: 'from-amber-600 to-orange-600',
-      href: '/admin/activity',
+      href: '/admin/orders',
     },
   ];
 
@@ -127,26 +139,89 @@ export default function AdminOverviewDashboard() {
         })}
       </div>
 
-      {/* Direct User Control Highlight CTA */}
-      <div className="bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900 border border-indigo-500/30 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-        <div className="space-y-1">
-          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold rounded-full">
-            Developer Action
-          </span>
-          <h2 className="text-xl font-bold text-white pt-1">
-            Tabular User Data Control Center
-          </h2>
-          <p className="text-slate-300 text-sm">
-            View all platform users in tabular format, inline edit roles, update store assignments, toggle active status, or reset credentials.
-          </p>
+      {/* Quick Developer Action Shortcuts */}
+      <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl space-y-3">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <Zap className="w-4 h-4 text-amber-400" /> Platform Developer Shortcuts
+        </h3>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Link
+            href="/admin/users"
+            className="p-3 bg-slate-950/80 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 rounded-xl transition text-center group"
+          >
+            <Users className="w-5 h-5 text-indigo-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">User Control</span>
+          </Link>
+
+          <Link
+            href="/admin/stores"
+            className="p-3 bg-slate-950/80 hover:bg-purple-950/40 border border-slate-800 hover:border-purple-500/40 rounded-xl transition text-center group"
+          >
+            <Store className="w-5 h-5 text-purple-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">Manage Stores</span>
+          </Link>
+
+          <Link
+            href="/admin/orders"
+            className="p-3 bg-slate-950/80 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 rounded-xl transition text-center group"
+          >
+            <ShoppingCart className="w-5 h-5 text-emerald-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">Live Orders</span>
+          </Link>
+
+          <Link
+            href="/admin/products"
+            className="p-3 bg-slate-950/80 hover:bg-teal-950/40 border border-slate-800 hover:border-teal-500/40 rounded-xl transition text-center group"
+          >
+            <Package className="w-5 h-5 text-teal-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">Global Catalog</span>
+          </Link>
+
+          <Link
+            href="/admin/health"
+            className="p-3 bg-slate-950/80 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-500/40 rounded-xl transition text-center group"
+          >
+            <HeartPulse className="w-5 h-5 text-rose-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">System Health</span>
+          </Link>
+
+          <Link
+            href="/admin/notifications"
+            className="p-3 bg-slate-950/80 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/40 rounded-xl transition text-center group"
+          >
+            <Bell className="w-5 h-5 text-amber-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <span className="text-xs font-semibold text-slate-200 block">Broadcast Alert</span>
+          </Link>
         </div>
-        <Link
-          href="/admin/users"
-          className="flex-shrink-0 px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center gap-2"
-        >
-          <Users className="w-4 h-4" /> Open Users Table
-        </Link>
       </div>
+
+      {/* Mini System Health Summary Bar */}
+      {health && (
+        <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-400">
+              <CheckCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                System Telemetry: <span className="text-emerald-400">{health.status}</span>
+              </div>
+              <div className="text-xs text-slate-400 flex items-center gap-3 mt-0.5">
+                <span>PostgreSQL Latency: <strong className="text-indigo-400 font-mono">{health.database.latencyMs} ms</strong></span>
+                <span>Heap Used: <strong className="text-slate-200 font-mono">{health.system.memoryUsage.heapUsedMb} MB</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/admin/health"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <HeartPulse className="w-4 h-4 text-rose-400" /> Full System Health
+          </Link>
+        </div>
+      )}
 
       {/* Tables Row: Recent Signups & System Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

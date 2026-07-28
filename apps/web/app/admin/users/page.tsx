@@ -52,6 +52,7 @@ export default function AdminUsersPage() {
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
 
@@ -91,7 +92,7 @@ export default function AdminUsersPage() {
           role: selectedRole,
           is_active: selectedStatus,
           page,
-          limit: 10,
+          limit,
         },
       });
       setUsers(res.data.data);
@@ -116,7 +117,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [search, selectedRole, selectedStatus, page]);
+  }, [search, selectedRole, selectedStatus, page, limit]);
 
   useEffect(() => {
     fetchStores();
@@ -192,6 +193,9 @@ export default function AdminUsersPage() {
     }
   };
 
+  const startRecord = (page - 1) * limit + 1;
+  const endRecord = Math.min(page * limit, totalUsers);
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -222,9 +226,30 @@ export default function AdminUsersPage() {
       )}
 
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm flex items-center gap-2">
-          <XCircle className="w-5 h-5 flex-shrink-0" />
-          {error}
+        <div className="p-5 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-2xl text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <XCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
+            <div>
+              <div className="font-bold text-white text-base">Authentication Required</div>
+              <div className="text-rose-300/80 text-xs mt-0.5">
+                {error}. Please log in with an Admin account to access developer platform features.
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href="/signup"
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs rounded-xl shadow transition"
+            >
+              Sign Up as Admin
+            </a>
+            <a
+              href="/login"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition"
+            >
+              Log In
+            </a>
+          </div>
         </div>
       )}
 
@@ -396,24 +421,69 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="px-6 py-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between">
-          <div className="text-xs text-slate-400">
-            Showing Page <span className="font-bold text-slate-200">{page}</span> of <span className="font-bold text-slate-200">{totalPages}</span> ({totalUsers} total users)
+        <div className="px-6 py-4 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-xs text-slate-400">
+            <span>
+              Showing <span className="font-bold text-white">{totalUsers > 0 ? startRecord : 0}</span> to{' '}
+              <span className="font-bold text-white">{endRecord}</span> of{' '}
+              <span className="font-bold text-white">{totalUsers}</span> users
+            </span>
+
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-4">
+              <span>Per page:</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1">
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" /> Previous
             </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((pNum) => pNum === 1 || pNum === totalPages || Math.abs(pNum - page) <= 1)
+              .map((pNum, i, arr) => {
+                const prev = arr[i - 1];
+                const showDots = prev && pNum - prev > 1;
+                return (
+                  <React.Fragment key={pNum}>
+                    {showDots && <span className="px-1 text-slate-600">...</span>}
+                    <button
+                      onClick={() => setPage(pNum)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                        page === pNum
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                      }`}
+                    >
+                      {pNum}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="p-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 rounded-lg transition"
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold rounded-lg transition"
             >
-              <ChevronRight className="w-4 h-4" />
+              Next <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>

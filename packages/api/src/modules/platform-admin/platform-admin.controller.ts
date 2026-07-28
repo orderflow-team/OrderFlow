@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Body,
   Param,
@@ -73,10 +74,11 @@ export class PlatformAdminController {
   @Get('stores')
   getAllStores(
     @Query('search') search?: string,
+    @Query('category') category?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.platformAdminService.getAllStores({ search, page, limit });
+    return this.platformAdminService.getAllStores({ search, category, page, limit });
   }
 
   @Patch('stores/:id')
@@ -108,10 +110,47 @@ export class PlatformAdminController {
   @Get('products-overview')
   getProductsOverview(
     @Query('search') search?: string,
+    @Query('category') category?: string,
     @Query('business_id') business_id?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.platformAdminService.getProductsOverview({ search, business_id, page, limit });
+    return this.platformAdminService.getProductsOverview({ search, category, business_id, page, limit });
+  }
+
+  @Get('orders')
+  getGlobalOrders(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('business_id') business_id?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.platformAdminService.getGlobalOrders({ search, status, business_id, page, limit });
+  }
+
+  @Get('health')
+  getSystemHealth() {
+    return this.platformAdminService.getSystemHealth();
+  }
+
+  @Get('announcement')
+  getAnnouncement() {
+    return this.platformAdminService.getAnnouncement();
+  }
+
+  @Post('announcement')
+  setAnnouncement(@Body() dto: { active: boolean; message: string; type?: string }) {
+    return this.platformAdminService.setAnnouncement(dto);
+  }
+
+  @Post('impersonate/:businessId')
+  impersonateStore(@Param('businessId') businessId: string) {
+    return this.platformAdminService.impersonateStore(businessId);
+  }
+
+  @Get('snapshot')
+  exportSystemSnapshot() {
+    return this.platformAdminService.exportSystemSnapshot();
   }
 }

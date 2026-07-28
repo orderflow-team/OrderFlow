@@ -14,14 +14,15 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    const apiTarget = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
     return [
       {
         source: '/api-proxy/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com'}/:path*`
+        destination: `${apiTarget}/:path*`
       },
       {
         source: '/uploads/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com'}/uploads/:path*`
+        destination: `${apiTarget}/uploads/:path*`
       }
     ];
   }

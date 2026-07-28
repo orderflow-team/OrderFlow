@@ -181,16 +181,16 @@ export default function SelectBusinessPage() {
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      router.push('/login');
+      window.location.href = '/login';
       return;
     }
     const role = getCurrentUser()?.role;
     if (role === 'salesman' || role === 'kitchen_staff') {
-      router.push(getPostLoginPath(role));
+      window.location.href = getPostLoginPath(role);
       return;
     }
     loadBusinesses();
-  }, [router]);
+  }, []);
 
   const handleSelect = async (businessId: string) => {
     setSelecting(businessId);
@@ -199,7 +199,7 @@ export default function SelectBusinessPage() {
       const response = await apiClient.post(`/api/businesses/${businessId}/select`);
       localStorage.setItem('access_token', response.data.access_token);
       setCurrentUser(response.data.user);
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Could not switch business');
       setSelecting(null);

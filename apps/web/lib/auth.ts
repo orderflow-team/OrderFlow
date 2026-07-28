@@ -32,7 +32,8 @@ export function hasRole(...roles: string[]): boolean {
  * owner and never pick between businesses they own — skip /select-business
  * and land straight on the one page they're allowed to see.
  */
-export function getPostLoginPath(role: string | null | undefined): string {
+export function getPostLoginPath(role: string | null | undefined, email?: string | null): string {
+  if (role === 'super_admin' || email === 'admin@orderflow.com') return '/admin';
   if (role === 'salesman') return '/dashboard';
   if (role === 'kitchen_staff') return '/restaurant';
   if (role === 'manager') return '/dashboard';

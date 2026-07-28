@@ -233,13 +233,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      router.push('/login');
+      window.location.href = '/login';
       return;
     }
 
     const user = getCurrentUser();
     if (!user?.businessId) {
-      router.push('/select-business');
+      window.location.href = '/select-business';
       return;
     }
 

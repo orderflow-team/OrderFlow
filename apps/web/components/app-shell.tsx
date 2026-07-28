@@ -204,6 +204,20 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       });
   }, [businessId]);
 
+  const [broadcastAnnouncement, setBroadcastAnnouncement] = useState<any>(null);
+  const [dismissedAlert, setDismissedAlert] = useState(false);
+
+  useEffect(() => {
+    apiClient
+      .get('/api/platform-admin/announcement')
+      .then((res) => {
+        if (res.data?.active) {
+          setBroadcastAnnouncement(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!businessId) return;
     apiClient
@@ -664,6 +678,32 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       )}
 
       <main className={`flex-1 min-w-0 ${hideNavigation ? 'pt-0 pb-0' : 'pt-[60px] pb-16 md:pt-0 md:pb-0'}`}>
+        {broadcastAnnouncement?.active && broadcastAnnouncement?.message && !dismissedAlert && (
+          <div
+            className={`px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b shadow-sm ${
+              broadcastAnnouncement.type === 'critical'
+                ? 'bg-rose-600 text-white border-rose-700'
+                : broadcastAnnouncement.type === 'warning'
+                ? 'bg-amber-500 text-slate-950 border-amber-600'
+                : 'bg-indigo-600 text-white border-indigo-700'
+            }`}
+          >
+            <div className="flex items-center gap-2 max-w-5xl mx-auto flex-1">
+              <span className="text-sm">
+                {broadcastAnnouncement.type === 'critical' ? '🚨' : broadcastAnnouncement.type === 'warning' ? '⚠️' : '📢'}
+              </span>
+              <span><strong>Platform Notification:</strong> {broadcastAnnouncement.message}</span>
+            </div>
+            <button
+              onClick={() => setDismissedAlert(true)}
+              className="p-1 hover:bg-black/10 rounded-lg transition ml-2"
+              title="Dismiss alert"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div key={pathname} className="animate-in fade-in duration-150 ease-out">
           {children}
         </div>

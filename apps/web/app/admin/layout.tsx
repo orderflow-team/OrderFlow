@@ -16,6 +16,9 @@ import {
   ArrowLeft,
   Search,
   UserCheck,
+  ShoppingCart,
+  HeartPulse,
+  Bell,
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user_data');
+    const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
         setUser(JSON.parse(userStr));
@@ -45,9 +48,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       badge: 'All Data',
     },
     {
-      name: 'Stores & Tenants',
+      name: 'Stores',
       href: '/admin/stores',
       icon: Store,
+    },
+    {
+      name: 'Global Orders Stream',
+      href: '/admin/orders',
+      icon: ShoppingCart,
+    },
+    {
+      name: 'Global Catalog',
+      href: '/admin/products',
+      icon: Package,
     },
     {
       name: 'Activity & Audit Logs',
@@ -55,9 +68,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       icon: Activity,
     },
     {
-      name: 'Global Catalog',
-      href: '/admin/products',
-      icon: Package,
+      name: 'System Health & Ping',
+      href: '/admin/health',
+      icon: HeartPulse,
+    },
+    {
+      name: 'Broadcast Alerts',
+      href: '/admin/notifications',
+      icon: Bell,
     },
   ];
 

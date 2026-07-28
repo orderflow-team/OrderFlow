@@ -67,7 +67,19 @@ export class AuthService {
       throw new UnauthorizedException('Account is disabled');
     }
 
+    await this.logActivity(user.id, user.business_id, 'USER_LOGIN', 'Auth', { email: user.email });
+
     return this.issueTokens(user);
+  }
+
+  private async logActivity(userId: string, businessId: string | null, action: string, resource: string, metadata: any) {
+    try {
+      await this.dataSource.query(
+        `INSERT INTO user_activity_logs (id, user_id, business_id, action, resource, metadata, ip_address, created_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '127.0.0.1', NOW())`,
+        [userId || null, businessId || null, action, resource, JSON.stringify(metadata)]
+      );
+    } catch (e) {}
   }
 
   /** Re-signs tokens with the user's current business_id (e.g. after onboarding a workspace). */
