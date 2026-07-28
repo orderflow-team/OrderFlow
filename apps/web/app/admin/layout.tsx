@@ -35,7 +35,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
-        setUser(JSON.parse(userStr));
+        const u = JSON.parse(userStr);
+        setUser(u);
+        if (u.role !== 'super_admin' && u.role !== 'admin' && u.email !== 'admin@orderflow.com') {
+          window.location.href = '/dashboard';
+        }
       } catch (e) {}
     }
   }, []);

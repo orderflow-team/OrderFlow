@@ -13,18 +13,28 @@ export default function Home() {
   const [showLanding, setShowLanding] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token) {
-      router.replace('/select-business');
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const u = JSON.parse(userStr);
+          if (u.role === 'super_admin' || u.email === 'admin@orderflow.com') {
+            window.location.href = '/admin';
+            return;
+          }
+        } catch (e) {}
+      }
+      window.location.href = '/dashboard';
       return;
     }
-    // Mobile visitors skip the marketing page entirely and land straight on login.
+    // Mobile visitors skip marketing landing page and go straight to login
     if (!window.matchMedia(DESKTOP_BREAKPOINT).matches) {
-      router.replace('/login');
+      window.location.href = '/login';
       return;
     }
     setShowLanding(true);
-  }, [router]);
+  }, []);
 
   if (!showLanding) {
     return (

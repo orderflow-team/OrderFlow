@@ -41,7 +41,7 @@ export function getPostLoginPath(role: string | null | undefined, email?: string
   if (role === 'waiter') return '/restaurant';
   if (role === 'accountant') return '/reports';
   if (role === 'delivery_person') return '/orders';
-  return '/select-business';
+  return '/dashboard';
 }
 
 /**
