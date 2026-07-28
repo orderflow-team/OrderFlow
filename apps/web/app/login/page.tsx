@@ -89,13 +89,6 @@ export default function LoginPage() {
           </div>
 
           {mode === 'password' ? <PasswordLoginForm /> : <OtpLoginForm />}
-
-          <p className="text-center text-sm text-slate-600 mt-6">
-            Don't have an account?{' '}
-            <a href="/signup" className="font-semibold text-orange-600 hover:text-orange-700">
-              Sign up
-            </a>
-          </p>
         </div>
       </div>
     </div>
@@ -125,22 +118,6 @@ function PasswordLoginForm() {
       window.location.href = getPostLoginPath(response.data.user.role, response.data.user.email);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSeedSuperAdmin = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await apiClient.post('/api/platform-admin-bootstrap');
-      setEmail('admin@orderflow.com');
-      setPassword('admin123');
-      alert(res.data?.message || 'Super Admin account admin@orderflow.com seeded with password admin123!');
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Could not connect to production backend API to seed admin.');
     } finally {
       setLoading(false);
     }
@@ -204,16 +181,6 @@ function PasswordLoginForm() {
       >
         {loading ? 'Signing in...' : 'Sign In'}
       </Button>
-
-      <div className="pt-2 text-center">
-        <button
-          type="button"
-          onClick={handleSeedSuperAdmin}
-          className="text-xs font-bold text-sky-700 hover:text-sky-800 underline flex items-center justify-center gap-1 mx-auto"
-        >
-          ⚡ Restore / Seed Super Admin (admin@orderflow.com)
-        </button>
-      </div>
     </form>
   );
 }
