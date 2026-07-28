@@ -39,7 +39,7 @@ export default function Home() {
   if (!showLanding) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-slate-400 text-sm">Loading OrderFlow...</p>
+        <p className="text-slate-400 text-sm">Loading OBIX...</p>
       </div>
     );
   }

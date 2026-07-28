@@ -110,7 +110,7 @@ export default function AdminOrdersPage() {
       const url = URL.createObjectURL(csvBlob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `orderflow_global_orders_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `obix_global_orders_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

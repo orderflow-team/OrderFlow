@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OrderFlow - Universal Multi-Industry Platform",
-  description: "Multi-industry order management, billing, inventory & POS",
+  title: "OBIX - Business. Simplified.",
+  description: "Order Billing Inventory eXperience — multi-industry order management, billing, inventory & POS",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "OrderFlow",
+    title: "OBIX",
   },
 };
 

@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       from: fromEmail,
       to: toEmail,
       replyTo: `${name} <${email}>`,
-      subject: `New OrderFlow contact form message — ${categoryLabel}`,
+      subject: `New OBIX contact form message — ${categoryLabel}`,
       text: `Name: ${name}\nEmail: ${email}\nBusiness category: ${categoryLabel}\n\n${message}`,
       html: `
         <p><strong>Name:</strong> ${escapeHtml(name)}</p>

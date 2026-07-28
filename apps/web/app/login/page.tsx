@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath } from '@/lib/auth';
+import { ObixMark } from '@/components/obix-logo';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -35,15 +36,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
           <div
-            className={`w-16 h-16 bg-gradient-to-tr from-emerald-500/90 to-teal-400/90 backdrop-blur-xl rounded-[1.75rem] flex items-center justify-center ring-1 ring-white/50 transform transition-transform hover:scale-105 ${GLASS_SHEEN}`}
+            className={`w-16 h-16 backdrop-blur-xl rounded-[1.75rem] flex items-center justify-center ring-1 ring-white/50 transform transition-transform hover:scale-105 ${GLASS_SHEEN}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 text-white">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-              <line x1="12" y1="22.08" x2="12" y2="12"></line>
-            </svg>
+            <ObixMark className="w-11 h-11" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OrderFlow</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
           <p className="text-slate-600 text-sm font-medium">Sign in to manage your business</p>
           <div className="flex items-center justify-center gap-3 pt-2">
             {BRAND_TILES.map(({ icon: Icon, fg }, i) => (

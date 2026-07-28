@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'OrderFlow',
-    short_name: 'OrderFlow',
-    description: 'Multi-industry order management & billing',
+    name: 'OBIX',
+    short_name: 'OBIX',
+    description: 'Order Billing Inventory eXperience — multi-industry order management & billing',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#f8fafc',

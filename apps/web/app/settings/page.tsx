@@ -223,7 +223,7 @@ export default function SettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: user?.fullName || form.name || 'OrderFlow User',
+          name: user?.fullName || form.name || 'OBIX User',
           email: user?.email || '',
           businessCategory: supportCategory,
           message: supportMessage,

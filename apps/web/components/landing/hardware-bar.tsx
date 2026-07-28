@@ -36,7 +36,7 @@ export function HardwareBar() {
           Works seamlessly with the hardware you already own.
         </h3>
         <p className="text-slate-400 text-base leading-relaxed mb-6">
-          No proprietary hardware lock-in. Connect OrderFlow directly to standard USB/Bluetooth thermal receipt printers, wireless barcode scanners, and digital weighing scales in seconds.
+          No proprietary hardware lock-in. Connect OBIX directly to standard USB/Bluetooth thermal receipt printers, wireless barcode scanners, and digital weighing scales in seconds.
         </p>
 
         {/* Brand Compatibility Badges */}

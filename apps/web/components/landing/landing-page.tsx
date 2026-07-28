@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import { Fraunces } from 'next/font/google';
 import Link from 'next/link';
 import {
-  ShoppingCart,
   Package,
   Receipt,
   Users,
@@ -38,6 +37,7 @@ import { HardwareBar } from './hardware-bar';
 import { FaqSection } from './faq-section';
 import { StepVisualizer } from './step-visualizer';
 import { ContactSection } from './contact-section';
+import { ObixMark } from '@/components/obix-logo';
 
 const OrbitScene = dynamic(() => import('./orbit-scene').then((m) => m.OrbitScene), { ssr: false });
 const FlowPath = dynamic(() => import('./flow-path').then((m) => m.FlowPath), { ssr: false });
@@ -61,7 +61,7 @@ interface StepDef {
 
 const STEPS: StepDef[] = [
   { title: 'Create your account', icon: UserPlus, color: '#0ea5e9', copy: 'Sign up with an email and password — or skip the password and sign in with a one-time code instead.' },
-  { title: 'Pick your business type', icon: Store, color: '#8b5cf6', copy: 'Grocery, restaurant, pharmacy, wholesale, salesman-led, or custom — OrderFlow shows only the screens that business type needs.' },
+  { title: 'Pick your business type', icon: Store, color: '#8b5cf6', copy: 'Grocery, restaurant, pharmacy, wholesale, salesman-led, or custom — OBIX shows only the screens that business type needs.' },
   { title: 'Add what you sell', icon: PackagePlus, color: '#10b981', copy: 'Products, menu items, or medicines, with pricing, stock, and categories set up in minutes.' },
   { title: 'Take orders, send bills', icon: Banknote, color: '#f97316', copy: 'Dine-in, takeaway, or a walk-in sale — every order becomes a GST-ready invoice with one tap.' },
   { title: 'Bring in your team', icon: UserCog, color: '#06b6d4', copy: 'Give a cashier, waiter, or cook their own login, scoped to exactly the screen their job needs.' },
@@ -149,12 +149,8 @@ export function LandingPage() {
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-50/85 border-b border-white/60">
         <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-[100rem] mx-auto">
           <Link href="/" className="flex items-center gap-2.5">
-            <div
-              className={`w-10 h-10 bg-gradient-to-tr from-emerald-600 to-teal-400 backdrop-blur-xl rounded-2xl flex items-center justify-center ring-1 ring-white/60 ${GLASS_SHEEN}`}
-            >
-              <ShoppingCart className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">OrderFlow</span>
+            <ObixMark className="w-10 h-10" />
+            <span className="text-xl font-bold text-slate-900 tracking-tight">OBIX</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -556,11 +552,9 @@ export function LandingPage() {
       <footer className="relative z-10 border-t border-slate-200 py-10 bg-slate-100/60">
         <div className="max-w-[100rem] mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-xs">
-              O
-            </div>
-            <span className="font-bold text-slate-700 text-sm">OrderFlow</span>
-            <span>&copy; {new Date().getFullYear()} OrderFlow Inc. All rights reserved.</span>
+            <ObixMark className="w-7 h-7" />
+            <span className="font-bold text-slate-700 text-sm">OBIX</span>
+            <span>&copy; {new Date().getFullYear()} OBIX. All rights reserved.</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-6 font-semibold">

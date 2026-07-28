@@ -142,7 +142,7 @@ export function BentoGrid() {
 
         {/* Visual Simulated Receipt Strip */}
         <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 font-mono text-[11px] text-slate-800 space-y-1 shadow-sm">
-          <div className="text-center font-bold border-b border-amber-200 pb-1">ORDERFLOW RETAIL STORE</div>
+          <div className="text-center font-bold border-b border-amber-200 pb-1">OBIX RETAIL STORE</div>
           <div className="flex justify-between pt-1"><span>Bill #1092</span><span>22/07/2026</span></div>
           <div className="flex justify-between"><span>1x Parle-G 100g</span><span>₹12.00</span></div>
           <div className="flex justify-between"><span>2x Amul Milk 1L</span><span>₹136.00</span></div>

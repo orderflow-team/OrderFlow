@@ -94,7 +94,7 @@ export default function AdminOverviewDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-500/10 via-card to-card border border-border p-6 rounded-2xl backdrop-blur-md">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">
-            <Zap className="w-4 h-4" /> OrderFlow Developer Engine
+            <Zap className="w-4 h-4" /> OBIX Developer Engine
           </div>
           <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
             Platform Developer Overview

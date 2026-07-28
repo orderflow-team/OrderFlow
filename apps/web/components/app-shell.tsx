@@ -32,6 +32,7 @@ import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, getBusinessTerminology, CustomBusinessSettings, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
+import { ObixMark } from '@/components/obix-logo';
 
 const CORE_PRIMARY_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -477,10 +478,8 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         <aside className="hidden md:flex w-64 bg-white/30 backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm flex-col m-3 mr-0 rounded-[2rem]">
         <div className="px-5 py-6 flex flex-col gap-5 border-b border-white/40 mb-2">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500/90 to-teal-400/90 backdrop-blur-md rounded-xl flex items-center justify-center shrink-0 ring-1 ring-white/40 glass-sheen-sm">
-              <ShoppingCart className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-slate-800 tracking-tight">OrderFlow</span>
+            <ObixMark className="w-8 h-8 shrink-0" />
+            <span className="text-lg font-bold text-slate-800 tracking-tight">OBIX</span>
             <button
               onClick={() => setNotifOpen((v) => !v)}
               className="relative ml-auto text-slate-400 hover:text-slate-700 transition-colors"
@@ -653,7 +652,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       {!hideNavigation && (
         <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
-          <span className="text-base font-bold text-slate-800 tracking-tight">OrderFlow</span>
+          <span className="text-base font-bold text-slate-800 tracking-tight">OBIX</span>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
             <LogOut className="w-5 h-5" />
           </button>

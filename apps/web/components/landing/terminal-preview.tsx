@@ -120,7 +120,7 @@ export function TerminalPreview() {
             <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
           </div>
           <span className="text-xs font-mono text-slate-400 flex items-center gap-2">
-            <span>OrderFlow Live POS Terminal</span>
+            <span>OBIX Live POS Terminal</span>
             <span className="text-slate-600">•</span>
             <span className="text-emerald-400 font-bold">Interactive Mode</span>
           </span>

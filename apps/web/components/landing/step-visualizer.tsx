@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
+import { ObixMark } from '@/components/obix-logo';
 
 interface StepVisualizerProps {
   activeIndex: number;
@@ -43,28 +44,26 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
       {/* Real App Window Top Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-200/80 relative z-10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-tr from-emerald-600 to-teal-400 backdrop-blur-xl rounded-2xl flex items-center justify-center ring-1 ring-white/50 shadow-md">
-            <ShoppingCart className="w-4.5 h-4.5 text-white" />
-          </div>
+          <ObixMark className="w-9 h-9" />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm text-slate-800 tracking-tight">OrderFlow</span>
+              <span className="font-extrabold text-sm text-slate-800 tracking-tight">OBIX</span>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
                 LIVE APP PREVIEW
               </span>
             </div>
             <div className="text-[11px] font-mono text-slate-500">
               {activeIndex === 0
-                ? 'orderflow.io/signup'
+                ? 'obix.io/signup'
                 : activeIndex === 1
-                ? 'orderflow.io/select-business'
+                ? 'obix.io/select-business'
                 : activeIndex === 2
-                ? 'orderflow.io/products/new'
+                ? 'obix.io/products/new'
                 : activeIndex === 3
-                ? 'orderflow.io/counter/billing'
+                ? 'obix.io/counter/billing'
                 : activeIndex === 4
-                ? 'orderflow.io/staff/roles'
-                : 'orderflow.io/dashboard'}
+                ? 'obix.io/staff/roles'
+                : 'obix.io/dashboard'}
             </div>
           </div>
         </div>

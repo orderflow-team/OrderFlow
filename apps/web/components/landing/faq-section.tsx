@@ -12,18 +12,18 @@ interface FAQItem {
 const FAQS: FAQItem[] = [
   {
     category: 'hardware',
-    question: 'Do I need special hardware to run OrderFlow?',
-    answer: 'No. OrderFlow runs in any modern browser on Windows PCs, Android tablets, iPads, or smartphones. You can plug in standard USB/Bluetooth thermal receipt printers (58mm or 80mm) and barcode scanners directly.',
+    question: 'Do I need special hardware to run OBIX?',
+    answer: 'No. OBIX runs in any modern browser on Windows PCs, Android tablets, iPads, or smartphones. You can plug in standard USB/Bluetooth thermal receipt printers (58mm or 80mm) and barcode scanners directly.',
   },
   {
     category: 'gst',
-    question: 'Is OrderFlow compliant with Indian GST laws?',
-    answer: 'Yes! OrderFlow automatically calculates CGST, SGST, and IGST rates based on item HSN codes. It supports B2B invoices with GSTIN validation, B2C thermal bills, and generates monthly GST-ready sales reports.',
+    question: 'Is OBIX compliant with Indian GST laws?',
+    answer: 'Yes! OBIX automatically calculates CGST, SGST, and IGST rates based on item HSN codes. It supports B2B invoices with GSTIN validation, B2C thermal bills, and generates monthly GST-ready sales reports.',
   },
   {
     category: 'offline',
     question: 'What happens if my internet connection drops at the counter?',
-    answer: 'OrderFlow features offline-first local database caching. You can continue taking orders and printing thermal receipts even during an internet outage. Your sales and stock updates automatically sync to the cloud once reconnected.',
+    answer: 'OBIX features offline-first local database caching. You can continue taking orders and printing thermal receipts even during an internet outage. Your sales and stock updates automatically sync to the cloud once reconnected.',
   },
   {
     category: 'general',

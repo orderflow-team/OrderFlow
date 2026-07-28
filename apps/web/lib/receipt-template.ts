@@ -66,7 +66,7 @@ export function buildReceiptHtml(data: ReceiptData): string {
   @media print { body { width: 76mm; } }
 </style>
 </head>
-<body>${escapeHtml(data.business?.name ?? 'OrderFlow')}
+<body>${escapeHtml(data.business?.name ?? 'OBIX')}
 ${escapeHtml(data.business?.address ?? '')}
 ${data.business?.gst_number ? `GSTIN: ${escapeHtml(data.business.gst_number)}` : ''}
 ${line}
