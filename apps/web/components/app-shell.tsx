@@ -163,7 +163,6 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setIsDeliveryRole(hasRole('delivery_person'));
     const role = getCurrentUser()?.role || 'owner';
     setUserRole(role);
-    setCanManageSettings(hasRole('admin'));
     setCanManageStaff(hasRole('admin', 'manager'));
     setCanViewReports(hasRole('admin', 'manager', 'accountant'));
   }, []);
