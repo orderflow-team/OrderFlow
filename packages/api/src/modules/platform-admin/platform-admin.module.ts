@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { Business, User, Product, Order, UserActivityLog } from '../../database/entities';
 import { PlatformAdminService } from './platform-admin.service';
-import { PlatformAdminController, PlatformAdminBootstrapController } from './platform-admin.controller';
+import { PlatformAdminController } from './platform-admin.controller';
 
 @Module({
   imports: [
@@ -13,7 +13,7 @@ import { PlatformAdminController, PlatformAdminBootstrapController } from './pla
       signOptions: { expiresIn: '7d' },
     }),
   ],
-  controllers: [PlatformAdminController, PlatformAdminBootstrapController],
+  controllers: [PlatformAdminController],
   providers: [PlatformAdminService],
   exports: [PlatformAdminService],
 })

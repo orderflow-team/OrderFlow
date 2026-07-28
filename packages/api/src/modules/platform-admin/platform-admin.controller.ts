@@ -154,13 +154,3 @@ export class PlatformAdminController {
     return this.platformAdminService.exportSystemSnapshot();
   }
 }
-
-@Controller('api/platform-admin-bootstrap')
-export class PlatformAdminBootstrapController {
-  constructor(private readonly platformAdminService: PlatformAdminService) {}
-
-  @Post()
-  bootstrap() {
-    return this.platformAdminService.bootstrapSuperAdmin();
-  }
-}
