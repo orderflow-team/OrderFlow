@@ -82,4 +82,16 @@ export class CreateProductDto {
   @IsOptional()
   @IsObject()
   unitPrices?: Record<string, number>;
+
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, any>;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  moq?: number;
+
+  @IsOptional()
+  volumeTiers?: { minQty: number; price: number }[];
 }

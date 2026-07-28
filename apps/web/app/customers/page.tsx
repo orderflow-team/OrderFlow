@@ -21,9 +21,13 @@ interface Customer {
   address: string | null;
   credit_limit: string | number;
   outstanding_amount: string | number;
+  gst_number?: string | null;
+  payment_terms?: string | null;
+  trade_discount_percentage?: string | number | null;
+  custom_fields?: Record<string, any> | null;
 }
 
-const emptyForm = { name: '', phone: '', email: '', address: '', creditLimit: '' };
+const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', creditLimit: '', paymentTerms: 'due_on_receipt', tradeDiscountPercentage: '0' };
 
 function CustomersPageContent() {
   const searchParams = useSearchParams();
@@ -158,9 +162,25 @@ function CustomersPageContent() {
     }
   }, [ready, businessId]);
 
+  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    apiClient
+      .get<{ customSettings?: any }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        const settings = res.data.customSettings;
+        const schema = settings?.customerCustomFields || settings?.customFields || [];
+        setCustomFieldSchema(schema);
+      })
+      .catch(() => {});
+  }, [ready, businessId]);
+
   const openCreateForm = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setCustomFieldValues({});
     setShowForm((s) => (editingId ? true : !s));
   };
 
@@ -171,8 +191,12 @@ function CustomersPageContent() {
       phone: c.phone || '',
       email: c.email || '',
       address: c.address || '',
+      gstNumber: c.gst_number || '',
       creditLimit: String(c.credit_limit ?? ''),
+      paymentTerms: c.payment_terms || 'due_on_receipt',
+      tradeDiscountPercentage: String(c.trade_discount_percentage ?? '0'),
     });
+    setCustomFieldValues(c.custom_fields || {});
     setShowForm(true);
   };
 
@@ -193,7 +217,11 @@ function CustomersPageContent() {
       phone: form.phone || undefined,
       email: form.email || undefined,
       address: form.address || undefined,
+      gstNumber: form.gstNumber || undefined,
       creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
+      paymentTerms: form.paymentTerms || undefined,
+      tradeDiscountPercentage: form.tradeDiscountPercentage ? Number(form.tradeDiscountPercentage) : 0,
+      customFields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
     };
     try {
       if (editingId) {
@@ -317,10 +345,32 @@ function CustomersPageContent() {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
                 <Input
-                  placeholder="Khata Credit Limit (₹ e.g. 10000)"
+                  placeholder="Khata Credit Limit (₹ e.g. 100000)"
                   type="number"
                   value={form.creditLimit}
                   onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+                />
+                <Input
+                  placeholder="GSTIN / Tax ID (e.g. 27AAAAA0000A1Z5)"
+                  value={form.gstNumber}
+                  onChange={(e) => setForm({ ...form, gstNumber: e.target.value })}
+                />
+                <select
+                  value={form.paymentTerms}
+                  onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
+                  className="h-10 w-full rounded-xl border border-input bg-transparent px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="due_on_receipt">Payment Term: Due on Receipt</option>
+                  <option value="net_7">Payment Term: Net 7 Days</option>
+                  <option value="net_15">Payment Term: Net 15 Days</option>
+                  <option value="net_30">Payment Term: Net 30 Days</option>
+                  <option value="net_60">Payment Term: Net 60 Days</option>
+                </select>
+                <Input
+                  placeholder="Trade Discount % (e.g. 5)"
+                  type="number"
+                  value={form.tradeDiscountPercentage}
+                  onChange={(e) => setForm({ ...form, tradeDiscountPercentage: e.target.value })}
                 />
                 <Input
                   placeholder="Store / Delivery Address (e.g. Shop 12, Main Market)"
@@ -328,6 +378,40 @@ function CustomersPageContent() {
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                 />
+
+                {customFieldSchema.length > 0 && (
+                  <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-slate-200/60">
+                    <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-sky-600" /> Custom Customer Attributes
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {customFieldSchema.map((field) => (
+                        <div key={field.name} className="space-y-1">
+                          <label className="text-xs font-medium text-slate-600">{field.name}</label>
+                          {field.type === 'boolean' ? (
+                            <select
+                              value={customFieldValues[field.name] ? 'true' : 'false'}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value === 'true' })}
+                              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none"
+                            >
+                              <option value="false">No</option>
+                              <option value="true">Yes</option>
+                            </select>
+                          ) : (
+                            <Input
+                              type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                              placeholder={`Enter ${field.name}...`}
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
+                              className="h-9 text-xs"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
                 <div className="sm:col-span-2 flex gap-2">
                   <Button type="submit" disabled={saving}>
@@ -365,7 +449,16 @@ function CustomersPageContent() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-800 text-sm truncate">{c.name}</p>
-                      {c.phone && <p className="text-xs text-slate-400 truncate mt-0.5">{c.phone}</p>}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate mt-0.5 flex-wrap">
+                        {c.phone && <span>{c.phone}</span>}
+                        {c.gst_number && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px]">GST: {c.gst_number}</span>}
+                        {c.payment_terms && c.payment_terms !== 'due_on_receipt' && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100/80 text-amber-800 text-[10px] font-semibold uppercase">{c.payment_terms.replace('_', ' ')}</span>
+                        )}
+                        {Number(c.trade_discount_percentage) > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100/80 text-emerald-800 text-[10px] font-bold">Disc: {c.trade_discount_percentage}%</span>
+                        )}
+                      </div>
                     </div>
                   </button>
                   {Number(c.outstanding_amount) > 0.01 && (

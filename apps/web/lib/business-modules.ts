@@ -4,7 +4,7 @@
  * tracking, etc. Core modules (orders/customers/products/billing/reports)
  * are useful to every business type and always shown.
  */
-export type OptionalModule = 'inventory' | 'restaurant' | 'salesman' | 'expenses' | 'staff' | 'loyalty';
+export type OptionalModule = 'inventory' | 'restaurant' | 'salesman' | 'expenses' | 'staff' | 'loyalty' | 'attendance' | 'commissions';
 
 export interface CustomBusinessSettings {
   branding?: {
@@ -31,6 +31,8 @@ export interface CustomBusinessSettings {
     expenses?: boolean;
     staff?: boolean;
     loyalty?: boolean;
+    attendance?: boolean;
+    commissions?: boolean;
   };
   moduleConfig?: {
     inventorySettings?: {
@@ -141,6 +143,8 @@ export interface CustomBusinessSettings {
     operatingHours?: string;
   };
   customFields?: { name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[];
+  productCustomFields?: { name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[];
+  customerCustomFields?: { name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[];
   categories?: string[];
 }
 

@@ -32,4 +32,16 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  customFields?: Record<string, any>;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tradeDiscountPercentage?: number;
 }

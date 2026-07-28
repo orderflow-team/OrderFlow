@@ -57,6 +57,8 @@ const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: 
   expenses: { href: '/billing', label: 'Purchases', icon: Receipt },
   staff: { href: '/staff', label: 'Staff', icon: UserCog },
   loyalty: { href: '/customers', label: 'Loyalty', icon: Users },
+  attendance: { href: '/staff', label: 'Attendance', icon: UserCog },
+  commissions: { href: '/staff', label: 'Commissions', icon: UserCog },
 };
 
 function isActive(pathname: string, href: string) {
@@ -325,7 +327,6 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     if (customSettings?.modules) {
       if (item.href === '/products' && customSettings.modules.products === false) return false;
       if (item.href === '/orders' && customSettings.modules.orders === false) return false;
-      if (item.href === '/customers' && customSettings.modules.customers === false) return false;
       if (item.href === '/billing' && customSettings.modules.billing === false && customSettings.modules.expenses === false) return false;
       if (item.href === '/reports' && customSettings.modules.reports === false) return false;
       if (item.href === '/staff' && customSettings.modules.staff === false) return false;
@@ -341,10 +342,11 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     return true;
   });
 
-  // Safety net: if a category-restricted module is hidden, bounce away from its URL.
+  // Safety net: if a standalone optional module is hidden, bounce away from its URL.
   useEffect(() => {
     if (!optionalModules) return;
-    const hiddenHit = (Object.keys(OPTIONAL_NAV) as OptionalModule[])
+    const standaloneModules: OptionalModule[] = ['inventory', 'restaurant', 'salesman'];
+    const hiddenHit = standaloneModules
       .filter((m) => !optionalModules.includes(m))
       .some((m) => isActive(pathname, OPTIONAL_NAV[m].href));
     if (hiddenHit) {

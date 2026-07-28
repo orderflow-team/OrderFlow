@@ -45,6 +45,8 @@ interface SeedProduct {
   expiryDate?: string;
   description?: string;
   imageUrl?: string;
+  moq?: number;
+  volumeTiers?: { minQty: number; price: number }[];
 }
 
 /** Bundled demo dish photos (uploads/seed/*.jpg, served statically at /uploads/seed). */
@@ -98,10 +100,78 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         ];
       case 'wholesale':
         return [
-          { name: 'Tata Salt', category: 'Wholesale', unit: 'box', purchasePrice: 320, sellingPrice: 380, taxPercentage: 5, stockQuantity: 15 },
-          { name: 'Aashirvaad Atta', category: 'Wholesale', unit: 'pkt', purchasePrice: 215, sellingPrice: 250, taxPercentage: 5, stockQuantity: 8 },
-          { name: 'Fortune Sunflower Oil', category: 'Wholesale', unit: 'box', purchasePrice: 1900, sellingPrice: 2150, taxPercentage: 5, stockQuantity: 12 },
-          { name: 'Sugar', category: 'Wholesale', unit: 'pkt', purchasePrice: 2100, sellingPrice: 2300, taxPercentage: 5, stockQuantity: 6 },
+          {
+            name: 'Grade A White Sugar (50kg Sack)',
+            category: 'Grains & Pulses',
+            unit: 'sack',
+            purchasePrice: 1650,
+            sellingPrice: 1950,
+            taxPercentage: 5,
+            stockQuantity: 250,
+            moq: 10,
+            volumeTiers: [
+              { minQty: 25, price: 1850 },
+              { minQty: 100, price: 1780 },
+            ],
+            batchNumber: 'SUG-2026-B1',
+          },
+          {
+            name: 'Fortune Sunflower Oil (15L Tin)',
+            category: 'Edible Oils',
+            unit: 'tin',
+            purchasePrice: 1820,
+            sellingPrice: 2150,
+            taxPercentage: 5,
+            stockQuantity: 120,
+            moq: 5,
+            volumeTiers: [
+              { minQty: 20, price: 2050 },
+              { minQty: 50, price: 1980 },
+            ],
+            batchNumber: 'OIL-2026-T9',
+          },
+          {
+            name: 'Aashirvaad Whole Wheat Atta (10kg Bag)',
+            category: 'Grains & Pulses',
+            unit: 'bag',
+            purchasePrice: 310,
+            sellingPrice: 380,
+            taxPercentage: 5,
+            stockQuantity: 500,
+            moq: 20,
+            volumeTiers: [
+              { minQty: 50, price: 360 },
+              { minQty: 200, price: 340 },
+            ],
+            batchNumber: 'ATT-2026-M4',
+          },
+          {
+            name: 'Maggi Noodles Family Pack (24 Cartons)',
+            category: 'FMCG Commodities',
+            unit: 'carton',
+            purchasePrice: 1200,
+            sellingPrice: 1440,
+            taxPercentage: 12,
+            stockQuantity: 150,
+            moq: 5,
+            volumeTiers: [
+              { minQty: 15, price: 1380 },
+              { minQty: 50, price: 1320 },
+            ],
+            batchNumber: 'MGI-2026-F1',
+          },
+          {
+            name: 'Tata Premium Tea (1kg Pack)',
+            category: 'Packaged Commodities',
+            unit: 'box',
+            purchasePrice: 410,
+            sellingPrice: 480,
+            taxPercentage: 5,
+            stockQuantity: 300,
+            moq: 10,
+            volumeTiers: [{ minQty: 30, price: 450 }],
+            batchNumber: 'TEA-2026-P3',
+          },
         ];
       case 'salesman':
         return [
@@ -190,7 +260,11 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
     const [itemA, itemB, itemC, itemD] = products;
 
     // --- Customers: same idempotent approach, matched by phone ---
-    const demoCustomerSpecs = [
+    const demoCustomerSpecs = category === 'wholesale' ? [
+      { name: 'Sunrise Wholesalers & Distributors', phone: '9820000001', address: 'APMC Market, Vashi, Navi Mumbai', gstNumber: '27AAACS1234F1Z0', creditLimit: 500000, paymentTerms: 'net_30', tradeDiscountPercentage: 5 },
+      { name: 'Apex Kirana Mart B2B', phone: '9820000002', address: 'Commercial Complex, Sector 18, Noida', gstNumber: '27BBAPA5678G2Z1', creditLimit: 250000, paymentTerms: 'net_15', tradeDiscountPercentage: 3 },
+      { name: 'Royal Commercial Traders', phone: '9820000004', address: 'Grain Market, Wholesale Hub, Delhi', gstNumber: '27CCROY9012H3Z2', creditLimit: 150000, paymentTerms: 'due_on_receipt', tradeDiscountPercentage: 2 },
+    ] : [
       { name: 'Ramesh Kirana Store', phone: '9820000001', address: 'MG Road, Pune', creditLimit: 20000 },
       { name: 'Sunita General Store', phone: '9820000002', address: 'Sector 21, Noida', creditLimit: 10000 },
       { name: 'Walk-in Customer', phone: '9820000004' },

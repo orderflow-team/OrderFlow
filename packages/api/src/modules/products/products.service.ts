@@ -47,6 +47,9 @@ export class ProductsService {
       is_available: dto.isAvailable ?? true,
       is_draft: dto.isDraft ?? false,
       unit_prices: dto.unitPrices ?? null,
+      custom_fields: dto.customFields ?? null,
+      moq: dto.moq ?? 1,
+      volume_tiers: dto.volumeTiers ?? null,
     });
     return this.productsRepository.save(product);
   }
@@ -159,6 +162,9 @@ export class ProductsService {
       is_available: dto.isAvailable !== undefined ? dto.isAvailable : product.is_available,
       is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,
       unit_prices: dto.unitPrices !== undefined ? dto.unitPrices : product.unit_prices,
+      custom_fields: dto.customFields !== undefined ? dto.customFields : product.custom_fields,
+      moq: dto.moq !== undefined ? dto.moq : product.moq,
+      volume_tiers: dto.volumeTiers !== undefined ? dto.volumeTiers : product.volume_tiers,
     });
     const saved = await this.productsRepository.save(product);
 

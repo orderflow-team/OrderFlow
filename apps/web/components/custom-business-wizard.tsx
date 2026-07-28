@@ -105,6 +105,8 @@ export function CustomBusinessWizard({
     expenses: true,
     staff: false,
     loyalty: true,
+    attendance: false,
+    commissions: false,
   });
 
   const [lowStockAlertThreshold, setLowStockAlertThreshold] = useState('10');
@@ -159,13 +161,19 @@ export function CustomBusinessWizard({
   const [staffLabel, setStaffLabel] = useState('Staff');
   const [categoriesText, setCategoriesText] = useState('General Services, Standard Items');
 
-  const [customFields, setCustomFields] = useState<{ name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[]>([
+  const [productCustomFields, setProductCustomFields] = useState<{ name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[]>([
     { name: 'Warranty Period', type: 'text' },
     { name: 'Batch / Lot #', type: 'text' },
   ]);
+  const [newProdFieldName, setNewProdFieldName] = useState('');
+  const [newProdFieldType, setNewProdFieldType] = useState<'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'>('text');
 
-  const [newFieldName, setNewFieldName] = useState('');
-  const [newFieldType, setNewFieldType] = useState<'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'>('text');
+  const [customerCustomFields, setCustomerCustomFields] = useState<{ name: string; type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'; options?: string[] }[]>([
+    { name: 'Date of Birth', type: 'date' },
+    { name: 'Membership ID', type: 'text' },
+  ]);
+  const [newCustFieldName, setNewCustFieldName] = useState('');
+  const [newCustFieldType, setNewCustFieldType] = useState<'text' | 'number' | 'date' | 'boolean' | 'options' | 'file'>('text');
 
   const [error, setError] = useState('');
 
@@ -315,8 +323,8 @@ export function CustomBusinessWizard({
   };
 
   const addQuickField = (name: string, type: 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file') => {
-    if (customFields.some((f) => f.name.toLowerCase() === name.toLowerCase())) return;
-    setCustomFields((prev) => [...prev, { name, type }]);
+    if (productCustomFields.some((f) => f.name.toLowerCase() === name.toLowerCase())) return;
+    setProductCustomFields((prev) => [...prev, { name, type }]);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -349,16 +357,6 @@ export function CustomBusinessWizard({
     setPaymentMethods((prev) =>
       prev.includes(method) ? prev.filter((m) => m !== method) : [...prev, method]
     );
-  };
-
-  const addCustomField = () => {
-    if (!newFieldName.trim()) return;
-    setCustomFields((prev) => [...prev, { name: newFieldName.trim(), type: newFieldType }]);
-    setNewFieldName('');
-  };
-
-  const removeCustomField = (index: number) => {
-    setCustomFields((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleNext = () => {
@@ -403,6 +401,8 @@ export function CustomBusinessWizard({
         expenses: modules.expenses,
         staff: modules.staff,
         loyalty: modules.loyalty,
+        attendance: modules.attendance,
+        commissions: modules.commissions,
       },
       moduleConfig: {
         inventorySettings: {
@@ -477,7 +477,9 @@ export function CustomBusinessWizard({
         enableKhataCredit: true,
         operatingHours: '09:00 AM - 09:00 PM',
       },
-      customFields,
+      customFields: [...productCustomFields, ...customerCustomFields],
+      productCustomFields,
+      customerCustomFields,
       categories: parsedCategories,
     };
 
@@ -941,6 +943,40 @@ export function CustomBusinessWizard({
                 <div className="flex-1">
                   <span className="text-xs font-semibold text-slate-800 block">Loyalty & Rewards</span>
                   <span className="text-[11px] text-slate-500">Reward points & discount coupons</span>
+                </div>
+              </label>
+
+              <label
+                onClick={() => toggleModule('attendance')}
+                className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
+                  modules.attendance
+                    ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-400/50'
+                    : 'border-slate-200 bg-white/40 opacity-70'
+                }`}
+              >
+                <div className={`p-2 rounded-xl ${modules.attendance ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-xs font-semibold text-slate-800 block">Staff Shift Attendance</span>
+                  <span className="text-[11px] text-slate-500">Clock In/Out & monthly shift roster</span>
+                </div>
+              </label>
+
+              <label
+                onClick={() => toggleModule('commissions')}
+                className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
+                  modules.commissions
+                    ? 'border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-400/50'
+                    : 'border-slate-200 bg-white/40 opacity-70'
+                }`}
+              >
+                <div className={`p-2 rounded-xl ${modules.commissions ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                  <Percent className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-xs font-semibold text-slate-800 block">Staff & Sales Commissions</span>
+                  <span className="text-[11px] text-slate-500">Commission rates & sales payouts</span>
                 </div>
               </label>
             </div>
@@ -1454,10 +1490,13 @@ export function CustomBusinessWizard({
               </div>
             </div>
 
-            {/* Quick Field Suggestions & Rich Attribute Creator */}
-            <div className="pt-2 border-t border-slate-200/60 space-y-2.5">
-              <div>
-                <span className="text-xs font-semibold text-slate-700 block mb-1">Quick Custom Attribute Suggestions</span>
+            {/* Custom Product & Customer Field Builders */}
+            <div className="pt-3 border-t border-slate-200/60 space-y-4">
+              {/* 1. Custom Product Attributes */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-emerald-600" /> Custom Product Attribute Fields
+                </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {[
                     { name: 'Warranty Period', type: 'text' },
@@ -1466,54 +1505,140 @@ export function CustomBusinessWizard({
                     { name: 'HSN / SAC Code', type: 'text' },
                     { name: 'Brand Name', type: 'text' },
                     { name: 'Storage Temp', type: 'text' },
-                    { name: 'Is Prescribed Only?', type: 'boolean' },
                   ].map((q) => (
                     <button
                       key={q.name}
                       type="button"
-                      onClick={() => addQuickField(q.name, q.type as any)}
+                      onClick={() => {
+                        if (!productCustomFields.some((f) => f.name.toLowerCase() === q.name.toLowerCase())) {
+                          setProductCustomFields((prev) => [...prev, { name: q.name, type: q.type as any }]);
+                        }
+                      }}
                       className="px-2.5 py-1 rounded-full border border-slate-200 bg-white/60 text-slate-700 text-[11px] hover:bg-emerald-50 hover:border-emerald-500 transition-colors"
                     >
                       + {q.name}
                     </button>
                   ))}
                 </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add Product Field (e.g. Color, Serial #)"
+                    value={newProdFieldName}
+                    onChange={(e) => setNewProdFieldName(e.target.value)}
+                    className="bg-white/50 h-9 text-xs flex-1"
+                  />
+                  <select
+                    value={newProdFieldType}
+                    onChange={(e) => setNewProdFieldType(e.target.value as any)}
+                    className="h-9 rounded-xl border border-slate-200 bg-white/50 px-2.5 text-xs outline-none"
+                  >
+                    <option value="text">Text Input</option>
+                    <option value="number">Number Input</option>
+                    <option value="date">Date Picker</option>
+                    <option value="boolean">Yes/No Switch</option>
+                    <option value="options">Dropdown Options</option>
+                  </select>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (newProdFieldName.trim()) {
+                        setProductCustomFields((prev) => [...prev, { name: newProdFieldName.trim(), type: newProdFieldType }]);
+                        setNewProdFieldName('');
+                      }
+                    }}
+                    className="h-9 px-3 rounded-xl text-xs bg-emerald-600 text-white"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Product Field
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {productCustomFields.map((field, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50/80 border border-emerald-200 text-xs font-medium text-emerald-800">
+                      {field.name} ({field.type})
+                      <button
+                        type="button"
+                        onClick={() => setProductCustomFields((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-emerald-700 hover:text-rose-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              <span className="text-xs font-semibold text-slate-700 block">Add Custom Product Attribute Field</span>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Field Name (e.g. Serial #, Rack #)"
-                  value={newFieldName}
-                  onChange={(e) => setNewFieldName(e.target.value)}
-                  className="bg-white/50 h-9 text-xs flex-1"
-                />
-                <select
-                  value={newFieldType}
-                  onChange={(e) => setNewFieldType(e.target.value as any)}
-                  className="h-9 rounded-xl border border-slate-200 bg-white/50 px-2.5 text-xs outline-none"
-                >
-                  <option value="text">Text Input</option>
-                  <option value="number">Number Input</option>
-                  <option value="date">Date Picker</option>
-                  <option value="boolean">Yes/No Switch</option>
-                  <option value="options">Dropdown Options</option>
-                  <option value="file">Document / PDF Attachment</option>
-                </select>
-                <Button type="button" onClick={addCustomField} className="h-9 px-3 rounded-xl text-xs bg-emerald-600 text-white">
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {customFields.map((field, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/70 border border-slate-200 text-xs font-medium text-slate-700">
-                    {field.name} ({field.type})
-                    <button type="button" onClick={() => removeCustomField(idx)} className="text-rose-500 hover:text-rose-700">
-                      <Trash2 className="w-3 h-3" />
+              {/* 2. Custom Customer Attributes */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-sky-600" /> Custom Customer Attribute Fields
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { name: 'Date of Birth', type: 'date' },
+                    { name: 'Membership ID', type: 'text' },
+                    { name: 'Company Name', type: 'text' },
+                    { name: 'Alternate Phone', type: 'text' },
+                    { name: 'Referral Source', type: 'text' },
+                  ].map((q) => (
+                    <button
+                      key={q.name}
+                      type="button"
+                      onClick={() => {
+                        if (!customerCustomFields.some((f) => f.name.toLowerCase() === q.name.toLowerCase())) {
+                          setCustomerCustomFields((prev) => [...prev, { name: q.name, type: q.type as any }]);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-full border border-slate-200 bg-white/60 text-slate-700 text-[11px] hover:bg-sky-50 hover:border-sky-500 transition-colors"
+                    >
+                      + {q.name}
                     </button>
-                  </span>
-                ))}
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add Customer Field (e.g. DOB, Company Name)"
+                    value={newCustFieldName}
+                    onChange={(e) => setNewCustFieldName(e.target.value)}
+                    className="bg-white/50 h-9 text-xs flex-1"
+                  />
+                  <select
+                    value={newCustFieldType}
+                    onChange={(e) => setNewCustFieldType(e.target.value as any)}
+                    className="h-9 rounded-xl border border-slate-200 bg-white/50 px-2.5 text-xs outline-none"
+                  >
+                    <option value="text">Text Input</option>
+                    <option value="number">Number Input</option>
+                    <option value="date">Date Picker</option>
+                    <option value="boolean">Yes/No Switch</option>
+                    <option value="options">Dropdown Options</option>
+                  </select>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (newCustFieldName.trim()) {
+                        setCustomerCustomFields((prev) => [...prev, { name: newCustFieldName.trim(), type: newCustFieldType }]);
+                        setNewCustFieldName('');
+                      }
+                    }}
+                    className="h-9 px-3 rounded-xl text-xs bg-sky-600 text-white"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Add Customer Field
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {customerCustomFields.map((field, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-50/80 border border-sky-200 text-xs font-medium text-sky-800">
+                      {field.name} ({field.type})
+                      <button
+                        type="button"
+                        onClick={() => setCustomerCustomFields((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-sky-700 hover:text-rose-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -1614,7 +1739,7 @@ export function CustomBusinessWizard({
                   <div>Receipt Format: <strong className="text-slate-800">{receiptTemplate} ({paperSize})</strong></div>
                   <div>Entity Preset: <strong className="text-slate-800 capitalize">{terminologyPreset}</strong></div>
                   <div className="col-span-2">
-                    Custom Attributes ({customFields.length}): <strong className="text-slate-800">{customFields.map((f) => `${f.name} (${f.type})`).join(', ') || 'None'}</strong>
+                    Custom Attributes ({productCustomFields.length + customerCustomFields.length}): <strong className="text-slate-800">{[...productCustomFields, ...customerCustomFields].map((f) => `${f.name} (${f.type})`).join(', ') || 'None'}</strong>
                   </div>
                 </div>
               </div>

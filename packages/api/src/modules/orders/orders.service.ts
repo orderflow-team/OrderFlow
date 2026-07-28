@@ -80,7 +80,15 @@ export class OrdersService {
     }
 
     if (product) {
-      return { unitPrice: Number(product.selling_price), taxPercentage: Number(product.tax_percentage) };
+      let unitPrice = Number(product.selling_price);
+      if (Array.isArray(product.volume_tiers) && product.volume_tiers.length > 0) {
+        const sortedTiers = [...product.volume_tiers].sort((a, b) => Number(b.minQty) - Number(a.minQty));
+        const matchedTier = sortedTiers.find((t) => Number(item.quantity) >= Number(t.minQty));
+        if (matchedTier && matchedTier.price !== undefined) {
+          unitPrice = Number(matchedTier.price);
+        }
+      }
+      return { unitPrice, taxPercentage: Number(product.tax_percentage) };
     }
 
     throw new BadRequestException(

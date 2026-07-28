@@ -1,0 +1,523 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, Package, Layers, ShieldCheck, TrendingDown, Box, Layers3, Sparkles } from 'lucide-react';
+import apiClient from '@/lib/api-client';
+import { AppShell } from '@/components/app-shell';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CategoryFilterPills } from '@/components/category-filter-pills';
+import { getDefaultItemCategories } from '@/lib/business-modules';
+import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
+import { ClearModuleButton } from '@/components/clear-module-button';
+
+interface VolumeTier {
+  minQty: number;
+  price: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  brand: string | null;
+  sku: string | null;
+  barcode: string | null;
+  category: string | null;
+  unit: string;
+  selling_price: string | number;
+  purchase_price: string | number | null;
+  tax_percentage: string | number;
+  stock_quantity: number;
+  batch_number: string | null;
+  expiry_date: string | null;
+  description: string | null;
+  is_available: boolean;
+  is_draft?: boolean;
+  moq?: number;
+  volume_tiers?: VolumeTier[] | null;
+  custom_fields?: Record<string, any> | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+const emptyForm = {
+  name: '',
+  brand: '',
+  sku: '',
+  barcode: '',
+  category: '',
+  unit: 'box',
+  sellingPrice: '',
+  purchasePrice: '',
+  taxPercentage: '18',
+  stockQuantity: '100',
+  batchNumber: '',
+  expiryDate: '',
+  description: '',
+  moq: '10',
+  volumeTiers: [] as { minQty: string; price: string }[],
+};
+
+export function WholesaleGrid({ businessId }: { businessId: string }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [inventoryEnabled, setInventoryEnabled] = useState(true);
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState(emptyForm);
+
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const isSeeding = useRef(false);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const cached = getCachedInventoryEnabled(businessId);
+    if (cached !== null) setInventoryEnabled(cached);
+    apiClient
+      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        setInventoryEnabled(res.data.inventory_enabled);
+        setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+      })
+      .catch(() => {});
+  }, [businessId]);
+
+  const loadData = async () => {
+    if (!businessId) return;
+    setLoading(true);
+    try {
+      const [prodRes, catRes] = await Promise.all([
+        apiClient.get<Product[]>('/api/products', { params: { businessId } }),
+        apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
+      ]);
+
+      setProducts(prodRes.data);
+
+      let cats = catRes.data;
+      if (cats.length === 0 && !isSeeding.current) {
+        isSeeding.current = true;
+        const defaults = getDefaultItemCategories('wholesale');
+        await Promise.all(
+          defaults.map((name) => apiClient.post('/api/categories', { businessId, name }).catch(() => null))
+        );
+        const freshCatRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId } });
+        cats = freshCatRes.data;
+      }
+      setCategories(cats);
+    } catch (err) {
+      console.error('Failed to load wholesale products', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [businessId]);
+
+  const openCreateForm = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm, category: categories[0]?.name || '' });
+    setShowForm(true);
+  };
+
+  const openEditForm = (p: Product) => {
+    setEditingId(p.id);
+    setForm({
+      name: p.name,
+      brand: p.brand || '',
+      sku: p.sku || '',
+      barcode: p.barcode || '',
+      category: p.category || '',
+      unit: p.unit || 'box',
+      sellingPrice: String(p.selling_price ?? ''),
+      purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
+      taxPercentage: String(p.tax_percentage ?? '18'),
+      stockQuantity: String(p.stock_quantity ?? '0'),
+      batchNumber: p.batch_number || '',
+      expiryDate: p.expiry_date ? p.expiry_date.split('T')[0] : '',
+      description: p.description || '',
+      moq: String(p.moq ?? '10'),
+      volumeTiers: Array.isArray(p.volume_tiers)
+        ? p.volume_tiers.map((t) => ({ minQty: String(t.minQty), price: String(t.price) }))
+        : [],
+    });
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId) return;
+    setSaving(true);
+    setError('');
+
+    const volumeTiers = form.volumeTiers
+      .filter((t) => t.minQty.trim() && t.price.trim())
+      .map((t) => ({ minQty: Number(t.minQty), price: Number(t.price) }));
+
+    const payload = {
+      name: form.name,
+      brand: form.brand || undefined,
+      sku: form.sku || undefined,
+      barcode: form.barcode || undefined,
+      category: form.category || undefined,
+      unit: form.unit || 'box',
+      sellingPrice: Number(form.sellingPrice),
+      purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
+      stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
+      batchNumber: form.batchNumber || undefined,
+      expiryDate: form.expiryDate || undefined,
+      description: form.description || undefined,
+      moq: form.moq ? Number(form.moq) : 1,
+      volumeTiers: volumeTiers.length > 0 ? volumeTiers : undefined,
+    };
+
+    try {
+      if (editingId) {
+        await apiClient.patch(`/api/products/${editingId}`, payload, { params: { businessId } });
+      } else {
+        await apiClient.post('/api/products', { businessId, ...payload });
+      }
+      setShowForm(false);
+      loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save product');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!businessId) return;
+    if (!confirm('Are you sure you want to delete this wholesale item?')) return;
+    try {
+      await apiClient.delete(`/api/products/${id}`, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error('Failed to delete item', err);
+    }
+  };
+
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId || !categoryName.trim()) return;
+    try {
+      await apiClient.post('/api/categories', { businessId, name: categoryName.trim() });
+      setCategoryName('');
+      setShowCategoryForm(false);
+      loadData();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to create category');
+    }
+  };
+
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
+      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
+      (p.batch_number && p.batch_number.toLowerCase().includes(search.toLowerCase()));
+    const matchesCat = !selectedCategory || p.category === selectedCategory;
+    return matchesSearch && matchesCat;
+  });
+
+  return (
+    <AppShell>
+      <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
+              <Box className="w-6 h-6 text-amber-600" /> Wholesale & B2B Inventory Matrix
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Manage bulk stocks, minimum order quantities (MOQ), volume tier pricing, and distributor packaging.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={openCreateForm} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-md">
+              <Plus className="w-4 h-4" /> Add Bulk Product
+            </Button>
+          </div>
+        </div>
+
+        {/* Search & Category Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search bulk items, brand, SKU code or batch #"
+              className="h-11 pl-4 rounded-xl bg-white/70 backdrop-blur-md text-sm ring-1 ring-slate-200"
+            />
+          </div>
+          <Button type="button" variant="outline" className="h-11 gap-1.5 shrink-0" onClick={() => setShowCategoryForm(true)}>
+            <FolderPlus className="h-4 w-4" /> Add Category
+          </Button>
+          {businessId && <ClearModuleButton module="products" businessId={businessId} />}
+        </div>
+
+        {/* Category Pills */}
+        <CategoryFilterPills
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelect={setSelectedCategory}
+          totalCount={products.length}
+          countFor={(catName) => products.filter((p) => p.category === catName).length}
+        />
+
+        {/* New / Edit Dialog */}
+        <Dialog open={showForm} onOpenChange={setShowForm}>
+          <DialogContent className="sm:max-w-[650px] p-6 max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Box className="w-5 h-5 text-amber-600" /> {editingId ? 'Edit Wholesale Product' : 'New Bulk Product'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Product Name *</label>
+                  <Input
+                    placeholder="e.g. Grade A White Sugar (50kg Sack) or Sunflower Oil 15L Tin"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Brand / Manufacturer</label>
+                  <Input placeholder="e.g. Fortune, Tata, Pioneer" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Category</label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs outline-none"
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  >
+                    <option value="">No category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">SKU / Batch Code</label>
+                  <Input placeholder="e.g. WLS-SUG-50K" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Packaging Unit</label>
+                  <Input placeholder="e.g. sack, carton, tin, box, bag, quintal" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Standard Wholesale Rate (₹) *</label>
+                  <Input type="number" placeholder="e.g. 1850" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} required />
+                </div>
+                {inventoryEnabled && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Cost / Purchase Price (₹)</label>
+                    <Input type="number" placeholder="e.g. 1620" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">GST Tax %</label>
+                  <Input type="number" placeholder="e.g. 5, 12, 18" value={form.taxPercentage} onChange={(e) => setForm({ ...form, taxPercentage: e.target.value })} />
+                </div>
+                {inventoryEnabled && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Bulk Stock Quantity ({form.unit || 'units'})</label>
+                    <Input type="number" placeholder="e.g. 500" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Minimum Order Quantity (MOQ)</label>
+                  <Input type="number" placeholder="e.g. 10" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Batch / Lot #</label>
+                  <Input placeholder="e.g. BATCH-2026-X9" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} />
+                </div>
+              </div>
+
+              {/* Volume Pricing Tiers */}
+              <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                    <TrendingDown className="w-4 h-4 text-amber-600" /> Quantity Volume Tier Rates (Optional)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, volumeTiers: [...form.volumeTiers, { minQty: '', price: '' }] })}
+                    className="text-xs font-semibold text-amber-700 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Tier
+                  </button>
+                </div>
+                {form.volumeTiers.map((tier, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min Qty (e.g. 50)"
+                      value={tier.minQty}
+                      onChange={(e) => {
+                        const next = [...form.volumeTiers];
+                        next[idx].minQty = e.target.value;
+                        setForm({ ...form, volumeTiers: next });
+                      }}
+                      className="h-9 text-xs flex-1 bg-white"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Special Rate ₹ (e.g. 1750)"
+                      value={tier.price}
+                      onChange={(e) => {
+                        const next = [...form.volumeTiers];
+                        next[idx].price = e.target.value;
+                        setForm({ ...form, volumeTiers: next });
+                      }}
+                      className="h-9 text-xs flex-1 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, volumeTiers: form.volumeTiers.filter((_, i) => i !== idx) })}
+                      className="p-2 text-slate-400 hover:text-rose-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
+                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+                <Button type="submit" disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white">
+                  {saving ? 'Saving...' : 'Save Wholesale Item'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Category Add Modal */}
+        <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
+          <DialogContent className="sm:max-w-[400px] p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Add Wholesale Category</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCategorySubmit} className="space-y-4 pt-2">
+              <Input placeholder="Category Name (e.g. Grains & Pulses, Oils, Spices)" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} required />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setShowCategoryForm(false)}>Cancel</Button>
+                <Button type="submit">Save Category</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Products Grid */}
+        {loading ? (
+          <p className="p-10 text-center text-slate-400 text-sm">Loading wholesale catalog...</p>
+        ) : filteredProducts.length === 0 ? (
+          <Card className="p-12 text-center bg-white/60 backdrop-blur-md border-dashed border-amber-300">
+            <Box className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-slate-800">No Wholesale Products Found</h3>
+            <p className="text-xs text-slate-500 mb-4">Start by adding your first bulk commodity or wholesale product.</p>
+            <Button onClick={openCreateForm} className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5 mx-auto shadow-md">
+              <Plus className="w-4 h-4" /> Add Bulk Product
+            </Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredProducts.map((p) => (
+              <Card key={p.id} className="relative overflow-hidden ring-1 ring-slate-200/80 bg-white/80 backdrop-blur-md hover:shadow-lg transition-all border-l-4 border-l-amber-500">
+                <CardContent className="p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-base leading-tight">{p.name}</h3>
+                      {p.brand && <p className="text-xs font-semibold text-amber-700 mt-0.5">{p.brand}</p>}
+                    </div>
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
+                      {p.category || 'General'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase">Base Rate</span>
+                      <span className="font-bold text-slate-800 text-sm">₹{Number(p.selling_price).toFixed(2)} <span className="text-xs text-slate-500 font-normal">/ {p.unit}</span></span>
+                    </div>
+                    {inventoryEnabled && (
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase">Stock</span>
+                        <span className={`font-bold text-sm ${p.stock_quantity <= 10 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                          {p.stock_quantity} {p.unit}s
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MOQ & Batch Badges */}
+                  <div className="flex items-center gap-2 text-[11px] flex-wrap">
+                    <span className="px-2 py-0.5 rounded bg-amber-100/80 text-amber-800 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> MOQ: {p.moq || 1} {p.unit}s
+                    </span>
+                    {p.sku && (
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                        SKU: {p.sku}
+                      </span>
+                    )}
+                    {Number(p.tax_percentage) > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">
+                        GST {p.tax_percentage}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Volume Tiers Table */}
+                  {Array.isArray(p.volume_tiers) && p.volume_tiers.length > 0 && (
+                    <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-200/50 text-[11px] space-y-1">
+                      <span className="font-bold text-amber-900 block text-[10px] uppercase">Volume Discounts:</span>
+                      <div className="grid grid-cols-2 gap-1 text-amber-950 font-medium">
+                        {p.volume_tiers.map((t, idx) => (
+                          <div key={idx} className="flex justify-between">
+                            <span>{t.minQty}+ {p.unit}s:</span>
+                            <span className="font-bold text-amber-700">₹{Number(t.price).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <Button variant="ghost" size="sm" onClick={() => openEditForm(p)} className="h-8 text-xs gap-1 text-slate-600 hover:text-slate-800">
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="h-8 text-xs gap-1 text-rose-600 hover:bg-rose-50">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}

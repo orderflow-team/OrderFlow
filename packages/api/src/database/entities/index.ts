@@ -26,3 +26,5 @@ export * from './table.entity';
 export * from './user.entity';
 export * from './visit.entity';
 export * from './waiter.entity';
+export * from './attendance.entity';
+export * from './commission.entity';

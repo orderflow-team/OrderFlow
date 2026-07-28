@@ -15,7 +15,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
         password: process.env.DB_PASSWORD || 'password123',
         database: process.env.DB_NAME || 'orderflow_dev',
       }),
-  entities: Object.values(entities),
+  entities: Object.values(entities) as any[],
   synchronize: true, // Forces TypeORM to auto-create tables
   logging: true,
   dropSchema: false, // Prevents DB from wiping on every file save

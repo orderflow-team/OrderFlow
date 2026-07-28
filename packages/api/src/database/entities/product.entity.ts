@@ -77,6 +77,17 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   unit_prices: Record<string, number> | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  custom_fields: Record<string, any> | null;
+
+  // Minimum Order Quantity (MOQ) for wholesale/bulk purchasing.
+  @Column({ type: 'int', default: 1 })
+  moq: number;
+
+  // Volume pricing tiers, e.g. [{ minQty: 10, price: 420 }, { minQty: 50, price: 390 }].
+  @Column({ type: 'jsonb', nullable: true })
+  volume_tiers: { minQty: number; price: number }[] | null;
+
   @CreateDateColumn()
   created_at: Date;
 

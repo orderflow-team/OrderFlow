@@ -17,6 +17,7 @@ import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 import { PharmacyGrid } from './pharmacy-grid';
+import { WholesaleGrid } from './wholesale-grid';
 
 interface Product {
   id: string;
@@ -61,7 +62,10 @@ function ProductsPageContent() {
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
   const isPharmacy = category === 'pharmacy';
+  const isWholesale = category === 'wholesale';
   const [inventoryEnabled, setInventoryEnabled] = useState(true);
+  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (!ready || !businessId) return;
@@ -70,10 +74,13 @@ function ProductsPageContent() {
       setInventoryEnabled(cached);
     }
     apiClient
-      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .get<{ category: string | null; inventory_enabled: boolean; customSettings?: any }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setInventoryEnabled(res.data.inventory_enabled);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+        const settings = res.data.customSettings;
+        const schema = settings?.productCustomFields || settings?.customFields || [];
+        setCustomFieldSchema(schema);
       })
       .catch(() => {});
   }, [ready, businessId]);
@@ -198,13 +205,18 @@ function ProductsPageContent() {
     return <PharmacyGrid businessId={businessId} />;
   }
 
+  if (isWholesale && businessId) {
+    return <WholesaleGrid businessId={businessId} />;
+  }
+
   const openCreateForm = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setCustomFieldValues({});
     setShowForm((s) => (editingId ? true : !s));
   };
 
-  const openEditForm = (p: Product) => {
+  const openEditForm = (p: Product & { custom_fields?: Record<string, any> }) => {
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -221,6 +233,7 @@ function ProductsPageContent() {
         ? Object.entries(p.unit_prices).map(([unit, price]) => ({ unit, price: String(price) }))
         : [],
     });
+    setCustomFieldValues(p.custom_fields || {});
     setShowForm(true);
   };
 
@@ -247,6 +260,7 @@ function ProductsPageContent() {
       isAvailable: form.isAvailable,
       category: form.category || undefined,
       unitPrices: Object.keys(unitPrices).length > 0 ? unitPrices : undefined,
+      customFields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
     };
     try {
       if (editingId) {
@@ -476,6 +490,39 @@ function ProductsPageContent() {
                     <Plus className="w-3 h-3" /> Add price for another unit
                   </button>
                 </div>
+
+                {customFieldSchema.length > 0 && (
+                  <div className="sm:col-span-3 space-y-2.5 pt-2 border-t border-slate-200/60">
+                    <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-emerald-600" /> Custom Product Attributes
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {customFieldSchema.map((field) => (
+                        <div key={field.name} className="space-y-1">
+                          <label className="text-xs font-medium text-slate-600">{field.name}</label>
+                          {field.type === 'boolean' ? (
+                            <select
+                              value={customFieldValues[field.name] ? 'true' : 'false'}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value === 'true' })}
+                              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none"
+                            >
+                              <option value="false">No</option>
+                              <option value="true">Yes</option>
+                            </select>
+                          ) : (
+                            <Input
+                              type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                              placeholder={`Enter ${field.name}...`}
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
+                              className="h-9 text-xs"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {error && <p className="text-sm text-rose-600 sm:col-span-3">{error}</p>}
                 <div className="sm:col-span-3 flex gap-2">

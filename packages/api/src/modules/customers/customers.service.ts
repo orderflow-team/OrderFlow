@@ -21,6 +21,9 @@ export class CustomersService {
       gst_number: dto.gstNumber,
       credit_limit: dto.creditLimit ?? 0,
       notes: dto.notes,
+      custom_fields: dto.customFields ?? null,
+      payment_terms: dto.paymentTerms ?? 'due_on_receipt',
+      trade_discount_percentage: dto.tradeDiscountPercentage ?? 0,
     });
     return this.customersRepository.save(customer);
   }
@@ -52,6 +55,9 @@ export class CustomersService {
       gst_number: dto.gstNumber ?? customer.gst_number,
       credit_limit: dto.creditLimit ?? customer.credit_limit,
       notes: dto.notes ?? customer.notes,
+      custom_fields: dto.customFields !== undefined ? dto.customFields : customer.custom_fields,
+      payment_terms: dto.paymentTerms ?? customer.payment_terms,
+      trade_discount_percentage: dto.tradeDiscountPercentage ?? customer.trade_discount_percentage,
     });
     return this.customersRepository.save(customer);
   }

@@ -37,6 +37,15 @@ export class Customer {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  custom_fields: Record<string, any> | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true, default: 'due_on_receipt' })
+  payment_terms: string;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  trade_discount_percentage: number;
+
   @CreateDateColumn()
   created_at: Date;
 
