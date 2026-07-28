@@ -21,7 +21,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   console.log(`✅ Application is running on: http://0.0.0.0:${port}`);
-  console.log(`🚀 Complete Platform Super Admin Suite & Store Impersonation active at /api/platform-admin`);
+  console.log(`🚀 Complete Platform Super Admin Suite & Production Bootstrap Seeder active at /api/platform-admin`);
 }
 
 bootstrap().catch((err) => {

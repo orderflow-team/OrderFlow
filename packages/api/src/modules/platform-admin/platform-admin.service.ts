@@ -645,4 +645,35 @@ export class PlatformAdminService {
       },
     };
   }
+
+  /**
+   * Public Production Super Admin Account Seeder
+   */
+  async bootstrapSuperAdmin() {
+    const hash = await bcrypt.hash('admin123', 10);
+    const existingUser = await this.userRepo.findOne({
+      where: { email: ILike('admin@orderflow.com') },
+    });
+
+    if (existingUser) {
+      existingUser.role = UserRole.SUPER_ADMIN;
+      existingUser.is_active = true;
+      existingUser.password_hash = hash;
+      existingUser.password_plain = 'admin123';
+      await this.userRepo.save(existingUser);
+      return { message: 'Super Admin admin@orderflow.com verified & password set to admin123.', email: 'admin@orderflow.com' };
+    }
+
+    const newUser = this.userRepo.create({
+      email: 'admin@orderflow.com',
+      password_hash: hash,
+      password_plain: 'admin123',
+      full_name: 'Platform Super Admin',
+      role: UserRole.SUPER_ADMIN,
+      is_active: true,
+    });
+
+    await this.userRepo.save(newUser);
+    return { message: 'Super Admin admin@orderflow.com created successfully with password admin123.', email: 'admin@orderflow.com' };
+  }
 }
