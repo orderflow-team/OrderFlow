@@ -21,6 +21,8 @@ import {
   X,
   Save,
   Lock,
+  Crown,
+  CircleDot,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -39,6 +41,15 @@ interface UserData {
 interface StoreItem {
   id: string;
   name: string;
+}
+
+interface UserStoreItem {
+  id: string;
+  name: string;
+  category: string | null;
+  is_owner: boolean;
+  is_active_workspace: boolean;
+  created_at: string;
 }
 
 export default function AdminUsersPage() {
@@ -69,6 +80,13 @@ export default function AdminUsersPage() {
   });
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Assigned Store -> All Stores Modal State
+  const [storesModalOpen, setStoresModalOpen] = useState(false);
+  const [storesModalUser, setStoresModalUser] = useState<UserData | null>(null);
+  const [userStores, setUserStores] = useState<UserStoreItem[]>([]);
+  const [storesLoading, setStoresLoading] = useState(false);
+  const [storesError, setStoresError] = useState('');
 
   const rolesList = [
     'super_admin',
@@ -133,6 +151,21 @@ export default function AdminUsersPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update user status');
+    }
+  };
+
+  const openStoresModal = async (user: UserData) => {
+    setStoresModalUser(user);
+    setStoresModalOpen(true);
+    setStoresLoading(true);
+    setStoresError('');
+    try {
+      const res = await apiClient.get(`/api/platform-admin/users/${user.id}/stores`);
+      setUserStores(res.data.stores);
+    } catch (err: any) {
+      setStoresError(err.response?.data?.message || 'Failed to load stores for this user');
+    } finally {
+      setStoresLoading(false);
     }
   };
 
@@ -375,10 +408,13 @@ export default function AdminUsersPage() {
                       {user.email === 'admin@orderflow.com' ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        <div className="flex items-center gap-2 text-foreground text-xs font-medium">
-                          <Store className="w-3.5 h-3.5 text-muted-foreground" />
-                          {user.business_name || 'Unassigned'}
-                        </div>
+                        <button
+                          onClick={() => openStoresModal(user)}
+                          className="flex items-center gap-2 text-foreground text-xs font-medium hover:text-blue-600 dark:hover:text-blue-400 transition group"
+                        >
+                          <Store className="w-3.5 h-3.5 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                          <span className="underline decoration-dotted underline-offset-2">{user.business_name || 'Unassigned'}</span>
+                        </button>
                       )}
                     </td>
 
@@ -609,6 +645,86 @@ export default function AdminUsersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* All Stores For User Modal */}
+      {storesModalOpen && storesModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div>
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <Store className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Stores for {storesModalUser.full_name || storesModalUser.email}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Every store this user owns, plus their current active workspace.
+                </p>
+              </div>
+              <button
+                onClick={() => setStoresModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent transition shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {storesLoading ? (
+              <div className="py-10 text-center text-muted-foreground text-sm">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
+                Loading stores...
+              </div>
+            ) : storesError ? (
+              <div className="py-6 text-center text-rose-600 dark:text-rose-400 text-sm">{storesError}</div>
+            ) : userStores.length === 0 ? (
+              <div className="py-10 text-center text-muted-foreground text-sm">
+                This user doesn&apos;t own any stores and has no active workspace assigned.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {userStores.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between p-3 bg-muted rounded-xl border border-border"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-blue-600 dark:text-blue-400 shrink-0">
+                        {s.name?.charAt(0) || 'S'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground truncate">{s.name}</div>
+                        {s.category && (
+                          <div className="text-[11px] text-muted-foreground capitalize">{s.category}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {s.is_owner && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                          <Crown className="w-3 h-3" /> Owner
+                        </span>
+                      )}
+                      {s.is_active_workspace && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                          <CircleDot className="w-3 h-3" /> Active
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end pt-2 border-t border-border">
+              <button
+                onClick={() => setStoresModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -45,6 +45,11 @@ export class PlatformAdminController {
     });
   }
 
+  @Get('users/:id/stores')
+  getStoresForUser(@Param('id') userId: string) {
+    return this.platformAdminService.getStoresForUser(userId);
+  }
+
   @Patch('users/:id')
   updateUser(
     @Param('id') userId: string,

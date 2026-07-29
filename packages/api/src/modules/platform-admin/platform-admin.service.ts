@@ -166,6 +166,46 @@ export class PlatformAdminService {
   }
 
   /**
+   * All stores associated with a user — not just their single current
+   * "active workspace" (user.business_id). An owner can create/onboard
+   * multiple businesses (see BusinessesService.onboard/findMine), so this
+   * mirrors that: every Business row with owner_user_id = this user, plus
+   * their active workspace if it's a business they don't own (covers staff
+   * roles like salesman/cashier, which only ever have business_id, never
+   * ownership).
+   */
+  async getStoresForUser(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const ownedStores = await this.businessRepo.find({
+      where: { owner_user_id: userId },
+      order: { created_at: 'DESC' },
+    });
+
+    let activeStore: Business | null = null;
+    if (user.business_id && !ownedStores.some((s) => s.id === user.business_id)) {
+      activeStore = await this.businessRepo.findOne({ where: { id: user.business_id } });
+    }
+
+    const stores = activeStore ? [...ownedStores, activeStore] : ownedStores;
+
+    return {
+      user: { id: user.id, full_name: user.full_name, email: user.email, role: user.role },
+      stores: stores.map((s) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        is_owner: s.owner_user_id === userId,
+        is_active_workspace: s.id === user.business_id,
+        created_at: s.created_at,
+      })),
+    };
+  }
+
+  /**
    * Update User details (Full Edit, Role change, Store reassignment, Password Reset, Status toggle)
    */
   async updateUser(
