@@ -27,6 +27,7 @@ interface PurchaseOrder {
   total_amount: string | number;
   items?: {
     id: string;
+    product_id: string | null;
     quantity: string | number;
     unit_price: string | number;
     tax_percentage?: string | number;
