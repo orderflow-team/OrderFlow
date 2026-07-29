@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 import { Product } from './product.entity';
+import { Supplier } from './supplier.entity';
 
 @Entity('purchase_items')
 export class PurchaseItem {
@@ -20,6 +21,16 @@ export class PurchaseItem {
   @ManyToOne(() => Product)
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  // Which supplier this specific line/batch came from — defaults to the
+  // parent PO's supplier but overridable per line (e.g. a scan combining
+  // items from more than one distributor).
+  @Column({ type: 'uuid', nullable: true })
+  supplier_id: string;
+
+  @ManyToOne(() => Supplier)
+  @JoinColumn({ name: 'supplier_id' })
+  supplier: Supplier;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   quantity: number;

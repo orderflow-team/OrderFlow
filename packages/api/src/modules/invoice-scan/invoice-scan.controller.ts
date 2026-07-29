@@ -7,10 +7,10 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import * as fs from 'fs';
@@ -23,6 +23,7 @@ import { InvoiceScanService } from './invoice-scan.service';
 import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const MAX_PAGES = 10;
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/invoice-scans')
@@ -32,7 +33,7 @@ export class InvoiceScanController {
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('upload')
   @UseInterceptors(
-    FileInterceptor('file', {
+    FilesInterceptor('files', MAX_PAGES, {
       storage: diskStorage({
         destination: (req, file, cb) => {
           const uploadPath = './uploads/invoice-scans';
@@ -50,26 +51,32 @@ export class InvoiceScanController {
     }),
   )
   async upload(
-    @UploadedFile() file: any,
+    @UploadedFiles() files: any[],
     @Query('businessId') businessId: string,
     @Query('supplierId') supplierId?: string,
   ) {
-    if (!file) {
+    if (!files || files.length === 0) {
       throw new BadRequestException('No file uploaded');
     }
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      fs.unlinkSync(file.path);
-      throw new BadRequestException('Only JPEG/PNG/WEBP images or PDFs are supported');
+    for (const file of files) {
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        files.forEach((f) => fs.unlinkSync(f.path));
+        throw new BadRequestException('Only JPEG/PNG/WEBP images or PDFs are supported');
+      }
     }
     if (!businessId) {
-      fs.unlinkSync(file.path);
+      files.forEach((f) => fs.unlinkSync(f.path));
       throw new BadRequestException('businessId is required');
     }
 
-    const fileType = file.mimetype === 'application/pdf' ? 'pdf' : 'image';
-    const fileUrl = `/uploads/invoice-scans/${file.filename}`;
+    const pages = files.map((file) => ({
+      fileUrl: `/uploads/invoice-scans/${file.filename}`,
+      filePath: file.path,
+      fileType: file.mimetype === 'application/pdf' ? 'pdf' : 'image',
+      mimeType: file.mimetype,
+    }));
 
-    return this.invoiceScanService.uploadAndParse(businessId, supplierId, fileUrl, file.path, fileType, file.mimetype);
+    return this.invoiceScanService.uploadAndParse(businessId, supplierId, pages);
   }
 
   @Get()

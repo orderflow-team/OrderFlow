@@ -110,6 +110,7 @@ export class ProductsService {
   findAll(businessId: string, search?: string, isDraft?: string) {
     const query = this.productsRepository
       .createQueryBuilder('product')
+      .leftJoinAndSelect('product.last_supplier', 'last_supplier')
       .where('product.business_id = :businessId', { businessId })
       .andWhere('product.is_archived = false');
 

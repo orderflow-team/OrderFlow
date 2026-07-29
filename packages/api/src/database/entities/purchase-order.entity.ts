@@ -25,6 +25,9 @@ export class PurchaseOrder {
   @Column({ type: 'varchar', length: 50, nullable: true })
   order_number: string;
 
+  // Lifecycle: 'draft' -> 'confirmed' -> 'received' -> 'paid', with 'cancelled'
+  // reachable only from 'draft'/'confirmed'. Mirrors Order's single linear
+  // status string rather than a separate payment_status axis.
   @Column({ type: 'varchar', length: 50, default: 'draft' })
   status: string;
 

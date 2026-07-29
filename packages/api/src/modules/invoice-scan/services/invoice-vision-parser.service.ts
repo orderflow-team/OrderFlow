@@ -44,29 +44,33 @@ export class InvoiceVisionParserService {
     const data = fs.readFileSync(filePath).toString('base64');
 
     const prompt = `
-      You are a data-entry assistant for a pharmacy. You will be shown a photo or PDF of a
-      wholesale distributor invoice. Extract every product line item into structured JSON.
+      You are a data-entry assistant for a retail or wholesale business. You will be shown a
+      photo or PDF of a supplier/distributor invoice. Extract every product line item into
+      structured JSON.
 
       Rules:
       - Ignore handwritten checkmarks, ticks, or other markings — they are not data.
       - Skip lines that are not products: section headers (e.g. "STORE ROOM 1"), totals,
         taxes, addresses, and any other non-product text.
-      - Distributor invoices often write a "billed + scheme" quantity like "3+.15" or "10+1" —
-        the first number is the billed (paid) quantity, the number after "+" is a free/scheme
-        quantity. Split these into separate quantity and schemeQuantity fields. If there is no
-        "+", schemeQuantity is null.
-      - Standardize every expiry date to "MM/YYYY" format regardless of how it's written on the
-        invoice (e.g. "03/26", "3-2026", "Mar 2026" all become "03/2026"). If no expiry is
-        legible, use null.
-      - If batch/lot number is not legible or absent, use null.
-      - Each line usually has TWO separate price columns — extract them separately, never merge them:
-        - "M.R.P." (maximum retail price): the printed ceiling sale price. This is always the
-          HIGHER of the two prices.
-        - "RATE" (sometimes "N.RATE" or "NET RATE"): the distributor's actual billed per-unit
-          price, net of any trade discount. This is always the LOWER of the two prices.
-        Put the M.R.P. column into "mrp" and the RATE column into "unitPrice". If only one price
-        is printed on the line, put it in "unitPrice" and leave "mrp" null. If either is not
-        legible or absent, use null for that field.
+      - Some invoices (common for pharmacy/FMCG distributors) write a "billed + scheme"
+        quantity like "3+.15" or "10+1" — the first number is the billed (paid) quantity, the
+        number after "+" is a free/scheme quantity. If present on this invoice, split these into
+        separate quantity and schemeQuantity fields. If there is no "+", or this invoice doesn't
+        use scheme quantities at all, schemeQuantity is null.
+      - If a batch/lot number and expiry date are present on this invoice (common for pharmacy,
+        FMCG, and grocery/perishables — often absent for retail/electronics/apparel), standardize
+        the expiry date to "MM/YYYY" format regardless of how it's written (e.g. "03/26",
+        "3-2026", "Mar 2026" all become "03/2026"). If no batch or expiry is present or legible,
+        use null — this is expected and fine for many businesses.
+      - Each line may have ONE or TWO price columns — extract them separately, never merge them:
+        - If there's a printed maximum retail/selling price (labeled "M.R.P.", "MRP", "Retail
+          Price", etc.), put it in "mrp". This is always the HIGHER of the two prices when both
+          are present.
+        - The supplier's actual billed per-unit cost (labeled "RATE", "N.RATE", "NET RATE",
+          "Cost Price", etc.), net of any trade discount, goes in "unitPrice". This is always the
+          LOWER of the two prices when both are present.
+        If only one price is printed on the line, put it in "unitPrice" and leave "mrp" null. If
+        either is not legible or absent, use null for that field.
 
       Return ONLY a JSON array (no other text, no markdown fences) in this exact shape:
       [

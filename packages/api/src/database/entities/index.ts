@@ -5,6 +5,7 @@ export * from './expense.entity';
 export * from './invoice-item.entity';
 export * from './invoice.entity';
 export * from './invoice-scan-item.entity';
+export * from './invoice-scan-file.entity';
 export * from './invoice-scan.entity';
 export * from './kot.entity';
 export * from './ledger.entity';

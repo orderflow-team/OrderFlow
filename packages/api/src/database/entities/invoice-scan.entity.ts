@@ -3,6 +3,7 @@ import { Business } from './business.entity';
 import { Supplier } from './supplier.entity';
 import { PurchaseOrder } from './purchase-order.entity';
 import { InvoiceScanItem } from './invoice-scan-item.entity';
+import { InvoiceScanFile } from './invoice-scan-file.entity';
 
 @Entity('invoice_scans')
 export class InvoiceScan {
@@ -30,10 +31,13 @@ export class InvoiceScan {
   @JoinColumn({ name: 'purchase_order_id' })
   purchase_order: PurchaseOrder;
 
-  @Column({ type: 'text' })
+  // Legacy single-file columns — kept for backward compatibility with scans
+  // confirmed before multi-page support was added. New scans populate `files`
+  // instead and leave these null.
+  @Column({ type: 'text', nullable: true })
   file_url: string;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: 'varchar', length: 20, nullable: true })
   file_type: string;
 
   @Column({ type: 'varchar', length: 20, default: 'processing' })
@@ -50,4 +54,7 @@ export class InvoiceScan {
 
   @OneToMany(() => InvoiceScanItem, (item) => item.scan)
   items: InvoiceScanItem[];
+
+  @OneToMany(() => InvoiceScanFile, (file) => file.scan)
+  files: InvoiceScanFile[];
 }

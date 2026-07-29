@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsNumber, IsBoolean, IsObject, Min, Max } from 'class-validator';
 
 export class CreateSupplierDto {
   @IsUUID()
@@ -9,7 +9,15 @@ export class CreateSupplierDto {
 
   @IsOptional()
   @IsString()
+  contactPerson?: string;
+
+  @IsOptional()
+  @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  alternatePhone?: string;
 
   @IsOptional()
   @IsString()
@@ -21,5 +29,56 @@ export class CreateSupplierDto {
 
   @IsOptional()
   @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  pincode?: string;
+
+  @IsOptional()
+  @IsString()
   gstNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  panNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  drugLicenseNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  supplierType?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  creditLimit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  tradeDiscountPercentage?: number;
+
+  @IsOptional()
+  @IsObject()
+  bankDetails?: { accountName?: string; accountNumber?: string; ifsc?: string; bankName?: string };
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

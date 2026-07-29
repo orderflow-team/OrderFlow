@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Business } from './business.entity';
+import { Supplier } from './supplier.entity';
 
 @Entity('products')
 export class Product {
@@ -48,6 +49,15 @@ export class Product {
 
   @Column({ type: 'date', nullable: true })
   expiry_date: Date;
+
+  // The supplier this product was most recently restocked from — set by
+  // receivePurchaseOrder/updatePurchaseOrder, not a full batch-history trail.
+  @Column({ type: 'uuid', nullable: true })
+  last_supplier_id: string;
+
+  @ManyToOne(() => Supplier)
+  @JoinColumn({ name: 'last_supplier_id' })
+  last_supplier: Supplier;
 
   // Generic/salt composition, e.g. "Paracetamol 500mg" — pharmacy-specific.
   @Column({ type: 'varchar', length: 255, nullable: true })

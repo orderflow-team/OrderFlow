@@ -227,6 +227,28 @@ export function getDefaultItemCategories(
   return DEFAULT_ITEM_CATEGORIES[category] ?? [];
 }
 
+export interface PoFieldConfig {
+  batchExpiry: boolean;
+  schemeQuantity: boolean;
+}
+
+/**
+ * Which extra Purchase Order line-item fields to show, per business. Reads
+ * the business's own enableBatchExpiry toggle (set at onboarding) when
+ * present, falling back to "pharmacy only" — the same category check the PO
+ * form used to hardcode inline. Scheme quantity rides along with batch/expiry
+ * since both are the same "perishable/dated stock" concern. tax_percentage is
+ * intentionally NOT gated here — GST applies to every category.
+ */
+export function getPoFieldConfig(
+  category: string | null | undefined,
+  customSettings?: CustomBusinessSettings | null,
+): PoFieldConfig {
+  const explicit = customSettings?.moduleConfig?.inventorySettings?.enableBatchExpiry;
+  const batchExpiry = explicit !== undefined ? explicit : category === 'pharmacy';
+  return { batchExpiry, schemeQuantity: batchExpiry };
+}
+
 /** Dynamic terminology helper for UI custom labels. */
 export function getBusinessTerminology(customSettings?: CustomBusinessSettings | null) {
   return {

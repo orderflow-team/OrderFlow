@@ -3,16 +3,25 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InvoiceScan } from '../../database/entities/invoice-scan.entity';
 import { InvoiceScanItem } from '../../database/entities/invoice-scan-item.entity';
+import { InvoiceScanFile } from '../../database/entities/invoice-scan-file.entity';
 import { Product } from '../../database/entities/product.entity';
-import { InvoiceVisionParserService } from './services/invoice-vision-parser.service';
+import { InvoiceVisionParserService, ParsedInvoiceLine } from './services/invoice-vision-parser.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
+
+export interface ScanPageInput {
+  fileUrl: string;
+  filePath: string;
+  fileType: string;
+  mimeType: string;
+}
 
 @Injectable()
 export class InvoiceScanService {
   constructor(
     @InjectRepository(InvoiceScan) private scansRepository: Repository<InvoiceScan>,
     @InjectRepository(InvoiceScanItem) private itemsRepository: Repository<InvoiceScanItem>,
+    @InjectRepository(InvoiceScanFile) private filesRepository: Repository<InvoiceScanFile>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     private visionParser: InvoiceVisionParserService,
     private inventoryService: InventoryService,
@@ -23,27 +32,41 @@ export class InvoiceScanService {
    * a few seconds, which is exactly the "Wait / scanning" beat of the
    * Upload -> Wait -> Verify -> Success flow, so there's no need for a
    * separate polling/job-queue mechanism.
+   *
+   * `pages` supports multi-page invoices (several photos of one distributor
+   * bill). Each page is parsed with its own Gemini call rather than batched
+   * into one request — a bad/blurry page 2 then only loses that page's lines,
+   * not the whole scan. Parsed lines are concatenated in page order and
+   * `sort_order` continues across the full concatenated list.
    */
-  async uploadAndParse(
-    businessId: string,
-    supplierId: string | undefined,
-    fileUrl: string,
-    filePath: string,
-    fileType: string,
-    mimeType: string,
-  ) {
+  async uploadAndParse(businessId: string, supplierId: string | undefined, pages: ScanPageInput[]) {
     const scan = await this.scansRepository.save(
       this.scansRepository.create({
         business_id: businessId,
         supplier_id: supplierId,
-        file_url: fileUrl,
-        file_type: fileType,
+        // Kept for backward-compat single-file consumers — first page only.
+        file_url: pages[0].fileUrl,
+        file_type: pages[0].fileType,
         status: 'processing',
       }),
     );
 
+    const fileRows = pages.map((page, index) =>
+      this.filesRepository.create({
+        scan_id: scan.id,
+        file_url: page.fileUrl,
+        file_type: page.fileType,
+        page_order: index,
+      }),
+    );
+    await this.filesRepository.save(fileRows);
+
     try {
-      const lines = await this.visionParser.parseInvoiceFile(filePath, mimeType);
+      const lines: ParsedInvoiceLine[] = [];
+      for (const page of pages) {
+        const pageLines = await this.visionParser.parseInvoiceFile(page.filePath, page.mimeType);
+        lines.push(...pageLines);
+      }
       if (lines.length === 0) {
         throw new BadRequestException('No product line items were found on this invoice.');
       }
@@ -58,7 +81,7 @@ export class InvoiceScanService {
           raw_product_name: line.productName,
           matched_product_id: matched?.id,
           is_duplicate: !!matched,
-          // Duplicates default excluded so the pharmacy doesn't double-enter a
+          // Duplicates default excluded so the business doesn't double-enter a
           // product already in inventory; the user can still opt back in.
           // BUT if the matched product is out of stock, we default to including it so they can restock.
           included: !matched || isOutOfStock,
@@ -161,7 +184,8 @@ export class InvoiceScanService {
       order: { sort_order: 'ASC' },
       relations: { matched_product: true },
     });
-    return { ...scan, items: items.map((item) => this.withLiveIncluded(item)) };
+    const files = await this.filesRepository.find({ where: { scan_id: id }, order: { page_order: 'ASC' } });
+    return { ...scan, items: items.map((item) => this.withLiveIncluded(item)), files };
   }
 
   /**

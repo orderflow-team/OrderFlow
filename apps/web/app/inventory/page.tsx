@@ -1,23 +1,24 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
-import { StatusBadge } from '@/components/status-badge';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
-import { Plus, X, AlertTriangle, Warehouse, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { getPoFieldConfig, type CustomBusinessSettings } from '@/lib/business-modules';
+import { Plus, X, AlertTriangle, Warehouse, Truck } from 'lucide-react';
 import { ScanToInventoryDialog } from './scan-to-inventory';
+import { PurchaseOrderForm, type EditingPo } from './purchase-order-form';
+import { PurchaseOrderList } from './purchase-order-list';
 
 interface Supplier {
   id: string;
   name: string;
-  phone: string | null;
 }
 
 interface Product {
@@ -27,52 +28,36 @@ interface Product {
   brand?: string | null;
   batch_number?: string | null;
   expiry_date?: string | null;
-}
-
-interface PurchaseOrder {
-  id: string;
-  order_number: string;
-  status: string;
-  total_amount: string | number;
-  items?: {
-    quantity: string | number;
-    unit_price: string | number;
-    subtotal: string | number;
-    batch_number?: string | null;
-    expiry_date?: string | null;
-    product?: Product;
-  }[];
-}
-
-interface PoLine {
-  productId: string;
-  quantity: string;
-  unitPrice: string;
-  batchNumber: string;
-  expiryDate: string;
+  last_supplier?: { id: string; name: string } | null;
 }
 
 export default function InventoryPage() {
   const { businessId, ready } = useBusiness();
   const [isPharmacy, setIsPharmacy] = useState(false);
+  const [customSettings, setCustomSettings] = useState<CustomBusinessSettings | undefined>();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedPo, setExpandedPo] = useState<string | null>(null);
 
-  const [supplierForm, setSupplierForm] = useState({ name: '', phone: '' });
-  const [showSupplierForm, setShowSupplierForm] = useState(false);
-
-  const [poSupplierId, setPoSupplierId] = useState('');
-  const [poLines, setPoLines] = useState<PoLine[]>([{ productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }]);
   const [showPoForm, setShowPoForm] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [editingPo, setEditingPo] = useState<EditingPo | null>(null);
+
+  const category = businessId ? getCachedBusinessCategory(businessId) : null;
+  const fieldConfig = getPoFieldConfig(category, customSettings);
 
   useEffect(() => {
     if (businessId) setIsPharmacy(getCachedBusinessCategory(businessId) === 'pharmacy');
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    apiClient
+      .get<{ customSettings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
+      .then((res) => setCustomSettings(res.data.customSettings))
+      .catch(() => {});
   }, [businessId]);
 
   const load = async (bizId: string) => {
@@ -81,7 +66,7 @@ export default function InventoryPage() {
       const [suppliersRes, productsRes, poRes, lowStockRes] = await Promise.all([
         apiClient.get<Supplier[]>('/api/suppliers', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, isDraft: 'all' } }),
-        apiClient.get<PurchaseOrder[]>('/api/inventory/purchase-orders', { params: { businessId: bizId } }),
+        apiClient.get<any[]>('/api/inventory/purchase-orders', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/inventory/low-stock', { params: { businessId: bizId } }),
       ]);
       setSuppliers(suppliersRes.data);
@@ -99,54 +84,25 @@ export default function InventoryPage() {
     if (ready && businessId) load(businessId);
   }, [ready, businessId]);
 
-  const handleCreateSupplier = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!businessId) return;
-    setSaving(true);
-    try {
-      await apiClient.post('/api/suppliers', { businessId, name: supplierForm.name, phone: supplierForm.phone || undefined });
-      setSupplierForm({ name: '', phone: '' });
-      setShowSupplierForm(false);
-      load(businessId);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create supplier');
-    } finally {
-      setSaving(false);
-    }
+  const openCreate = () => {
+    setEditingPo(null);
+    setShowPoForm(true);
   };
 
-  const handleCreatePo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!businessId) return;
-    setSaving(true);
-    setError('');
-    try {
-      await apiClient.post('/api/inventory/purchase-orders', {
-        businessId,
-        supplierId: poSupplierId || undefined,
-        items: poLines.map((l) => ({
-          productId: l.productId,
-          quantity: Number(l.quantity),
-          unitPrice: Number(l.unitPrice),
-          batchNumber: l.batchNumber || undefined,
-          expiryDate: l.expiryDate || undefined,
-        })),
-      });
-      setPoSupplierId('');
-      setPoLines([{ productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }]);
-      setShowPoForm(false);
-      load(businessId);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create purchase order');
-    } finally {
-      setSaving(false);
-    }
+  const openEdit = (po: EditingPo) => {
+    setEditingPo(po);
+    setShowPoForm(true);
   };
 
-  const handleReceive = async (id: string) => {
-    if (!businessId) return;
-    await apiClient.post(`/api/inventory/purchase-orders/${id}/receive`, {}, { params: { businessId } });
-    load(businessId);
+  const handleSaved = () => {
+    setShowPoForm(false);
+    setEditingPo(null);
+    if (businessId) load(businessId);
+  };
+
+  const closeForm = () => {
+    setShowPoForm(false);
+    setEditingPo(null);
   };
 
   if (!ready) return null;
@@ -178,8 +134,13 @@ export default function InventoryPage() {
                   <div key={p.id} className="flex justify-between text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                     <div>
                       <span className="text-slate-800">{p.name}</span>
-                      {isPharmacy && p.batch_number && (
+                      {fieldConfig.batchExpiry && p.batch_number && (
                         <span className="text-xs text-slate-400 ml-2">Batch {p.batch_number}</span>
+                      )}
+                      {p.last_supplier && (
+                        <span className="text-xs text-slate-400 ml-2 inline-flex items-center gap-1">
+                          <Truck className="w-3 h-3" /> {p.last_supplier.name}
+                        </span>
                       )}
                     </div>
                     <span className="text-amber-600 font-semibold">{p.stock_quantity} left</span>
@@ -192,41 +153,32 @@ export default function InventoryPage() {
 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Suppliers</h2>
-          <Button variant="outline" onClick={() => setShowSupplierForm((s) => !s)} className="gap-1.5">
-            {showSupplierForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            {showSupplierForm ? 'Cancel' : 'Add Supplier'}
-          </Button>
+          <Link href="/inventory/suppliers">
+            <Button variant="outline" className="gap-1.5">
+              <Warehouse className="w-4 h-4" /> Manage Suppliers
+            </Button>
+          </Link>
         </div>
-        {showSupplierForm && (
-          <Card className="ring-white/50 glass-sheen-sm">
-            <CardContent className="pt-6">
-              <form onSubmit={handleCreateSupplier} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input placeholder="Name" value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} required />
-                <Input placeholder="Phone" value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} />
-                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
         <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">
             {suppliers.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
-                <div className="w-24 h-24 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-full flex items-center justify-center mb-6">
-                  <Warehouse className="w-10 h-10 text-slate-400" />
+              <div className="flex flex-col items-center justify-center py-16 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
+                <div className="w-20 h-20 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-full flex items-center justify-center mb-5">
+                  <Warehouse className="w-9 h-9 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-800 mb-2">No suppliers found</h2>
-                <p className="text-slate-500 mb-8 text-sm">Add a supplier to manage your supply chain</p>
-                <Button onClick={() => setShowSupplierForm(true)} className="gap-2 px-6 h-11">
-                  <Plus className="w-4 h-4" /> Add Supplier
-                </Button>
+                <h2 className="text-lg font-bold text-slate-800 mb-2">No suppliers found</h2>
+                <p className="text-slate-500 mb-6 text-sm">Add a supplier to manage your supply chain</p>
+                <Link href="/inventory/suppliers">
+                  <Button className="gap-2 px-6 h-11">
+                    <Plus className="w-4 h-4" /> Add Supplier
+                  </Button>
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
                 {suppliers.map((s) => (
                   <div key={s.id} className="px-6 py-3 text-sm flex justify-between">
                     <span className="font-medium text-slate-800">{s.name}</span>
-                    <span className="text-slate-500">{s.phone || '-'}</span>
                   </div>
                 ))}
               </div>
@@ -237,194 +189,44 @@ export default function InventoryPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Purchase Orders</h2>
           <div className="flex items-center gap-2">
-            {isPharmacy && businessId && (
+            {businessId && (
               <ScanToInventoryDialog businessId={businessId} suppliers={suppliers} onConfirmed={() => load(businessId)} />
             )}
-            <Button variant="outline" onClick={() => setShowPoForm((s) => !s)} className="gap-1.5">
+            <Button
+              variant="outline"
+              onClick={() => (showPoForm ? closeForm() : openCreate())}
+              className="gap-1.5"
+            >
               {showPoForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {showPoForm ? 'Cancel' : 'New Purchase Order'}
             </Button>
           </div>
         </div>
-        {showPoForm && (
-          <Card className="ring-white/50 glass-sheen-sm">
-            <CardContent className="pt-6 space-y-4">
-              <form onSubmit={handleCreatePo} className="space-y-4">
-                <select
-                  value={poSupplierId}
-                  onChange={(e) => setPoSupplierId(e.target.value)}
-                  className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm w-full sm:w-64"
-                >
-                  <option value="">No supplier</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                {poLines.map((line, index) => (
-                  <div key={index} className="bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-3 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                      <select
-                        value={line.productId}
-                        onChange={(e) =>
-                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, productId: e.target.value } : l)))
-                        }
-                        className="h-10 rounded-lg bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
-                        required
-                      >
-                        <option value="">Select product</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <Input
-                        placeholder="Quantity"
-                        type="number"
-                        value={line.quantity}
-                        onChange={(e) =>
-                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, quantity: e.target.value } : l)))
-                        }
-                      />
-                      <Input
-                        placeholder="Unit price"
-                        type="number"
-                        value={line.unitPrice}
-                        onChange={(e) =>
-                          setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, unitPrice: e.target.value } : l)))
-                        }
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setPoLines((prev) => prev.filter((_, i) => i !== index))}
-                        className="text-xs text-slate-400 hover:text-rose-600 text-left"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    {isPharmacy && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <Input
-                          placeholder="Batch number"
-                          value={line.batchNumber}
-                          onChange={(e) =>
-                            setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, batchNumber: e.target.value } : l)))
-                          }
-                        />
-                        <Input
-                          type="date"
-                          placeholder="Expiry date"
-                          value={line.expiryDate}
-                          onChange={(e) =>
-                            setPoLines((prev) => prev.map((l, i) => (i === index ? { ...l, expiryDate: e.target.value } : l)))
-                          }
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div className="flex items-center justify-between pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setPoLines((prev) => [...prev, { productId: '', quantity: '1', unitPrice: '', batchNumber: '', expiryDate: '' }])}
-                    className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
-                  >
-                    + Add item
-                  </button>
-                  <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Create Purchase Order'}</Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+
+        {showPoForm && businessId && (
+          <PurchaseOrderForm
+            businessId={businessId}
+            suppliers={suppliers}
+            products={products}
+            fieldConfig={fieldConfig}
+            editingPo={editingPo}
+            onSaved={handleSaved}
+            onCancel={closeForm}
+          />
         )}
-        <Card className="ring-white/50 glass-sheen-sm">
-          <CardContent className="p-0">
-            {loading ? (
-              <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-            ) : purchaseOrders.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
-                <div className="w-24 h-24 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-full flex items-center justify-center mb-6">
-                  <Warehouse className="w-10 h-10 text-slate-400" />
-                </div>
-                <h2 className="text-xl font-bold text-slate-800 mb-2">No purchase orders</h2>
-                <p className="text-slate-500 mb-8 text-sm">Create a purchase order to restock items</p>
-                <Button onClick={() => setShowPoForm(true)} className="gap-2 px-6 h-11">
-                  <Plus className="w-4 h-4" /> New Purchase Order
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[800px]">
-                <thead className="text-xs text-slate-500 uppercase bg-white/30 border-b border-white/40">
-                  <tr>
-                    <th className="px-6 py-3 w-10"></th>
-                    <th className="px-6 py-3">PO #</th>
-                    <th className="px-6 py-3 text-right">Total</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {purchaseOrders.map((po) => (
-                    <Fragment key={po.id}>
-                      <tr className="hover:bg-white/40 transition-colors">
-                        <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>
-                          {expandedPo === po.id ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>{po.order_number}</td>
-                        <td className="px-6 py-4 text-right font-semibold text-slate-800">{Number(po.total_amount).toFixed(2)}</td>
-                        <td className="px-6 py-4"><StatusBadge status={po.status} /></td>
-                        <td className="px-6 py-4 text-right">
-                          {po.status !== 'received' && (
-                            <button
-                              onClick={() => handleReceive(po.id)}
-                              className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Mark Received
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                      {expandedPo === po.id && po.items && po.items.length > 0 && (
-                        <tr className="bg-white/20">
-                          <td colSpan={5} className="px-14 py-4">
-                            <div className="rounded-2xl ring-1 ring-white/50 overflow-hidden bg-white/30 backdrop-blur-md">
-                              <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-slate-500 bg-white/30 border-b border-white/40 uppercase">
-                                  <tr>
-                                    <th className="px-4 py-2">Item</th>
-                                    {isPharmacy && <th className="px-4 py-2">Batch / Expiry</th>}
-                                    <th className="px-4 py-2 text-right">Qty</th>
-                                    <th className="px-4 py-2 text-right">Unit Price</th>
-                                    <th className="px-4 py-2 text-right">Subtotal</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {po.items.map((item, idx) => (
-                                    <tr key={idx}>
-                                      <td className="px-4 py-2 font-medium text-slate-700">{item.product?.name || 'Unknown Product'}</td>
-                                      {isPharmacy && (
-                                        <td className="px-4 py-2 text-slate-500 text-xs">
-                                          {item.batch_number || '—'}
-                                          {item.expiry_date ? ` • Exp ${new Date(item.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}` : ''}
-                                        </td>
-                                      )}
-                                      <td className="px-4 py-2 text-right text-slate-600">{Number(item.quantity)}</td>
-                                      <td className="px-4 py-2 text-right text-slate-600">₹{Number(item.unit_price).toFixed(2)}</td>
-                                      <td className="px-4 py-2 text-right font-medium text-slate-700">₹{Number(item.subtotal).toFixed(2)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table></div>
-            )}
-          </CardContent>
-        </Card>
+
+        {businessId && (
+          <PurchaseOrderList
+            businessId={businessId}
+            purchaseOrders={purchaseOrders}
+            suppliers={suppliers}
+            fieldConfig={fieldConfig}
+            loading={loading}
+            onChanged={() => load(businessId)}
+            onEdit={openEdit}
+            onCreateNew={openCreate}
+          />
+        )}
       </div>
     </AppShell>
   );

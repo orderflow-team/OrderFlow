@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -29,6 +29,7 @@ interface Product {
   prescription_required: boolean;
   category: string | null;
   barcode: string | null;
+  last_supplier?: { id: string; name: string } | null;
 }
 
 interface Category {
@@ -488,6 +489,12 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                       <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Category</p>
                       <p className="font-medium text-slate-600 text-sm truncate flex items-center gap-1">
                         {p.category ? <><Tag className="w-3 h-3 shrink-0" /> {p.category}</> : '—'}
+                      </p>
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Last Supplier</p>
+                      <p className="font-medium text-slate-600 text-sm truncate flex items-center gap-1">
+                        {p.last_supplier ? <><Truck className="w-3 h-3 shrink-0" /> {p.last_supplier.name}</> : '—'}
                       </p>
                     </div>
                   </div>

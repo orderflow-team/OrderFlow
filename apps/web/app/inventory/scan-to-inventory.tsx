@@ -27,12 +27,20 @@ interface ScanItem {
   expiry_month_year: string | null;
 }
 
+interface ScanFile {
+  id: string;
+  file_url: string;
+  file_type: string;
+  page_order: number;
+}
+
 interface ScanResult {
   id: string;
   file_url: string;
   file_type: string;
   status: string;
   items: ScanItem[];
+  files: ScanFile[];
 }
 
 type Step = 'upload' | 'processing' | 'verify' | 'success';
@@ -55,6 +63,7 @@ export function ScanToInventoryDialog({
   const [items, setItems] = useState<ScanItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
+  const [activePage, setActivePage] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -64,6 +73,7 @@ export function ScanToInventoryDialog({
     setItems([]);
     setSupplierId('');
     setDragOver(false);
+    setActivePage(0);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -71,11 +81,12 @@ export function ScanToInventoryDialog({
     if (!next) reset();
   };
 
-  const handleFile = async (file: File) => {
+  const handleFiles = async (files: File[]) => {
+    if (files.length === 0) return;
     setError('');
     setStep('processing');
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => formData.append('files', file));
     try {
       const res = await apiClient.post<ScanResult>('/api/invoice-scans/upload', formData, {
         params: { businessId, supplierId: supplierId || undefined },
@@ -83,24 +94,25 @@ export function ScanToInventoryDialog({
       });
       setScan(res.data);
       setItems(res.data.items);
+      setActivePage(0);
       setStep('verify');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not read this invoice. Try a clearer photo.');
+      setError(err.response?.data?.message || 'Could not read this invoice. Try clearer photos.');
       setStep('upload');
     }
   };
 
   const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) handleFiles(files);
     e.target.value = '';
   };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) handleFiles(files);
   };
 
   const updateItem = (id: string, patch: Partial<ScanItem>) => {
@@ -156,8 +168,8 @@ export function ScanToInventoryDialog({
               <DialogHeader>
                 <DialogTitle className="text-xl">Scan-to-Inventory</DialogTitle>
                 <p className="text-sm text-slate-500">
-                  Upload a photo or PDF of a distributor invoice — we&apos;ll read the products, quantities, batches, and
-                  expiry dates for you.
+                  Upload one or more photos (or a PDF) of a supplier invoice — we&apos;ll read the products, quantities, and
+                  prices for you. Multiple pages of the same invoice are combined automatically.
                 </p>
               </DialogHeader>
 
@@ -183,11 +195,12 @@ export function ScanToInventoryDialog({
                   <UploadCloud className="w-7 h-7 text-emerald-600" />
                 </div>
                 <p className="text-sm font-medium text-slate-700">Drag & drop, or click to upload</p>
-                <p className="text-xs text-slate-400">JPEG, PNG, WEBP, or PDF — up to 15MB</p>
+                <p className="text-xs text-slate-400">JPEG, PNG, WEBP, or PDF — up to 15MB each, up to 10 pages</p>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,application/pdf"
+                  multiple
                   className="hidden"
                   onChange={onFileInputChange}
                 />
@@ -207,7 +220,7 @@ export function ScanToInventoryDialog({
               </div>
               <div className="text-center">
                 <p className="text-base font-semibold text-slate-800">Reading your invoice…</p>
-                <p className="text-sm text-slate-500 mt-1">Extracting products, quantities, batches, and expiry dates</p>
+                <p className="text-sm text-slate-500 mt-1">Extracting products, quantities, and prices from every page</p>
               </div>
             </div>
           )}
@@ -222,11 +235,37 @@ export function ScanToInventoryDialog({
               </DialogHeader>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
-                <div className="rounded-2xl ring-1 ring-white/50 bg-white/20 overflow-hidden flex items-center justify-center">
-                  {scan.file_type === 'pdf' ? (
-                    <embed src={scan.file_url} type="application/pdf" className="w-full h-full min-h-[300px]" />
-                  ) : (
-                    <img src={scan.file_url} alt="Uploaded invoice" className="w-full h-full object-contain max-h-[60vh]" />
+                <div className="flex flex-col gap-2 min-h-0">
+                  <div className="rounded-2xl ring-1 ring-white/50 bg-white/20 overflow-hidden flex items-center justify-center flex-1 min-h-0">
+                    {(() => {
+                      const pages = scan.files && scan.files.length > 0 ? scan.files : [{ id: scan.id, file_url: scan.file_url, file_type: scan.file_type, page_order: 0 }];
+                      const page = pages[Math.min(activePage, pages.length - 1)];
+                      return page.file_type === 'pdf' ? (
+                        <embed src={page.file_url} type="application/pdf" className="w-full h-full min-h-[300px]" />
+                      ) : (
+                        <img src={page.file_url} alt={`Invoice page ${activePage + 1}`} className="w-full h-full object-contain max-h-[60vh]" />
+                      );
+                    })()}
+                  </div>
+                  {scan.files && scan.files.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-subtle pb-1">
+                      {scan.files.map((page, idx) => (
+                        <button
+                          key={page.id}
+                          type="button"
+                          onClick={() => setActivePage(idx)}
+                          className={`shrink-0 w-14 h-14 rounded-lg ring-2 overflow-hidden flex items-center justify-center bg-white/40 text-[10px] font-semibold ${
+                            activePage === idx ? 'ring-emerald-400' : 'ring-white/50'
+                          }`}
+                        >
+                          {page.file_type === 'pdf' ? (
+                            <span className="text-slate-500">PDF {idx + 1}</span>
+                          ) : (
+                            <img src={page.file_url} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
 

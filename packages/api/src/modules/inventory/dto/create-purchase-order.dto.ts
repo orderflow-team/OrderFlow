@@ -23,6 +23,12 @@ export class PurchaseItemDto {
   @Min(0)
   unitPrice: number;
 
+  // Which supplier this specific line came from — defaults to the PO's
+  // supplierId when omitted (set in InventoryService.createPurchaseOrder).
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
+
   @IsOptional()
   @IsString()
   batchNumber?: string;
