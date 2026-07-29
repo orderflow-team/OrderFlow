@@ -38,11 +38,6 @@ interface UserData {
   updated_at: string;
 }
 
-interface StoreItem {
-  id: string;
-  name: string;
-}
-
 interface UserStoreItem {
   id: string;
   name: string;
@@ -54,7 +49,6 @@ interface UserStoreItem {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
-  const [stores, setStores] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -124,22 +118,9 @@ export default function AdminUsersPage() {
     }
   };
 
-  const fetchStores = async () => {
-    try {
-      const res = await apiClient.get('/api/platform-admin/stores', { params: { limit: 100 } });
-      setStores(res.data.data);
-    } catch (err) {
-      console.error('Failed to load stores list:', err);
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
   }, [search, selectedRole, selectedStatus, page, limit]);
-
-  useEffect(() => {
-    fetchStores();
-  }, []);
 
   const handleToggleStatus = async (user: UserData) => {
     try {
@@ -569,37 +550,19 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">System Role</label>
-                  <select
-                    value={editForm.role}
-                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
-                  >
-                    {rolesList.map((r) => (
-                      <option key={r} value={r}>
-                        {r.replace('_', ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1">Assigned Store</label>
-                  <select
-                    value={editForm.business_id}
-                    onChange={(e) => setEditForm({ ...editForm, business_id: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">-- No Store Assigned --</option>
-                    {stores.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">System Role</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
+                >
+                  {rolesList.map((r) => (
+                    <option key={r} value={r}>
+                      {r.replace('_', ' ')}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
