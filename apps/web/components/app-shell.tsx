@@ -479,7 +479,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         <div className="px-5 py-6 flex flex-col gap-5 border-b border-white/40 mb-2">
           <div className="flex items-center gap-2">
             <ObixMark className="w-8 h-8 shrink-0" />
-            <span className="text-lg font-bold text-slate-800 tracking-tight">OBIX</span>
+            <span className="flex flex-col leading-none">
+              <span className="text-lg font-bold text-slate-800 tracking-tight">OBIX</span>
+              <span className="text-[8px] tracking-[0.12em] text-slate-500 font-semibold uppercase mt-0.5">Order Billing Inventory eXperience</span>
+            </span>
             <button
               onClick={() => setNotifOpen((v) => !v)}
               className="relative ml-auto text-slate-400 hover:text-slate-700 transition-colors"

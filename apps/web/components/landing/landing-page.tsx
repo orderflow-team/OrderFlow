@@ -138,10 +138,10 @@ export function LandingPage() {
 
   return (
     <div className={`${fraunces.variable} bg-slate-50 relative overflow-x-hidden`}>
-      {/* Background Ambient Blobs */}
+      {/* Background Ambient Blobs — echo the logo's blue-to-emerald gradient */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="drift-a absolute top-1/2 left-1/2 w-[70vw] h-[70vw] max-w-[60rem] max-h-[60rem] rounded-full bg-sky-300/35 blur-3xl" />
-        <div className="drift-b absolute -top-1/4 -left-1/4 w-[50vw] h-[50vw] max-w-[42rem] max-h-[42rem] rounded-full bg-orange-300/40 blur-3xl" />
+        <div className="drift-a absolute top-1/2 left-1/2 w-[70vw] h-[70vw] max-w-[60rem] max-h-[60rem] rounded-full bg-blue-300/35 blur-3xl" />
+        <div className="drift-b absolute -top-1/4 -left-1/4 w-[50vw] h-[50vw] max-w-[42rem] max-h-[42rem] rounded-full bg-sky-300/40 blur-3xl" />
         <div className="drift-c absolute -bottom-1/4 -right-1/4 w-[50vw] h-[50vw] max-w-[42rem] max-h-[42rem] rounded-full bg-emerald-300/35 blur-3xl" />
       </div>
 
@@ -150,18 +150,21 @@ export function LandingPage() {
         <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-[100rem] mx-auto">
           <Link href="/" className="flex items-center gap-2.5">
             <ObixMark className="w-10 h-10" />
-            <span className="text-xl font-bold text-slate-900 tracking-tight">OBIX</span>
+            <span className="flex flex-col leading-none">
+              <span className="text-xl font-bold text-slate-900 tracking-tight">OBIX</span>
+              <span className="text-[9px] tracking-[0.15em] text-slate-500 font-semibold uppercase mt-0.5">Order Billing Inventory eXperience</span>
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
-            <a href="#onboarding" className="hover:text-emerald-700 transition-colors">Onboarding</a>
-            <a href="#terminals" className="hover:text-emerald-700 transition-colors">Terminals</a>
-            <a href="#features" className="hover:text-emerald-700 transition-colors">Features</a>
-            <a href="#hardware" className="hover:text-emerald-700 transition-colors">Hardware</a>
-            <a href="#roles" className="hover:text-emerald-700 transition-colors">Staff Roles</a>
-            <a href="#faq" className="hover:text-emerald-700 transition-colors">FAQ</a>
-            <a href="#contact" className="hover:text-emerald-700 transition-colors">Contact</a>
+            <a href="#onboarding" className="hover:text-blue-700 transition-colors">Onboarding</a>
+            <a href="#terminals" className="hover:text-blue-700 transition-colors">Terminals</a>
+            <a href="#features" className="hover:text-blue-700 transition-colors">Features</a>
+            <a href="#hardware" className="hover:text-blue-700 transition-colors">Hardware</a>
+            <a href="#roles" className="hover:text-blue-700 transition-colors">Staff Roles</a>
+            <a href="#faq" className="hover:text-blue-700 transition-colors">FAQ</a>
+            <a href="#contact" className="hover:text-blue-700 transition-colors">Contact</a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -170,7 +173,7 @@ export function LandingPage() {
             </Link>
             <Link
               href="/signup"
-              className={`text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-5 py-2.5 rounded-full transition-all ring-1 ring-white/10 ${GLASS_SHEEN}`}
+              className={`text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 px-5 py-2.5 rounded-full transition-all ring-1 ring-white/10 ${GLASS_SHEEN}`}
             >
               Get started free
             </Link>
@@ -188,15 +191,15 @@ export function LandingPage() {
         {/* Mobile Navigation Drawer */}
         {mobileNavOpen && (
           <div className="lg:hidden bg-slate-900 text-white px-6 py-6 border-b border-slate-800 space-y-4 font-semibold text-sm animate-in slide-in-from-top duration-200">
-            <a href="#terminals" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Terminals</a>
-            <a href="#features" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Features</a>
-            <a href="#hardware" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Hardware Ecosystem</a>
-            <a href="#roles" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Staff Roles</a>
-            <a href="#faq" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">FAQ</a>
-            <a href="#contact" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-emerald-400">Contact</a>
+            <a href="#terminals" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">Terminals</a>
+            <a href="#features" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">Features</a>
+            <a href="#hardware" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">Hardware Ecosystem</a>
+            <a href="#roles" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">Staff Roles</a>
+            <a href="#faq" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">FAQ</a>
+            <a href="#contact" onClick={() => setMobileNavOpen(false)} className="block py-2 hover:text-blue-400">Contact</a>
             <div className="pt-4 border-t border-slate-800 flex gap-4">
               <Link href="/login" className="px-4 py-2 bg-slate-800 rounded-xl text-center w-full">Sign in</Link>
-              <Link href="/signup" className="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-center w-full">Sign up</Link>
+              <Link href="/signup" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-emerald-500 text-slate-950 font-bold rounded-xl text-center w-full">Sign up</Link>
             </div>
           </div>
         )}
@@ -205,8 +208,8 @@ export function LandingPage() {
       {/* Hero Section */}
       <main ref={heroRef} className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 grid lg:grid-cols-12 gap-8 items-center min-h-[calc(100vh-80px)] py-12">
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-800 text-xs font-extrabold uppercase tracking-wider shadow-sm">
-            <Sparkles className="w-4 h-4 text-emerald-700" /> POS &amp; Counter Management Platform
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 to-emerald-500/15 border border-blue-500/30 text-blue-800 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+            <Sparkles className="w-4 h-4 text-blue-700" /> POS &amp; Counter Management Platform
           </div>
 
           <h1
@@ -217,7 +220,7 @@ export function LandingPage() {
             <br />
             Stock out.
             <br />
-            <span className="italic text-emerald-700">Paid up.</span>
+            <span className="italic bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">Paid up.</span>
           </h1>
 
           <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-xl">
@@ -227,7 +230,7 @@ export function LandingPage() {
           <div className="pt-2 flex flex-wrap items-center gap-4">
             <Link
               href="/signup"
-              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-emerald-600/25 ${GLASS_SHEEN}`}
+              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-blue-600/25 ${GLASS_SHEEN}`}
             >
               Get started free <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
@@ -275,7 +278,7 @@ export function LandingPage() {
                 <button
                   onClick={() => setHeroView('pos')}
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    heroView === 'pos' ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+                    heroView === 'pos' ? 'bg-gradient-to-r from-blue-500 to-emerald-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   POS Billing
@@ -376,7 +379,7 @@ export function LandingPage() {
       {/* Onboarding Roadmap Section */}
       <section id="onboarding" className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80">
         <Reveal>
-          <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">Simple Onboarding</p>
+          <p className="text-xs font-bold tracking-[0.2em] text-blue-700 uppercase mb-3">Simple Onboarding</p>
           <h2 style={{ fontFamily: 'var(--font-fraunces)' }} className="text-4xl font-medium text-slate-900 max-w-2xl">
             From sign-up to your first sale.
           </h2>
@@ -408,11 +411,11 @@ export function LandingPage() {
                         } ${GLASS_SHEEN}`}
                         style={active ? { color: step.color, boxShadow: `0 0 0 2px ${step.color}55` } : undefined}
                       >
-                        <Icon className={`w-5 h-5 ${active ? '' : 'text-emerald-700'}`} strokeWidth={2.25} />
+                        <Icon className={`w-5 h-5 ${active ? '' : 'text-blue-700'}`} strokeWidth={2.25} />
                       </div>
                       <div className="pt-1.5">
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-extrabold text-emerald-800 bg-emerald-500/15 px-2 py-0.5 rounded-md border border-emerald-500/30 tabular-nums font-mono">
+                          <span className="text-xs font-extrabold text-blue-800 bg-blue-500/15 px-2 py-0.5 rounded-md border border-blue-500/30 tabular-nums font-mono">
                             {String(i + 1).padStart(2, '0')}
                           </span>
                           <h3 className="text-lg font-bold text-slate-900">{step.title}</h3>
@@ -455,7 +458,7 @@ export function LandingPage() {
       <section id="features" className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80">
         <Reveal>
           <div className="max-w-2xl mb-12">
-            <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">Core Capabilities</p>
+            <p className="text-xs font-bold tracking-[0.2em] text-blue-700 uppercase mb-3">Core Capabilities</p>
             <h2 style={{ fontFamily: 'var(--font-fraunces)' }} className="text-4xl font-medium text-slate-900">
               Everything in one app. Zero guesswork.
             </h2>
@@ -516,9 +519,10 @@ export function LandingPage() {
       <section className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 pb-24">
         <Reveal>
           <div className={`rounded-[2.5rem] bg-slate-900 px-8 py-16 sm:px-16 sm:py-20 text-center relative overflow-hidden ${GLASS_SHEEN}`}>
-            <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl" />
+            <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl" />
             <h2 style={{ fontFamily: 'var(--font-fraunces)' }} className="text-4xl sm:text-5xl font-medium text-white relative z-10">
-              Run your shop from <span className="italic text-emerald-400">one screen</span>, starting today.
+              Run your shop from <span className="italic bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">one screen</span>, starting today.
             </h2>
             <p className="mt-4 text-slate-400 text-base max-w-xl mx-auto relative z-10">
               Join hundreds of retail counters, cafes, pharmacies, and distributors streamlining their daily operations.
@@ -526,7 +530,7 @@ export function LandingPage() {
             <div className="mt-9 flex items-center justify-center gap-4 relative z-10">
               <Link
                 href="/signup"
-                className="inline-flex items-center justify-center h-14 px-8 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-base transition-colors shadow-lg shadow-emerald-500/25"
+                className="inline-flex items-center justify-center h-14 px-8 rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-400 hover:to-emerald-400 text-slate-950 font-bold text-base transition-colors shadow-lg shadow-blue-500/25"
               >
                 Get started free
               </Link>
@@ -553,7 +557,10 @@ export function LandingPage() {
         <div className="max-w-[100rem] mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
           <div className="flex items-center gap-3">
             <ObixMark className="w-7 h-7" />
-            <span className="font-bold text-slate-700 text-sm">OBIX</span>
+            <span className="flex flex-col leading-none">
+              <span className="font-bold text-slate-700 text-sm">OBIX</span>
+              <span className="text-[8px] tracking-[0.1em] text-slate-400 font-semibold uppercase mt-0.5">Order Billing Inventory eXperience</span>
+            </span>
             <span>&copy; {new Date().getFullYear()} OBIX. All rights reserved.</span>
           </div>
 
@@ -565,7 +572,7 @@ export function LandingPage() {
             <a href="#faq" className="hover:text-slate-900">FAQ</a>
             <a href="#contact" className="hover:text-slate-900">Contact</a>
             <Link href="/login" className="hover:text-slate-900">Sign in</Link>
-            <Link href="/signup" className="text-emerald-700 hover:underline">Get Started</Link>
+            <Link href="/signup" className="text-blue-700 hover:underline">Get Started</Link>
           </div>
         </div>
       </footer>

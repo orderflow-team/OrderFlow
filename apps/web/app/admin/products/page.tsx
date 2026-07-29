@@ -318,8 +318,8 @@ export default function AdminProductsPage() {
                     </td>
 
                     <td className="px-6 py-4 text-xs text-foreground">
-                      <div className="flex items-center gap-1.5 font-medium text-indigo-700 dark:text-indigo-300">
-                        <Store className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <div className="flex items-center gap-1.5 font-medium text-blue-700 dark:text-blue-300">
+                        <Store className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         {p.business_name}
                       </div>
                     </td>

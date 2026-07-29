@@ -73,12 +73,9 @@ export default function ForgotPasswordPage() {
       </div>
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
-          <div
-            className={`w-16 h-16 backdrop-blur-xl rounded-[1.75rem] flex items-center justify-center ring-1 ring-white/50 transform transition-transform hover:scale-105 ${GLASS_SHEEN}`}
-          >
-            <ObixMark className="w-11 h-11" />
-          </div>
+          <ObixMark className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
+          <p className="text-[10px] tracking-[0.2em] text-slate-500 font-semibold uppercase">Order Billing Inventory eXperience</p>
           <p className="text-slate-600 text-sm font-medium">Reset your password</p>
           <div className="flex items-center justify-center gap-3 pt-2">
             {BRAND_TILES.map(({ icon: Icon, fg }, i) => (

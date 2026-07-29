@@ -157,7 +157,7 @@ export default function AdminOrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <ShoppingCart className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <ShoppingCart className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             Global Orders & Gross Volume Stream
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -187,8 +187,8 @@ export default function AdminOrdersPage() {
 
       {/* Gross Revenue Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-indigo-500/10 to-card border border-indigo-500/20 p-5 rounded-2xl backdrop-blur-sm">
-          <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Gross Platform Volume</div>
+        <div className="bg-gradient-to-br from-blue-500/10 to-card border border-blue-500/20 p-5 rounded-2xl backdrop-blur-sm">
+          <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Gross Platform Volume</div>
           <div className="text-3xl font-extrabold text-foreground mt-2">
             ₹{totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
           </div>
@@ -224,7 +224,7 @@ export default function AdminOrdersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-indigo-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -235,7 +235,7 @@ export default function AdminOrdersPage() {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize font-medium"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize font-medium"
           >
             <option value="">All Order Statuses</option>
             <option value="completed">Completed / Delivered</option>
@@ -275,7 +275,7 @@ export default function AdminOrdersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600 dark:text-indigo-400" />
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     Loading order stream...
                   </td>
                 </tr>
@@ -297,8 +297,8 @@ export default function AdminOrdersPage() {
                     </td>
 
                     <td className="px-6 py-4 text-xs">
-                      <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 font-medium">
-                        <Store className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-300 font-medium">
+                        <Store className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                         {o.business_name}
                       </div>
                     </td>
@@ -338,7 +338,7 @@ export default function AdminOrdersPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
               >
                 <option value={15}>15</option>
                 <option value={25}>25</option>
@@ -369,7 +369,7 @@ export default function AdminOrdersPage() {
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                           : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >

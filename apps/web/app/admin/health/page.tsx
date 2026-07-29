@@ -109,7 +109,7 @@ export default function AdminHealthPage() {
             <div className="bg-card border border-border p-6 rounded-2xl backdrop-blur-sm space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">PostgreSQL Ping Latency</span>
-                <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="text-2xl font-extrabold text-foreground flex items-center gap-2">
                 <Zap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
@@ -122,7 +122,7 @@ export default function AdminHealthPage() {
             <div className="bg-card border border-border p-6 rounded-2xl backdrop-blur-sm space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Process Uptime</span>
-                <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="text-2xl font-extrabold text-foreground font-mono">
                 {health.system.uptimeFormatted}
@@ -136,7 +136,7 @@ export default function AdminHealthPage() {
             {/* Memory Usage Card */}
             <div className="bg-card border border-border p-6 rounded-2xl space-y-5">
               <h3 className="text-base font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
-                <Cpu className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <Cpu className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Node.js Memory Allocation
               </h3>
 
@@ -148,7 +148,7 @@ export default function AdminHealthPage() {
                   </div>
                   <div className="w-full h-3 bg-background rounded-full overflow-hidden border border-border">
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-indigo-500 rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-500"
                       style={{
                         width: `${Math.min(
                           100,
@@ -182,7 +182,7 @@ export default function AdminHealthPage() {
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between p-3 bg-background rounded-xl border border-border">
                   <span className="text-muted-foreground font-semibold">Node.js Runtime</span>
-                  <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{health.system.nodeVersion}</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">{health.system.nodeVersion}</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-background rounded-xl border border-border">

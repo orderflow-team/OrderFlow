@@ -1,23 +1,5 @@
-/**
- * Recreated from the OBIX brand mark (blue "O", navy "B"/"I", blue-to-emerald
- * gradient "X") since we only have a pasted reference image, not the source
- * file — swap in the real asset later if pixel-perfect fidelity matters.
- */
-
 export function ObixMark({ className = 'w-9 h-9' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 40 40" className={className} xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="obix-mark-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#2563eb" />
-          <stop offset="100%" stopColor="#10b981" />
-        </linearGradient>
-      </defs>
-      <rect width="40" height="40" rx="11" fill="#0f172a" />
-      <path d="M12 12 L21 20 L12 28" stroke="#3b82f6" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M28 12 L19 20 L28 28" stroke="url(#obix-mark-grad)" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  );
+  return <img src="/obix-mark.png" alt="OBIX" className={`${className} object-contain`} />;
 }
 
 export function ObixWordmark({

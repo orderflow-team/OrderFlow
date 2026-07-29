@@ -99,7 +99,7 @@ export default function AdminNotificationsPage() {
               ? 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
               : announcement.type === 'warning'
               ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300'
-              : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300'
+              : 'bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300'
           }`}
         >
           {announcement.type === 'critical' ? (
@@ -107,7 +107,7 @@ export default function AdminNotificationsPage() {
           ) : announcement.type === 'warning' ? (
             <AlertTriangle className="w-6 h-6 flex-shrink-0 text-amber-600 dark:text-amber-400" />
           ) : (
-            <Bell className="w-6 h-6 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />
+            <Bell className="w-6 h-6 flex-shrink-0 text-blue-600 dark:text-blue-400" />
           )}
 
           <div className="flex-1 text-sm font-medium">
@@ -122,7 +122,7 @@ export default function AdminNotificationsPage() {
       {/* Broadcast Form */}
       <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-5">
         <h3 className="text-lg font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
-          <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Bell className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           Configure Broadcast Message
         </h3>
 
@@ -136,7 +136,7 @@ export default function AdminNotificationsPage() {
               type="checkbox"
               checked={announcement.active}
               onChange={(e) => setAnnouncement({ ...announcement, active: e.target.checked })}
-              className="w-5 h-5 rounded bg-card border-border text-indigo-600 focus:ring-0"
+              className="w-5 h-5 rounded bg-card border-border text-blue-600 focus:ring-0"
             />
           </label>
 
@@ -145,7 +145,7 @@ export default function AdminNotificationsPage() {
             <select
               value={announcement.type}
               onChange={(e) => setAnnouncement({ ...announcement, type: e.target.value })}
-              className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize"
+              className="w-full bg-background border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
             >
               <option value="info">ℹ️ System Info / Update</option>
               <option value="warning">⚠️ Scheduled Maintenance Warning</option>
@@ -161,7 +161,7 @@ export default function AdminNotificationsPage() {
               placeholder="e.g. Scheduled database maintenance tonight at 2:00 AM IST. Offline POS sync will remain active..."
               value={announcement.message}
               onChange={(e) => setAnnouncement({ ...announcement, message: e.target.value })}
-              className="w-full bg-background border border-border rounded-xl p-3.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-indigo-500"
+              className="w-full bg-background border border-border rounded-xl p-3.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -169,7 +169,7 @@ export default function AdminNotificationsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition shadow-lg shadow-indigo-600/30"
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-lg shadow-blue-600/30"
             >
               <Send className="w-4 h-4" />
               {saving ? 'Publishing...' : 'Publish Announcement'}

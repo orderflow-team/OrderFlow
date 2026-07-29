@@ -202,7 +202,7 @@ export default function AdminUsersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <Users className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <Users className="w-7 h-7 text-blue-600 dark:text-blue-400" />
            Manage User  
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -239,7 +239,7 @@ export default function AdminUsersPage() {
           <div className="flex items-center gap-2">
             <a
               href="/signup"
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-xs rounded-xl shadow transition"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-xs rounded-xl shadow transition"
             >
               Sign Up as Admin
             </a>
@@ -266,7 +266,7 @@ export default function AdminUsersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-indigo-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
               setSelectedRole(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
           >
             <option value="">All Roles</option>
             {rolesList.map((r) => (
@@ -297,7 +297,7 @@ export default function AdminUsersPage() {
               setSelectedStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
           >
             <option value="">All Statuses</option>
             <option value="true">Active Only</option>
@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600 dark:text-indigo-400" />
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     Loading user records...
                   </td>
                 </tr>
@@ -354,7 +354,7 @@ export default function AdminUsersPage() {
                   <tr key={user.id} className="hover:bg-accent transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-secondary to-indigo-200 dark:to-indigo-950 border border-border flex items-center justify-center font-bold text-sm text-indigo-600 dark:text-indigo-400">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-secondary to-blue-200 dark:to-blue-950 border border-border flex items-center justify-center font-bold text-sm text-blue-600 dark:text-blue-400">
                           {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                         </div>
                         <div>
@@ -411,7 +411,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-xs font-medium rounded-lg transition"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-medium rounded-lg transition"
                         >
                           <Edit2 className="w-3.5 h-3.5" /> Edit
                         </button>
@@ -441,7 +441,7 @@ export default function AdminUsersPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -472,7 +472,7 @@ export default function AdminUsersPage() {
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                           : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >
@@ -499,7 +499,7 @@ export default function AdminUsersPage() {
           <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <Edit2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Edit User Data
               </h3>
               <button
@@ -518,7 +518,7 @@ export default function AdminUsersPage() {
                   required
                   value={editForm.full_name}
                   onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -529,7 +529,7 @@ export default function AdminUsersPage() {
                   required
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -539,7 +539,7 @@ export default function AdminUsersPage() {
                   <select
                     value={editForm.role}
                     onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500 capitalize"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
                   >
                     {rolesList.map((r) => (
                       <option key={r} value={r}>
@@ -554,7 +554,7 @@ export default function AdminUsersPage() {
                   <select
                     value={editForm.business_id}
                     onChange={(e) => setEditForm({ ...editForm, business_id: e.target.value })}
-                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                   >
                     <option value="">-- No Store Assigned --</option>
                     {stores.map((s) => (
@@ -568,14 +568,14 @@ export default function AdminUsersPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Reset Password (Optional)
+                  <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Reset Password (Optional)
                 </label>
                 <input
                   type="password"
                   placeholder="Leave blank to keep existing password"
                   value={editForm.password}
                   onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -585,7 +585,7 @@ export default function AdminUsersPage() {
                     type="checkbox"
                     checked={editForm.is_active}
                     onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                    className="w-4 h-4 rounded bg-background border-border text-indigo-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-background border-border text-blue-600 focus:ring-0"
                   />
                   Account Active & Enabled
                 </label>
@@ -602,7 +602,7 @@ export default function AdminUsersPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-xl shadow-lg shadow-indigo-600/30 transition"
+                  className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-xl shadow-lg shadow-blue-600/30 transition"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Changes'}

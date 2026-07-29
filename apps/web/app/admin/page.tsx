@@ -59,7 +59,7 @@ export default function AdminOverviewDashboard() {
       value: loading ? '...' : (stats?.totalUsers ?? 0),
       subtext: loading ? 'Fetching system telemetry...' : `${stats?.activeUsers ?? 0} Active Users`,
       icon: Users,
-      color: 'from-blue-600 to-indigo-600',
+      color: 'from-blue-600 to-sky-500',
       href: '/admin/users',
     },
     {
@@ -91,9 +91,9 @@ export default function AdminOverviewDashboard() {
   return (
     <div className="space-y-8">
       {/* Top Welcome Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-500/10 via-card to-card border border-border p-6 rounded-2xl backdrop-blur-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-500/10 via-card to-card border border-border p-6 rounded-2xl backdrop-blur-md">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
             <Zap className="w-4 h-4" /> OBIX Developer Engine
           </div>
           <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
@@ -121,13 +121,13 @@ export default function AdminOverviewDashboard() {
             <Link
               key={idx}
               href={card.href}
-              className="group p-5 bg-card hover:bg-accent border border-border hover:border-indigo-500/40 rounded-2xl transition duration-200 shadow-lg relative overflow-hidden"
+              className="group p-5 bg-card hover:bg-accent border border-border hover:border-blue-500/40 rounded-2xl transition duration-200 shadow-lg relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${card.color} flex items-center justify-center text-white shadow-lg`}>
                   <Icon className="w-5 h-5" />
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-600 dark:text-indigo-400 transition" />
+                <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition" />
               </div>
               <div className="text-3xl font-extrabold text-foreground tracking-tight mb-1">
                 {loading ? '...' : card.value.toLocaleString()}
@@ -148,9 +148,9 @@ export default function AdminOverviewDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <Link
             href="/admin/users"
-            className="p-3 bg-muted hover:bg-indigo-950/40 border border-border hover:border-indigo-500/40 rounded-xl transition text-center group"
+            className="p-3 bg-muted hover:bg-blue-950/40 border border-border hover:border-blue-500/40 rounded-xl transition text-center group"
           >
-            <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mx-auto mb-1 group-hover:scale-110 transition" />
+            <Users className="w-5 h-5 text-blue-600 dark:text-blue-400 mx-auto mb-1 group-hover:scale-110 transition" />
             <span className="text-xs font-semibold text-foreground block">User Control</span>
           </Link>
 
@@ -208,7 +208,7 @@ export default function AdminOverviewDashboard() {
                 System Telemetry: <span className="text-emerald-600 dark:text-emerald-400">{health.status}</span>
               </div>
               <div className="text-xs text-muted-foreground flex items-center gap-3 mt-0.5">
-                <span>PostgreSQL Latency: <strong className="text-indigo-600 dark:text-indigo-400 font-mono">{health.database.latencyMs} ms</strong></span>
+                <span>PostgreSQL Latency: <strong className="text-blue-600 dark:text-blue-400 font-mono">{health.database.latencyMs} ms</strong></span>
                 <span>Heap Used: <strong className="text-foreground font-mono">{health.system.memoryUsage.heapUsedMb} MB</strong></span>
               </div>
             </div>
@@ -229,10 +229,10 @@ export default function AdminOverviewDashboard() {
         <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <h3 className="font-bold text-foreground text-base flex items-center gap-2">
-              <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               Recent User Signups
             </h3>
-            <Link href="/admin/users" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+            <Link href="/admin/users" className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
               View All
             </Link>
           </div>
@@ -247,7 +247,7 @@ export default function AdminOverviewDashboard() {
                   className="flex items-center justify-between p-3 bg-muted rounded-xl border border-border hover:border-border transition"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-indigo-600 dark:text-indigo-400">
+                    <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-blue-600 dark:text-blue-400">
                       {u.full_name?.charAt(0) || u.email?.charAt(0)}
                     </div>
                     <div>
@@ -256,7 +256,7 @@ export default function AdminOverviewDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 capitalize">
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 capitalize">
                       {u.role?.replace('_', ' ')}
                     </span>
                     <div className="text-[10px] text-muted-foreground mt-1">{u.business_name}</div>

@@ -223,7 +223,7 @@ export default function AdminStoresPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <Store className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+            <Store className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             Store Industry Directory
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -259,7 +259,7 @@ export default function AdminStoresPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-purple-500"
+            className="w-full bg-background border border-border rounded-xl pl-9 pr-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -271,7 +271,7 @@ export default function AdminStoresPage() {
               setSelectedCategory(e.target.value);
               setPage(1);
             }}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 capitalize"
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
           >
             <option value="">All Industry Categories</option>
             {CATEGORY_PRESETS.map((cat) => (
@@ -311,7 +311,7 @@ export default function AdminStoresPage() {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600 dark:text-purple-400" />
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     Loading store catalog...
                   </td>
                 </tr>
@@ -331,7 +331,7 @@ export default function AdminStoresPage() {
                   <tr key={store.id} className="hover:bg-accent transition">
                     <td className="px-4 py-3 font-semibold text-foreground max-w-[170px] xl:max-w-[220px]">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 shrink-0 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center font-bold text-purple-600 dark:text-purple-400 text-sm">
+                        <div className="w-8 h-8 shrink-0 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center font-bold text-blue-600 dark:text-blue-400 text-sm">
                           🏬
                         </div>
                         <div className="min-w-0">
@@ -342,7 +342,7 @@ export default function AdminStoresPage() {
                                 setSearch(store.owner_email!);
                                 setPage(1);
                               }}
-                              className="text-[11px] text-purple-600 dark:text-purple-400 hover:underline font-mono block text-left truncate max-w-full"
+                              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-mono block text-left truncate max-w-full"
                               title={store.owner_email}
                             >
                               {store.owner_email}
@@ -394,7 +394,7 @@ export default function AdminStoresPage() {
                           </span>
                         )}
                         {store.ai_chat_enabled && (
-                          <span title="AI Chat module enabled" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                          <span title="AI Chat module enabled" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                             AI
                           </span>
                         )}
@@ -413,7 +413,7 @@ export default function AdminStoresPage() {
                         <button
                           onClick={() => openProductsModal(store)}
                           title="View Catalog"
-                          className="p-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 rounded-lg border border-indigo-500/30 transition"
+                          className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-500/30 transition"
                         >
                           <Package className="w-3.5 h-3.5" />
                         </button>
@@ -451,7 +451,7 @@ export default function AdminStoresPage() {
                   setLimit(Number(e.target.value));
                   setPage(1);
                 }}
-                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+                className="bg-card border border-border text-foreground text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -482,7 +482,7 @@ export default function AdminStoresPage() {
                       onClick={() => setPage(pNum)}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
                         page === pNum
-                          ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
                           : 'bg-card hover:bg-accent text-foreground border border-border'
                       }`}
                     >
@@ -633,7 +633,7 @@ export default function AdminStoresPage() {
           <div className="bg-card border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between pb-4 border-b border-border">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <Store className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Store className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Configure Store & Category
               </h3>
               <button onClick={() => setEditModalOpen(false)} className="text-muted-foreground hover:text-foreground p-1">
@@ -649,7 +649,7 @@ export default function AdminStoresPage() {
                   required
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -658,7 +658,7 @@ export default function AdminStoresPage() {
                 <select
                   value={editForm.category}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 capitalize"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 capitalize"
                 >
                   <option value="">-- Select Industry Preset --</option>
                   {CATEGORY_PRESETS.map((cat) => (
@@ -675,7 +675,7 @@ export default function AdminStoresPage() {
                   type="text"
                   value={editForm.gst_number}
                   onChange={(e) => setEditForm({ ...editForm, gst_number: e.target.value })}
-                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-purple-500 font-mono uppercase"
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 font-mono uppercase"
                 />
               </div>
 
@@ -686,7 +686,7 @@ export default function AdminStoresPage() {
                     type="checkbox"
                     checked={editForm.inventory_enabled}
                     onChange={(e) => setEditForm({ ...editForm, inventory_enabled: e.target.checked })}
-                    className="w-4 h-4 rounded bg-card border-border text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-card border-border text-blue-600 focus:ring-0"
                   />
                 </label>
 
@@ -696,7 +696,7 @@ export default function AdminStoresPage() {
                     type="checkbox"
                     checked={editForm.ai_chat_enabled}
                     onChange={(e) => setEditForm({ ...editForm, ai_chat_enabled: e.target.checked })}
-                    className="w-4 h-4 rounded bg-card border-border text-purple-600 focus:ring-0"
+                    className="w-4 h-4 rounded bg-card border-border text-blue-600 focus:ring-0"
                   />
                 </label>
               </div>
@@ -712,7 +712,7 @@ export default function AdminStoresPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-xl transition shadow-lg shadow-purple-600/30"
+                  className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl transition shadow-lg shadow-blue-600/30"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Configuration'}
