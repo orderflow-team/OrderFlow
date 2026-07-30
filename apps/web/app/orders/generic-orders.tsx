@@ -454,6 +454,38 @@ export function GenericOrders() {
     }
   };
 
+  const handleThermalPrint = async () => {
+    if (!businessId || !drawerOrder) return;
+    try {
+      if (drawerOrder.items && drawerOrder.items.length > 0) {
+        const business = await getCached(businessId, 'business-profile');
+        const items = drawerOrder.items.map((it) => ({
+          name: it.product?.name || it.custom_product_name || 'Item',
+          quantity: Number(it.quantity),
+          unit: it.unit || it.product?.unit || '',
+          unitPrice: Number(it.unit_price),
+          subtotal: Number(it.subtotal),
+        }));
+        printReceiptHtml(
+          buildReceiptHtml({
+            business: business as any,
+            orderNumber: drawerOrder.order_number || drawerOrder.id.slice(0, 8),
+            createdAt: drawerOrder.created_at || new Date().toISOString(),
+            customerName: drawerOrder.customer_name || 'Walk-in',
+            items,
+            totalAmount: Number(drawerOrder.total_amount),
+            queued: isUnsyncedOrder,
+          }),
+        );
+      } else {
+        const res = await apiClient.get(`/api/orders/${drawerOrder.id}/receipt`, { params: { businessId } });
+        printReceiptHtml(res.data);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to print thermal receipt');
+    }
+  };
+
   const handleDelete = async () => {
     if (!businessId || !drawerOrder) return;
     try {
@@ -597,41 +629,15 @@ export function GenericOrders() {
         unitPrice: Number(it.product.selling_price),
       })),
     };
-
-    const receiptItems = cartItems.map((it) => ({
-      name: it.product.name,
-      quantity: it.quantity,
-      unit: it.product.unit,
-      unitPrice: Number(it.product.selling_price),
-      subtotal: it.quantity * Number(it.product.selling_price),
-    }));
-    const totalAmount = receiptItems.reduce((sum, it) => sum + it.subtotal, 0);
-    const printReceipt = async (orderNumber: string, createdAt: string, queued: boolean) => {
-      const business = await getCached(businessId, 'business-profile');
-      printReceiptHtml(
-        buildReceiptHtml({
-          business: business as any,
-          orderNumber,
-          createdAt,
-          customerName: resolvedCustomerName,
-          items: receiptItems,
-          totalAmount,
-          queued,
-        }),
-      );
-    };
-
     try {
       const res = await apiClient.post('/api/orders', orderPayload);
       setShowForm(false);
-      await printReceipt(res.data.order_number, res.data.created_at || new Date().toISOString(), false);
       load(businessId);
     } catch (err: any) {
       if (!err.response) {
-        // Offline — queue the sale instead of losing it, print from what we know locally.
+        // Offline — queue the sale instead of losing it.
         await enqueueOrder(businessId, orderPayload);
         setShowForm(false);
-        await printReceipt('Queued…', new Date().toISOString(), true);
         load(businessId, true);
       } else {
         setError(err.response?.data?.message || 'Failed to create order');
@@ -1175,16 +1181,26 @@ export function GenericOrders() {
                 )
               )}
 
-              {/* Invoice */}
-              <Button
-                onClick={handleGenerateInvoice}
-                disabled={invoiceLoading}
-                variant="outline"
-                className="w-full h-11 gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Generate Invoice'}
-              </Button>
+              {/* Thermal Receipt & Invoice */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleThermalPrint}
+                  variant="outline"
+                  className="flex-1 h-11 gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Thermal Print
+                </Button>
+                <Button
+                  onClick={handleGenerateInvoice}
+                  disabled={invoiceLoading}
+                  variant="outline"
+                  className="flex-1 h-11 gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Invoice'}
+                </Button>
+              </div>
 
               {/* Delete */}
               {!deleteConfirm ? (
