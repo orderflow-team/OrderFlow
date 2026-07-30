@@ -14,10 +14,11 @@ import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventor
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus } from 'lucide-react';
+import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus, Upload } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 import { PharmacyGrid } from './pharmacy-grid';
 import { WholesaleGrid } from './wholesale-grid';
+import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface Product {
   id: string;
@@ -58,6 +59,8 @@ function ProductsPageContent() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const isSeedingCategories = useRef(false);
+
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
@@ -292,15 +295,37 @@ function ProductsPageContent() {
   const availableUnits = Array.from(new Set([...commonUnits, ...existingUnits]));
   const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products;
 
+  const bulkFields: BulkField[] = [
+    { key: 'name', label: 'Name', aliases: ['productname', 'itemname'], required: true, width: 'w-28', example: 'Fresh Toned Milk 1L' },
+    { key: 'sku', label: 'SKU', aliases: ['barcode'], width: 'w-20', example: 'MILK-1L' },
+    { key: 'unit', label: 'Unit', suggestions: availableUnits, width: 'w-16', example: 'litre' },
+    { key: 'category', label: 'Category', suggestions: categories.map((c) => c.name), width: 'w-24', example: 'Dairy & Bakery' },
+    { key: 'sellingPrice', label: 'Price', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '60' },
+    { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '50' },
+    { key: 'taxPercentage', label: 'Tax %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
+    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity', 'openingstock'], type: 'number', width: 'w-14', example: '100' },
+    { key: 'description', label: 'Description', width: 'w-32', example: 'Farm fresh toned milk' },
+  ];
+
   return (
     <AppShell>
       <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">{entityNamePlural}</h1>
           {!showForm && (
-            <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
-              <Plus className="w-4 h-4" /> Add {entityName}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setShowBulkUpload(true)}
+              >
+                <Upload className="w-4 h-4" /> Bulk Upload
+              </Button>
+              <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
+                <Plus className="w-4 h-4" /> Add {entityName}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -349,6 +374,15 @@ function ProductsPageContent() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <BulkUploadDialog
+          open={showBulkUpload}
+          onOpenChange={setShowBulkUpload}
+          businessId={businessId || ''}
+          entityLabelPlural={entityNamePlural}
+          fields={bulkFields}
+          onUploaded={() => { load(businessId!); loadCategories(businessId!, products); }}
+        />
 
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
           {`Total: ${products.length} • Recent`}

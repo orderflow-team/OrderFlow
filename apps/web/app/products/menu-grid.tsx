@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, Coffee } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, Coffee, Upload } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getDefaultItemCategories } from '@/lib/business-modules';
+import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface Product {
   id: string;
@@ -47,6 +48,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   // Item form state
   const [form, setForm] = useState({
@@ -238,9 +240,17 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     return () => window.removeEventListener('open-new-form', handleOpen);
   }, []);
 
-  const filteredProducts = selectedCategory 
+  const filteredProducts = selectedCategory
     ? products.filter(p => p.category === selectedCategory)
     : products;
+
+  const bulkFields: BulkField[] = [
+    { key: 'name', label: 'Name', aliases: ['itemname', 'dishname', 'productname'], required: true, width: 'w-32', example: 'Paneer Butter Masala' },
+    { key: 'sellingPrice', label: 'Price', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '250' },
+    { key: 'category', label: 'Category', suggestions: categories.map(c => c.name), width: 'w-28', example: 'Main Course' },
+    { key: 'description', label: 'Description', width: 'w-40', example: 'Aromatic paneer curry with Kashmiri spices' },
+    { key: 'isAvailable', label: 'Available', aliases: ['available'], type: 'boolean', width: 'w-20' },
+  ];
 
   return (
     <AppShell>
@@ -251,35 +261,38 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         </div>
 
         {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
             <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <Input 
-              className="pl-9 h-11" 
-              placeholder={isRestaurant ? "Search menu items..." : "Search products..."} 
+            <Input
+              className="pl-9 h-11 w-full"
+              placeholder={isRestaurant ? "Search menu items..." : "Search products..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
-            <select 
-              className="h-11 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm min-w-[140px]"
-              value={selectedCategory || ''}
-              onChange={(e) => setSelectedCategory(e.target.value || null)}
-            >
-              <option value="">All categories</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowCategoryForm(!showCategoryForm)}>
               <FolderPlus className="h-4 w-4" /> Category
+            </Button>
+            <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Item
             </Button>
           </div>
         </div>
+
+        <BulkUploadDialog
+          open={showBulkUpload}
+          onOpenChange={setShowBulkUpload}
+          businessId={businessId}
+          entityLabelPlural={isRestaurant ? 'Menu Items' : 'Products'}
+          fields={bulkFields}
+          staticPayload={{ unit: 'piece', taxPercentage: 0, stockQuantity: 0 }}
+          onUploaded={loadData}
+        />
 
         {/* Category Form Dialog */}
         <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>

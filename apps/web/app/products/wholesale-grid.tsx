@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, Package, Layers, ShieldCheck, TrendingDown, Box, Layers3, Sparkles } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, Package, Layers, ShieldCheck, TrendingDown, Box, Layers3, Sparkles, Upload } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,6 +12,7 @@ import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { ClearModuleButton } from '@/components/clear-module-button';
+import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface VolumeTier {
   minQty: number;
@@ -79,6 +80,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const isSeeding = useRef(false);
 
   useEffect(() => {
@@ -234,6 +236,20 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     return matchesSearch && matchesCat;
   });
 
+  const bulkFields: BulkField[] = [
+    { key: 'name', label: 'Product Name', aliases: ['itemname', 'productname'], required: true, width: 'w-32', example: 'Grade A White Sugar (50kg Sack)' },
+    { key: 'brand', label: 'Brand', aliases: ['manufacturer'], width: 'w-20', example: 'Fortune' },
+    { key: 'category', label: 'Category', suggestions: categories.map((c) => c.name), width: 'w-24', example: 'Grains & Pulses' },
+    { key: 'sku', label: 'SKU / Batch Code', aliases: ['batchcode'], width: 'w-24', example: 'WLS-SUG-50K' },
+    { key: 'unit', label: 'Packaging Unit', aliases: ['packagingunit'], required: true, width: 'w-20', example: 'sack' },
+    { key: 'sellingPrice', label: 'Wholesale Rate', aliases: ['price', 'rate'], type: 'number', required: true, width: 'w-16', example: '1850' },
+    { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '1620' },
+    { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
+    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '500' },
+    { key: 'moq', label: 'MOQ', aliases: ['minimumorderquantity'], type: 'number', width: 'w-14', example: '10' },
+    { key: 'batchNumber', label: 'Batch / Lot #', aliases: ['batch', 'lot'], width: 'w-24', example: 'BATCH-2026-X9' },
+  ];
+
   return (
     <AppShell>
       <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6">
@@ -248,11 +264,23 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowBulkUpload(true)} className="gap-1.5">
+              <Upload className="w-4 h-4" /> Bulk Upload
+            </Button>
             <Button onClick={openCreateForm} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-md">
               <Plus className="w-4 h-4" /> Add Bulk Product
             </Button>
           </div>
         </div>
+
+        <BulkUploadDialog
+          open={showBulkUpload}
+          onOpenChange={setShowBulkUpload}
+          businessId={businessId}
+          entityLabelPlural="Wholesale Products"
+          fields={bulkFields}
+          onUploaded={loadData}
+        />
 
         {/* Search & Category Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3">

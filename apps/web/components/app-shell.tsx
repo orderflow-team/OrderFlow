@@ -164,8 +164,8 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setIsDeliveryRole(hasRole('delivery_person'));
     const role = getCurrentUser()?.role || 'owner';
     setUserRole(role);
-    setCanManageStaff(hasRole('admin', 'manager'));
-    setCanViewReports(hasRole('admin', 'manager', 'accountant'));
+    setCanManageStaff(hasRole('admin', 'manager', 'super_admin'));
+    setCanViewReports(hasRole('admin', 'manager', 'accountant', 'super_admin'));
   }, []);
 
   useOfflineSync(businessId);
@@ -176,7 +176,12 @@ export function AppShell({ children, hideNavigation = false }: { children: React
 
   useEffect(() => {
     if (!businessId) {
-      setOptionalModules(getOptionalModulesForCategory(null));
+      // Leave optionalModules at its initial `null` rather than setting the
+      // no-category fallback here — the "hiddenHit" safety net below treats
+      // null as "not resolved yet" and skips, but a concrete (salesman/restaurant/
+      // inventory-less) fallback would make it fire and bounce the user to
+      // /dashboard before the real, businessId-aware modules list loads just
+      // a render later.
       setChatEnabled(true);
       return;
     }

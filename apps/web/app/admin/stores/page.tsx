@@ -402,29 +402,33 @@ export default function AdminStoresPage() {
                     </td>
 
                     <td className="px-3 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleImpersonateStore(store)}
-                          title="Login as Store"
-                          className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-500/30 transition"
-                        >
-                          <Key className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openProductsModal(store)}
-                          title="View Catalog"
-                          className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-500/30 transition"
-                        >
-                          <Package className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(store)}
-                          title="Configure"
-                          className="p-2 bg-secondary hover:bg-accent text-foreground rounded-lg border border-border transition"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {isDevAccount ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleImpersonateStore(store)}
+                            title="Login as Store"
+                            className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-lg border border-amber-500/30 transition"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openProductsModal(store)}
+                            title="View Catalog"
+                            className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-500/30 transition"
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(store)}
+                            title="Configure"
+                            className="p-2 bg-secondary hover:bg-accent text-foreground rounded-lg border border-border transition"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                   );

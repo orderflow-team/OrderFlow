@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,6 +11,7 @@ import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 import { expiryStatus } from '@/lib/expiry-status';
+import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface Product {
   id: string;
@@ -67,6 +68,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const emptyForm = {
     name: '',
@@ -276,6 +278,22 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
   const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products;
 
+  const bulkFields: BulkField[] = [
+    { key: 'name', label: 'Medicine Name', aliases: ['medicinename', 'itemname', 'productname'], required: true, width: 'w-32', example: 'Crocin Advance' },
+    { key: 'brand', label: 'Manufacturer', aliases: ['manufacturer'], width: 'w-24', example: 'GSK' },
+    { key: 'genericName', label: 'Generic Name', aliases: ['generic', 'composition'], width: 'w-28', example: 'Paracetamol 500mg' },
+    { key: 'category', label: 'Category', suggestions: categories.map((c) => c.name), width: 'w-24', example: 'Pain Relief' },
+    { key: 'unit', label: 'Pack Size', aliases: ['packsize'], width: 'w-24', example: '10 tablets/strip' },
+    { key: 'sellingPrice', label: 'MRP', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '35' },
+    { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '28' },
+    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '200' },
+    { key: 'batchNumber', label: 'Batch #', aliases: ['batch'], width: 'w-20', example: 'CR2024A' },
+    { key: 'expiryDate', label: 'Expiry', aliases: ['expiry', 'expirydate'], type: 'date', width: 'w-32' },
+    { key: 'barcode', label: 'Barcode', aliases: ['sku', 'skucode', 'code'], width: 'w-24' },
+    { key: 'prescriptionRequired', label: 'Rx Required', aliases: ['rx', 'prescription'], type: 'boolean', width: 'w-20' },
+    { key: 'description', label: 'Usage / Dosage', aliases: ['dosage', 'usage'], width: 'w-40', example: 'Take 1 tablet twice daily after food' },
+  ];
+
   return (
     <AppShell>
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
@@ -285,25 +303,38 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
         </div>
 
         {/* Action Bar */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
             <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <Input
-              className="pl-9 h-11"
+              className="pl-9 h-11 w-full"
               placeholder="Search medicines..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowCategoryForm(!showCategoryForm)}>
               <FolderPlus className="h-4 w-4" /> Category
+            </Button>
+            <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
+              <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Medicine
             </Button>
           </div>
         </div>
+
+        <BulkUploadDialog
+          open={showBulkUpload}
+          onOpenChange={setShowBulkUpload}
+          businessId={businessId}
+          entityLabelPlural="Medicines"
+          fields={bulkFields}
+          staticPayload={{ taxPercentage: 0 }}
+          onUploaded={loadData}
+        />
 
         {/* Category Form Dialog */}
         <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
