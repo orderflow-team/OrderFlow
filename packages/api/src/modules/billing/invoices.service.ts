@@ -6,6 +6,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Customer } from '../../database/entities/customer.entity';
+import { Payment } from '../../database/entities/payment.entity';
 
 @Injectable()
 export class InvoicesService {
@@ -15,8 +16,40 @@ export class InvoicesService {
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
+    @InjectRepository(Payment) private paymentsRepository: Repository<Payment>,
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * How much this customer still owes across their OTHER orders (any not
+   * cancelled/returned — draft included, matching what the Customers page's
+   * order-history view already shows as "Remaining"), so a fresh invoice can
+   * roll that balance forward instead of only reflecting this one sale.
+   */
+  async getPreviousBalanceDue(businessId: string, customerId: string, excludeOrderId: string): Promise<number> {
+    const orders = await this.ordersRepository.find({
+      where: { business_id: businessId, customer_id: customerId },
+    });
+    const relevantOrders = orders.filter(
+      (o) => o.id !== excludeOrderId && o.status !== 'cancelled' && o.status !== 'returned',
+    );
+    if (relevantOrders.length === 0) return 0;
+
+    const orderIds = relevantOrders.map((o) => o.id);
+    const paymentsRaw = await this.paymentsRepository
+      .createQueryBuilder('p')
+      .select('p.order_id', 'orderId')
+      .addSelect('SUM(p.amount)', 'total')
+      .where('p.order_id IN (:...orderIds)', { orderIds })
+      .groupBy('p.order_id')
+      .getRawMany<{ orderId: string; total: string }>();
+    const paidByOrder = new Map(paymentsRaw.map((r) => [r.orderId, Number(r.total)]));
+
+    return relevantOrders.reduce((sum, o) => {
+      const paid = paidByOrder.get(o.id) || 0;
+      return sum + Math.max(0, Number(o.total_amount) - paid);
+    }, 0);
+  }
 
   /** Snapshots a confirmed order's items into an immutable invoice, per the Order -> Invoice flow. */
   async generateFromOrder(orderId: string, businessId: string) {
@@ -121,6 +154,9 @@ export class InvoicesService {
     const customer = order?.customer_id
       ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
       : null;
+    const previousBalanceDue = order?.customer_id
+      ? await this.getPreviousBalanceDue(businessId, order.customer_id, order.id)
+      : 0;
     return {
       ...invoice,
       items,
@@ -129,6 +165,7 @@ export class InvoicesService {
       order_customer_name: order?.customer_name,
       patient_name: order?.patient_name,
       doctor_name: order?.doctor_name,
+      previous_balance_due: previousBalanceDue,
     };
   }
 }

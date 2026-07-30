@@ -212,6 +212,7 @@ export default function InventoryPage() {
             editingPo={editingPo}
             onSaved={handleSaved}
             onCancel={closeForm}
+            onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0 }])}
           />
         )}
 

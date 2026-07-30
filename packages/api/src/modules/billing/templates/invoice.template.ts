@@ -54,6 +54,7 @@ export function renderInvoiceHtml(
   customer: Customer | null,
   order: any | null,
   logoDataUri: string | null = null,
+  previousBalanceDue = 0,
 ) {
   const timeZone = tz(business);
   const rows = items
@@ -126,7 +127,11 @@ export function renderInvoiceHtml(
 
   <div class="totals">
     <div><span>Tax</span><span>₹${money(invoice.tax_amount)}</span></div>
-    <div class="grand"><span>Total</span><span>₹${money(invoice.total_amount)}</span></div>
+    <div class="${previousBalanceDue > 0.01 ? '' : 'grand'}"><span>${previousBalanceDue > 0.01 ? 'This Invoice' : 'Total'}</span><span>₹${money(invoice.total_amount)}</span></div>
+    ${previousBalanceDue > 0.01 ? `
+    <div><span>Previous Balance Due</span><span>₹${money(previousBalanceDue)}</span></div>
+    <div class="grand"><span>Total Amount Due</span><span>₹${money(Number(invoice.total_amount) + previousBalanceDue)}</span></div>
+    ` : ''}
   </div>
 </body>
 </html>`;
@@ -147,6 +152,7 @@ export function renderPharmacyCashMemoHtml(
   customer: Customer | null,
   order: any | null,
   logoDataUri: string | null = null,
+  previousBalanceDue = 0,
 ) {
   const timeZone = tz(business);
   const rows = items
@@ -279,11 +285,26 @@ export function renderPharmacyCashMemoHtml(
           <td class="num rs">Tax (GST) ₹${taxRupees}</td>
           <td class="ps">${taxPaise}</td>
         </tr>
-        <tr class="total-row">
+        <tr class="${previousBalanceDue > 0.01 ? 'summary-row' : 'total-row'}">
           <td colspan="4"></td>
-          <td class="num rs">Total ₹${totalRupees}</td>
+          <td class="num rs">${previousBalanceDue > 0.01 ? 'This Memo' : 'Total'} ₹${totalRupees}</td>
           <td class="ps">${totalPaise}</td>
         </tr>
+        ${previousBalanceDue > 0.01 ? (() => {
+          const { rupees: prevRupees, paise: prevPaise } = splitRupeesPaise(previousBalanceDue);
+          const { rupees: dueRupees, paise: duePaise } = splitRupeesPaise(Number(invoice.total_amount) + previousBalanceDue);
+          return `
+        <tr class="summary-row">
+          <td colspan="4"></td>
+          <td class="num rs">Previous Balance ₹${prevRupees}</td>
+          <td class="ps">${prevPaise}</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="4"></td>
+          <td class="num rs">Total Due ₹${dueRupees}</td>
+          <td class="ps">${duePaise}</td>
+        </tr>`;
+        })() : ''}
       </tbody>
     </table>
 
@@ -303,6 +324,7 @@ export function renderThermalReceiptHtml(
   business: Business | null,
   customer: Customer | null,
   order: any | null,
+  previousBalanceDue = 0,
 ) {
   const timeZone = tz(business);
   const line = '-'.repeat(32);
@@ -337,7 +359,9 @@ ${line}
 ${rows}
 ${line}
 Tax:    ₹${money(invoice.tax_amount)}
-TOTAL:  ₹${money(invoice.total_amount)}
+${previousBalanceDue > 0.01 ? `THIS BILL: ₹${money(invoice.total_amount)}
+Prev. Due: ₹${money(previousBalanceDue)}
+TOTAL DUE: ₹${money(Number(invoice.total_amount) + previousBalanceDue)}` : `TOTAL:  ₹${money(invoice.total_amount)}`}
 ${line}
 Thank you!
 <script>

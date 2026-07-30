@@ -259,9 +259,20 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     }
   };
 
-  // Name field: free text only — phone is the sole identifier for customer matching
+  // Name field: matches an existing customer by exact name too, so picking a
+  // name from the datalist (or typing one that matches) auto-fills their phone
+  // the same way typing a known phone auto-fills the name.
   const handleNameChange = (val: string) => {
     setCustomerName(val);
+    const existing = customers.find(c => c.name === val);
+    if (existing) {
+      selectCustomer(existing);
+    } else if (customerId) {
+      setCustomerId('');
+      setCustomerPrices({});
+      setJustCreatedCustomer(false);
+      priceLoadRef.current = '';
+    }
   };
 
   // Phone field: sole source of customer identity

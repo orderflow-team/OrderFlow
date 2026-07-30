@@ -9,6 +9,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
+import { InvoicesService } from './invoices.service';
 import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderThermalReceiptHtml } from './templates/invoice.template';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
@@ -48,6 +49,7 @@ export class PdfService {
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
+    private invoicesService: InvoicesService,
   ) {}
 
   private async loadInvoiceContext(invoiceId: string, businessId: string) {
@@ -64,8 +66,11 @@ export class PdfService {
     const customer = order?.customer_id
       ? await this.customersRepository.findOne({ where: { id: order.customer_id } })
       : null;
+    const previousBalanceDue = order?.customer_id
+      ? await this.invoicesService.getPreviousBalanceDue(businessId, order.customer_id, order.id)
+      : 0;
 
-    return { invoice, items, business, customer, order };
+    return { invoice, items, business, customer, order, previousBalanceDue };
   }
 
   /** Generates (or returns the cached) PDF for an invoice and updates invoice.pdf_url. */
@@ -80,10 +85,10 @@ export class PdfService {
       return filePath;
     }
 
-    const { items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
+    const { items, business, customer, order, previousBalanceDue } = await this.loadInvoiceContext(invoiceId, businessId);
     const html = business?.category === 'pharmacy'
-      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business))
-      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business));
+      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue)
+      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue);
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -109,8 +114,8 @@ export class PdfService {
   }
 
   async getThermalReceiptHtml(invoiceId: string, businessId: string): Promise<string> {
-    const { invoice, items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
-    return renderThermalReceiptHtml(invoice, items, business, customer, order);
+    const { invoice, items, business, customer, order, previousBalanceDue } = await this.loadInvoiceContext(invoiceId, businessId);
+    return renderThermalReceiptHtml(invoice, items, business, customer, order, previousBalanceDue);
   }
 
   /**

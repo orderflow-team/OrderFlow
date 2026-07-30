@@ -21,6 +21,7 @@ interface ProductOption {
 export interface PoLine {
   id?: string;
   productId: string;
+  productName: string;
   quantity: string;
   unitPrice: string;
   taxPercentage: string;
@@ -48,6 +49,7 @@ export interface EditingPo {
 
 const emptyLine = (): PoLine => ({
   productId: '',
+  productName: '',
   quantity: '1',
   unitPrice: '',
   taxPercentage: '',
@@ -69,10 +71,11 @@ function Field({ label, className, children }: { label: string; className?: stri
 // a dense row rather than a full-height form field.
 const cellInput = 'h-8 w-full rounded-md bg-white/50 ring-1 ring-white/50 px-2 text-xs outline-none focus:ring-emerald-400/60';
 
-function toLine(item: EditingPo['items'][number]): PoLine {
+function toLine(item: EditingPo['items'][number], products: ProductOption[]): PoLine {
   return {
     id: item.id,
     productId: item.product_id ?? '',
+    productName: products.find((p) => p.id === item.product_id)?.name ?? '',
     quantity: String(item.quantity ?? ''),
     unitPrice: String(item.unit_price ?? ''),
     taxPercentage: item.tax_percentage != null ? String(item.tax_percentage) : '',
@@ -90,6 +93,7 @@ export function PurchaseOrderForm({
   editingPo,
   onSaved,
   onCancel,
+  onProductCreated,
 }: {
   businessId: string;
   suppliers: Supplier[];
@@ -98,22 +102,38 @@ export function PurchaseOrderForm({
   editingPo: EditingPo | null;
   onSaved: () => void;
   onCancel: () => void;
+  onProductCreated?: (product: ProductOption) => void;
 }) {
   const [supplierId, setSupplierId] = useState(editingPo?.supplier_id ?? '');
   const [orderNumber, setOrderNumber] = useState(editingPo?.order_number ?? '');
   const [lines, setLines] = useState<PoLine[]>(
-    editingPo && editingPo.items.length > 0 ? editingPo.items.map(toLine) : [emptyLine()],
+    editingPo && editingPo.items.length > 0 ? editingPo.items.map((item) => toLine(item, products)) : [emptyLine()],
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [creatingProductAt, setCreatingProductAt] = useState<number | null>(null);
   const focusNextRow = useRef(false);
-  const productRefs = useRef<(HTMLSelectElement | null)[]>([]);
+  const productRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Local mirror of `products` so a product created mid-session (before the
+  // parent's own reload) is immediately matchable/selectable in other rows.
+  const [knownProducts, setKnownProducts] = useState<ProductOption[]>(products);
+
+  useEffect(() => {
+    setKnownProducts((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      const merged = [...prev];
+      for (const p of products) {
+        if (!seen.has(p.id)) merged.push(p);
+      }
+      return merged;
+    });
+  }, [products]);
 
   useEffect(() => {
     setSupplierId(editingPo?.supplier_id ?? '');
     setOrderNumber(editingPo?.order_number ?? '');
-    setLines(editingPo && editingPo.items.length > 0 ? editingPo.items.map(toLine) : [emptyLine()]);
-  }, [editingPo]);
+    setLines(editingPo && editingPo.items.length > 0 ? editingPo.items.map((item) => toLine(item, products)) : [emptyLine()]);
+  }, [editingPo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-focus the new row's product picker whenever a row is appended via
   // "Add item" or the Enter-to-add-next-row shortcut, so bulk entry never
@@ -127,6 +147,66 @@ export function PurchaseOrderForm({
 
   const updateLine = (index: number, patch: Partial<PoLine>) => {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  };
+
+  const findByName = (name: string) => knownProducts.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+
+  const handleProductNameChange = (index: number, name: string) => {
+    const match = findByName(name);
+    updateLine(index, { productName: name, productId: match ? match.id : '' });
+  };
+
+  // Guards against the same row's create-on-blur firing twice concurrently
+  // (e.g. blur followed immediately by Enter-to-submit) and creating two
+  // duplicate draft products for one typed name.
+  const resolvingRef = useRef<Map<number, Promise<string>>>(new Map());
+
+  // Resolves the row's typed name to an existing product, or — if nothing
+  // matches — creates a new draft product on the spot (unit price seeded from
+  // whatever cost was already entered) so it shows up in the Medicines grid
+  // right away instead of silently failing at submit time.
+  const resolveOrCreateProduct = (index: number): Promise<string> => {
+    const inFlight = resolvingRef.current.get(index);
+    if (inFlight) return inFlight;
+
+    const promise = (async () => {
+      const line = lines[index];
+      const trimmed = line.productName.trim();
+      if (!trimmed) return '';
+      if (line.productId) return line.productId;
+
+      const match = findByName(trimmed);
+      if (match) {
+        updateLine(index, { productId: match.id });
+        return match.id;
+      }
+
+      setCreatingProductAt(index);
+      try {
+        const res = await apiClient.post('/api/products', {
+          businessId,
+          name: trimmed,
+          sellingPrice: Number(line.unitPrice) || 0,
+          purchasePrice: line.unitPrice ? Number(line.unitPrice) : undefined,
+          isDraft: true,
+        });
+        const created: ProductOption = { id: res.data.id, name: res.data.name };
+        setKnownProducts((prev) => [...prev, created]);
+        updateLine(index, { productId: created.id });
+        onProductCreated?.(created);
+        return created.id;
+      } catch (err) {
+        console.error('[purchase order] failed to create new product', err);
+        return '';
+      } finally {
+        setCreatingProductAt((prev) => (prev === index ? null : prev));
+      }
+    })().finally(() => {
+      resolvingRef.current.delete(index);
+    });
+
+    resolvingRef.current.set(index, promise);
+    return promise;
   };
 
   const addLine = () => {
@@ -159,9 +239,19 @@ export function PurchaseOrderForm({
     e.preventDefault();
     setSaving(true);
     setError('');
-    const items = lines.map((l) => ({
+
+    // Enter/click-to-submit can outrun a row's onBlur — make sure every typed
+    // product name is resolved (matched or newly created) before building the payload.
+    const resolvedIds = await Promise.all(lines.map((_, i) => resolveOrCreateProduct(i)));
+    if (resolvedIds.some((id, i) => !id && lines[i].productName.trim())) {
+      setError('Could not resolve one of the product names — please try again.');
+      setSaving(false);
+      return;
+    }
+
+    const items = lines.map((l, i) => ({
       ...(l.id ? { id: l.id } : {}),
-      productId: l.productId,
+      productId: resolvedIds[i] || l.productId,
       quantity: Number(l.quantity),
       unitPrice: Number(l.unitPrice),
       taxPercentage: l.taxPercentage ? Number(l.taxPercentage) : undefined,
@@ -259,18 +349,21 @@ export function PurchaseOrderForm({
                         <tr key={index} className="hover:bg-white/30" onKeyDown={handleRowKeyDown(index)}>
                           <td className="px-2 py-1.5 text-slate-400">{index + 1}</td>
                           <td className="px-2 py-1.5">
-                            <select
-                              ref={(el) => { productRefs.current[index] = el; }}
-                              value={line.productId}
-                              onChange={(e) => updateLine(index, { productId: e.target.value })}
-                              className={cellInput}
-                              required
-                            >
-                              <option value="">Select product</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                              ))}
-                            </select>
+                            <div className="relative">
+                              <input
+                                ref={(el) => { productRefs.current[index] = el; }}
+                                list="po-product-options"
+                                placeholder="Type or select product"
+                                value={line.productName}
+                                onChange={(e) => handleProductNameChange(index, e.target.value)}
+                                onBlur={() => resolveOrCreateProduct(index)}
+                                className={cellInput}
+                                required
+                              />
+                              {creatingProductAt === index && (
+                                <span className="absolute -bottom-4 left-0 text-[10px] text-emerald-600 whitespace-nowrap">Adding to Medicines…</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-2 py-1.5">
                             <input
@@ -346,6 +439,11 @@ export function PurchaseOrderForm({
                 </table>
               </div>
             </div>
+            <datalist id="po-product-options">
+              {knownProducts.map((p) => (
+                <option key={p.id} value={p.name} />
+              ))}
+            </datalist>
 
             <button
               type="button"

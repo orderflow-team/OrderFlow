@@ -38,6 +38,7 @@ interface Invoice {
   order_customer_name?: string | null;
   patient_name?: string | null;
   doctor_name?: string | null;
+  previous_balance_due?: string | number;
   items: InvoiceItem[];
 }
 
@@ -78,6 +79,7 @@ export default function InvoiceDetailPage() {
   if (!ready) return null;
 
   const subtotal = invoice ? Number(invoice.total_amount) - Number(invoice.tax_amount) : 0;
+  const previousBalanceDue = Number(invoice?.previous_balance_due || 0);
 
   const extractErrorMessage = async (err: any, fallback: string) => {
     const data = err?.response?.data;
@@ -342,10 +344,27 @@ export default function InvoiceDetailPage() {
                   <span>Tax (GST)</span>
                   <span>{Number(invoice.tax_amount).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
-                  <span>Total</span>
-                  <span>{Number(invoice.total_amount).toFixed(2)}</span>
-                </div>
+                {previousBalanceDue > 0.01 ? (
+                  <>
+                    <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
+                      <span>This Invoice</span>
+                      <span>{Number(invoice.total_amount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Previous Balance Due</span>
+                      <span>{previousBalanceDue.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-bold text-rose-700 border-t border-slate-200 pt-2">
+                      <span>Total Amount Due</span>
+                      <span>{(Number(invoice.total_amount) + previousBalanceDue).toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
+                    <span>Total</span>
+                    <span>{Number(invoice.total_amount).toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
             </div>

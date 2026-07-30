@@ -65,6 +65,46 @@ function CustomersPageContent() {
   const [historyForm, setHistoryForm] = useState({ name: '', phone: '', email: '', address: '', creditLimit: '' });
   const [isEditingInHistory, setIsEditingInHistory] = useState(false);
 
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [payingSaving, setPayingSaving] = useState(false);
+  const [payError, setPayError] = useState('');
+
+  const openPayRemaining = (orderId: string, remaining: number) => {
+    setPayingOrderId(orderId);
+    setPayAmount(remaining.toFixed(2));
+    setPayMethod('Cash');
+    setPayError('');
+  };
+
+  const handlePayRemaining = async (e: React.FormEvent, orderId: string) => {
+    e.preventDefault();
+    if (!businessId || !historyCustomer) return;
+    if (Number(payAmount) <= 0) {
+      setPayError('Enter an amount greater than ₹0.');
+      return;
+    }
+    setPayingSaving(true);
+    setPayError('');
+    try {
+      await apiClient.post('/api/billing/payments', {
+        businessId,
+        orderId,
+        customerId: historyCustomer.id,
+        amount: Number(payAmount),
+        paymentMethod: payMethod,
+      });
+      setPayingOrderId(null);
+      loadHistory(historyCustomer.id);
+      load(businessId);
+    } catch (err: any) {
+      setPayError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPayingSaving(false);
+    }
+  };
+
   const startHistoryEdit = () => {
     if (!historyCustomer) return;
     setHistoryForm({
@@ -807,6 +847,59 @@ function CustomersPageContent() {
                                   <p className="font-bold text-rose-600 mt-0.5">₹{order.remaining.toFixed(2)}</p>
                                 </div>
                               </div>
+
+                              {order.remaining > 0 && (
+                                payingOrderId === order.id ? (
+                                  <form onSubmit={(e) => handlePayRemaining(e, order.id)} className="border-t border-slate-100 pt-3 space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="Amount"
+                                        value={payAmount}
+                                        onChange={(e) => setPayAmount(e.target.value)}
+                                        className="h-9 text-sm bg-white"
+                                        required
+                                      />
+                                      <select
+                                        value={payMethod}
+                                        onChange={(e) => setPayMethod(e.target.value)}
+                                        className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+                                      >
+                                        {['Cash', 'UPI', 'Bank Transfer', 'Credit'].map((m) => (
+                                          <option key={m} value={m}>{m}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    {payError && <p className="text-xs text-rose-600 font-medium">{payError}</p>}
+                                    <div className="flex gap-2">
+                                      <Button type="submit" size="sm" disabled={payingSaving} className="flex-1 h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
+                                        {payingSaving ? 'Recording...' : 'Confirm Payment'}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPayingOrderId(null)}
+                                        className="h-8 text-xs font-semibold border-slate-200"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </form>
+                                ) : (
+                                  <div className="border-t border-slate-100 pt-3">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => openPayRemaining(order.id, order.remaining)}
+                                      className="w-full h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                      Pay Remaining
+                                    </Button>
+                                  </div>
+                                )
+                              )}
                             </div>
                           ))
                         )}
