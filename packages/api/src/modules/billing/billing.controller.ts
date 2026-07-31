@@ -9,6 +9,8 @@ import { InvoicesService } from './invoices.service';
 import { PaymentsService } from './payments.service';
 import { PdfService } from './pdf.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { PayTotalDto } from './dto/pay-total.dto';
+import { ApplyAdvanceDto } from './dto/apply-advance.dto';
 
 @Controller('api/billing')
 export class BillingController {
@@ -74,6 +76,30 @@ export class BillingController {
   @Post('payments')
   createPayment(@Body() dto: CreatePaymentDto) {
     return this.paymentsService.create(dto);
+  }
+
+  /** Pays a single lump sum against a customer's outstanding orders (oldest first) instead of paying each one individually. Any leftover after every order is covered is saved as advance credit on the customer. */
+  @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
+  @Post('payments/pay-total')
+  payTotal(@Body() dto: PayTotalDto) {
+    return this.paymentsService.payAllOutstanding(dto);
+  }
+
+  /** Draws down a customer's existing advance credit against their currently outstanding orders (oldest first). */
+  @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.ACCOUNTANT)
+  @Post('payments/apply-advance')
+  applyAdvance(@Body() dto: ApplyAdvanceDto) {
+    return this.paymentsService.applyAdvanceToOutstanding(dto);
+  }
+
+  /** Reverses a single payment and unwinds its effect on the order/customer balances. Restricted — a void action shouldn't be a cashier-level self-service button. */
+  @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Post('payments/:id/undo')
+  undoPayment(@Param('id') id: string, @Query('businessId') businessId: string) {
+    return this.paymentsService.undo(id, businessId);
   }
 
   @UseGuards(JwtAuthGuard, BusinessScopeGuard)

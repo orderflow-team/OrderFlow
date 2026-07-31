@@ -12,7 +12,21 @@ export class CategoriesService {
     private categoriesRepository: Repository<Category>,
   ) {}
 
-  create(dto: CreateCategoryDto) {
+  /**
+   * Case-insensitive dedupe on (business_id, name) — the default-category
+   * seeder on first load (see e.g. wholesale-grid.tsx) can otherwise fire
+   * twice concurrently (React effects re-running, a double page load) and
+   * create the same handful of categories twice with no way to tell them
+   * apart in the UI.
+   */
+  async create(dto: CreateCategoryDto) {
+    const existing = await this.categoriesRepository
+      .createQueryBuilder('category')
+      .where('category.business_id = :businessId', { businessId: dto.businessId })
+      .andWhere('LOWER(category.name) = LOWER(:name)', { name: dto.name.trim() })
+      .getOne();
+    if (existing) return existing;
+
     const category = this.categoriesRepository.create({
       business_id: dto.businessId,
       name: dto.name,

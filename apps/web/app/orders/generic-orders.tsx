@@ -126,6 +126,7 @@ export function GenericOrders() {
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -168,6 +169,7 @@ export function GenericOrders() {
   const [editMode, setEditMode] = useState(false);
   const [editLines, setEditLines] = useState<EditLine[]>([]);
   const [editSaving, setEditSaving] = useState(false);
+  const [suggestOpenIdx, setSuggestOpenIdx] = useState<number | null>(null);
 
   /** Prepends any not-yet-synced offline sales so they stay visible (and survive a refresh) until the sync engine lands them. */
   const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
@@ -186,14 +188,16 @@ export function GenericOrders() {
   const load = async (bizId: string, silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [ordersRes, customersRes] = await Promise.all([
+      const [ordersRes, customersRes, productsRes] = await Promise.all([
         apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
         apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } }),
+        apiClient.get<Product[]>('/api/products', { params: { businessId: bizId } }),
       ]);
       setCached(bizId, 'orders', ordersRes.data);
       setCached(bizId, 'customers', customersRes.data);
       setOrders(await withQueuedOrders(bizId, ordersRes.data));
       setCustomers(customersRes.data);
+      setProducts(productsRes.data);
 
       setDrawerOrder((currentDrawer) => {
         if (!currentDrawer) return null;
@@ -568,6 +572,26 @@ export function GenericOrders() {
   const addEditLine = () => setEditLines((prev) => [...prev, { name: '', qty: '1', price: '0' }]);
 
   const removeEditLine = (idx: number) => setEditLines((prev) => prev.filter((_, i) => i !== idx));
+
+  const selectLineProduct = (idx: number, p: Product) => {
+    setEditLines((prev) => prev.map((l, i) => i === idx ? {
+      ...l,
+      name: p.name,
+      unit: p.unit,
+      price: String(Number(p.selling_price)),
+      productId: p.id,
+      originalUnit: p.unit,
+      originalPrice: String(Number(p.selling_price)),
+      unitPrices: p.unit_prices,
+    } : l));
+    setSuggestOpenIdx(null);
+  };
+
+  const productSuggestions = (query: string) => {
+    const q = query.trim().toLowerCase();
+    const matches = q ? products.filter((p) => p.name.toLowerCase().includes(q)) : products;
+    return matches.slice(0, 6);
+  };
 
   const saveEditLines = async () => {
     if (!businessId || !drawerOrder) return;
@@ -1000,13 +1024,31 @@ export function GenericOrders() {
                   <div className="space-y-2">
                     {editLines.map((line, idx) => (
                       <div key={idx} className="flex gap-2 items-center bg-white/30 backdrop-blur-sm ring-1 ring-white/40 rounded-xl p-2">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 relative">
                           <input
                             value={line.name}
-                            onChange={(e) => updateLine(idx, 'name', e.target.value)}
+                            onChange={(e) => { updateLine(idx, 'name', e.target.value); updateLine(idx, 'productId', ''); setSuggestOpenIdx(idx); }}
+                            onFocus={() => setSuggestOpenIdx(idx)}
+                            onBlur={() => setTimeout(() => setSuggestOpenIdx((cur) => cur === idx ? null : cur), 150)}
                             placeholder="Item name"
+                            autoComplete="off"
                             className="w-full text-sm font-medium text-slate-800 bg-transparent outline-none placeholder:text-slate-400 mb-1"
                           />
+                          {suggestOpenIdx === idx && productSuggestions(line.name).length > 0 && (
+                            <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg ring-1 ring-slate-200 max-h-56 overflow-y-auto">
+                              {productSuggestions(line.name).map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onMouseDown={(e) => { e.preventDefault(); selectLineProduct(idx, p); }}
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                                >
+                                  <span className="font-medium text-slate-700 truncate">{p.name}</span>
+                                  <span className="text-slate-400 shrink-0">₹{Number(p.selling_price).toFixed(2)} / {p.unit}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1 bg-white/40 backdrop-blur-sm ring-1 ring-white/50 rounded-lg px-2 py-1">
                               <button onClick={() => updateLine(idx, 'qty', String(Math.max(1, Number(line.qty) - 1)))} className="text-slate-400 hover:text-slate-600">

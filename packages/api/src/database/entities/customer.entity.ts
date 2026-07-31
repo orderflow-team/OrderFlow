@@ -34,6 +34,12 @@ export class Customer {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   outstanding_amount: number;
 
+  // Credit held for this customer from overpayments (single-order or bulk
+  // "pay total") that exceeded what was actually owed — not yet applied to
+  // any order.
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  advance_balance: number;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

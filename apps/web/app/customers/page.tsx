@@ -21,6 +21,7 @@ interface Customer {
   address: string | null;
   credit_limit: string | number;
   outstanding_amount: string | number;
+  advance_balance?: string | number;
   gst_number?: string | null;
   payment_terms?: string | null;
   trade_discount_percentage?: string | number | null;
@@ -71,6 +72,16 @@ function CustomersPageContent() {
   const [payingSaving, setPayingSaving] = useState(false);
   const [payError, setPayError] = useState('');
 
+  const [payingTotal, setPayingTotal] = useState(false);
+  const [payTotalAmount, setPayTotalAmount] = useState('');
+  const [payTotalMethod, setPayTotalMethod] = useState('Cash');
+  const [payTotalSaving, setPayTotalSaving] = useState(false);
+  const [payTotalError, setPayTotalError] = useState('');
+  const [payTotalNotice, setPayTotalNotice] = useState('');
+
+  const [applyingAdvance, setApplyingAdvance] = useState(false);
+  const [applyAdvanceError, setApplyAdvanceError] = useState('');
+
   const openPayRemaining = (orderId: string, remaining: number) => {
     setPayingOrderId(orderId);
     setPayAmount(remaining.toFixed(2));
@@ -102,6 +113,64 @@ function CustomersPageContent() {
       setPayError(err.response?.data?.message || 'Failed to record payment');
     } finally {
       setPayingSaving(false);
+    }
+  };
+
+  const openPayTotal = (totalRemaining: number) => {
+    setPayingTotal(true);
+    setPayTotalAmount(totalRemaining.toFixed(2));
+    setPayTotalMethod('Cash');
+    setPayTotalError('');
+    setPayTotalNotice('');
+  };
+
+  const handlePayTotal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId || !historyCustomer) return;
+    if (Number(payTotalAmount) <= 0) {
+      setPayTotalError('Enter an amount greater than ₹0.');
+      return;
+    }
+    setPayTotalSaving(true);
+    setPayTotalError('');
+    setPayTotalNotice('');
+    try {
+      const res = await apiClient.post<{ advanceApplied: number }>('/api/billing/payments/pay-total', {
+        businessId,
+        customerId: historyCustomer.id,
+        amount: Number(payTotalAmount),
+        paymentMethod: payTotalMethod,
+      });
+      setPayingTotal(false);
+      if (res.data.advanceApplied > 0) {
+        setPayTotalNotice(`All orders settled — ₹${res.data.advanceApplied.toFixed(2)} extra saved as advance credit for this customer.`);
+      }
+      loadHistory(historyCustomer.id);
+      load(businessId);
+    } catch (err: any) {
+      setPayTotalError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPayTotalSaving(false);
+    }
+  };
+
+  const handleApplyAdvance = async () => {
+    if (!businessId || !historyCustomer) return;
+    setApplyingAdvance(true);
+    setApplyAdvanceError('');
+    setPayTotalNotice('');
+    try {
+      const res = await apiClient.post<{ applied: number }>('/api/billing/payments/apply-advance', {
+        businessId,
+        customerId: historyCustomer.id,
+      });
+      setPayTotalNotice(`₹${res.data.applied.toFixed(2)} advance credit applied to outstanding orders.`);
+      loadHistory(historyCustomer.id);
+      load(businessId);
+    } catch (err: any) {
+      setApplyAdvanceError(err.response?.data?.message || 'Failed to apply advance credit');
+    } finally {
+      setApplyingAdvance(false);
     }
   };
 
@@ -182,6 +251,11 @@ function CustomersPageContent() {
     try {
       const res = await apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } });
       setCustomers(res.data);
+      setHistoryCustomer((current) => {
+        if (!current) return current;
+        const updated = res.data.find((c) => c.id === current.id);
+        return updated || current;
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load customers');
     } finally {
@@ -643,9 +717,13 @@ function CustomersPageContent() {
           setHistoryCustomer(null);
           setIsEditingInHistory(false);
           setError('');
+          setPayingTotal(false);
+          setPayTotalNotice('');
+          setPayTotalError('');
+          setApplyAdvanceError('');
         }
       }}>
-        <DialogContent className="max-w-2xl w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-3xl bg-slate-50 border-none shadow-xl flex flex-col">
+        <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[85vh] p-0 overflow-hidden rounded-3xl bg-slate-50 border-none shadow-xl flex flex-col">
           <DialogHeader className="p-5 bg-white border-b border-slate-100 flex-shrink-0 flex flex-row items-center justify-between">
             <div className="min-w-0">
               <DialogTitle className="text-lg font-bold text-slate-800 truncate">
@@ -788,19 +866,102 @@ function CustomersPageContent() {
 
                   const totalRemaining = Math.max(0, totalBill - totalPaid);
 
+                  const advanceBalance = Number(historyCustomer?.advance_balance || 0);
+
                   return (
                     <>
                       {/* Overall Summary Card */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
-                          <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-1">Total Paid</p>
-                          <p className="text-xl font-black text-emerald-700">₹{totalPaid.toFixed(2)}</p>
+                      <div className={`grid gap-2 sm:gap-3 ${advanceBalance > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                        <div className="min-w-0 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-2.5 sm:p-4 text-center">
+                          <p className="text-[10px] sm:text-xs font-semibold text-emerald-800 uppercase tracking-wide sm:tracking-wider mb-1">Total Paid</p>
+                          <p className="text-sm sm:text-xl font-black text-emerald-700 truncate">₹{totalPaid.toFixed(2)}</p>
                         </div>
-                        <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-center">
-                          <p className="text-xs font-semibold text-rose-800 uppercase tracking-wider mb-1">Total Remaining</p>
-                          <p className="text-xl font-black text-rose-700">₹{totalRemaining.toFixed(2)}</p>
+                        <div className="min-w-0 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-2.5 sm:p-4 text-center">
+                          <p className="text-[10px] sm:text-xs font-semibold text-rose-800 uppercase tracking-wide sm:tracking-wider mb-1">Total Remaining</p>
+                          <p className="text-sm sm:text-xl font-black text-rose-700 truncate">₹{totalRemaining.toFixed(2)}</p>
                         </div>
+                        {advanceBalance > 0 && (
+                          <div className="min-w-0 bg-sky-500/10 border border-sky-500/20 rounded-2xl p-2.5 sm:p-4 text-center">
+                            <p className="text-[10px] sm:text-xs font-semibold text-sky-800 uppercase tracking-wide sm:tracking-wider mb-1">Advance Credit</p>
+                            <p className="text-sm sm:text-xl font-black text-sky-700 truncate">₹{advanceBalance.toFixed(2)}</p>
+                          </div>
+                        )}
                       </div>
+
+                      {payTotalNotice && (
+                        <p className="text-xs font-medium text-sky-700 bg-sky-500/10 border border-sky-500/20 rounded-xl px-3 py-2">{payTotalNotice}</p>
+                      )}
+
+                      {/* Apply existing advance credit first — no new cash needed */}
+                      {advanceBalance > 0 && totalRemaining > 0 && (
+                        <div className="space-y-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleApplyAdvance}
+                            disabled={applyingAdvance}
+                            className="w-full h-10 text-sm font-semibold border-sky-300 text-sky-700 hover:bg-sky-50"
+                          >
+                            {applyingAdvance ? 'Applying...' : `Apply Advance Credit (₹${Math.min(advanceBalance, totalRemaining).toFixed(2)})`}
+                          </Button>
+                          {applyAdvanceError && <p className="text-xs text-rose-600 font-medium">{applyAdvanceError}</p>}
+                        </div>
+                      )}
+
+                      {/* Pay Total — settle every outstanding order at once instead of one at a time */}
+                      {totalRemaining > 0 && (
+                        payingTotal ? (
+                          <form onSubmit={handlePayTotal} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2.5">
+                            <p className="text-xs font-bold text-slate-600">Pay Total Across All Orders</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Amount"
+                                value={payTotalAmount}
+                                onChange={(e) => setPayTotalAmount(e.target.value)}
+                                className="h-9 text-sm bg-white"
+                                required
+                              />
+                              <select
+                                value={payTotalMethod}
+                                onChange={(e) => setPayTotalMethod(e.target.value)}
+                                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm"
+                              >
+                                {['Cash', 'UPI', 'Bank Transfer', 'Credit'].map((m) => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <p className="text-[11px] text-slate-400">
+                              Oldest orders are settled first. Paying more than ₹{totalRemaining.toFixed(2)} saves the extra as advance credit for this customer.
+                            </p>
+                            {payTotalError && <p className="text-xs text-rose-600 font-medium">{payTotalError}</p>}
+                            <div className="flex gap-2">
+                              <Button type="submit" size="sm" disabled={payTotalSaving} className="flex-1 h-8 text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white">
+                                {payTotalSaving ? 'Recording...' : 'Confirm Total Payment'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPayingTotal(false)}
+                                className="h-8 text-xs font-semibold border-slate-200"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </form>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => openPayTotal(totalRemaining)}
+                            className="w-full h-10 text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white"
+                          >
+                            Pay Total (₹{totalRemaining.toFixed(2)}) — All Orders
+                          </Button>
+                        )
+                      )}
 
                       {/* Orders History List */}
                       <div className="space-y-3">
@@ -871,6 +1032,9 @@ function CustomersPageContent() {
                                         ))}
                                       </select>
                                     </div>
+                                    <p className="text-[11px] text-slate-400">
+                                      Paying more than ₹{order.remaining.toFixed(2)} saves the extra as advance credit for this customer.
+                                    </p>
                                     {payError && <p className="text-xs text-rose-600 font-medium">{payError}</p>}
                                     <div className="flex gap-2">
                                       <Button type="submit" size="sm" disabled={payingSaving} className="flex-1 h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">

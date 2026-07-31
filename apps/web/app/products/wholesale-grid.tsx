@@ -101,7 +101,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId } }),
+        apiClient.get<Product[]>('/api/products', { params: { businessId, isDraft: 'all' } }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
       ]);
 
@@ -177,7 +177,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       category: form.category || undefined,
       unit: form.unit || 'box',
       sellingPrice: Number(form.sellingPrice),
-      purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
+      purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
       batchNumber: form.batchNumber || undefined,
@@ -355,12 +355,10 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                   <label className="text-xs font-semibold text-slate-700">Standard Wholesale Rate (₹) *</label>
                   <Input type="number" placeholder="e.g. 1850" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} required />
                 </div>
-                {inventoryEnabled && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Cost / Purchase Price (₹)</label>
-                    <Input type="number" placeholder="e.g. 1620" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-                  </div>
-                )}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Cost / Purchase Price (₹)</label>
+                  <Input type="number" placeholder="e.g. 1620" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">GST Tax %</label>
                   <Input type="number" placeholder="e.g. 5, 12, 18" value={form.taxPercentage} onChange={(e) => setForm({ ...form, taxPercentage: e.target.value })} />
@@ -476,7 +474,12 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-bold text-slate-800 text-base leading-tight">{p.name}</h3>
+                      <h3 className="font-bold text-slate-800 text-base leading-tight">
+                        {p.name}
+                        {p.is_draft && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
+                        )}
+                      </h3>
                       {p.brand && <p className="text-xs font-semibold text-amber-700 mt-0.5">{p.brand}</p>}
                     </div>
                     <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
@@ -489,15 +492,23 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                       <span className="text-slate-400 block text-[10px] uppercase">Base Rate</span>
                       <span className="font-bold text-slate-800 text-sm">₹{Number(p.selling_price).toFixed(2)} <span className="text-xs text-slate-500 font-normal">/ {p.unit}</span></span>
                     </div>
-                    {inventoryEnabled && (
+                    {p.purchase_price != null && (
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase">Purchase Price</span>
+                        <span className="font-bold text-slate-700 text-sm">₹{Number(p.purchase_price).toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                  {inventoryEnabled && (
+                    <div className="flex items-center justify-end text-xs">
                       <div className="text-right">
                         <span className="text-slate-400 block text-[10px] uppercase">Stock</span>
                         <span className={`font-bold text-sm ${p.stock_quantity <= 10 ? 'text-rose-600' : 'text-emerald-700'}`}>
                           {p.stock_quantity} {p.unit}s
                         </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* MOQ & Batch Badges */}
                   <div className="flex items-center gap-2 text-[11px] flex-wrap">

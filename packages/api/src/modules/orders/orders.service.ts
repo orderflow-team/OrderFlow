@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, Like } from 'typeorm';
+import { Repository, DataSource, EntityManager, In, Like } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
@@ -34,6 +34,61 @@ export class OrdersService {
     private dataSource: DataSource,
     private invoicesService: InvoicesService,
   ) {}
+
+  /**
+   * Draws down a customer's advance credit (see PaymentsService.recordAdvance)
+   * against a just-billed order, up to whatever's still unpaid on it. Called
+   * right after a debit is posted so credit from a prior overpayment is spent
+   * automatically instead of sitting idle while new debt piles up alongside it.
+   * Returns true if the order is now fully covered (caller may want to flip
+   * its status to 'paid').
+   */
+  private async applyAdvanceCredit(
+    manager: EntityManager,
+    businessId: string,
+    customerId: string,
+    order: Order,
+  ): Promise<boolean> {
+    const customer = await manager.findOne(Customer, { where: { id: customerId, business_id: businessId } });
+    const advanceBalance = Number(customer?.advance_balance || 0);
+    if (advanceBalance <= 0) return false;
+
+    const paidAgg = await manager
+      .createQueryBuilder(Payment, 'payment')
+      .where('payment.order_id = :orderId', { orderId: order.id })
+      .select('SUM(payment.amount)', 'total')
+      .getRawOne();
+    const orderRemaining = Math.max(0, Number(order.total_amount) - Number(paidAgg.total || 0));
+    if (orderRemaining <= 0.01) return true;
+
+    const chunk = Math.min(advanceBalance, orderRemaining);
+    if (chunk <= 0.01) return false;
+
+    await manager.increment(Customer, { id: customerId }, 'advance_balance', -chunk);
+    await manager.increment(Customer, { id: customerId }, 'outstanding_amount', -chunk);
+    await manager.save(
+      Ledger,
+      manager.create(Ledger, {
+        business_id: businessId,
+        customer_id: customerId,
+        type: 'CREDIT',
+        amount: chunk,
+        description: `Advance credit applied to order ${order.order_number}`,
+      }),
+    );
+    await manager.save(
+      Payment,
+      manager.create(Payment, {
+        business_id: businessId,
+        order_id: order.id,
+        amount: chunk,
+        payment_method: 'Advance Credit',
+        status: 'completed',
+      }),
+    );
+
+    return chunk >= orderRemaining - 0.01;
+  }
 
   /**
    * Customer-wise "Smart Pricing": last price this customer paid for this
@@ -644,6 +699,15 @@ export class OrdersService {
               description: `Order ${order.order_number} billed`,
             }),
           );
+
+          // Spend any advance credit against this new debt right away rather
+          // than leaving it idle. If it fully covers the order, treat the
+          // requested status as 'paid' so the rest of this method (price
+          // history, table release) runs the same as an explicit pay-off.
+          const fullyCovered = await this.applyAdvanceCredit(manager, businessId, order.customer_id, order);
+          if (fullyCovered) {
+            dto.status = 'paid';
+          }
         } else if (wasBilled && !isBilled) {
           // Billed status exited (e.g. cancelled or reverted to draft): decrement outstanding by remaining unpaid
           const payments = await manager.find(Payment, { where: { order_id: id } });
@@ -1138,6 +1202,13 @@ export class OrdersService {
               description: `Order ${order.order_number} items edited`,
             }),
           );
+          if (diff > 0) {
+            const fullyCovered = await this.applyAdvanceCredit(manager, businessId, order.customer_id, savedOrder);
+            if (fullyCovered) {
+              savedOrder.status = 'paid';
+              await manager.save(savedOrder);
+            }
+          }
         }
       }
 

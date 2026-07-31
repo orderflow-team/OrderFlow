@@ -29,6 +29,8 @@ interface Product {
   batch_number?: string | null;
   expiry_date?: string | null;
   last_supplier?: { id: string; name: string } | null;
+  purchase_price?: string | number | null;
+  tax_percentage?: string | number | null;
 }
 
 export default function InventoryPage() {
@@ -212,7 +214,7 @@ export default function InventoryPage() {
             editingPo={editingPo}
             onSaved={handleSaved}
             onCancel={closeForm}
-            onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0 }])}
+            onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0, purchase_price: p.purchasePrice, tax_percentage: p.taxPercentage }])}
           />
         )}
 

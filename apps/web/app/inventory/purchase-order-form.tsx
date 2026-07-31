@@ -16,6 +16,8 @@ interface Supplier {
 interface ProductOption {
   id: string;
   name: string;
+  purchase_price?: string | number | null;
+  tax_percentage?: string | number | null;
 }
 
 export interface PoLine {
@@ -102,7 +104,7 @@ export function PurchaseOrderForm({
   editingPo: EditingPo | null;
   onSaved: () => void;
   onCancel: () => void;
-  onProductCreated?: (product: ProductOption) => void;
+  onProductCreated?: (product: { id: string; name: string; purchasePrice?: number; taxPercentage?: number }) => void;
 }) {
   const [supplierId, setSupplierId] = useState(editingPo?.supplier_id ?? '');
   const [orderNumber, setOrderNumber] = useState(editingPo?.order_number ?? '');
@@ -114,6 +116,11 @@ export function PurchaseOrderForm({
   const [creatingProductAt, setCreatingProductAt] = useState<number | null>(null);
   const focusNextRow = useRef(false);
   const productRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Product ids created by resolveOrCreateProduct this session — their cost
+  // is created blank the moment the name field is left (before the user has
+  // typed a price into the same row), so at submit time we catch these up to
+  // whatever price ended up in the line instead of leaving them at ₹0 forever.
+  const createdThisSession = useRef<Set<string>>(new Set());
   // Local mirror of `products` so a product created mid-session (before the
   // parent's own reload) is immediately matchable/selectable in other rows.
   const [knownProducts, setKnownProducts] = useState<ProductOption[]>(products);
@@ -151,9 +158,25 @@ export function PurchaseOrderForm({
 
   const findByName = (name: string) => knownProducts.find((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
 
+  // Prefills a line's cost/tax from the catalog the moment its product name
+  // resolves to a known product — otherwise every line defaults to ₹0 unit
+  // price even when restocking something already carried, forcing a manual
+  // re-type of a cost the system already knows.
+  const priceFieldsFor = (match: ProductOption): Partial<PoLine> => {
+    const patch: Partial<PoLine> = {};
+    const purchasePrice = Number(match.purchase_price);
+    if (purchasePrice > 0) patch.unitPrice = String(purchasePrice);
+    if (match.tax_percentage != null && match.tax_percentage !== '') patch.taxPercentage = String(Number(match.tax_percentage));
+    return patch;
+  };
+
   const handleProductNameChange = (index: number, name: string) => {
     const match = findByName(name);
-    updateLine(index, { productName: name, productId: match ? match.id : '' });
+    updateLine(index, {
+      productName: name,
+      productId: match ? match.id : '',
+      ...(match ? priceFieldsFor(match) : {}),
+    });
   };
 
   // Guards against the same row's create-on-blur firing twice concurrently
@@ -177,23 +200,27 @@ export function PurchaseOrderForm({
 
       const match = findByName(trimmed);
       if (match) {
-        updateLine(index, { productId: match.id });
+        updateLine(index, { productId: match.id, ...priceFieldsFor(match) });
         return match.id;
       }
 
       setCreatingProductAt(index);
       try {
+        const purchasePrice = Number(line.unitPrice) || 0;
+        const taxPercentage = line.taxPercentage ? Number(line.taxPercentage) : undefined;
         const res = await apiClient.post('/api/products', {
           businessId,
           name: trimmed,
-          sellingPrice: Number(line.unitPrice) || 0,
-          purchasePrice: line.unitPrice ? Number(line.unitPrice) : undefined,
+          sellingPrice: purchasePrice,
+          purchasePrice: line.unitPrice ? purchasePrice : undefined,
+          taxPercentage,
           isDraft: true,
         });
-        const created: ProductOption = { id: res.data.id, name: res.data.name };
+        const created: ProductOption = { id: res.data.id, name: res.data.name, purchase_price: purchasePrice, tax_percentage: taxPercentage };
+        createdThisSession.current.add(created.id);
         setKnownProducts((prev) => [...prev, created]);
         updateLine(index, { productId: created.id });
-        onProductCreated?.(created);
+        onProductCreated?.({ id: created.id, name: created.name, purchasePrice, taxPercentage });
         return created.id;
       } catch (err) {
         console.error('[purchase order] failed to create new product', err);
@@ -248,6 +275,23 @@ export function PurchaseOrderForm({
       setSaving(false);
       return;
     }
+
+    // A product created earlier in this session (on the product-name field's
+    // blur) was seeded with whatever price existed at that instant — usually
+    // ₹0, since the price cell is filled in afterward. Catch it up to the
+    // line's final price/tax now, before the price is lost as "just the PO
+    // line's number" with no trace back on the product record itself.
+    await Promise.all(
+      lines.map((l, i) => {
+        const productId = resolvedIds[i] || l.productId;
+        if (!productId || !createdThisSession.current.has(productId)) return Promise.resolve();
+        const purchasePrice = Number(l.unitPrice) || 0;
+        const taxPercentage = l.taxPercentage ? Number(l.taxPercentage) : undefined;
+        return apiClient
+          .patch(`/api/products/${productId}`, { purchasePrice, sellingPrice: purchasePrice, taxPercentage }, { params: { businessId } })
+          .catch((err) => console.error('[purchase order] failed to sync new product price', err));
+      }),
+    );
 
     const items = lines.map((l, i) => ({
       ...(l.id ? { id: l.id } : {}),

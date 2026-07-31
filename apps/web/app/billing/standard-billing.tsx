@@ -8,11 +8,12 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import { StatusBadge } from '@/components/status-badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
 import { useOfflineStore } from '@/lib/offline-store';
-import { Receipt, FileText } from 'lucide-react';
+import { Receipt, FileText, Undo2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -67,6 +68,10 @@ export function StandardBilling() {
   const [payMethod, setPayMethod] = useState('Cash');
   const [saving, setSaving] = useState(false);
   const enqueuePayment = useOfflineStore((s) => s.enqueuePayment);
+
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [undoError, setUndoError] = useState('');
 
   const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
     const outbox = await listOutbox(bizId);
@@ -186,6 +191,20 @@ export function StandardBilling() {
     }
   };
 
+  const handleUndoPayment = async (paymentId: string) => {
+    if (!businessId) return;
+    setUndoError('');
+    setUndoingId(paymentId);
+    try {
+      await apiClient.post(`/api/billing/payments/${paymentId}/undo`, {}, { params: { businessId } });
+      await load(businessId);
+    } catch (err: any) {
+      setUndoError(err.response?.data?.message || 'Failed to undo payment');
+    } finally {
+      setUndoingId(null);
+    }
+  };
+
   if (!ready) return null;
 
   const invoiceByOrderId = new Map(invoices.map((i) => [i.order_id, i.id]));
@@ -271,8 +290,14 @@ export function StandardBilling() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {orders.map((o) => (
-                  <div key={o.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors">
+                {orders.map((o) => {
+                  const isLocal = o.status === 'queued' || o.status === 'sync_failed';
+                  return (
+                  <div
+                    key={o.id}
+                    onClick={() => { if (!isLocal) setDetailOrderId(o.id); }}
+                    className={`flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors ${!isLocal ? 'cursor-pointer' : ''}`}
+                  >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-semibold text-slate-500">{o.order_number}</span>
@@ -296,23 +321,25 @@ export function StandardBilling() {
                         }
                         return null;
                       })()}
-                      {o.status === 'queued' || o.status === 'sync_failed' ? (
+                      {isLocal ? (
                         <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
                       ) : invoiceByOrderId.has(o.id) ? (
                         <a
                           href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
                         >
                           View Invoice
                         </a>
                       ) : (
-                        <button onClick={() => handleGenerateInvoice(o.id)} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
+                        <button onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(o.id); }} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
                           + Invoice
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -339,6 +366,78 @@ export function StandardBilling() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!detailOrderId} onOpenChange={(open) => { if (!open) { setDetailOrderId(null); setUndoError(''); } }}>
+        <DialogContent className="sm:max-w-md">
+          {(() => {
+            const order = orders.find((o) => o.id === detailOrderId);
+            if (!order) return null;
+            const orderPayments = payments.filter((p) => p.order_id === order.id);
+            const paid = orderPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+            const remaining = Math.max(0, Number(order.total_amount) - paid);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base">
+                    <span className="font-mono">{order.order_number}</span>
+                    <StatusBadge status={order.status} />
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm font-medium text-slate-700">{order.customer_name}</p>
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs bg-white/50 rounded-xl p-3 ring-1 ring-white/60">
+                    <div>
+                      <p className="text-slate-400 font-medium">Order Total</p>
+                      <p className="font-bold text-slate-800 mt-0.5">₹{Number(order.total_amount).toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-emerald-600 font-medium">Paid</p>
+                      <p className="font-bold text-emerald-600 mt-0.5">₹{paid.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-rose-600 font-medium">Remaining</p>
+                      <p className="font-bold text-rose-600 mt-0.5">₹{remaining.toFixed(2)}</p>
+                    </div>
+                  </div>
+
+                  {undoError && <p className="text-xs text-rose-600 font-medium">{undoError}</p>}
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Payments</p>
+                    {orderPayments.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-4">No payments recorded on this order.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {orderPayments.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-800">₹{Number(p.amount).toFixed(2)} <span className="text-xs font-normal text-slate-400">· {p.payment_method}</span></p>
+                              <p className="text-[11px] text-slate-400">{new Date(p.created_at).toLocaleString()}</p>
+                            </div>
+                            {Number(p.amount) > 0 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={undoingId === p.id}
+                                onClick={() => handleUndoPayment(p.id)}
+                                className="h-8 gap-1.5 text-xs font-semibold border-rose-200 text-rose-600 hover:bg-rose-50 shrink-0"
+                              >
+                                <Undo2 className="w-3.5 h-3.5" />
+                                {undoingId === p.id ? 'Undoing...' : 'Undo'}
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
