@@ -170,6 +170,8 @@ export function GenericOrders() {
   const [editLines, setEditLines] = useState<EditLine[]>([]);
   const [editSaving, setEditSaving] = useState(false);
   const [suggestOpenIdx, setSuggestOpenIdx] = useState<number | null>(null);
+  const [addProductSearch, setAddProductSearch] = useState('');
+  const [addSuggestOpen, setAddSuggestOpen] = useState(false);
 
   /** Prepends any not-yet-synced offline sales so they stay visible (and survive a refresh) until the sync engine lands them. */
   const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
@@ -518,6 +520,8 @@ export function GenericOrders() {
         };
       }),
     );
+    setAddProductSearch('');
+    setAddSuggestOpen(false);
     setEditMode(true);
   };
 
@@ -573,18 +577,54 @@ export function GenericOrders() {
 
   const removeEditLine = (idx: number) => setEditLines((prev) => prev.filter((_, i) => i !== idx));
 
+  // Picking a product that's already on another line merges into that line
+  // (bumping its quantity) instead of leaving two separate rows for the same
+  // item — the duplicate would double-count on the receipt/invoice otherwise.
   const selectLineProduct = (idx: number, p: Product) => {
-    setEditLines((prev) => prev.map((l, i) => i === idx ? {
-      ...l,
-      name: p.name,
-      unit: p.unit,
-      price: String(Number(p.selling_price)),
-      productId: p.id,
-      originalUnit: p.unit,
-      originalPrice: String(Number(p.selling_price)),
-      unitPrices: p.unit_prices,
-    } : l));
+    setEditLines((prev) => {
+      const existingIdx = prev.findIndex((l, i) => i !== idx && l.productId === p.id);
+      if (existingIdx !== -1) {
+        const addQty = Number(prev[idx].qty) || 1;
+        return prev
+          .map((l, i) => i === existingIdx ? { ...l, qty: String(Number(l.qty || 0) + addQty) } : l)
+          .filter((_, i) => i !== idx);
+      }
+      return prev.map((l, i) => i === idx ? {
+        ...l,
+        name: p.name,
+        unit: p.unit,
+        price: String(Number(p.selling_price)),
+        productId: p.id,
+        originalUnit: p.unit,
+        originalPrice: String(Number(p.selling_price)),
+        unitPrices: p.unit_prices,
+      } : l);
+    });
     setSuggestOpenIdx(null);
+  };
+
+  // Top-of-drawer search bar (edit mode only) — quicker than "Add item" +
+  // typing into a blank row: pick a product and it's added straight away, or
+  // merged into its existing line if it's already on the order.
+  const addProductToOrder = (p: Product) => {
+    setEditLines((prev) => {
+      const existingIdx = prev.findIndex((l) => l.productId === p.id);
+      if (existingIdx !== -1) {
+        return prev.map((l, i) => i === existingIdx ? { ...l, qty: String((Number(l.qty) || 0) + 1) } : l);
+      }
+      return [...prev, {
+        name: p.name,
+        qty: '1',
+        price: String(Number(p.selling_price)),
+        productId: p.id,
+        unit: p.unit,
+        originalUnit: p.unit,
+        originalPrice: String(Number(p.selling_price)),
+        unitPrices: p.unit_prices,
+      }];
+    });
+    setAddProductSearch('');
+    setAddSuggestOpen(false);
   };
 
   const productSuggestions = (query: string) => {
@@ -927,6 +967,40 @@ export function GenericOrders() {
                 <span className="text-xl font-black text-emerald-700">₹{Number(drawerOrder.total_amount).toFixed(2)}</span>
               </div>
 
+              {/* Search bar — edit mode only. Picking a result adds it straight
+                  to the order (or bumps its qty if it's already on a line). */}
+              {editMode && (
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={addProductSearch}
+                      onChange={(e) => { setAddProductSearch(e.target.value); setAddSuggestOpen(true); }}
+                      onFocus={() => setAddSuggestOpen(true)}
+                      onBlur={() => setTimeout(() => setAddSuggestOpen(false), 150)}
+                      placeholder="Search products to add…"
+                      autoComplete="off"
+                      className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/50 backdrop-blur-sm ring-1 ring-white/60 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-emerald-400/60"
+                    />
+                  </div>
+                  {addSuggestOpen && productSuggestions(addProductSearch).length > 0 && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg ring-1 ring-slate-200 max-h-56 overflow-y-auto">
+                      {productSuggestions(addProductSearch).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); addProductToOrder(p); }}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                        >
+                          <span className="font-medium text-slate-700 truncate">{p.name}</span>
+                          <span className="text-slate-400 shrink-0">₹{Number(p.selling_price).toFixed(2)} / {p.unit}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Items */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -949,7 +1023,7 @@ export function GenericOrders() {
                     </div>
                   ) : editMode ? (
                     <div className="flex gap-2">
-                      <button onClick={() => setEditMode(false)} className="text-xs text-slate-500 font-medium hover:text-slate-700">Cancel</button>
+                      <button onClick={() => { setEditMode(false); setAddProductSearch(''); setAddSuggestOpen(false); }} className="text-xs text-slate-500 font-medium hover:text-slate-700">Cancel</button>
                       <button onClick={saveEditLines} disabled={editSaving} className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 disabled:opacity-50">
                         <Check className="w-3 h-3" />{editSaving ? 'Saving…' : 'Save'}
                       </button>
