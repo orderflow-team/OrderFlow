@@ -18,21 +18,40 @@ export class CategoriesService {
    * twice concurrently (React effects re-running, a double page load) and
    * create the same handful of categories twice with no way to tell them
    * apart in the UI.
+   *
+   * The upfront SELECT is just a fast path — it can't stop two concurrent
+   * requests that both pass it before either INSERT commits. The DB-level
+   * unique index on (business_id, name) is what actually closes that race;
+   * on a 23505 violation we re-fetch and return the row the other request
+   * created instead of erroring.
    */
   async create(dto: CreateCategoryDto) {
+    const name = dto.name.trim();
     const existing = await this.categoriesRepository
       .createQueryBuilder('category')
       .where('category.business_id = :businessId', { businessId: dto.businessId })
-      .andWhere('LOWER(category.name) = LOWER(:name)', { name: dto.name.trim() })
+      .andWhere('LOWER(category.name) = LOWER(:name)', { name })
       .getOne();
     if (existing) return existing;
 
     const category = this.categoriesRepository.create({
       business_id: dto.businessId,
-      name: dto.name,
+      name,
       parent_id: dto.parentId,
     });
-    return this.categoriesRepository.save(category);
+    try {
+      return await this.categoriesRepository.save(category);
+    } catch (err: any) {
+      if (err?.code === '23505') {
+        const winner = await this.categoriesRepository
+          .createQueryBuilder('category')
+          .where('category.business_id = :businessId', { businessId: dto.businessId })
+          .andWhere('LOWER(category.name) = LOWER(:name)', { name })
+          .getOne();
+        if (winner) return winner;
+      }
+      throw err;
+    }
   }
 
   findAll(businessId: string) {

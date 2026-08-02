@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Business } from './business.entity';
 
 @Entity('categories')
+@Index(['business_id', 'name'], { unique: true })
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
