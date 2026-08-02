@@ -650,7 +650,7 @@ export function GenericOrders() {
     try {
       const res = await apiClient.put<Order>(`/api/orders/${drawerOrder.id}/items`, {
         items: valid.map((l) => ({
-          productId: l.productId,
+          productId: l.productId || undefined,
           customProductName: l.productId ? undefined : l.name.trim(),
           unit: l.unit,
           quantity: Number(l.qty),

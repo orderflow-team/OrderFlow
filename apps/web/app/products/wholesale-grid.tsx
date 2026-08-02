@@ -28,6 +28,7 @@ interface Product {
   category: string | null;
   unit: string;
   selling_price: string | number;
+  mrp: string | number | null;
   purchase_price: string | number | null;
   tax_percentage: string | number;
   stock_quantity: number;
@@ -54,6 +55,7 @@ const emptyForm = {
   category: '',
   unit: 'box',
   sellingPrice: '',
+  mrp: '',
   purchasePrice: '',
   taxPercentage: '18',
   stockQuantity: '100',
@@ -145,6 +147,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       category: p.category || '',
       unit: p.unit || 'box',
       sellingPrice: String(p.selling_price ?? ''),
+      mrp: p.mrp != null ? String(p.mrp) : '',
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       taxPercentage: String(p.tax_percentage ?? '18'),
       stockQuantity: String(p.stock_quantity ?? '0'),
@@ -177,6 +180,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       category: form.category || undefined,
       unit: form.unit || 'box',
       sellingPrice: Number(form.sellingPrice),
+      mrp: form.mrp ? Number(form.mrp) : undefined,
       purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
@@ -243,6 +247,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     { key: 'sku', label: 'SKU / Batch Code', aliases: ['batchcode'], width: 'w-24', example: 'WLS-SUG-50K' },
     { key: 'unit', label: 'Packaging Unit', aliases: ['packagingunit'], required: true, width: 'w-20', example: 'sack' },
     { key: 'sellingPrice', label: 'Wholesale Rate', aliases: ['price', 'rate'], type: 'number', required: true, width: 'w-16', example: '1850' },
+    { key: 'mrp', label: 'MRP', aliases: ['maxretailprice'], type: 'number', width: 'w-16', example: '2100' },
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '1620' },
     { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
     { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '500' },
@@ -350,6 +355,10 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Packaging Unit</label>
                   <Input placeholder="e.g. sack, carton, tin, box, bag, quintal" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">MRP (₹)</label>
+                  <Input type="number" placeholder="e.g. 2100" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Standard Wholesale Rate (₹) *</label>
@@ -490,7 +499,14 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase">Base Rate</span>
-                      <span className="font-bold text-slate-800 text-sm">₹{Number(p.selling_price).toFixed(2)} <span className="text-xs text-slate-500 font-normal">/ {p.unit}</span></span>
+                      <span className="font-bold text-slate-800 text-sm">
+                        ₹{Number(p.selling_price).toFixed(2)} <span className="text-xs text-slate-500 font-normal">/ {p.unit}</span>
+                      </span>
+                      {p.mrp != null && (
+                        <span className="block text-[11px] text-slate-400">
+                          MRP <span className="line-through">₹{Number(p.mrp).toFixed(2)}</span>
+                        </span>
+                      )}
                     </div>
                     {p.purchase_price != null && (
                       <div className="text-right">

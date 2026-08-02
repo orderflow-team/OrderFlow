@@ -38,6 +38,12 @@ export class Product {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   selling_price: number;
 
+  // Manufacturer's printed Maximum Retail Price — reference only, shown
+  // alongside selling_price so a wholesale rate can be compared against it.
+  // Unlike ProductVariant.mrp, this is informational and not enforced as a ceiling.
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  mrp: number | null;
+
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   tax_percentage: number;
 
