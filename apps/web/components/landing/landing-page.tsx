@@ -28,6 +28,7 @@ import {
   Menu,
   X,
   Play,
+  Download,
   type LucideIcon,
 } from 'lucide-react';
 import { Reveal } from './reveal';
@@ -240,6 +241,12 @@ export function LandingPage() {
             >
               Sign in to Counter
             </Link>
+            <a
+              href="https://obix-apk-download.vercel.app/obix.apk"
+              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-emerald-600/25 ${GLASS_SHEEN}`}
+            >
+              <Download className="mr-2 w-5 h-5" /> Download APK
+            </a>
           </div>
 
           <div className="pt-4 flex flex-wrap items-center gap-6 text-xs text-slate-500 font-medium border-t border-slate-200/80">
