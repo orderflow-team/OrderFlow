@@ -3,5 +3,5 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install",
-  "outputDirectory": "app-export"
+  "outputDirectory": ".next"
 }
