@@ -437,7 +437,7 @@ export default function SettingsPage() {
                   <span className="text-sm font-medium text-slate-700">
                     Allow orders beyond stock
                     <span className="block text-xs font-normal text-slate-500">
-                      Staff can take an order even if it exceeds what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand.
+                      Anyone taking an order — owner or staff — can exceed what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand for everyone.
                     </span>
                   </span>
                 </label>

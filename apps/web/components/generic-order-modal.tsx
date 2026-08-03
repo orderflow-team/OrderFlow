@@ -82,6 +82,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
   const [inventoryEnabled, setInventoryEnabled] = useState(true);
+  const [allowOrdersBeyondStock, setAllowOrdersBeyondStock] = useState(true);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
@@ -103,19 +104,20 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setInventoryEnabled(cached);
     }
     apiClient
-      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${businessId}`)
+      .get<{ category: string | null; inventory_enabled: boolean; allow_orders_beyond_stock: boolean }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setInventoryEnabled(res.data.inventory_enabled);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
+        setAllowOrdersBeyondStock(res.data.allow_orders_beyond_stock !== false);
       })
       .catch(() => {});
   }, [businessId]);
 
   // Stock-tracked products cap at what's actually on hand; free-text/draft
-  // items (never stock-tracked) and businesses without inventory tracking
-  // enabled are uncapped.
+  // items (never stock-tracked), businesses without inventory tracking
+  // enabled, and businesses that allow overselling are uncapped.
   const getMaxQty = (product: Product): number => {
-    if (!inventoryEnabled || product.id.startsWith('draft-') || product.stock_quantity == null) {
+    if (!inventoryEnabled || allowOrdersBeyondStock || product.id.startsWith('draft-') || product.stock_quantity == null) {
       return Infinity;
     }
     return Number(product.stock_quantity);
