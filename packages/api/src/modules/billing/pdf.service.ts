@@ -11,6 +11,7 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
 import { InvoicesService } from './invoices.service';
 import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderThermalReceiptHtml } from './templates/invoice.template';
+import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
@@ -32,7 +33,7 @@ function loadLogoDataUri(business: Business | null): string | null {
   if (!business?.logo_url) return null;
   const mimeType = LOGO_MIME_TYPES[path.extname(business.logo_url).toLowerCase()];
   if (!mimeType) return null;
-  const filePath = path.join(process.cwd(), business.logo_url);
+  const filePath = uploadsFilePathFromUrl(business.logo_url);
   try {
     const buffer = fs.readFileSync(filePath);
     return `data:${mimeType};base64,${buffer.toString('base64')}`;

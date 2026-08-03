@@ -24,6 +24,7 @@ import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
 const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
@@ -103,7 +104,7 @@ export class BusinessesController {
     if (!file) {
       throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
     }
-    return this.businessesService.updateLogo(id, `/uploads/logos/${file.filename}`, req.user.userId);
+    return this.businessesService.updateLogo(id, `${getPublicBaseUrl()}/uploads/logos/${file.filename}`, req.user.userId);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER)

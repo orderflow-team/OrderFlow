@@ -230,6 +230,24 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const deleteCategory = async (id: string) => {
+    try {
+      await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const renameCategory = async (id: string, name: string) => {
+    try {
+      await apiClient.patch(`/api/categories/${id}`, { name }, { params: { businessId } });
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -310,6 +328,8 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
           onSelect={setSelectedCategory}
           totalCount={products.length}
           countFor={(catName) => products.filter((p) => p.category === catName).length}
+          onDeleteCategory={deleteCategory}
+          onRenameCategory={renameCategory}
         />
 
         {/* New / Edit Dialog */}
@@ -477,10 +497,10 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
             </Button>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {filteredProducts.map((p) => (
               <Card key={p.id} className="relative overflow-hidden ring-1 ring-slate-200/80 bg-white/80 backdrop-blur-md hover:shadow-lg transition-all border-l-4 border-l-amber-500">
-                <CardContent className="p-5 space-y-3">
+                <CardContent className="p-3 md:p-5 space-y-2.5 md:space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-bold text-slate-800 text-base leading-tight">

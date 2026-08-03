@@ -21,6 +21,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { InvoiceScanService } from './invoice-scan.service';
 import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
+import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_PAGES = 10;
@@ -70,7 +71,7 @@ export class InvoiceScanController {
     }
 
     const pages = files.map((file) => ({
-      fileUrl: `/uploads/invoice-scans/${file.filename}`,
+      fileUrl: `${getPublicBaseUrl()}/uploads/invoice-scans/${file.filename}`,
       filePath: file.path,
       fileType: file.mimetype === 'application/pdf' ? 'pdf' : 'image',
       mimeType: file.mimetype,

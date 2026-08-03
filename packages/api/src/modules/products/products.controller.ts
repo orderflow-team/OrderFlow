@@ -26,6 +26,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
 import { MergeProductsDto } from './dto/merge-products.dto';
+import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/products')
@@ -56,7 +57,7 @@ export class ProductsController {
       throw new BadRequestException('No file uploaded');
     }
     return {
-      url: `/uploads/media/${file.filename}`,
+      url: `${getPublicBaseUrl()}/uploads/media/${file.filename}`,
     };
   }
 

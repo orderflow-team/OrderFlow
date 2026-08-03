@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import apiClient from '@/lib/api-client';
+import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { ScanLine, UploadCloud, FileText, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 
 interface Supplier {
@@ -241,9 +241,9 @@ export function ScanToInventoryDialog({
                       const pages = scan.files && scan.files.length > 0 ? scan.files : [{ id: scan.id, file_url: scan.file_url, file_type: scan.file_type, page_order: 0 }];
                       const page = pages[Math.min(activePage, pages.length - 1)];
                       return page.file_type === 'pdf' ? (
-                        <embed src={page.file_url} type="application/pdf" className="w-full h-full min-h-[300px]" />
+                        <embed src={toAbsoluteFileUrl(page.file_url) ?? undefined} type="application/pdf" className="w-full h-full min-h-[300px]" />
                       ) : (
-                        <img src={page.file_url} alt={`Invoice page ${activePage + 1}`} className="w-full h-full object-contain max-h-[60vh]" />
+                        <img src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Invoice page ${activePage + 1}`} className="w-full h-full object-contain max-h-[60vh]" />
                       );
                     })()}
                   </div>
@@ -261,7 +261,7 @@ export function ScanToInventoryDialog({
                           {page.file_type === 'pdf' ? (
                             <span className="text-slate-500">PDF {idx + 1}</span>
                           ) : (
-                            <img src={page.file_url} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" />
+                            <img src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" />
                           )}
                         </button>
                       ))}

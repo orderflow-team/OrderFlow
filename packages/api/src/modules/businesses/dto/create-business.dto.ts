@@ -49,5 +49,9 @@ export class CreateBusinessDto {
   aiChatEnabled?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  allowOrdersBeyondStock?: boolean;
+
+  @IsOptional()
   customSettings?: Record<string, any>;
 }

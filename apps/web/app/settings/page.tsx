@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
-import apiClient from '@/lib/api-client';
+import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
@@ -35,6 +35,7 @@ interface BusinessProfile {
   logo_url: string | null;
   inventory_enabled: boolean;
   ai_chat_enabled: boolean;
+  allow_orders_beyond_stock: boolean;
 }
 
 export default function SettingsPage() {
@@ -63,6 +64,7 @@ export default function SettingsPage() {
     logoUrl: '',
     inventoryEnabled: true,
     aiChatEnabled: true,
+    allowOrdersBeyondStock: true,
   });
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState('');
@@ -121,6 +123,7 @@ export default function SettingsPage() {
           logoUrl: res.data.logo_url || '',
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
+          allowOrdersBeyondStock: res.data.allow_orders_beyond_stock !== false,
         });
         setSupportCategory(res.data.category || 'others');
       })
@@ -145,6 +148,7 @@ export default function SettingsPage() {
         drugLicenseNumber2: form.drugLicenseNumber2 || undefined,
         inventoryEnabled: form.inventoryEnabled,
         aiChatEnabled: form.aiChatEnabled,
+        allowOrdersBeyondStock: form.allowOrdersBeyondStock,
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
       // reload so AppShell re-fetches and picks up the change immediately.
@@ -327,7 +331,7 @@ export default function SettingsPage() {
                     {form.logoUrl ? (
                       <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/35 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={form.logoUrl} alt="Business logo" className="w-full h-full object-contain" />
+                        <img src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Business logo" className="w-full h-full object-contain" />
                         <button
                           type="button"
                           onClick={handleLogoRemove}
@@ -419,6 +423,21 @@ export default function SettingsPage() {
                     Enable Inventory module
                     <span className="block text-xs font-normal text-slate-500">
                       Track stock, purchase orders, and low-stock alerts. Turning this off hides the Inventory tab and dashboard stock widgets.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={form.allowOrdersBeyondStock}
+                    onChange={(e) => setForm({ ...form, allowOrdersBeyondStock: e.target.checked })}
+                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700">
+                    Allow orders beyond stock
+                    <span className="block text-xs font-normal text-slate-500">
+                      Staff can take an order even if it exceeds what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand.
                     </span>
                   </span>
                 </label>
@@ -599,7 +618,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               {form.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-slate-50 ring-1 ring-slate-100" />
+                <img src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-slate-50 ring-1 ring-slate-100" />
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0">
                   <ImageUp className="w-5 h-5" />

@@ -174,6 +174,7 @@ export class OrdersService {
       const orderNumber = `ORD-${Date.now()}`;
       const business = await manager.findOne(Business, { where: { id: dto.businessId } });
       const inventoryEnabled = business?.inventory_enabled !== false;
+      const allowOrdersBeyondStock = business?.allow_orders_beyond_stock !== false;
 
       let resolvedCustomerId = dto.customerId;
       // If phone provided, look up customer by phone first (phone is unique identifier)
@@ -231,7 +232,7 @@ export class OrdersService {
 
         if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled, productName } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber);
+          const { fulfilled, productName } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber, allowOrdersBeyondStock);
           if (fulfilled < requestedQuantity) {
             shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
           }
@@ -373,15 +374,19 @@ export class OrdersService {
    * Decrements stock for a catalog product the caller explicitly selected
    * (never for a Quick-Parchi free-text item auto-linked to a fresh
    * zero-stock draft product — that would break the "sell without inventory
-   * tracking" workflow those exist for). Clamps to whatever is actually
-   * available instead of rejecting the whole order — requesting 5 with only
-   * 2 in stock sells 2, not zero — and flips the product to "out of stock"
-   * (is_available = false) the moment stock hits zero. Locks the product row
-   * for the rest of this transaction (pessimistic write) rather than the old
-   * lock-free conditional UPDATE, since the fulfilled quantity now depends on
-   * a prior read that must not race with another order against the same row.
-   * Returns the quantity actually fulfilled (0 if none available) so the
-   * caller can price/persist the order item against what was really sold.
+   * tracking" workflow those exist for). By default (allowBeyondStock=true,
+   * matching Business.allow_orders_beyond_stock), clamps to whatever is
+   * actually available instead of rejecting the whole order — requesting 5
+   * with only 2 in stock sells 2, not zero — and flips the product to "out
+   * of stock" (is_available = false) the moment stock hits zero. When a
+   * business has turned that off, an order exceeding available stock is
+   * rejected outright instead of being silently clamped. Locks the product
+   * row for the rest of this transaction (pessimistic write) rather than the
+   * old lock-free conditional UPDATE, since the fulfilled quantity now
+   * depends on a prior read that must not race with another order against
+   * the same row. Returns the quantity actually fulfilled (0 if none
+   * available) so the caller can price/persist the order item against what
+   * was really sold.
    */
   private async decrementStock(
     manager: import('typeorm').EntityManager,
@@ -389,6 +394,7 @@ export class OrdersService {
     productId: string,
     requestedQuantity: number,
     orderNumber: string,
+    allowBeyondStock: boolean,
   ): Promise<{ fulfilled: number; productName: string }> {
     const product = await manager
       .createQueryBuilder(Product, 'product')
@@ -402,6 +408,14 @@ export class OrdersService {
 
     const available = Number(product.stock_quantity);
     const fulfilled = Math.max(0, Math.min(available, requestedQuantity));
+
+    if (!allowBeyondStock && fulfilled < requestedQuantity) {
+      throw new BadRequestException(
+        fulfilled === 0
+          ? `${product.name} is out of stock`
+          : `Only ${fulfilled} ${product.name} in stock (requested ${requestedQuantity})`,
+      );
+    }
 
     if (fulfilled === 0) {
       if (product.is_available) {
@@ -918,6 +932,7 @@ export class OrdersService {
       }
       const business = await manager.findOne(Business, { where: { id: businessId } });
       const inventoryEnabled = business?.inventory_enabled !== false;
+      const allowOrdersBeyondStock = business?.allow_orders_beyond_stock !== false;
 
       let additionalAmount = 0;
       let additionalTax = 0;
@@ -940,7 +955,7 @@ export class OrdersService {
 
         if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled, productName } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number);
+          const { fulfilled, productName } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number, allowOrdersBeyondStock);
           if (fulfilled < requestedQuantity) {
             shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
           }

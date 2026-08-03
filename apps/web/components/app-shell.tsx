@@ -26,7 +26,7 @@ import {
   CloudOff,
   RefreshCw,
 } from 'lucide-react';
-import apiClient from '@/lib/api-client';
+import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
 import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
@@ -108,7 +108,7 @@ const NEW_BUSINESS_OPTION = '__new__';
 function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; size: string; active?: boolean }) {
   if (logoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logoUrl} alt="" className={`${size} rounded-full object-cover shrink-0 bg-white ring-1 ring-slate-200/70`} />;
+    return <img src={toAbsoluteFileUrl(logoUrl) ?? undefined} alt="" className={`${size} rounded-full object-cover shrink-0 bg-white ring-1 ring-slate-200/70`} />;
   }
   return <Store className={`${size} shrink-0 ${active ? 'text-sky-700' : 'text-slate-400'}`} />;
 }

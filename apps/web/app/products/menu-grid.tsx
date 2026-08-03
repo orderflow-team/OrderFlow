@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Trash2, Plus, FolderPlus, Tag, Coffee, Upload } from 'lucide-react';
-import apiClient from '@/lib/api-client';
+import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -368,9 +368,9 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                   {form.imageUrl ? (
                     <div className="relative w-full h-32 rounded-xl overflow-hidden border bg-slate-50 group/preview">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={form.imageUrl} 
-                        alt="Preview" 
+                      <img
+                        src={toAbsoluteFileUrl(form.imageUrl) ?? undefined}
+                        alt="Preview"
                         className="w-full h-full object-cover"
                       />
                       <button
@@ -440,7 +440,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               {p.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={p.image_url}
+                  src={toAbsoluteFileUrl(p.image_url) ?? undefined}
                   alt={p.name}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />

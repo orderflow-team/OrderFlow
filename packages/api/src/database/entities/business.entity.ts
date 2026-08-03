@@ -20,6 +20,10 @@ export class Business {
   @Column({ type: 'boolean', default: true })
   ai_chat_enabled: boolean;
 
+  /** When false, an order requesting more than what's in stock is rejected instead of silently clamped to what's available. */
+  @Column({ type: 'boolean', default: true })
+  allow_orders_beyond_stock: boolean;
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   gst_number: string;
 

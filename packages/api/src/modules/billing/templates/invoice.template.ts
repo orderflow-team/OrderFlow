@@ -57,16 +57,19 @@ export function renderInvoiceHtml(
   previousBalanceDue = 0,
 ) {
   const timeZone = tz(business);
+  const hasMrp = items.some((item) => item.product?.mrp != null);
   const rows = items
     .map((item) => {
       const details = itemDetails(item, timeZone);
       const detailsHtml = details.length
         ? `<div class="muted" style="font-size:11px;margin-top:2px;">${details.join('&nbsp;&nbsp;•&nbsp;&nbsp;')}</div>`
         : '';
+      const mrpCell = hasMrp ? `<td class="num">${item.product?.mrp != null ? `₹${money(item.product.mrp)}` : '-'}</td>` : '';
       return `
         <tr>
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}${detailsHtml}</td>
           <td class="num">${money(item.quantity)}</td>
+          ${mrpCell}
           <td class="num">₹${money(item.unit_price)}</td>
           <td class="num">${money(item.tax_percentage)}%</td>
           <td class="num">₹${money(item.subtotal)}</td>
@@ -120,7 +123,7 @@ export function renderInvoiceHtml(
 
   <table>
     <thead>
-      <tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">GST</th><th class="num">Amount</th></tr>
+      <tr><th>Item</th><th class="num">Qty</th>${hasMrp ? '<th class="num">MRP</th>' : ''}<th class="num">Price</th><th class="num">GST</th><th class="num">Amount</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>

@@ -14,7 +14,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onr
 interface InvoiceItem {
   id: string;
   product_id: string | null;
-  product?: { name: string; batch_number?: string | null; expiry_date?: string | null; prescription_required?: boolean } | null;
+  product?: { name: string; batch_number?: string | null; expiry_date?: string | null; prescription_required?: boolean; mrp?: string | number | null } | null;
   custom_product_name: string | null;
   quantity: string | number;
   unit_price: string | number;
@@ -307,36 +307,47 @@ function InvoiceDetailPageInner() {
                 <tr>
                   <th className="py-2">Item</th>
                   <th className="py-2 text-right">Qty</th>
+                  {invoice.items.some((item) => item.product?.mrp != null) && (
+                    <th className="py-2 text-right">MRP</th>
+                  )}
                   <th className="py-2 text-right">Unit Price</th>
                   <th className="py-2 text-right">Tax</th>
                   <th className="py-2 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {invoice.items.map((item) => {
-                  const details: string[] = [];
-                  if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
-                  if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`);
-                  if (item.product?.prescription_required) details.push('Rx');
-                  return (
-                  <tr key={item.id}>
-                    <td className="py-3 text-slate-800">
-                      {item.product?.name || item.custom_product_name || '-'}
-                      {details.length > 0 && (
-                        <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
+                {(() => {
+                  const hasMrp = invoice.items.some((item) => item.product?.mrp != null);
+                  return invoice.items.map((item) => {
+                    const details: string[] = [];
+                    if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
+                    if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`);
+                    if (item.product?.prescription_required) details.push('Rx');
+                    return (
+                    <tr key={item.id}>
+                      <td className="py-3 text-slate-800">
+                        {item.product?.name || item.custom_product_name || '-'}
+                        {details.length > 0 && (
+                          <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
+                        )}
+                      </td>
+                      <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
+                      {hasMrp && (
+                        <td className="py-3 text-right text-slate-600">
+                          {item.product?.mrp != null ? Number(item.product.mrp).toFixed(2) : '-'}
+                        </td>
                       )}
-                    </td>
-                    <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
-                    <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
-                    <td className="py-3 text-right text-slate-600">
-                      {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
-                    </td>
-                    <td className="py-3 text-right text-slate-800 font-medium">
-                      {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
-                    </td>
-                  </tr>
-                  );
-                })}
+                      <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
+                      <td className="py-3 text-right text-slate-600">
+                        {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
+                      </td>
+                      <td className="py-3 text-right text-slate-800 font-medium">
+                        {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
+                      </td>
+                    </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table></div>
 

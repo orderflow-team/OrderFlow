@@ -2,7 +2,6 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import * as fs from 'fs';
-import * as path from 'path';
 import { Business } from '../../database/entities/business.entity';
 import { User } from '../../database/entities/user.entity';
 import { Category } from '../../database/entities/category.entity';
@@ -11,12 +10,12 @@ import { Notification } from '../../database/entities/notification.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { DevToolsService } from '../dev-tools/dev-tools.service';
+import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
 
 /** Best-effort cleanup of a previously uploaded logo so replacing/removing it doesn't leak files under uploads/logos. */
 function deleteLogoFile(logoUrl: string | null | undefined) {
-  if (!logoUrl || !logoUrl.startsWith('/uploads/logos/')) return;
-  const filePath = path.join(process.cwd(), logoUrl);
-  fs.unlink(filePath, () => {});
+  if (!logoUrl || !logoUrl.includes('/uploads/logos/')) return;
+  fs.unlink(uploadsFilePathFromUrl(logoUrl), () => {});
 }
 
 @Injectable()
@@ -43,6 +42,7 @@ export class BusinessesService {
       logo_url: dto.logoUrl,
       inventory_enabled: dto.inventoryEnabled ?? true,
       ai_chat_enabled: dto.aiChatEnabled ?? true,
+      allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? true,
       custom_settings: dto.customSettings ?? null,
     });
     return this.businessesRepository.save(business);
@@ -119,6 +119,7 @@ export class BusinessesService {
       logo_url: dto.logoUrl ?? business.logo_url,
       inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
       ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
+      allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? business.allow_orders_beyond_stock,
       custom_settings: dto.customSettings ?? business.custom_settings,
     });
     return this.businessesRepository.save(business);

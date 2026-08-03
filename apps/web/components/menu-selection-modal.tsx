@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import apiClient from '@/lib/api-client';
+import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { ShoppingCart, Plus, Minus, Search, Save, Check, Trash2 } from 'lucide-react';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
@@ -366,7 +366,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
                   }`}
                   onClick={() => updateCart(p, 1)}
                   style={hasImage ? {
-                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.75)), url(${p.image_url})`,
+                    backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.75)), url(${toAbsoluteFileUrl(p.image_url)})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     backgroundRepeat: 'no-repeat',
