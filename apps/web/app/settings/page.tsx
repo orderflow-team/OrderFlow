@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
+import { CONTACT_URL } from '@/lib/mailer-client';
 import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 
@@ -36,6 +38,7 @@ interface BusinessProfile {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { businessId, ready } = useBusiness();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -219,7 +222,7 @@ export default function SettingsPage() {
     setSupportSent(false);
     const user = getCurrentUser();
     try {
-      const res = await fetch('/api/contact', {
+      const res = await fetch(CONTACT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,7 +249,7 @@ export default function SettingsPage() {
     setDeleteAllError('');
     try {
       await apiClient.delete('/api/dev/clear-all', { params: { businessId } });
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     } catch (err: any) {
       setDeleteAllError(err.response?.data?.message || 'Failed to delete data');
       setDeletingAll(false);
@@ -261,7 +264,7 @@ export default function SettingsPage() {
       await apiClient.delete(`/api/businesses/${businessId}`, { data: { confirmName: deleteAccountConfirmText } });
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      router.push('/login');
     } catch (err: any) {
       setDeleteAccountError(err.response?.data?.message || 'Failed to delete account');
       setDeletingAccount(false);

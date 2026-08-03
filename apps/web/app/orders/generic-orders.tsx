@@ -430,11 +430,11 @@ export function GenericOrders() {
     try {
       const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
       if (existing.data.length > 0) {
-        router.push(`/billing/invoices/${existing.data[0].id}`);
+        router.push(`/billing/invoices/view?id=${existing.data[0].id}`);
         return;
       }
       const created = await apiClient.post<{ id: string }>(`/api/billing/invoices/from-order/${order.id}`, {}, { params: { businessId } });
-      if (created.data?.id) router.push(`/billing/invoices/${created.data.id}`);
+      if (created.data?.id) router.push(`/billing/invoices/view?id=${created.data.id}`);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to open invoice');
     }
@@ -442,7 +442,7 @@ export function GenericOrders() {
 
   const handleGenerateInvoice = async () => {
     if (!businessId || !drawerOrder) return;
-    if (invoiceId) { router.push(`/billing/invoices/${invoiceId}`); return; }
+    if (invoiceId) { router.push(`/billing/invoices/view?id=${invoiceId}`); return; }
     setInvoiceLoading(true);
     try {
       const res = await apiClient.post<{ id: string }>(
@@ -452,7 +452,7 @@ export function GenericOrders() {
       );
       const newId = res.data?.id;
       setInvoiceId(newId || null);
-      if (newId) router.push(`/billing/invoices/${newId}`);
+      if (newId) router.push(`/billing/invoices/view?id=${newId}`);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to generate invoice');
     } finally {

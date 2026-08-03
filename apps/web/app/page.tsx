@@ -20,17 +20,17 @@ export default function Home() {
         try {
           const u = JSON.parse(userStr);
           if (u.role === 'super_admin' || u.email === 'admin@orderflow.com') {
-            window.location.href = '/admin';
+            router.push('/admin');
             return;
           }
         } catch (e) {}
       }
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
       return;
     }
     // Mobile visitors skip marketing landing page and go straight to login
     if (!window.matchMedia(DESKTOP_BREAKPOINT).matches) {
-      window.location.href = '/login';
+      router.push('/login');
       return;
     }
     setShowLanding(true);

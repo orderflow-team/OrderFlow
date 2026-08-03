@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -28,6 +28,7 @@ const ADMIN_THEME_KEY = 'admin-theme';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   // Admin UI defaults to light regardless of OS preference — only an explicit
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      window.location.href = '/login';
+      router.push('/login');
       return;
     }
     const userStr = localStorage.getItem('user');
@@ -46,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const u = JSON.parse(userStr);
         setUser(u);
         if (u.role !== 'super_admin' && u.role !== 'admin' && u.email !== 'admin@orderflow.com') {
-          window.location.href = '/dashboard';
+          router.push('/dashboard');
         }
       } catch (e) {}
     }

@@ -1,0 +1,13 @@
+{
+  "name": "mailer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Standalone Vercel functions for outbound email. Exists because the main API host blocks outbound SMTP ports (465/587) — Vercel's network doesn't, so this stays on Vercel even after apps/web becomes a static export.",
+  "dependencies": {
+    "nodemailer": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.1",
+    "@vercel/node": "^3.2.24"
+  }
+}

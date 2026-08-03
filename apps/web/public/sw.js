@@ -13,7 +13,7 @@
 // app's own offline-store.ts queues those in IndexedDB when they fail. This
 // SW only exists to make the app shell (HTML/JS/CSS) load without a network.
 
-const CACHE_NAME = 'orderflow-shell-v1';
+const CACHE_NAME = 'orderflow-shell-v2';
 const CORE_ROUTES = ['/dashboard', '/orders', '/billing', '/orders/takeaway'];
 
 self.addEventListener('install', (event) => {

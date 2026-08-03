@@ -172,11 +172,11 @@ function RestaurantPageContent() {
     try {
       const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
       if (existing.data.length > 0) {
-        router.push(`/billing/invoices/${existing.data[0].id}`);
+        router.push(`/billing/invoices/view?id=${existing.data[0].id}`);
         return;
       }
       const created = await apiClient.post<{ id: string }>(`/api/billing/invoices/from-order/${order.id}`, {}, { params: { businessId } });
-      if (created.data?.id) router.push(`/billing/invoices/${created.data.id}`);
+      if (created.data?.id) router.push(`/billing/invoices/view?id=${created.data.id}`);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to open invoice');
     }
@@ -735,7 +735,7 @@ function RestaurantPageContent() {
               const isOccupied = t.status === 'occupied';
               
               return (
-                <Link key={t.id} href={`/orders/table/${t.id}`}>
+                <Link key={t.id} href={`/orders/table/view?id=${t.id}`}>
                   <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
                     <button
                       onClick={(e) => handleDeleteTable(e, t.id)}
@@ -834,7 +834,7 @@ function RestaurantPageContent() {
             <div id="table-qr-print-area" className="p-4 bg-white rounded-3xl border border-slate-100 flex flex-col items-center gap-3">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/table/${qrTable.id}?customerMode=1` : ''
+                  typeof window !== 'undefined' ? `${window.location.origin}/orders/table/view?id=${qrTable.id}&customerMode=1` : ''
                 )}`}
                 alt={`QR for ${qrTable.name}`}
                 className="w-[200px] h-[200px] object-contain"
@@ -845,7 +845,7 @@ function RestaurantPageContent() {
             </div>
 
             <div className="text-[10px] font-mono text-slate-400 break-all select-all px-2 py-1 bg-slate-50 rounded-lg max-w-[280px]">
-              {typeof window !== 'undefined' ? `${window.location.origin}/orders/table/${qrTable.id}?customerMode=1` : ''}
+              {typeof window !== 'undefined' ? `${window.location.origin}/orders/table/view?id=${qrTable.id}&customerMode=1` : ''}
             </div>
           </div>
           <DialogFooter className="flex gap-2 sm:justify-between">

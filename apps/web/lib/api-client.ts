@@ -42,10 +42,9 @@ apiClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
-        const currentPath = window.location.pathname;
-        if (currentPath !== '/login' && currentPath !== '/signup') {
-          window.location.href = '/login';
-        }
+        // Can't call useRouter() from a plain module — AuthRedirectListener
+        // (mounted in the root layout) does the actual router.push('/login').
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       }
     }
     return Promise.reject(error);

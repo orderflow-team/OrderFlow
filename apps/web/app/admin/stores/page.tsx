@@ -165,7 +165,10 @@ export default function AdminStoresPage() {
       const res = await apiClient.post(`/api/platform-admin/impersonate/${store.id}`);
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
-      window.location.href = '/dashboard';
+      // Hard navigation resets all app state for the impersonated account; target "/"
+      // since that's the only path Capacitor's local server always resolves correctly —
+      // root page.tsx's own logic then routes to the right destination.
+      window.location.href = '/';
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to impersonate store');
     }

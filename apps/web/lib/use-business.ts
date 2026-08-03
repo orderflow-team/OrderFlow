@@ -33,8 +33,7 @@ export function useBusiness() {
             }
           }
         } else {
-          const pathParts = window.location.pathname.split('/');
-          const tableId = pathParts[pathParts.length - 1];
+          const tableId = new URLSearchParams(window.location.search).get('id');
           if (tableId) {
             try {
               const api = (await import('@/lib/api-client')).default;

@@ -325,7 +325,7 @@ export function StandardBilling() {
                         <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
                       ) : invoiceByOrderId.has(o.id) ? (
                         <a
-                          href={`/billing/invoices/${invoiceByOrderId.get(o.id)}`}
+                          href={`/billing/invoices/view?id=${invoiceByOrderId.get(o.id)}`}
                           onClick={(e) => e.stopPropagation()}
                           className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
                         >

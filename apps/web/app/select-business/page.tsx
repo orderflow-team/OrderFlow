@@ -173,7 +173,7 @@ export default function SelectBusinessPage() {
       setShowNewForm(response.data.length === 0);
     } catch (err: any) {
       if (err.response?.status === 401) {
-        window.location.href = '/login';
+        router.push('/login');
         return;
       }
       setError(err.response?.data?.message || 'Failed to load your businesses');
@@ -185,12 +185,12 @@ export default function SelectBusinessPage() {
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      window.location.href = '/login';
+      router.push('/login');
       return;
     }
     const role = getCurrentUser()?.role;
     if (role === 'salesman' || role === 'kitchen_staff') {
-      window.location.href = getPostLoginPath(role);
+      router.push(getPostLoginPath(role));
       return;
     }
     loadBusinesses();
@@ -203,7 +203,10 @@ export default function SelectBusinessPage() {
       const response = await apiClient.post(`/api/businesses/${businessId}/select`);
       localStorage.setItem('access_token', response.data.access_token);
       setCurrentUser(response.data.user);
-      window.location.href = '/dashboard';
+      // Hard navigation resets all app state for the newly selected business; target "/"
+      // since that's the only path Capacitor's local server always resolves correctly —
+      // root page.tsx's own logic then routes to the right destination.
+      window.location.href = '/';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Could not switch business');
       setSelecting(null);

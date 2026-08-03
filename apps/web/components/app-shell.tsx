@@ -152,7 +152,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      window.location.href = '/login';
+      router.push('/login');
       return;
     }
     setBusinessId(getCurrentUser()?.businessId ?? null);
@@ -252,8 +252,11 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       .then((res) => {
         localStorage.setItem('access_token', res.data.access_token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
-        // Full navigation so every page re-mounts and picks up the new businessId
-        window.location.href = '/dashboard';
+        // Full navigation so every page re-mounts and picks up the new businessId.
+        // Target "/" (not "/dashboard" directly) — Capacitor's local WebViewAssetLoader
+        // only reliably resolves the root path for a hard navigation; root page.tsx's
+        // own logic then client-side-routes to the right destination once it loads.
+        window.location.href = '/';
       })
       .catch(() => setSwitching(false));
   };

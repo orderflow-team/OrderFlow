@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OBIX</string>
+    <string name="title_activity_main">OBIX</string>
+    <string name="package_name">com.obix.app</string>
+    <string name="custom_url_scheme">com.obix.app</string>
+</resources>

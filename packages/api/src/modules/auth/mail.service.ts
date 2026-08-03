@@ -2,20 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * MailService proxies email sending to the Vercel frontend.
+ * MailService proxies email sending to a small dedicated Vercel function (apps/mailer).
  * This bypasses Render's permanent hard firewall on SMTP ports (465, 587).
- * Vercel's Edge network allows port 465, so Vercel safely establishes the Nodemailer TCP socket.
+ * Vercel's network allows outbound SMTP, so that's where the actual nodemailer send happens.
  */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    this.fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'noreply@example.com';
-    const host = this.configService.get<string>('SMTP_HOST');
-    if (!host) {
-      this.logger.warn('SMTP credentials not fully provided; emails will be logged instead of sent.');
+    if (!this.configService.get<string>('EMAIL_PROXY_URL') || !this.configService.get<string>('EMAIL_PROXY_SECRET')) {
+      this.logger.warn('EMAIL_PROXY_URL/EMAIL_PROXY_SECRET not configured; emails will be logged instead of sent.');
     }
   }
 
@@ -42,30 +39,12 @@ export class MailService {
   }
 
   private async sendEmail(email: string, subject: string, text: string, html: string, logCode: string): Promise<boolean> {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASSWORD');
+    const proxyUrl = this.configService.get<string>('EMAIL_PROXY_URL');
+    const proxySecret = this.configService.get<string>('EMAIL_PROXY_SECRET');
 
-    if (host && port && user && pass) {
+    if (proxyUrl && proxySecret) {
       try {
-        const payload = {
-          email,
-          subject,
-          text,
-          html,
-          secret: 'vrc_proxy_8f92a1_super_secure_internal',
-          smtp: {
-            host,
-            port,
-            user,
-            pass,
-            from: this.fromEmail,
-          },
-        };
-
-        // The proxy URL deployed explicitly for email handling
-        const proxyUrl = `https://web-chi-beige-80.vercel.app/api/internal/send-email`;
+        const payload = { email, subject, text, html, secret: proxySecret };
 
         const response = await fetch(proxyUrl, {
           method: 'POST',
