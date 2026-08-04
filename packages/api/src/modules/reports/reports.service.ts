@@ -1327,10 +1327,25 @@ export class ReportsService {
    * Date keys are built from local y/m/d components throughout (never
    * `Date#toISOString`, which normalizes to UTC) so they line up with the plain
    * "YYYY-MM-DD" strings Postgres returns for `DATE(order.created_at)`.
+   *
+   * `node-pg`'s default type parser for the `date` OID actually hands back a
+   * JS `Date` (constructed from local y/m/d, not a string) despite what the
+   * `getRawMany()` typing claims — using it directly as a Map key never
+   * matches the zero-filled string keys above, so every real sales/purchase
+   * row silently became its own duplicate entry instead of merging into its
+   * day. Comparing that stray `Date` against plain date strings in the final
+   * sort then coerces it via `.toString()` ("Sat Aug 01 2026..."), which
+   * always sorts after "YYYY-MM-DD" strings — dumping every real data point
+   * at the end of the chart out of chronological order. Normalizing through
+   * `normalizeSqlDateKey` before every map access avoids all of that.
    */
+  private normalizeSqlDateKey(value: string | Date): string {
+    return value instanceof Date ? this.toDateKey(value) : value.slice(0, 10);
+  }
+
   private buildChartSeries(
-    salesSeries: { date: string; total: string | number }[],
-    purchaseSeries: { date: string; total: string | number }[],
+    salesSeries: { date: string | Date; total: string | number }[],
+    purchaseSeries: { date: string | Date; total: string | number }[],
     chartSince: Date,
     now: Date,
     days: number,
@@ -1343,14 +1358,16 @@ export class ReportsService {
       cursor.setDate(cursor.getDate() + 1);
     }
     for (const row of salesSeries) {
-      const entry = dailyMap.get(row.date) ?? { sales: 0, purchases: 0 };
+      const key = this.normalizeSqlDateKey(row.date);
+      const entry = dailyMap.get(key) ?? { sales: 0, purchases: 0 };
       entry.sales = Number(row.total);
-      dailyMap.set(row.date, entry);
+      dailyMap.set(key, entry);
     }
     for (const row of purchaseSeries) {
-      const entry = dailyMap.get(row.date) ?? { sales: 0, purchases: 0 };
+      const key = this.normalizeSqlDateKey(row.date);
+      const entry = dailyMap.get(key) ?? { sales: 0, purchases: 0 };
       entry.purchases = Number(row.total);
-      dailyMap.set(row.date, entry);
+      dailyMap.set(key, entry);
     }
 
     const dailyRows = Array.from(dailyMap.entries())
