@@ -180,13 +180,14 @@ export default function InventoryPage() {
                 </Link>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {suppliers.map((s) => (
-                  <div key={s.id} className="px-6 py-3 text-sm flex justify-between">
-                    <span className="font-medium text-slate-800">{s.name}</span>
-                  </div>
-                ))}
-              </div>
+              <CollapsibleList
+                items={suppliers}
+                keyFor={(s) => s.id}
+                containerClassName="divide-y divide-slate-100"
+                rowClassName="px-6 py-3 text-sm flex justify-between"
+                buttonClassName="w-full px-6 py-3 text-xs font-semibold text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1"
+                renderRow={(s) => <span className="font-medium text-slate-800">{s.name}</span>}
+              />
             )}
           </CardContent>
         </Card>
