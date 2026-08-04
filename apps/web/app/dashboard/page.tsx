@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,10 +12,11 @@ import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
+import { CollapsibleList } from '@/components/collapsible-list';
 import Link from 'next/link';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
-  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, ChevronDown,
+  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound,
 } from 'lucide-react';
 
 interface DashboardData {
@@ -175,34 +176,6 @@ function StatCard({
     <Card className="ring-white/50 glass-sheen-sm hover:shadow-md transition-all duration-200 overflow-hidden">
       {cardContent}
     </Card>
-  );
-}
-
-const COLLAPSED_LIST_LIMIT = 5;
-
-function CollapsibleList<T>({ items, renderRow, keyFor }: { items: T[]; renderRow: (item: T) => ReactNode; keyFor: (item: T) => string }) {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? items : items.slice(0, COLLAPSED_LIST_LIMIT);
-  const hiddenCount = items.length - COLLAPSED_LIST_LIMIT;
-
-  return (
-    <div className="space-y-2">
-      {visible.map((item) => (
-        <div key={keyFor(item)} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
-          {renderRow(item)}
-        </div>
-      ))}
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="w-full text-xs font-semibold text-slate-500 hover:text-slate-700 pt-1 flex items-center justify-center gap-1"
-        >
-          {expanded ? 'Show less' : `Show ${hiddenCount} more`}
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-    </div>
   );
 }
 

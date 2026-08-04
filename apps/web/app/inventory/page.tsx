@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
+import { CollapsibleList } from '@/components/collapsible-list';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
@@ -131,9 +132,11 @@ export default function InventoryPage() {
             {lowStock.length === 0 ? (
               <p className="text-sm text-slate-400">Nothing low on stock.</p>
             ) : (
-              <div className="space-y-2">
-                {lowStock.map((p) => (
-                  <div key={p.id} className="flex justify-between text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+              <CollapsibleList
+                items={lowStock}
+                keyFor={(p) => p.id}
+                renderRow={(p) => (
+                  <>
                     <div>
                       <span className="text-slate-800">{p.name}</span>
                       {fieldConfig.batchExpiry && p.batch_number && (
@@ -146,9 +149,9 @@ export default function InventoryPage() {
                       )}
                     </div>
                     <span className="text-amber-600 font-semibold">{p.stock_quantity} left</span>
-                  </div>
-                ))}
-              </div>
+                  </>
+                )}
+              />
             )}
           </CardContent>
         </Card>

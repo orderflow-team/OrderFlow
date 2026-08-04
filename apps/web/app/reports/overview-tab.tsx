@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CollapsibleList } from '@/components/collapsible-list';
 import { formatCurrency } from '@/lib/format-currency';
 import { expiryStatus } from '@/lib/expiry-status';
 import { KpiCard } from './kpi-card';
@@ -149,17 +150,19 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isP
                 {(analytics?.lowStockProducts.length || 0) === 0 ? (
                   <p className="text-sm text-slate-400">Nothing low on stock.</p>
                 ) : (
-                  <div className="space-y-2">
-                    {analytics?.lowStockProducts.map((p) => (
-                      <div key={p.id} className="flex justify-between text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                  <CollapsibleList
+                    items={analytics!.lowStockProducts}
+                    keyFor={(p) => p.id}
+                    renderRow={(p) => (
+                      <>
                         <div>
                           <span className="text-slate-800">{p.name}</span>
                           {p.batch_number && <span className="text-xs text-slate-400 ml-2">Batch {p.batch_number}</span>}
                         </div>
                         <span className="text-amber-600 font-semibold">{p.stock_quantity} left</span>
-                      </div>
-                    ))}
-                  </div>
+                      </>
+                    )}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -177,11 +180,13 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isP
                 {(analytics?.expiringSoon.length || 0) === 0 ? (
                   <p className="text-sm text-slate-400">Nothing expiring in this window.</p>
                 ) : (
-                  <div className="space-y-2">
-                    {analytics?.expiringSoon.map((p) => {
+                  <CollapsibleList
+                    items={analytics!.expiringSoon}
+                    keyFor={(p) => p.id}
+                    renderRow={(p) => {
                       const status = expiryStatus(p.expiry_date);
                       return (
-                        <div key={p.id} className="flex justify-between items-center text-sm border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                        <>
                           <div>
                             <span className="text-slate-800">{p.name}</span>
                             {p.batch_number && <span className="text-xs text-slate-400 ml-2">Batch {p.batch_number}</span>}
@@ -189,10 +194,10 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isP
                           {status && (
                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${status.tone}`}>{status.label}</span>
                           )}
-                        </div>
+                        </>
                       );
-                    })}
-                  </div>
+                    }}
+                  />
                 )}
               </CardContent>
             </Card>
