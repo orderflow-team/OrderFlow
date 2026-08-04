@@ -162,7 +162,21 @@ export class ProductsService {
       prescription_required: dto.prescriptionRequired !== undefined ? dto.prescriptionRequired : product.prescription_required,
       description: dto.description !== undefined ? dto.description : product.description,
       image_url: dto.imageUrl !== undefined ? dto.imageUrl : product.image_url,
-      is_available: dto.isAvailable !== undefined ? dto.isAvailable : product.is_available,
+      // Selling out flips is_available to false (see orders.service.ts decrementStock).
+      // A plain edit that restocks a product (sends stockQuantity but not isAvailable,
+      // e.g. the Wholesale Grid's edit form, which always sends *some* stockQuantity —
+      // 0 for non-inventory businesses) must self-heal that flag once stock is positive
+      // again, mirroring inventory.service.ts's adjustStock/receivePurchaseOrder.
+      // Only auto-*enable* here, never auto-disable: a non-inventory business's edit
+      // form always submits stockQuantity 0, and zeroing is_available off that would
+      // wrongly hide products that were never meant to be stock-tracked. Explicit
+      // sell-outs/adjustments already handle the "stock hit 0" case elsewhere.
+      is_available:
+        dto.isAvailable !== undefined
+          ? dto.isAvailable
+          : dto.stockQuantity !== undefined && dto.stockQuantity > 0
+            ? true
+            : product.is_available,
       is_draft: dto.isDraft !== undefined ? dto.isDraft : product.is_draft,
       unit_prices: dto.unitPrices !== undefined ? dto.unitPrices : product.unit_prices,
       custom_fields: dto.customFields !== undefined ? dto.customFields : product.custom_fields,
