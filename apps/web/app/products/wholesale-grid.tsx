@@ -83,6 +83,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const isSeeding = useRef(false);
 
   useEffect(() => {
@@ -214,6 +215,21 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       loadData();
     } catch (err) {
       console.error('Failed to delete item', err);
+    }
+  };
+
+  const toggleAvailability = async (p: Product) => {
+    if (!businessId || togglingId) return;
+    const next = !p.is_available;
+    setTogglingId(p.id);
+    setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: next } : item)));
+    try {
+      await apiClient.patch(`/api/products/${p.id}`, { isAvailable: next }, { params: { businessId } });
+    } catch (err) {
+      console.error('Failed to update availability', err);
+      setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: !next } : item)));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -499,7 +515,14 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {filteredProducts.map((p) => (
-              <Card key={p.id} className="relative overflow-hidden ring-1 ring-slate-200/80 bg-white/80 backdrop-blur-md hover:shadow-lg transition-all border-l-4 border-l-amber-500">
+              <Card
+                key={p.id}
+                className={`relative overflow-hidden ring-1 hover:shadow-lg transition-all border-l-4 ${
+                  p.is_available
+                    ? 'ring-slate-200/80 bg-white/80 backdrop-blur-md border-l-amber-500'
+                    : 'ring-slate-200/60 bg-slate-50/70 backdrop-blur-md border-l-slate-300 grayscale-[0.4] opacity-70'
+                }`}
+              >
                 <CardContent className="p-3 md:p-5 space-y-2.5 md:space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -579,13 +602,37 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <Button variant="ghost" size="sm" onClick={() => openEditForm(p)} className="h-8 text-xs gap-1 text-slate-600 hover:text-slate-800">
-                      <Pencil className="w-3.5 h-3.5" /> Edit
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="h-8 text-xs gap-1 text-rose-600 hover:bg-rose-50">
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </Button>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => toggleAvailability(p)}
+                      disabled={togglingId === p.id}
+                      className="flex items-center gap-1.5 disabled:opacity-50"
+                      title={p.is_available ? 'Active — click to mark inactive/discontinued' : 'Inactive — click to reactivate'}
+                    >
+                      <span
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                          p.is_available ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                            p.is_available ? 'translate-x-[18px]' : 'translate-x-1'
+                          }`}
+                        />
+                      </span>
+                      <span className={`text-[11px] font-semibold ${p.is_available ? 'text-emerald-700' : 'text-slate-500'}`}>
+                        {p.is_available ? 'Active' : 'Inactive'}
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditForm(p)} className="h-8 text-xs gap-1 text-slate-600 hover:text-slate-800">
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="h-8 text-xs gap-1 text-rose-600 hover:bg-rose-50">
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

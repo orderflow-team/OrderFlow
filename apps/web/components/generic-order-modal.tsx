@@ -128,11 +128,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     try {
       const prodRes = await apiClient.get<Product[]>('/api/products', { params: { businessId, isDraft: 'all' } });
       const catRes = await apiClient.get<Category[]>('/api/categories', { params: { businessId } });
-      // Show every product regardless of is_available — that flag is easy to end up
-      // stale (e.g. flips false on sell-out, doesn't always self-heal on restock) and
-      // hiding real inventory from order entry costs sales. Stock caps are still
-      // enforced separately via getMaxQty below.
-      const fetchedProducts = prodRes.data.filter(p => p.name !== 'Table Session Started');
+      // is_available now has two triggers: an automatic one (sell-out sets it false,
+      // restock self-heals it true — see products.service.ts) and a manual one (the
+      // Active/Inactive toggle on each product card, for deliberately discontinuing
+      // an item without deleting it). Both are meant to control New Order visibility,
+      // so keep filtering on it here — unlike before, the flag is now visible and
+      // directly fixable in the product grid instead of silently stuck.
+      const fetchedProducts = prodRes.data.filter(p => p.is_available && p.name !== 'Table Session Started');
       setBaseProducts(fetchedProducts);
       const seen = new Set<string>();
       const combinedCategories: Category[] = [];
