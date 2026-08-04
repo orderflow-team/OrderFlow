@@ -64,6 +64,7 @@ const emptyForm = {
   description: '',
   moq: '10',
   volumeTiers: [] as { minQty: string; price: string }[],
+  isAvailable: true,
 };
 
 export function WholesaleGrid({ businessId }: { businessId: string }) {
@@ -158,6 +159,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       volumeTiers: Array.isArray(p.volume_tiers)
         ? p.volume_tiers.map((t) => ({ minQty: String(t.minQty), price: String(t.price) }))
         : [],
+      isAvailable: p.is_available,
     });
     setShowForm(true);
   };
@@ -189,6 +191,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       description: form.description || undefined,
       moq: form.moq ? Number(form.moq) : 1,
       volumeTiers: volumeTiers.length > 0 ? volumeTiers : undefined,
+      isAvailable: form.isAvailable,
     };
 
     try {
@@ -408,6 +411,17 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2 bg-white/30 backdrop-blur-sm p-3 rounded-xl ring-1 ring-white/40">
+                <input
+                  type="checkbox"
+                  id="wholesale-avail"
+                  checked={form.isAvailable}
+                  onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })}
+                  className="h-4 w-4 text-emerald-600 rounded border-slate-300"
+                />
+                <label htmlFor="wholesale-avail" className="text-sm font-medium text-slate-700">Available for ordering (visible in New Order)</label>
+              </div>
+
               {/* Volume Pricing Tiers */}
               <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 space-y-2.5">
                 <div className="flex items-center justify-between">
@@ -507,6 +521,9 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                         {p.name}
                         {p.is_draft && (
                           <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
+                        )}
+                        {!p.is_available && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-rose-500/10 ring-1 ring-rose-500/20 px-1.5 py-0.5 text-[10px] font-medium text-rose-700 align-middle">Hidden from New Order</span>
                         )}
                       </h3>
                       {p.brand && <p className="text-xs font-semibold text-amber-700 mt-0.5">{p.brand}</p>}
