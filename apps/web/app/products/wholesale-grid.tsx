@@ -602,7 +602,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between">
                     <button
                       type="button"
                       onClick={() => toggleAvailability(p)}
@@ -625,11 +625,11 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                         {p.is_available ? 'Active' : 'Inactive'}
                       </span>
                     </button>
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEditForm(p)} className="h-8 text-xs gap-1 text-slate-600 hover:text-slate-800">
+                    <div className="flex items-center justify-end gap-1.5 sm:gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => openEditForm(p)} className="h-8 px-2 text-xs gap-1 text-slate-600 hover:text-slate-800">
                         <Pencil className="w-3.5 h-3.5" /> Edit
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="h-8 text-xs gap-1 text-rose-600 hover:bg-rose-50">
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(p.id)} className="h-8 px-2 text-xs gap-1 text-rose-600 hover:bg-rose-50">
                         <Trash2 className="w-3.5 h-3.5" /> Delete
                       </Button>
                     </div>
