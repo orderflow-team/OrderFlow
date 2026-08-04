@@ -45,7 +45,7 @@ export default function RootLayout({
       lang="en"
       className={`${sans.variable} ${geistMono.variable} h-full antialiased selection:bg-emerald-500/30`}
     >
-      <body className="min-h-full flex flex-col bg-[#090d16] text-slate-100 font-sans">
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <SwRegister />
         <AuthRedirectListener />
         {children}
