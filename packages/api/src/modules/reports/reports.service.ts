@@ -296,11 +296,17 @@ export class ReportsService {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const { category, inventoryEnabled, showExpiry } = await this.reportGatesFor(businessId);
+    // Snapped to midnight (like startOfToday above) so "last N days" covers the
+    // *full* calendar day N days ago — daysFromNow() otherwise keeps the current
+    // time-of-day, which silently drops everything before that time on the
+    // boundary day from the chart's leftmost bar and every period total below.
     const chartSince = this.daysFromNow(-days);
+    chartSince.setHours(0, 0, 0, 0);
     // The window immediately preceding the selected one, same length, so
     // "vs previous period" is a fair comparison at any granularity the user
     // picks (day/week/month/year) rather than always meaning calendar month.
     const previousPeriodSince = this.daysFromNow(-2 * days);
+    previousPeriodSince.setHours(0, 0, 0, 0);
 
     const [
       todaysSalesRevenue,
