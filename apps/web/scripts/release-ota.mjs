@@ -8,8 +8,8 @@
 //
 // API_BASE_URL and ADMIN_TOKEN come from the environment; version is required.
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { ZipArchive } from 'archiver';
+import { createWriteStream, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -36,13 +36,19 @@ const tempDir = mkdtempSync(path.join(tmpdir(), 'ota-release-'));
 const zipPath = path.join(tempDir, `${version}.zip`);
 
 console.log(`Zipping ${appExportDir} -> ${zipPath}`);
-// Compress-Archive with a `\*` glob puts the app-export files directly at the
-// zip root (no wrapping folder), which is what the bundle format requires.
-execFileSync('powershell', [
-  '-NoProfile',
-  '-Command',
-  `Compress-Archive -Path "${appExportDir}\\*" -DestinationPath "${zipPath}" -Force`,
-]);
+// Built with the `archiver` package rather than PowerShell's Compress-Archive,
+// which writes zip entries with backslash path separators on Windows —
+// non-compliant with the ZIP spec and unreadable by Android's unzip, so
+// nested-folder files (anything under index.html) silently failed to apply.
+await new Promise((resolve, reject) => {
+  const output = createWriteStream(zipPath);
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  output.on('close', resolve);
+  archive.on('error', reject);
+  archive.pipe(output);
+  archive.directory(appExportDir, false);
+  archive.finalize();
+});
 
 const zipBuffer = readFileSync(zipPath);
 const form = new FormData();
