@@ -552,8 +552,8 @@ export default function AdminStoresPage() {
             </div>
 
             {/* Store Products Data Table */}
-            <div className="border border-border rounded-xl overflow-hidden bg-muted max-h-96 overflow-y-auto">
-              <table className="w-full text-left text-xs text-foreground">
+            <div className="border border-border rounded-xl overflow-auto bg-muted max-h-96">
+              <table className="w-full min-w-[640px] text-left text-xs text-foreground">
                 <thead className="bg-background text-[11px] font-semibold uppercase text-muted-foreground sticky top-0 border-b border-border">
                   <tr>
                     <th className="px-4 py-3">Product Name</th>
