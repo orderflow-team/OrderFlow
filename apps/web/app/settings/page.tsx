@@ -14,6 +14,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
 import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
+import { AppVersionInfo } from '@/components/app-version-info';
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -608,6 +609,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )}
+
+        <AppVersionInfo />
       </div>
 
       {/* Rail — desktop-only live invoice header preview */}
