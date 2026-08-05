@@ -9,6 +9,8 @@ import type { PoFieldConfig } from '@/lib/business-modules';
 import { Plus, Warehouse, CheckCircle2, ChevronDown, ChevronRight, Pencil, XCircle, IndianRupee } from 'lucide-react';
 import type { EditingPo } from './purchase-order-form';
 
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+
 interface Product {
   id: string;
   name: string;
@@ -61,6 +63,8 @@ export function PurchaseOrderList({
 }) {
   const [expandedPo, setExpandedPo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE_OPTIONS[0]);
 
   const supplierName = (id: string | null | undefined) => suppliers.find((s) => s.id === id)?.name;
 
@@ -108,7 +112,7 @@ export function PurchaseOrderList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {purchaseOrders.map((po) => {
+            {purchaseOrders.slice(0, visibleCount).map((po) => {
               const isBusy = busyId === po.id;
               const canEdit = po.status !== 'cancelled';
               return (
@@ -203,6 +207,33 @@ export function PurchaseOrderList({
             })}
           </tbody>
         </table></div>
+        <div className="flex items-center justify-between gap-4 flex-wrap px-6 py-3 border-t border-white/40">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span>Showing {Math.min(visibleCount, purchaseOrders.length)} of {purchaseOrders.length}</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const size = Number(e.target.value);
+                setPageSize(size);
+                setVisibleCount(size);
+              }}
+              className="ml-2 rounded-lg border border-slate-200 bg-white/60 px-2 py-1 text-xs text-slate-600 focus:outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>{size} per page</option>
+              ))}
+            </select>
+          </div>
+          {visibleCount < purchaseOrders.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((v) => v + pageSize)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Show more <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
