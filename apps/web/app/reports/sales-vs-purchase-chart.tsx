@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatCurrency, formatDate } from '@/lib/format-currency';
 
@@ -25,6 +26,20 @@ function tooltipLabel(value: string, granularity: Granularity) {
 const NAMES: Record<string, string> = { sales: 'Sales', purchases: 'Purchases' };
 
 export function SalesVsPurchaseChart({ data, granularity = 'day' }: { data: ChartRow[]; granularity?: Granularity }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(600);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setContainerWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (data.length === 0) {
     return <p className="p-10 text-center text-slate-400 text-sm">No sales or purchase activity in this period yet.</p>;
   }
@@ -33,8 +48,10 @@ export function SalesVsPurchaseChart({ data, granularity = 'day' }: { data: Char
   const totalPurchases = data.reduce((sum, row) => sum + row.purchases, 0);
   const profit = totalSales - totalPurchases;
   const isProfit = profit >= 0;
-  // Keep the x-axis readable: show at most ~12 labels regardless of how many bars there are.
-  const tickInterval = Math.max(0, Math.ceil(data.length / 12) - 1);
+  // Keep the x-axis readable: fit as many labels as the actual chart width allows
+  // (~55px each for a "06 Jul"-style label) instead of a fixed count that overlaps on mobile.
+  const maxLabels = Math.max(3, Math.floor(containerWidth / 55));
+  const tickInterval = Math.max(0, Math.ceil(data.length / maxLabels) - 1);
 
   return (
     <div>
@@ -59,7 +76,7 @@ export function SalesVsPurchaseChart({ data, granularity = 'day' }: { data: Char
         </div>
       </div>
 
-      <div className="h-72 w-full">
+      <div ref={containerRef} className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" />
