@@ -69,6 +69,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const emptyForm = {
     name: '',
@@ -83,7 +84,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     expiryDate: '',
     barcode: '',
     prescriptionRequired: false,
-    isAvailable: true,
     description: '',
   };
   const [form, setForm] = useState(emptyForm);
@@ -221,7 +221,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       expiryDate: form.expiryDate || undefined,
       barcode: form.barcode || undefined,
       prescriptionRequired: form.prescriptionRequired,
-      isAvailable: form.isAvailable,
       description: form.description || undefined,
       taxPercentage: 0,
     };
@@ -249,6 +248,21 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const toggleAvailability = async (p: Product) => {
+    if (togglingId) return;
+    const next = !p.is_available;
+    setTogglingId(p.id);
+    setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: next } : item)));
+    try {
+      await apiClient.patch(`/api/products/${p.id}`, { isAvailable: next }, { params: { businessId } });
+    } catch (err) {
+      console.error('Failed to update availability', err);
+      setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: !next } : item)));
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const openEdit = (p: Product) => {
     setEditingItem(p);
     setForm({
@@ -264,7 +278,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       expiryDate: p.expiry_date ? p.expiry_date.slice(0, 10) : '',
       barcode: p.barcode || '',
       prescriptionRequired: p.prescription_required,
-      isAvailable: p.is_available,
       description: p.description || '',
     });
     setShowItemForm(true);
@@ -433,16 +446,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 />
                 <label htmlFor="rx" className="text-sm font-medium text-slate-700">Requires a doctor's prescription (Rx)</label>
               </div>
-              <div className="md:col-span-2 flex items-center gap-2 bg-white/30 backdrop-blur-sm p-3 rounded-xl ring-1 ring-white/40">
-                <input
-                  type="checkbox"
-                  id="avail"
-                  checked={form.isAvailable}
-                  onChange={(e) => setForm({ ...form, isAvailable: e.target.checked })}
-                  className="h-4 w-4 text-emerald-600 rounded border-slate-300"
-                />
-                <label htmlFor="avail" className="text-sm font-medium text-slate-700">In stock / available for sale</label>
-              </div>
               <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-white/40">
                 <Button type="button" variant="ghost" onClick={() => setShowItemForm(false)}>Cancel</Button>
                 <Button type="submit" className="px-6">
@@ -469,20 +472,22 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           {filteredProducts.map((p) => {
             const expiry = expiryStatus(p.expiry_date);
             return (
-              <Card key={p.id} className="overflow-hidden hover:ring-emerald-300/50 transition-all flex flex-col group">
+              <Card
+                key={p.id}
+                className={`overflow-hidden transition-all flex flex-col group border-l-4 ${
+                  p.is_available
+                    ? 'hover:ring-emerald-300/50 border-l-emerald-500'
+                    : 'border-l-slate-300 grayscale-[0.4] opacity-70'
+                }`}
+              >
                 <CardContent className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-1 gap-2">
+                  <div className="mb-1">
                     <h3 className="font-bold text-slate-800 text-lg leading-tight">
                       {p.name}
                       {p.is_draft && (
                         <span className="ml-2 inline-flex items-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 align-middle">Draft</span>
                       )}
                     </h3>
-                    <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-bold backdrop-blur-sm ${
-                      p.is_available ? 'bg-emerald-500/10 text-emerald-700 ring-1 ring-emerald-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
-                    }`}>
-                      {p.is_available ? 'In Stock' : 'Out of Stock'}
-                    </span>
                   </div>
                   {(p.brand || p.generic_name) && (
                     <p className="text-xs text-slate-500 mb-2">
@@ -532,7 +537,29 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                   {p.description && (
                     <p className="text-sm text-slate-500 mb-2 flex-1 line-clamp-2">{p.description}</p>
                   )}
-                  <div className="mt-auto pt-2">
+                  <div className="mt-auto pt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-white/40">
+                    <button
+                      type="button"
+                      onClick={() => toggleAvailability(p)}
+                      disabled={togglingId === p.id}
+                      className="flex items-center gap-1.5 pt-2 sm:pt-0 disabled:opacity-50"
+                      title={p.is_available ? 'Active — click to mark inactive/discontinued' : 'Inactive — click to reactivate'}
+                    >
+                      <span
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                          p.is_available ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                            p.is_available ? 'translate-x-[18px]' : 'translate-x-1'
+                          }`}
+                        />
+                      </span>
+                      <span className={`text-[11px] font-semibold ${p.is_available ? 'text-emerald-700' : 'text-slate-500'}`}>
+                        {p.is_available ? 'Active' : 'Inactive'}
+                      </span>
+                    </button>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex-1 gap-1.5 h-8 text-xs font-semibold" onClick={() => openEdit(p)}>
                         <Pencil className="w-3.5 h-3.5" /> Edit
