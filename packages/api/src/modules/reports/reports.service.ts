@@ -384,7 +384,7 @@ export class ReportsService {
       this.purchaseOrdersRepository
         .createQueryBuilder('po')
         .where('po.business_id = :businessId', { businessId })
-        .andWhere("po.status = 'received'")
+        .andWhere("po.status IN ('received', 'paid')")
         .andWhere('po.created_at >= :since', { since: chartSince })
         .select('DATE(po.created_at)', 'date')
         .addSelect('COALESCE(SUM(po.total_amount), 0)', 'total')
@@ -630,7 +630,7 @@ export class ReportsService {
     const result = await this.purchaseOrdersRepository
       .createQueryBuilder('po')
       .where('po.business_id = :businessId', { businessId })
-      .andWhere("po.status = 'received'")
+      .andWhere("po.status IN ('received', 'paid')")
       .andWhere('po.created_at >= :since', { since })
       .select('COALESCE(SUM(po.total_amount), 0)', 'total')
       .getRawOne();
@@ -641,7 +641,7 @@ export class ReportsService {
     const result = await this.purchaseOrdersRepository
       .createQueryBuilder('po')
       .where('po.business_id = :businessId', { businessId })
-      .andWhere("po.status = 'received'")
+      .andWhere("po.status IN ('received', 'paid')")
       .andWhere('po.created_at >= :from AND po.created_at < :to', { from, to })
       .select('COALESCE(SUM(po.total_amount), 0)', 'total')
       .getRawOne();
@@ -664,7 +664,7 @@ export class ReportsService {
       .createQueryBuilder('item')
       .innerJoin('purchase_orders', 'po', 'po.id = item.purchase_order_id')
       .where('po.business_id = :businessId', { businessId })
-      .andWhere("po.status = 'received'")
+      .andWhere("po.status IN ('received', 'paid')")
       .andWhere('po.created_at >= :since', { since })
       .select('COALESCE(SUM(item.tax_amount), 0)', 'total')
       .getRawOne();
@@ -977,7 +977,7 @@ export class ReportsService {
       .createQueryBuilder('po')
       .innerJoin('suppliers', 'supplier', 'supplier.id = po.supplier_id')
       .where('po.business_id = :businessId', { businessId })
-      .andWhere("po.status = 'received'")
+      .andWhere("po.status IN ('received', 'paid')")
       .andWhere('po.created_at >= :since', { since })
       .select('po.supplier_id', 'supplierId')
       .addSelect('supplier.name', 'supplierName')
