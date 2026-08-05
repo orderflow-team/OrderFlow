@@ -37,6 +37,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const isSeeding = useRef(false);
 
   const categoryStr = getCachedBusinessCategory(businessId);
@@ -197,6 +198,21 @@ export function MenuGrid({ businessId }: { businessId: string }) {
       loadData();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const toggleAvailability = async (p: Product) => {
+    if (!businessId || togglingId) return;
+    const next = !p.is_available;
+    setTogglingId(p.id);
+    setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: next } : item)));
+    try {
+      await apiClient.patch(`/api/products/${p.id}`, { isAvailable: next }, { params: { businessId } });
+    } catch (err) {
+      console.error('Failed to update availability', err);
+      setProducts((prev) => prev.map((item) => (item.id === p.id ? { ...item, is_available: !next } : item)));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -435,7 +451,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         {/* Product Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {filteredProducts.map(p => (
-            <Card key={p.id} className="relative overflow-hidden group flex flex-col justify-end p-0 py-0 gap-0 rounded-3xl h-[340px] ring-1 ring-white/40 hover:ring-emerald-300/60 shadow-md hover:shadow-xl transition-all duration-300">
+            <Card key={p.id} className="relative overflow-hidden group flex flex-col justify-end p-0 py-0 gap-0 rounded-3xl min-h-[340px] ring-1 ring-white/40 hover:ring-emerald-300/60 shadow-md hover:shadow-xl transition-all duration-300">
               {/* Full-bleed photo background */}
               {p.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -478,13 +494,37 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 <p className="text-xs text-slate-600 leading-normal line-clamp-2 min-h-[2.25rem]">
                   {p.description || <span className="text-slate-400 italic">No description provided.</span>}
                 </p>
-                <div className="flex gap-1.5 md:gap-2 pt-1">
-                  <Button variant="outline" size="sm" className="flex-1 gap-1 md:gap-1.5 h-8 px-1 md:px-2 text-[11px] md:text-xs font-semibold bg-white/60 hover:bg-white/90" onClick={() => openEdit(p)}>
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 gap-1 md:gap-1.5 h-8 px-1 md:px-2 text-[11px] md:text-xs font-semibold bg-white/60 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => deleteItem(p.id)}>
-                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                  </Button>
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleAvailability(p)}
+                    disabled={togglingId === p.id}
+                    className="flex items-center gap-1.5 disabled:opacity-50 self-start"
+                    title={p.is_available ? 'Active — click to mark sold out' : 'Sold out — click to reactivate'}
+                  >
+                    <span
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                        p.is_available ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                          p.is_available ? 'translate-x-[18px]' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                    <span className={`text-[11px] font-semibold ${p.is_available ? 'text-emerald-700' : 'text-slate-500'}`}>
+                      {p.is_available ? 'Active' : 'Inactive'}
+                    </span>
+                  </button>
+                  <div className="flex gap-1.5 md:gap-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1 md:gap-1.5 h-8 px-1 md:px-2 text-[11px] md:text-xs font-semibold bg-white/60 hover:bg-white/90" onClick={() => openEdit(p)}>
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1 md:gap-1.5 h-8 px-1 md:px-2 text-[11px] md:text-xs font-semibold bg-white/60 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10" onClick={() => deleteItem(p.id)}>
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Card>
