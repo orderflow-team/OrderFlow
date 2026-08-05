@@ -24,10 +24,10 @@ export function AppVersionInfo() {
         <CardTitle className="text-base">About</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-slate-600">App version {info.native}</p>
-        {info.bundle !== 'builtin' && info.bundle !== info.native && (
-          <p className="text-xs text-slate-400 mt-0.5">Update {info.bundle} installed</p>
-        )}
+        <p className="text-sm text-slate-600">
+          App version {info.bundle === 'builtin' ? info.native : info.bundle}
+        </p>
+        <p className="text-xs text-slate-400 mt-0.5">App shell {info.native}</p>
       </CardContent>
     </Card>
   );
