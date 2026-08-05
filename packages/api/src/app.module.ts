@@ -24,6 +24,7 @@ import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
     CategoriesModule,
     ExpensesModule,
     PlatformAdminModule,
+    AppUpdatesModule,
   ],
   controllers: [AppController],
   providers: [],

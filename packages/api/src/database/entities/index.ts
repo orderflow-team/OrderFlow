@@ -27,6 +27,7 @@ export * from './table.entity';
 export * from './user.entity';
 export * from './visit.entity';
 export * from './waiter.entity';
+export * from './app-release.entity';
 export * from './attendance.entity';
 export * from './commission.entity';
 export * from './user-activity-log.entity';

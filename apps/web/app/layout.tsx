@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { SwRegister } from "@/components/sw-register";
 import { AuthRedirectListener } from "@/components/auth-redirect-listener";
+import { OtaUpdater } from "@/components/ota-updater";
 import "./globals.css";
 
 const sans = Inter({
@@ -48,6 +49,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <SwRegister />
         <AuthRedirectListener />
+        <OtaUpdater />
         {children}
       </body>
     </html>

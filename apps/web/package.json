@@ -6,12 +6,15 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "build:capacitor": "cross-env CAPACITOR_BUILD=1 next build",
-    "start": "next start"
+    "start": "next start",
+    "android:live": "adb reverse tcp:4000 tcp:4000 && cap run android -l --port 3000 --forwardPorts 3000:3000",
+    "release:ota": "node scripts/release-ota.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@capgo/capacitor-updater": "^8.51.3",
     "@hookform/resolvers": "^5.4.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
