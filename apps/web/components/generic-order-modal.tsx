@@ -97,6 +97,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [scanMode, setScanMode] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState('');
+  // Prefill for the quick-add dialog, from another business's earlier scan
+  // of this same barcode (see /api/products/barcode-lookup) — arrives a beat
+  // after the dialog opens rather than delaying it.
+  const [suggestedName, setSuggestedName] = useState('');
+  const [suggestedPrice, setSuggestedPrice] = useState<number | undefined>(undefined);
 
   const handleProductScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
@@ -206,6 +211,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setScanMode(false);
       setQuickAddOpen(false);
       setPendingBarcode('');
+      setSuggestedName('');
+      setSuggestedPrice(undefined);
     }
   }, [isOpen]);
 
@@ -541,8 +548,22 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       const inCart = cart[match.id]?.quantity || 0;
       showScanToast(`Added ${match.name} (×${inCart + 1})`, 'ok');
     } else {
+      setSuggestedName('');
+      setSuggestedPrice(undefined);
       setPendingBarcode(code);
       setQuickAddOpen(true);
+      // Open the dialog immediately — no need to make the user wait on this
+      // fetch. If another business already named this barcode, the fields
+      // populate a beat later; otherwise it just stays blank as before.
+      apiClient
+        .get<{ name: string; suggestedPrice: number | null } | null>('/api/products/barcode-lookup', { params: { barcode: code } })
+        .then((res) => {
+          if (res.data) {
+            setSuggestedName(res.data.name);
+            setSuggestedPrice(res.data.suggestedPrice ?? undefined);
+          }
+        })
+        .catch(() => {});
     }
   };
 
@@ -551,6 +572,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     updateCart(product, 1);
     setQuickAddOpen(false);
     setPendingBarcode('');
+    setSuggestedName('');
+    setSuggestedPrice(undefined);
     showScanToast(`Added ${product.name} (×1)`, 'ok');
   };
 
@@ -1038,7 +1061,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       open={quickAddOpen}
       barcode={pendingBarcode}
       businessId={businessId}
-      onClose={() => { setQuickAddOpen(false); setPendingBarcode(''); }}
+      suggestedName={suggestedName}
+      suggestedPrice={suggestedPrice}
+      onClose={() => { setQuickAddOpen(false); setPendingBarcode(''); setSuggestedName(''); setSuggestedPrice(undefined); }}
       onCreated={handleQuickAddCreated}
     />
     </>

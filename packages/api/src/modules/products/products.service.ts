@@ -10,6 +10,7 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { PriceHistory } from '../../database/entities/price-history.entity';
 import { InvoiceScanItem } from '../../database/entities/invoice-scan-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
+import { SharedBarcodeCatalog } from '../../database/entities/shared-barcode-catalog.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
@@ -21,11 +22,12 @@ export class ProductsService {
   constructor(
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
+    @InjectRepository(SharedBarcodeCatalog) private sharedBarcodeCatalogRepository: Repository<SharedBarcodeCatalog>,
     private dataSource: DataSource,
     private invoicesService: InvoicesService,
   ) {}
 
-  create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto) {
     const product = this.productsRepository.create({
       business_id: dto.businessId,
       name: dto.name,
@@ -52,7 +54,36 @@ export class ProductsService {
       moq: dto.moq ?? 1,
       volume_tiers: dto.volumeTiers ?? null,
     });
-    return this.productsRepository.save(product);
+    const saved = await this.productsRepository.save(product);
+    if (saved.barcode) {
+      await this.contributeToSharedBarcodeCatalog(saved.barcode, saved.name, saved.selling_price);
+    }
+    return saved;
+  }
+
+  /**
+   * Cross-tenant, deliberately: the first business to name a product for a
+   * given barcode teaches every other business what to suggest next time
+   * they scan it (see quick-add-product-dialog.tsx). First write wins —
+   * never overwrites an existing entry — and a failure here must never break
+   * product creation itself.
+   */
+  private async contributeToSharedBarcodeCatalog(barcode: string, name: string, sellingPrice: number) {
+    try {
+      await this.dataSource.query(
+        `INSERT INTO shared_barcode_catalog (barcode, name, suggested_price) VALUES ($1, $2, $3) ON CONFLICT (barcode) DO NOTHING`,
+        [barcode, name, sellingPrice],
+      );
+    } catch (err) {
+      console.error('[shared-barcode-catalog] contribution failed', err);
+    }
+  }
+
+  /** What another business has already named this barcode, if anyone has — powers the quick-add prefill. */
+  async getBarcodeSuggestion(barcode: string) {
+    const entry = await this.sharedBarcodeCatalogRepository.findOne({ where: { barcode } });
+    if (!entry) return null;
+    return { name: entry.name, suggestedPrice: entry.suggested_price };
   }
 
   /**

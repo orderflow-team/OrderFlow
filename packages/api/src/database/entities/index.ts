@@ -29,6 +29,7 @@ export * from './visit.entity';
 export * from './waiter.entity';
 export * from './app-release.entity';
 export * from './app-apk-release.entity';
+export * from './shared-barcode-catalog.entity';
 export * from './attendance.entity';
 export * from './commission.entity';
 export * from './user-activity-log.entity';

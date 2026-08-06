@@ -82,11 +82,19 @@ export class ProductsController {
 
   @Get()
   findAll(
-    @Query('businessId') businessId: string, 
+    @Query('businessId') businessId: string,
     @Query('search') search?: string,
     @Query('isDraft') isDraft?: string
   ) {
     return this.productsService.findAll(businessId, search, isDraft);
+  }
+
+  // Must be registered before the `:id` route below, or "barcode-lookup"
+  // would be swallowed as an :id param instead of matching here.
+  /** Powers the New Order camera-scan quick-add prefill — cross-tenant by design, see shared-barcode-catalog.entity.ts. `businessId` here is only for the auth guard, not part of the lookup itself. */
+  @Get('barcode-lookup')
+  getBarcodeSuggestion(@Query('barcode') barcode: string) {
+    return this.productsService.getBarcodeSuggestion(barcode);
   }
 
   @Get(':id')

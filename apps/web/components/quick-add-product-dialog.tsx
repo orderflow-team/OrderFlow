@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { ScanBarcode } from 'lucide-react';
+import { ScanBarcode, Sparkles } from 'lucide-react';
 
 interface CreatedProduct {
   id: string;
@@ -21,6 +21,10 @@ interface QuickAddProductDialogProps {
   open: boolean;
   barcode: string;
   businessId: string;
+  // If another business has already scanned and named this exact barcode,
+  // these prefill the fields (still fully editable) instead of starting blank.
+  suggestedName?: string;
+  suggestedPrice?: number;
   onClose: () => void;
   onCreated: (product: CreatedProduct) => void;
 }
@@ -31,11 +35,21 @@ interface QuickAddProductDialogProps {
  * Everything else (unit, category, stock) takes the API's own sensible
  * defaults and can be filled in later from the Products page.
  */
-export function QuickAddProductDialog({ open, barcode, businessId, onClose, onCreated }: QuickAddProductDialogProps) {
+export function QuickAddProductDialog({ open, barcode, businessId, suggestedName, suggestedPrice, onClose, onCreated }: QuickAddProductDialogProps) {
   const [name, setName] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // The suggestion can arrive a beat after the dialog opens (it's fetched in
+  // parallel, not awaited before opening) — only fill in fields the user
+  // hasn't already started typing into.
+  useEffect(() => {
+    if (!open) return;
+    if (suggestedName && name === '') setName(suggestedName);
+    if (suggestedPrice != null && sellingPrice === '') setSellingPrice(String(suggestedPrice));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, suggestedName, suggestedPrice]);
 
   const reset = () => {
     setName('');
@@ -81,6 +95,11 @@ export function QuickAddProductDialog({ open, barcode, businessId, onClose, onCr
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <ScanBarcode className="w-3.5 h-3.5" /> Scanned barcode: {barcode}
           </div>
+          {suggestedName && name === suggestedName && (
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium -mt-2">
+              <Sparkles className="w-3.5 h-3.5" /> Suggested from another business — edit if needed
+            </div>
+          )}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Product Name</label>
             <Input
