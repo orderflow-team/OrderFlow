@@ -14,6 +14,7 @@ import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 import { CameraScannerView } from '@/components/camera-scanner-view';
 import { QuickAddProductDialog } from '@/components/quick-add-product-dialog';
 import { Capacitor } from '@capacitor/core';
+import { vibrateScanSuccess } from '@/lib/haptics';
 
 interface Product {
   id: string;
@@ -547,6 +548,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       updateCart(match, 1);
       const inCart = cart[match.id]?.quantity || 0;
       showScanToast(`Added ${match.name} (×${inCart + 1})`, 'ok');
+      vibrateScanSuccess();
     } else {
       setSuggestedName('');
       setSuggestedPrice(undefined);
@@ -575,6 +577,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setSuggestedName('');
     setSuggestedPrice(undefined);
     showScanToast(`Added ${product.name} (×1)`, 'ok');
+    vibrateScanSuccess();
   };
 
   useBarcodeScanner(handleScannedCode, { enabled: isOpen });
