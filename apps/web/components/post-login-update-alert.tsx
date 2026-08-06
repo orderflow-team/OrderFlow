@@ -1,30 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useNativeAppUpdate } from '@/lib/use-native-app-update';
-import { consumeJustLoggedIn } from '@/lib/auth';
 import { Sparkles, Download } from 'lucide-react';
 
+// Module-level, not state: survives client-side page navigation (this
+// component remounts on every route change since there's no persistent
+// authenticated layout — see AppShell), but resets on a real app
+// relaunch, which is exactly "show once per app open."
+let alertShownThisSession = false;
+
 /**
- * Surfaces a native APK update the moment someone logs in, rather than
- * relying on them to notice the passive banner in Settings > About. Only
- * fires once per login (via consumeJustLoggedIn) — reopening the app with
- * an existing session doesn't re-show it every time.
+ * Surfaces a native APK update as soon as the app is opened, rather than
+ * relying on someone to notice the passive banner in Settings > About.
+ * Shows at most once per app session — dismissing it (or installing) won't
+ * bring it back on the next page navigation, only a fresh app launch does.
  */
 export function PostLoginUpdateAlert() {
-  const [armed, setArmed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [eligible] = useState(() => !alertShownThisSession);
   const { available, latest, installing, error, install } = useNativeAppUpdate();
 
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    if (consumeJustLoggedIn()) setArmed(true);
-  }, []);
+  const open = eligible && available && !dismissed;
 
-  const open = armed && available && !dismissed;
+  useEffect(() => {
+    if (open) alertShownThisSession = true;
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && setDismissed(true)}>
