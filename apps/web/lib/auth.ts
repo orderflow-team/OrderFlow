@@ -98,3 +98,17 @@ export function getCachedChatEnabled(businessId: string): boolean | null {
 export function setCachedChatEnabled(businessId: string, chatEnabled: boolean) {
   localStorage.setItem('business_chat_enabled', JSON.stringify({ businessId, chatEnabled }));
 }
+
+const JUST_LOGGED_IN_KEY = 'obix_just_logged_in';
+
+/** Set right at the moment of a successful login — sessionStorage so it never survives to a later cold start, distinguishing "just logged in" from "already had a session." */
+export function markJustLoggedIn() {
+  sessionStorage.setItem(JUST_LOGGED_IN_KEY, '1');
+}
+
+/** Reads and clears the just-logged-in flag in one step, so it only ever fires once per login. */
+export function consumeJustLoggedIn(): boolean {
+  const wasSet = sessionStorage.getItem(JUST_LOGGED_IN_KEY) === '1';
+  if (wasSet) sessionStorage.removeItem(JUST_LOGGED_IN_KEY);
+  return wasSet;
+}

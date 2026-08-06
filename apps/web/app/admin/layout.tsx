@@ -23,6 +23,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
+import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 
 const ADMIN_THEME_KEY = 'admin-theme';
 
@@ -212,6 +213,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+      <PostLoginUpdateAlert />
     </div>
   );
 }

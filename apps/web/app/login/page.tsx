@@ -6,7 +6,7 @@ import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getPostLoginPath } from '@/lib/auth';
+import { getPostLoginPath, markJustLoggedIn } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 
 const BRAND_TILES = [
@@ -116,6 +116,7 @@ function PasswordLoginForm() {
 
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      markJustLoggedIn();
       router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
@@ -218,6 +219,7 @@ function OtpLoginForm() {
       const response = await apiClient.post('/auth/otp/verify', { email, code });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      markJustLoggedIn();
       router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired code');
