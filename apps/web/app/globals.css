@@ -329,6 +329,21 @@
 .drift-a { animation: drift-a 22s ease-in-out infinite; }
 .drift-b { animation: drift-b 26s ease-in-out infinite; }
 .drift-c { animation: drift-c 30s ease-in-out infinite; }
+
+/* Camera barcode scanning (ML Kit): the plugin renders the native camera
+   behind the WebView, which only becomes visible where the WebView itself is
+   transparent. Everything is hidden by default while a scan session is
+   active except whatever opts back in via .barcode-scanner-modal — visibility
+   (unlike display) lets a descendant override an ancestor's hidden state
+   without losing layout, so the New Order dialog can stay laid out normally
+   on top of the live camera feed. */
+body.barcode-scanner-active {
+  visibility: hidden;
+  background: transparent !important;
+}
+body.barcode-scanner-active .barcode-scanner-modal {
+  visibility: visible;
+}
 @media (prefers-reduced-motion: reduce) {
   .drift-a, .drift-b, .drift-c { animation: none; }
 }

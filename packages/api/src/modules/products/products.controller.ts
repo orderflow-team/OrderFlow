@@ -71,7 +71,10 @@ export class ProductsController {
     return this.productsService.createWithVariants(dto);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  // Salesman is included alongside admin/manager so the New Order camera
+  // scan flow can create a product on the spot for an unrecognized barcode
+  // without needing an admin/manager present at the counter.
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.SALESMAN)
   @Post()
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);

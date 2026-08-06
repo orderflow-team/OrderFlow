@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { API_BASE_URL } from './api-client';
+import { compareVersions } from './version-compare';
 
 const LOG_PREFIX = '[OTA]';
 
@@ -10,16 +11,6 @@ interface LatestRelease {
   checksum: string;
   minNativeVersion: string | null;
   notes: string | null;
-}
-
-function compareVersions(a: string, b: string): number {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const diff = (partsA[i] || 0) - (partsB[i] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
 }
 
 /**

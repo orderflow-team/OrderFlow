@@ -25,6 +25,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
+import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
     ExpensesModule,
     PlatformAdminModule,
     AppUpdatesModule,
+    AppApkReleasesModule,
   ],
   controllers: [AppController],
   providers: [],

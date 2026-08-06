@@ -39,6 +39,7 @@ import { FaqSection } from './faq-section';
 import { StepVisualizer } from './step-visualizer';
 import { ContactSection } from './contact-section';
 import { ObixMark } from '@/components/obix-logo';
+import { API_BASE_URL } from '@/lib/api-client';
 
 const OrbitScene = dynamic(() => import('./orbit-scene').then((m) => m.OrbitScene), { ssr: false });
 const FlowPath = dynamic(() => import('./flow-path').then((m) => m.FlowPath), { ssr: false });
@@ -242,7 +243,7 @@ export function LandingPage() {
               Sign in to Counter
             </Link>
             <a
-              href="https://obix-apk-download.vercel.app/obix.apk"
+              href={`${API_BASE_URL}/api/app-apk-releases/download?platform=android`}
               className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-emerald-600/25 ${GLASS_SHEEN}`}
             >
               <Download className="mr-2 w-5 h-5" /> Download APK

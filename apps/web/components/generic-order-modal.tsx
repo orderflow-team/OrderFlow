@@ -8,9 +8,12 @@ import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp, Camera, Grid2x2 } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
+import { CameraScannerView } from '@/components/camera-scanner-view';
+import { QuickAddProductDialog } from '@/components/quick-add-product-dialog';
+import { Capacitor } from '@capacitor/core';
 
 interface Product {
   id: string;
@@ -87,6 +90,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
+  // Camera barcode scanning is native-only (Capacitor Android) — the toggle
+  // stays hidden entirely on web/PWA, where search + a hardware scanner-gun
+  // (useBarcodeScanner below) remain the only ways to add items.
+  const canCameraScan = Capacitor.isNativePlatform();
+  const [scanMode, setScanMode] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [pendingBarcode, setPendingBarcode] = useState('');
 
   const handleProductScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
@@ -193,6 +203,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setDoctorName('');
       setIsHeaderCollapsed(false);
       setShowOptionalFields(false);
+      setScanMode(false);
+      setQuickAddOpen(false);
+      setPendingBarcode('');
     }
   }, [isOpen]);
 
@@ -466,8 +479,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   };
 
   const focusSearch = () => {
-    searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    searchInputRef.current?.focus();
+    setScanMode(false);
+    setTimeout(() => {
+      searchInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      searchInputRef.current?.focus();
+    }, 0);
   };
 
   const handleSubmit = async () => {
@@ -514,23 +530,36 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   };
   useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
 
-  useBarcodeScanner(
-    (code) => {
-      const match = products.find((p) => p.barcode === code || (p.sku && p.sku === code));
-      if (match) {
-        updateCart(match, 1);
-        const inCart = cart[match.id]?.quantity || 0;
-        showScanToast(`Added ${match.name} (×${inCart + 1})`, 'ok');
-      } else {
-        showScanToast(`No item with barcode ${code}`, 'miss');
-      }
-    },
-    { enabled: isOpen },
-  );
+  // Shared by both scan inputs (hardware scanner-gun and camera) so there's
+  // one match/add/miss code path. On a miss, opens the quick-add dialog
+  // instead of just toasting, so an unrecognized item never dead-ends the
+  // flow.
+  const handleScannedCode = (code: string) => {
+    const match = products.find((p) => p.barcode === code || (p.sku && p.sku === code));
+    if (match) {
+      updateCart(match, 1);
+      const inCart = cart[match.id]?.quantity || 0;
+      showScanToast(`Added ${match.name} (×${inCart + 1})`, 'ok');
+    } else {
+      setPendingBarcode(code);
+      setQuickAddOpen(true);
+    }
+  };
+
+  const handleQuickAddCreated = (product: Product) => {
+    setBaseProducts(prev => [...prev, product]);
+    updateCart(product, 1);
+    setQuickAddOpen(false);
+    setPendingBarcode('');
+    showScanToast(`Added ${product.name} (×1)`, 'ok');
+  };
+
+  useBarcodeScanner(handleScannedCode, { enabled: isOpen });
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
+      <DialogContent className="barcode-scanner-modal sm:max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
 
         {/* Barcode scan feedback (fixed overlay — no layout impact) */}
         {scanToast && (
@@ -683,8 +712,40 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         {/* Product area */}
         <div
           onScroll={handleProductScroll}
-          className="flex-1 overflow-y-auto p-4 bg-white/30 backdrop-blur-3xl backdrop-saturate-150 flex flex-col gap-4 relative z-0"
+          className={`flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative z-0 ${
+            scanMode ? '' : 'bg-white/30 backdrop-blur-3xl backdrop-saturate-150'
+          }`}
         >
+          {/* Browse / Scan toggle — camera scanning only exists in the native app */}
+          {canCameraScan && (
+            <div className="shrink-0 flex justify-center">
+              <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-white/50 ring-1 ring-white/60 backdrop-blur-md">
+                <button
+                  type="button"
+                  onClick={() => setScanMode(false)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    !scanMode ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Grid2x2 className="w-3.5 h-3.5" /> Browse
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScanMode(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    scanMode ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Camera className="w-3.5 h-3.5" /> Scan
+                </button>
+              </div>
+            </div>
+          )}
+
+          {scanMode ? (
+            <CameraScannerView active={isOpen && scanMode && !quickAddOpen} onScan={handleScannedCode} />
+          ) : (
+          <>
           {/* Categories */}
           <div className="shrink-0">
             <CategoryFilterPills
@@ -810,6 +871,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               );
             })()}
           </div>
+          </>
+          )}
         </div>
 
         {/* Cart */}
@@ -971,5 +1034,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
         </div>
       </DialogContent>
     </Dialog>
+    <QuickAddProductDialog
+      open={quickAddOpen}
+      barcode={pendingBarcode}
+      businessId={businessId}
+      onClose={() => { setQuickAddOpen(false); setPendingBarcode(''); }}
+      onCreated={handleQuickAddCreated}
+    />
+    </>
   );
 }
