@@ -160,10 +160,14 @@ export class OrderParserService {
 
         Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
 
+        If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+        "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+        bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
         Return ONLY JSON in this exact shape, no other text:
         {
-          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
-          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number }]
+          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }]
         }
       `;
     } else {
@@ -178,12 +182,16 @@ export class OrderParserService {
         to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
         at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
 
+        If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+        "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+        bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
         Customer message: "${message}"
 
         Return ONLY JSON in this exact shape, no other text:
         {
-          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
-          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number }],
+          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }],
           "orderType": "dine_in" | "take_away",
           "tableName": "exact table name from the list above, or null"
         }
@@ -191,8 +199,8 @@ export class OrderParserService {
     }
 
     let parsed: {
-      matched: { menuName: string; quantity: number }[];
-      unmatched: { name: string; quantity?: number }[];
+      matched: { menuName: string; quantity: number; unit?: string | null }[];
+      unmatched: { name: string; quantity?: number; unit?: string | null }[];
       orderType?: string;
       tableName?: string | null;
     };
@@ -208,9 +216,13 @@ export class OrderParserService {
     const matchedItems = (parsed.matched || [])
       .map((m) => {
         const product = available.find((p) => p.name.toLowerCase() === m.menuName?.toLowerCase());
-        return product ? { productId: product.id, quantity: Number(m.quantity) || 1 } : null;
+        return product
+          ? { productId: product.id, quantity: Number(m.quantity) || 1, unit: m.unit || undefined }
+          : null;
       })
-      .filter((i): i is { productId: string; quantity: number } => i !== null);
+      .filter((i): i is { productId: string; quantity: number; unit: string | undefined } => i !== null);
+
+    const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity}${unit}` : `${quantity}x`);
 
     if (existingOrder) {
       const originalCount = existingOrder.items?.length || 0;
@@ -236,7 +248,7 @@ export class OrderParserService {
       const summary = matchedItems
         .map((i) => {
           const product = available.find((p) => p.id === i.productId)!;
-          return `${i.quantity}x ${product.name}`;
+          return `${fmtQty(i.quantity, i.unit)} ${product.name}`;
         })
         .join(', ');
 
@@ -256,9 +268,14 @@ export class OrderParserService {
     // creates the Product row the first time each name is used.
     const newItems = (parsed.unmatched || [])
       .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
-      .map((u) => ({ customProductName: u.name.trim(), quantity: Number(u.quantity) || 1, unitPrice: 0 }));
+      .map((u) => ({
+        customProductName: u.name.trim(),
+        quantity: Number(u.quantity) || 1,
+        unitPrice: 0,
+        unit: u.unit || undefined,
+      }));
 
-    const allItems: Array<{ productId?: string; customProductName?: string; quantity: number; unitPrice?: number }> = [
+    const allItems: Array<{ productId?: string; customProductName?: string; quantity: number; unitPrice?: number; unit?: string }> = [
       ...matchedItems,
       ...newItems,
     ];
@@ -293,11 +310,13 @@ export class OrderParserService {
     const matchedSummary = matchedItems
       .map((i) => {
         const product = available.find((p) => p.id === i.productId)!;
-        return `${i.quantity}x ${product.name}`;
+        return `${fmtQty(i.quantity, i.unit)} ${product.name}`;
       })
       .join(', ');
 
-    const newSummary = newItems.map((i) => `${i.quantity}x ${i.customProductName} (new, ₹0 — set its price)`).join(', ');
+    const newSummary = newItems
+      .map((i) => `${fmtQty(i.quantity, i.unit)} ${i.customProductName} (new, ₹0 — set its price)`)
+      .join(', ');
 
     const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
 
