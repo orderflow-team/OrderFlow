@@ -6,8 +6,6 @@ import dynamic from 'next/dynamic';
 
 const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => m.LandingPage), { ssr: false });
 
-const DESKTOP_BREAKPOINT = '(min-width: 1024px)';
-
 export default function Home() {
   const router = useRouter();
   const [showLanding, setShowLanding] = useState(false);
@@ -26,11 +24,6 @@ export default function Home() {
         } catch (e) {}
       }
       router.push('/dashboard');
-      return;
-    }
-    // Mobile visitors skip marketing landing page and go straight to login
-    if (!window.matchMedia(DESKTOP_BREAKPOINT).matches) {
-      router.push('/login');
       return;
     }
     setShowLanding(true);
