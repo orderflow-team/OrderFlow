@@ -20,7 +20,16 @@ async function bootstrap() {
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('');
-  app.useStaticAssets(path.join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  app.useStaticAssets(path.join(process.cwd(), 'uploads'), {
+    prefix: '/uploads',
+    // APK release files keep a random on-disk name (see app-apk-releases.controller.ts)
+    // to avoid collisions — this makes the browser save the download as "OBIX.apk" instead.
+    setHeaders: (res, filePath) => {
+      if (path.basename(path.dirname(filePath)) === 'app-apk-releases') {
+        res.setHeader('Content-Disposition', 'attachment; filename="OBIX.apk"');
+      }
+    },
+  });
 
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
