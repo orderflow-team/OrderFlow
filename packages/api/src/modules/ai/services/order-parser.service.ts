@@ -127,89 +127,92 @@ export class OrderParserService {
       }
     }
 
-    if (!this.geminiKeyPool.isConfigured) {
-      throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
-    }
-
-    let prompt = '';
-    if (existingOrder) {
-      prompt = `
-        You are an ordering assistant editing an existing order for a shop.
-        Here is the product catalog (case-insensitive): ${catalog}
-
-        The current items in this order are: ${currentItemsDesc || 'None'}
-
-        The customer is giving instructions to edit the order. They may want to:
-        - Add new items (append to the order or increment quantity).
-        - Remove items (delete them from the order completely).
-        - Change quantity of items (update the count).
-        - Replace items.
-
-        Please interpret the customer's instruction: "${message}"
-
-        Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
-
-        If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
-        "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
-        bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
-
-        Return ONLY JSON in this exact shape, no other text:
-        {
-          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
-          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }]
-        }
-      `;
-    } else {
-      prompt = `
-        You are an ordering assistant for a shop. The customer will describe what they want in plain
-        English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
-        ignore minor spelling differences): ${catalog}
-
-        ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
-        The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
-        "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
-        to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
-        at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
-
-        If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
-        "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
-        bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
-
-        For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
-        "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
-        price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
-        price: 1000 for quantity: 10, NOT price: 1000 per kg). A trailing number+"rs"/"rupees"/"₹" is ALWAYS
-        the price of the item right before it — it is never a separate item on its own. For example,
-        "10kg mango 1000rs" is ONE unmatched entry: { "name": "mango", "quantity": 10, "unit": "kg", "price":
-        1000 } — never two entries where "1000rs" becomes its own item. If no price is stated, use null. Never
-        invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
-        captured — the menu's own price always applies there, so "matched" has no price field at all.
-
-        Customer message: "${message}"
-
-        Return ONLY JSON in this exact shape, no other text:
-        {
-          "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
-          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
-          "orderType": "dine_in" | "take_away",
-          "tableName": "exact table name from the list above, or null"
-        }
-      `;
-    }
-
     let parsed: {
       matched: { menuName: string; quantity: number; unit?: string | null }[];
       unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
       orderType?: string;
       tableName?: string | null;
-    };
-    try {
-      const text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [prompt]);
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON in model response');
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch (error) {
-      throw new BadRequestException(`Could not understand the order: ${error.message}`);
+    } | null = existingOrder ? null : this.tryDeterministicParse(message, available, tables);
+
+    if (!parsed) {
+      if (!this.geminiKeyPool.isConfigured) {
+        throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
+      }
+
+      let prompt = '';
+      if (existingOrder) {
+        prompt = `
+          You are an ordering assistant editing an existing order for a shop.
+          Here is the product catalog (case-insensitive): ${catalog}
+
+          The current items in this order are: ${currentItemsDesc || 'None'}
+
+          The customer is giving instructions to edit the order. They may want to:
+          - Add new items (append to the order or increment quantity).
+          - Remove items (delete them from the order completely).
+          - Change quantity of items (update the count).
+          - Replace items.
+
+          Please interpret the customer's instruction: "${message}"
+
+          Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
+
+          If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+          "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+          bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
+          Return ONLY JSON in this exact shape, no other text:
+          {
+            "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }]
+          }
+        `;
+      } else {
+        prompt = `
+          You are an ordering assistant for a shop. The customer will describe what they want in plain
+          English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
+          ignore minor spelling differences): ${catalog}
+
+          ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
+          The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
+          "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
+          to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
+          at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
+
+          If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+          "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+          bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
+          For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
+          "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
+          price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
+          price: 1000 for quantity: 10, NOT price: 1000 per kg). A trailing number+"rs"/"rupees"/"₹" is ALWAYS
+          the price of the item right before it — it is never a separate item on its own. For example,
+          "10kg mango 1000rs" is ONE unmatched entry: { "name": "mango", "quantity": 10, "unit": "kg", "price":
+          1000 } — never two entries where "1000rs" becomes its own item. If no price is stated, use null. Never
+          invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
+          captured — the menu's own price always applies there, so "matched" has no price field at all.
+
+          Customer message: "${message}"
+
+          Return ONLY JSON in this exact shape, no other text:
+          {
+            "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
+            "orderType": "dine_in" | "take_away",
+            "tableName": "exact table name from the list above, or null"
+          }
+        `;
+      }
+
+      try {
+        const text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [prompt]);
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON in model response');
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (error) {
+        throw new BadRequestException(`Could not understand the order: ${error.message}`);
+      }
     }
 
     const matchedItems = (parsed.matched || [])
@@ -334,6 +337,154 @@ export class OrderParserService {
       reply: `Order placed! ${summary} ${placementNote}.`,
       order,
     };
+  }
+
+  private static readonly UNIT_WORDS =
+    'kg|kilograms?|g|grams?|l|ltrs?|litres?|liters?|ml|pieces?|pcs?|packets?|pkts?|tins?|boxe?s?|bags?|dozens?';
+
+  /**
+   * Tries to resolve a brand-new order's message without spending a Gemini call —
+   * Gemini's free tier is rate/quota-limited, so a message this simple (single or
+   * comma/"and"-separated items, each a clean "[qty][unit]? name [price]?" shape)
+   * shouldn't need it. Deliberately conservative: any segment that doesn't parse
+   * cleanly, or resolves to more than one plausible catalog match, returns null for
+   * the WHOLE message rather than guess — parseChatOrder then falls through to
+   * Gemini exactly as before. A wrong confident guess here would misplace a real
+   * order; a missed fast-path just costs one Gemini call.
+   */
+  private tryDeterministicParse(
+    message: string,
+    available: any[],
+    tables: any[],
+  ): {
+    matched: { menuName: string; quantity: number; unit?: string | null }[];
+    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
+    orderType: string;
+    tableName: string | null;
+  } | null {
+    let text = message.trim();
+    let orderType = 'take_away';
+    let tableName: string | null = null;
+
+    if (tables.length > 0) {
+      const tableMatch = text.match(/\b(?:for\s+)?table\s*([a-zA-Z0-9]+)\b/i);
+      if (tableMatch) {
+        const raw = tableMatch[1].trim().toLowerCase();
+        const table = tables.find((t) => {
+          const name = t.name.toLowerCase();
+          return name === raw || name === `t${raw}` || `t${name}` === raw;
+        });
+        if (!table) return null; // ambiguous table reference — let Gemini give a proper error
+        orderType = 'dine_in';
+        tableName = table.name;
+        text = text.replace(tableMatch[0], ' ').trim();
+      } else {
+        text = text.replace(/\b(?:takeaway|take\s*away|to\s*go)\b/i, ' ').trim();
+      }
+    }
+
+    const segments = text
+      .split(/\s*(?:,|\band\b|&)\s*/i)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (segments.length === 0) return null;
+
+    const matched: { menuName: string; quantity: number; unit?: string | null }[] = [];
+    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
+
+    for (const segment of segments) {
+      const item = this.parseSegment(segment);
+      if (!item) return null; // not a clean/simple enough segment — bail to Gemini
+
+      const normalized = item.name.toLowerCase();
+      const exact = available.find((p) => p.name.trim().toLowerCase() === normalized);
+      if (exact) {
+        matched.push({ menuName: exact.name, quantity: item.quantity, unit: item.unit });
+        continue;
+      }
+
+      // "e2e test snack" should still find "E2E Test Snack 100g" — same substring
+      // tier invoice-scan.service.ts's fuzzy matcher uses, kept independent here
+      // rather than shared so this feature can't regress that already-verified one.
+      const substringMatches = available.filter((p) => {
+        const pname = p.name.trim().toLowerCase();
+        if (Math.min(pname.length, normalized.length) < 4) return false;
+        return normalized.includes(pname) || pname.includes(normalized);
+      });
+      if (substringMatches.length > 1) return null; // ambiguous — let Gemini sort it out
+      if (substringMatches.length === 1) {
+        matched.push({ menuName: substringMatches[0].name, quantity: item.quantity, unit: item.unit });
+        continue;
+      }
+
+      const fuzzyMatches = available.filter((p) => {
+        const pname = p.name.trim().toLowerCase();
+        if (Math.max(pname.length, normalized.length) < 6) return false;
+        return this.levenshteinDistance(pname, normalized) <= 2;
+      });
+      if (fuzzyMatches.length > 1) return null; // ambiguous fuzzy match — let Gemini sort it out
+      if (fuzzyMatches.length === 1) {
+        matched.push({ menuName: fuzzyMatches[0].name, quantity: item.quantity, unit: item.unit });
+        continue;
+      }
+
+      unmatched.push({ name: item.name, quantity: item.quantity, unit: item.unit, price: item.price });
+    }
+
+    return { matched, unmatched, orderType, tableName };
+  }
+
+  /** One "[qty][unit]? name [price]?" segment, e.g. "10kg mango 1000rs" or "2 rice". */
+  private parseSegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
+    let text = segment.trim();
+    if (!text) return null;
+
+    let price: number | null = null;
+    const priceMatch = text.match(
+      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
+    );
+    if (priceMatch) {
+      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
+      text = text.slice(0, priceMatch.index).trim();
+    }
+
+    let quantity = 1;
+    let unit: string | undefined;
+    const qtyMatch = text.match(
+      new RegExp(`^(\\d+(?:\\.\\d+)?)\\s*(${OrderParserService.UNIT_WORDS})?\\.?\\s*(?:of\\s+)?`, 'i'),
+    );
+    if (qtyMatch) {
+      quantity = Number(qtyMatch[1]);
+      unit = qtyMatch[2] ? qtyMatch[2].toLowerCase() : undefined;
+      text = text.slice(qtyMatch[0].length).trim();
+    }
+
+    const name = text.trim();
+    if (!name) return null;
+
+    // Confidence guard: a clean name shouldn't have a standalone number or a
+    // number+unit token like "2kg" left in it — that's a quantity we failed to
+    // pull out (e.g. a trailing "rice 2kg" our qty regex is leading-only and
+    // doesn't catch), not part of the product name. Product names WITH digits in
+    // them (e2e, 7up, v8) are fine and shouldn't be rejected just for that.
+    const strayQtyToken = new RegExp(`^\\d+(?:\\.\\d+)?(?:${OrderParserService.UNIT_WORDS})?$`, 'i');
+    if (name.split(/\s+/).some((word) => strayQtyToken.test(word))) return null;
+
+    return { name, quantity, unit, price };
+  }
+
+  private levenshteinDistance(a: string, b: string): number {
+    const rows = a.length + 1;
+    const cols = b.length + 1;
+    const dp: number[][] = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+    for (let i = 0; i < rows; i++) dp[i][0] = i;
+    for (let j = 0; j < cols; j++) dp[0][j] = j;
+    for (let i = 1; i < rows; i++) {
+      for (let j = 1; j < cols; j++) {
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
+      }
+    }
+    return dp[a.length][b.length];
   }
 
   /**
