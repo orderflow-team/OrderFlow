@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
+import { getCached, setCached } from '@/lib/offline-db';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
@@ -184,7 +185,6 @@ export default function DashboardPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [seeding, setSeeding] = useState(false);
   const [showSeedConfirm, setShowSeedConfirm] = useState(false);
   const [hasInventory, setHasInventory] = useState(false);
@@ -207,14 +207,24 @@ export default function DashboardPage() {
 
   const loadDashboard = async (bizId: string) => {
     setLoading(true);
-    setError('');
     try {
       const response = await apiClient.get<DashboardData>('/api/reports/dashboard', {
         params: { businessId: bizId },
       });
       setData(response.data);
+      setCached(bizId, 'dashboard', response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load dashboard data');
+      // Offline/flaky-network fallback, same pattern as the New Order screen —
+      // fall back to whatever was last cached so the dashboard can still show
+      // something. Only if the cache has nothing either (e.g. first-ever load
+      // with no network) is there truly nothing to render, so send them to
+      // the home page instead of a dead-end error screen.
+      const cached = await getCached<DashboardData>(bizId, 'dashboard');
+      if (cached) {
+        setData(cached);
+      } else {
+        router.push('/');
+      }
     } finally {
       setLoading(false);
     }
@@ -295,14 +305,6 @@ export default function DashboardPage() {
 
   if (!businessId) {
     return null;
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-rose-600">{error}</p>
-      </div>
-    );
   }
 
   if (!data) {
