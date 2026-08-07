@@ -8,10 +8,11 @@ import { InvoiceScanController } from './invoice-scan.controller';
 import { InvoiceScanService } from './invoice-scan.service';
 import { InvoiceVisionParserService } from './services/invoice-vision-parser.service';
 import { InventoryModule } from '../inventory/inventory.module';
+import { GeminiKeyPoolService } from '../../common/services/gemini-key-pool.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([InvoiceScan, InvoiceScanItem, InvoiceScanFile, Product]), InventoryModule],
   controllers: [InvoiceScanController],
-  providers: [InvoiceScanService, InvoiceVisionParserService],
+  providers: [InvoiceScanService, InvoiceVisionParserService, GeminiKeyPoolService],
 })
 export class InvoiceScanModule {}

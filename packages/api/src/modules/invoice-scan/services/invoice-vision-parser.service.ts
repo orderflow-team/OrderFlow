@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ConfigService } from '@nestjs/config';
+import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
 
 export interface ParsedInvoiceLine {
   productName: string;
@@ -23,23 +22,13 @@ export interface ParsedInvoiceLine {
  */
 @Injectable()
 export class InvoiceVisionParserService {
-  private genAI: GoogleGenerativeAI;
-
-  constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    if (apiKey && apiKey !== 'test-key') {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    } else {
-      console.warn('GEMINI_API_KEY is not configured or is set to test-key. Invoice scanning will be unavailable.');
-    }
-  }
+  constructor(private geminiKeyPool: GeminiKeyPoolService) {}
 
   async parseInvoiceFile(fileBuffer: Buffer, mimeType: string): Promise<ParsedInvoiceLine[]> {
-    if (!this.genAI) {
+    if (!this.geminiKeyPool.isConfigured) {
       throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
     }
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const data = fileBuffer.toString('base64');
 
     const prompt = `
@@ -87,11 +76,10 @@ export class InvoiceVisionParserService {
 
     let text: string;
     try {
-      const result = await model.generateContent([
+      text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [
         { inlineData: { mimeType, data } },
         { text: prompt },
       ]);
-      text = result.response.text();
     } catch (error) {
       throw new BadRequestException(`Vision extraction failed: ${error.message}`);
     }

@@ -1,27 +1,17 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ConfigService } from '@nestjs/config';
 import { OrdersService } from '../../orders/orders.service';
 import { ProductsService } from '../../products/products.service';
 import { RestaurantService } from '../../restaurant/restaurant.service';
+import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
 
 @Injectable()
 export class OrderParserService {
-  private genAI: GoogleGenerativeAI;
-
   constructor(
-    private configService: ConfigService,
+    private geminiKeyPool: GeminiKeyPoolService,
     private ordersService: OrdersService,
     private productsService: ProductsService,
     private restaurantService: RestaurantService,
-  ) {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    if (apiKey && apiKey !== 'test-key') {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    } else {
-      console.warn('GEMINI_API_KEY is not configured or is set to test-key. AI services will be unavailable.');
-    }
-  }
+  ) {}
 
   /**
    * Chat-based ordering: matches free-text item requests against the
@@ -137,10 +127,9 @@ export class OrderParserService {
       }
     }
 
-    if (!this.genAI) {
+    if (!this.geminiKeyPool.isConfigured) {
       throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
     }
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     let prompt = '';
     if (existingOrder) {
@@ -215,7 +204,7 @@ export class OrderParserService {
       tableName?: string | null;
     };
     try {
-      const text = await this.generateWithRetry(model, prompt);
+      const text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [prompt]);
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in model response');
       parsed = JSON.parse(jsonMatch[0]);
@@ -347,21 +336,6 @@ export class OrderParserService {
     };
   }
 
-  /** Gemini's free tier intermittently returns 503 "high demand" — worth a couple of quick retries. */
-  private async generateWithRetry(model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>, prompt: string, attempts = 3) {
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const result = await model.generateContent(prompt);
-        return result.response.text();
-      } catch (error) {
-        const isOverloaded = error.message?.includes('503') || error.message?.includes('overloaded');
-        if (!isOverloaded || attempt === attempts) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      }
-    }
-    throw new Error('Unreachable');
-  }
-
   /**
    * Parse voice transcript to order draft
    * BUILT FROM SCRATCH for OrderFlow
@@ -394,10 +368,9 @@ export class OrderParserService {
    * Extract structure from Hinglish transcript using Gemini
    */
   private async extractOrderStructure(transcript: string) {
-    if (!this.genAI) {
+    if (!this.geminiKeyPool.isConfigured) {
       throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
     }
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
     const prompt = `
       You are a Hindi-English voice order parser for OrderFlow wholesale platform.
@@ -429,8 +402,7 @@ export class OrderParserService {
     `;
 
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
+      const text = await this.geminiKeyPool.generateContent('gemini-flash-latest', [prompt]);
 
       // Extract JSON from response
       const jsonMatch = text.match(/\{[\s\S]*\}/);
