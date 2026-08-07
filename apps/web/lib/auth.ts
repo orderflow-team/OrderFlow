@@ -17,6 +17,25 @@ export function getCurrentUser(): CurrentUser | null {
   }
 }
 
+/**
+ * Decodes a JWT's payload client-side (no signature verification — that's
+ * the API's job) purely to check its `exp` claim before trusting a stored
+ * token enough to redirect on it. Returns true if the token is missing,
+ * malformed, or already past expiry.
+ */
+export function isTokenExpired(token: string | null | undefined): boolean {
+  if (!token) return true;
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64));
+    if (!payload.exp) return false;
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
 export function setCurrentUser(user: CurrentUser) {
   localStorage.setItem('user', JSON.stringify(user));
 }

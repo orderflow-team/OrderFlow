@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { isTokenExpired } from '@/lib/auth';
 
 const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => m.LandingPage), { ssr: false });
 
@@ -12,7 +13,12 @@ export default function Home() {
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    if (token) {
+    // A stale/expired token used to still trigger the dashboard redirect
+    // below, which would then fail its own auth check and bounce to
+    // /login — so opening the home link looked like it "opened to login."
+    // Checking expiry here means an expired session just shows the normal
+    // home page instead of chaining through a doomed redirect.
+    if (token && !isTokenExpired(token)) {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
@@ -25,6 +31,10 @@ export default function Home() {
       }
       router.push('/dashboard');
       return;
+    }
+    if (token) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
     }
     setShowLanding(true);
   }, []);
