@@ -71,11 +71,15 @@ export function useCameraBarcodeScanner(onScan: (code: string) => void, { enable
         const first = event.barcodes[0] as Barcode | undefined;
         const code = first?.rawValue || first?.displayValue;
         if (!code) return;
-        // Same barcode held in frame fires repeatedly — collapse repeats
-        // within 1.5s into a single scan.
+        // Same barcode held in frame fires repeatedly — collapse repeats within
+        // 700ms into a single scan. Short on purpose: long enough to swallow a
+        // few consecutive frames of one motionless barcode, short enough that a
+        // deliberate rescan (e.g. re-scanning the same item to bump its cart
+        // quantity) — which needs real hand movement to reposition — still
+        // registers instead of silently vibrating/adding nothing.
         const now = Date.now();
         const last = lastCodeRef.current;
-        if (last && last.code === code && now - last.at < 1500) return;
+        if (last && last.code === code && now - last.at < 700) return;
         lastCodeRef.current = { code, at: now };
         onScanRef.current(code);
       });
