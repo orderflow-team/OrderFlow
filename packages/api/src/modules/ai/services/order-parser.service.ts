@@ -186,12 +186,19 @@ export class OrderParserService {
         "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
         bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
 
+        For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
+        "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
+        price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
+        price: 1000 for quantity: 10, NOT price: 1000 per kg). If no price is stated, use null. Never invent a
+        price. A price mentioned for an item that IS on the menu (goes in "matched") is never captured — the
+        menu's own price always applies there, so "matched" has no price field at all.
+
         Customer message: "${message}"
 
         Return ONLY JSON in this exact shape, no other text:
         {
           "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
-          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }],
+          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
           "orderType": "dine_in" | "take_away",
           "tableName": "exact table name from the list above, or null"
         }
@@ -200,7 +207,7 @@ export class OrderParserService {
 
     let parsed: {
       matched: { menuName: string; quantity: number; unit?: string | null }[];
-      unmatched: { name: string; quantity?: number; unit?: string | null }[];
+      unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
       orderType?: string;
       tableName?: string | null;
     };
@@ -263,17 +270,23 @@ export class OrderParserService {
     }
 
     // Anything not on the menu still gets ordered — same seamless quick-add the
-    // New Order screen's free-text flow already does, at ₹0 since there's no
-    // trustworthy price yet. findOrCreateProductFromCustomName (orders.service.ts)
-    // creates the Product row the first time each name is used.
+    // New Order screen's free-text flow already does. If the customer stated a
+    // price for it (a TOTAL for the whole quantity, e.g. "10kg mango 1000rs"),
+    // use price/quantity as the unit price; otherwise ₹0 for the merchant to set
+    // afterward. findOrCreateProductFromCustomName (orders.service.ts) creates
+    // the Product row the first time each name is used.
     const newItems = (parsed.unmatched || [])
       .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
-      .map((u) => ({
-        customProductName: u.name.trim(),
-        quantity: Number(u.quantity) || 1,
-        unitPrice: 0,
-        unit: u.unit || undefined,
-      }));
+      .map((u) => {
+        const quantity = Number(u.quantity) || 1;
+        const statedTotal = u.price != null && !isNaN(Number(u.price)) ? Number(u.price) : null;
+        return {
+          customProductName: u.name.trim(),
+          quantity,
+          unitPrice: statedTotal !== null ? statedTotal / quantity : 0,
+          unit: u.unit || undefined,
+        };
+      });
 
     const allItems: Array<{ productId?: string; customProductName?: string; quantity: number; unitPrice?: number; unit?: string }> = [
       ...matchedItems,
@@ -315,7 +328,10 @@ export class OrderParserService {
       .join(', ');
 
     const newSummary = newItems
-      .map((i) => `${fmtQty(i.quantity, i.unit)} ${i.customProductName} (new, ₹0 — set its price)`)
+      .map((i) => {
+        const priceNote = i.unitPrice > 0 ? `new, ₹${i.unitPrice.toFixed(2)}${i.unit ? `/${i.unit}` : ' each'}` : 'new, ₹0 — set its price';
+        return `${fmtQty(i.quantity, i.unit)} ${i.customProductName} (${priceNote})`;
+      })
       .join(', ');
 
     const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
