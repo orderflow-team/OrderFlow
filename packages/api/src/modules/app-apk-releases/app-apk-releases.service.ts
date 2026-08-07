@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { AppApkRelease } from '../../database/entities/app-apk-release.entity';
-import { getPublicBaseUrl } from '../../common/utils/public-url.util';
+import { getPublicBaseUrl, uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
 
 @Injectable()
 export class AppApkReleasesService {
@@ -21,10 +21,23 @@ export class AppApkReleasesService {
     });
   }
 
+  /**
+   * Render's disk is ephemeral (no persistent disk on this plan) — a redeploy after a
+   * release was published silently wipes the file while the DB row still points at it.
+   * Only checked for our own /uploads URLs; FALLBACK_APK_URL is external and always trusted.
+   */
+  private releaseFileExists(apkUrl: string): boolean {
+    try {
+      return fs.existsSync(uploadsFilePathFromUrl(apkUrl));
+    } catch {
+      return false;
+    }
+  }
+
   /** The APK a device on `platform` should be running — polled by the in-app updater. */
   async getLatest(platform: string) {
     const release = await this.findLatestActive(platform);
-    if (!release) {
+    if (!release || !this.releaseFileExists(release.apk_url)) {
       return null;
     }
     return {
@@ -38,7 +51,10 @@ export class AppApkReleasesService {
   /** Where the public "Download APK" button should send a brand-new install — always the latest published release. */
   async getDownloadUrl(platform: string): Promise<string> {
     const release = await this.findLatestActive(platform);
-    return release?.apk_url || AppApkReleasesService.FALLBACK_APK_URL;
+    if (release && this.releaseFileExists(release.apk_url)) {
+      return release.apk_url;
+    }
+    return AppApkReleasesService.FALLBACK_APK_URL;
   }
 
   async list(platform?: string) {
