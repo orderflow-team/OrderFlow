@@ -11,6 +11,10 @@ export default defineConfig({
       // via Express static /uploads, just on Render's disk instead of a bucket.
       'product-images': { access: 'public_read' },
       'invoice-scans': { access: 'public_read' },
+      // OTA web-bundle zips for the Capacitor app (see app-updates module) — a
+      // separate bucket from app-releases (APK binaries) despite both backing
+      // "app releases," since they're unrelated artifact types.
+      'ota-bundles': { access: 'public_read' },
     },
   },
 });

@@ -2,12 +2,16 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import * as fs from 'fs';
+import { extname } from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { AppRelease } from '../../database/entities/app-release.entity';
-import { getPublicBaseUrl } from '../../common/utils/public-url.util';
+
+const OTA_BUNDLES_BUCKET = 'ota-bundles';
 
 @Injectable()
 export class AppUpdatesService {
+  private readonly s3 = new S3Client({ forcePathStyle: true });
+
   constructor(@InjectRepository(AppRelease) private appReleasesRepository: Repository<AppRelease>) {}
 
   /** The bundle a device on `platform` should be running — the single source of truth the OTA updater polls. */
@@ -42,11 +46,21 @@ export class AppUpdatesService {
     if (!dto.version) {
       throw new BadRequestException('version is required');
     }
-    const checksum = crypto.createHash('sha256').update(fs.readFileSync(file.path)).digest('hex');
+    const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: OTA_BUNDLES_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+
     const release = this.appReleasesRepository.create({
       platform: dto.platform || 'android',
       version: dto.version,
-      bundle_url: `${getPublicBaseUrl()}/uploads/app-releases/${file.filename}`,
+      bundle_url: `${process.env.AWS_ENDPOINT_URL_S3}/${OTA_BUNDLES_BUCKET}/${key}`,
       checksum,
       min_native_version: dto.minNativeVersion || null,
       notes: dto.notes || null,
