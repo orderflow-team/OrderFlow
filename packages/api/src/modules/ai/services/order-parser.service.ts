@@ -29,7 +29,15 @@ export class OrderParserService {
    * For restaurants, the customer can also say which table it's for
    * ("for table 3...") or "takeaway" explicitly; defaults to takeaway
    * (with a token number) when no table is mentioned or matched.
-   * Unmatched items are surfaced back to the user instead of guessing a price.
+   *
+   * On a brand-new order, an item that isn't on the menu is still added —
+   * seamlessly, same as the New Order screen's free-text "Quick Parchi" quick-add
+   * (findOrCreateProductFromCustomName in orders.service.ts) — at ₹0 for the
+   * merchant to correct afterward, since there's no price to trust yet. When
+   * editing an existing order, "unmatched" stays a reported note instead: there
+   * the model's failure to match can just as easily mean a misread edit/removal
+   * instruction as a genuinely new item, and auto-creating a product from a
+   * misunderstood "remove X" would be the wrong call.
    */
   async parseChatOrder(businessId: string, message: string, orderId?: string) {
     if (!message || message.trim().length === 0) {
@@ -155,7 +163,7 @@ export class OrderParserService {
         Return ONLY JSON in this exact shape, no other text:
         {
           "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
-          "unmatched": ["raw text for anything you couldn't confidently match"]
+          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number }]
         }
       `;
     } else {
@@ -175,7 +183,7 @@ export class OrderParserService {
         Return ONLY JSON in this exact shape, no other text:
         {
           "matched": [{ "menuName": "exact name from the menu list above", "quantity": number }],
-          "unmatched": ["raw text for anything you couldn't confidently match"],
+          "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number }],
           "orderType": "dine_in" | "take_away",
           "tableName": "exact table name from the list above, or null"
         }
@@ -184,7 +192,7 @@ export class OrderParserService {
 
     let parsed: {
       matched: { menuName: string; quantity: number }[];
-      unmatched: string[];
+      unmatched: { name: string; quantity?: number }[];
       orderType?: string;
       tableName?: string | null;
     };
@@ -207,15 +215,15 @@ export class OrderParserService {
     if (existingOrder) {
       const originalCount = existingOrder.items?.length || 0;
       const lowerMsg = message.toLowerCase();
-      const hasClearIntent = lowerMsg.includes('remove all') || 
-                             lowerMsg.includes('clear') || 
-                             lowerMsg.includes('delete all') || 
+      const hasClearIntent = lowerMsg.includes('remove all') ||
+                             lowerMsg.includes('clear') ||
+                             lowerMsg.includes('delete all') ||
                              lowerMsg.includes('empty') ||
                              lowerMsg.includes('cancel');
 
       if (matchedItems.length === 0 && originalCount > 0 && !hasClearIntent) {
         const unmatchedNote = parsed.unmatched?.length
-          ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
+          ? ` (couldn't match: ${parsed.unmatched.map((u) => u.name).join(', ')})`
           : '';
         return {
           reply: `I couldn't understand what you wanted to change${unmatchedNote}. The items in Order #${existingOrder.order_number} remain unchanged. Try saying "add 2 cokes" or "remove milk".`,
@@ -233,7 +241,7 @@ export class OrderParserService {
         .join(', ');
 
       const unmatchedNote = parsed.unmatched?.length
-        ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
+        ? ` (couldn't match: ${parsed.unmatched.map((u) => u.name).join(', ')})`
         : '';
 
       return {
@@ -242,7 +250,20 @@ export class OrderParserService {
       };
     }
 
-    if (matchedItems.length === 0) {
+    // Anything not on the menu still gets ordered — same seamless quick-add the
+    // New Order screen's free-text flow already does, at ₹0 since there's no
+    // trustworthy price yet. findOrCreateProductFromCustomName (orders.service.ts)
+    // creates the Product row the first time each name is used.
+    const newItems = (parsed.unmatched || [])
+      .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
+      .map((u) => ({ customProductName: u.name.trim(), quantity: Number(u.quantity) || 1, unitPrice: 0 }));
+
+    const allItems: Array<{ productId?: string; customProductName?: string; quantity: number; unitPrice?: number }> = [
+      ...matchedItems,
+      ...newItems,
+    ];
+
+    if (allItems.length === 0) {
       return {
         reply: `I couldn't match that to anything on the menu. Could you try naming an item directly? Available: ${available.map((p) => p.name).join(', ')}`,
         order: null,
@@ -266,24 +287,24 @@ export class OrderParserService {
       customerName: table ? `Table ${table.name}` : 'Chat Order',
       orderType: table ? 'dine_in' : 'take_away',
       tableId: table?.id,
-      items: matchedItems,
+      items: allItems,
     } as any);
 
-    const summary = matchedItems
+    const matchedSummary = matchedItems
       .map((i) => {
         const product = available.find((p) => p.id === i.productId)!;
         return `${i.quantity}x ${product.name}`;
       })
       .join(', ');
 
-    const unmatchedNote = parsed.unmatched?.length
-      ? ` (couldn't match: ${parsed.unmatched.join(', ')})`
-      : '';
+    const newSummary = newItems.map((i) => `${i.quantity}x ${i.customProductName} (new, ₹0 — set its price)`).join(', ');
+
+    const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
 
     const placementNote = table ? `for Table ${table.name}` : `— Token #${order.token_number}`;
 
     return {
-      reply: `Order placed! ${summary} ${placementNote}.${unmatchedNote}`,
+      reply: `Order placed! ${summary} ${placementNote}.`,
       order,
     };
   }
