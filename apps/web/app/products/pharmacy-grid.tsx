@@ -10,6 +10,7 @@ import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
+import { vibrateScanSuccess } from '@/lib/haptics';
 import { expiryStatus } from '@/lib/expiry-status';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
@@ -99,6 +100,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
 
   useBarcodeScanner((code) => {
+    vibrateScanSuccess();
     // With the medicine form open, a scan just fills the barcode field.
     if (showItemForm) {
       setForm((f) => ({ ...f, barcode: code }));
