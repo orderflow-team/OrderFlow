@@ -11,9 +11,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import { extname } from 'path';
-import * as fs from 'fs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -21,36 +20,23 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { InvoiceScanService } from './invoice-scan.service';
 import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
-import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_PAGES = 10;
+const INVOICE_SCANS_BUCKET = 'invoice-scans';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/invoice-scans')
 export class InvoiceScanController {
+  private readonly s3 = new S3Client({ forcePathStyle: true });
+
   constructor(private invoiceScanService: InvoiceScanService) {}
 
+  // No `storage` option -> multer's default memory storage, giving us `file.buffer`
+  // to upload straight to Neon Object Storage instead of Render's ephemeral disk.
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('upload')
-  @UseInterceptors(
-    FilesInterceptor('files', MAX_PAGES, {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/invoice-scans';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-      limits: { fileSize: 15 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('files', MAX_PAGES, { limits: { fileSize: 15 * 1024 * 1024 } }))
   async upload(
     @UploadedFiles() files: any[],
     @Query('businessId') businessId: string,
@@ -61,21 +47,32 @@ export class InvoiceScanController {
     }
     for (const file of files) {
       if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-        files.forEach((f) => fs.unlinkSync(f.path));
         throw new BadRequestException('Only JPEG/PNG/WEBP images or PDFs are supported');
       }
     }
     if (!businessId) {
-      files.forEach((f) => fs.unlinkSync(f.path));
       throw new BadRequestException('businessId is required');
     }
 
-    const pages = files.map((file) => ({
-      fileUrl: `${getPublicBaseUrl()}/uploads/invoice-scans/${file.filename}`,
-      filePath: file.path,
-      fileType: file.mimetype === 'application/pdf' ? 'pdf' : 'image',
-      mimeType: file.mimetype,
-    }));
+    const pages = await Promise.all(
+      files.map(async (file) => {
+        const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+        await this.s3.send(
+          new PutObjectCommand({
+            Bucket: INVOICE_SCANS_BUCKET,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+          }),
+        );
+        return {
+          fileUrl: `${process.env.AWS_ENDPOINT_URL_S3}/${INVOICE_SCANS_BUCKET}/${key}`,
+          fileBuffer: file.buffer,
+          fileType: file.mimetype === 'application/pdf' ? 'pdf' : 'image',
+          mimeType: file.mimetype,
+        };
+      }),
+    );
 
     return this.invoiceScanService.uploadAndParse(businessId, supplierId, pages);
   }

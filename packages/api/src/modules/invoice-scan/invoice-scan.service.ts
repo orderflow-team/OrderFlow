@@ -11,7 +11,7 @@ import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
 
 export interface ScanPageInput {
   fileUrl: string;
-  filePath: string;
+  fileBuffer: Buffer;
   fileType: string;
   mimeType: string;
 }
@@ -64,7 +64,7 @@ export class InvoiceScanService {
     try {
       const lines: ParsedInvoiceLine[] = [];
       for (const page of pages) {
-        const pageLines = await this.visionParser.parseInvoiceFile(page.filePath, page.mimeType);
+        const pageLines = await this.visionParser.parseInvoiceFile(page.fileBuffer, page.mimeType);
         lines.push(...pageLines);
       }
       if (lines.length === 0) {

@@ -13,9 +13,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import { extname } from 'path';
-import * as fs from 'fs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -26,38 +25,36 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateProductWithVariantsDto } from './dto/create-product-with-variants.dto';
 import { MergeProductsDto } from './dto/merge-products.dto';
-import { getPublicBaseUrl } from '../../common/utils/public-url.util';
+
+const PRODUCT_IMAGES_BUCKET = 'product-images';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/products')
 export class ProductsController {
+  private readonly s3 = new S3Client({ forcePathStyle: true });
+
   constructor(private productsService: ProductsService) {}
 
+  // No `storage` option -> multer's default memory storage, giving us `file.buffer`
+  // to upload straight to Neon Object Storage instead of Render's ephemeral disk.
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/media';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
-  uploadFile(@UploadedFile() file: any) {
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(@UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
+    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: PRODUCT_IMAGES_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
     return {
-      url: `${getPublicBaseUrl()}/uploads/media/${file.filename}`,
+      url: `${process.env.AWS_ENDPOINT_URL_S3}/${PRODUCT_IMAGES_BUCKET}/${key}`,
     };
   }
 

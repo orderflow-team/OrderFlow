@@ -1,7 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
 
 export interface ParsedInvoiceLine {
   productName: string;
@@ -35,13 +34,13 @@ export class InvoiceVisionParserService {
     }
   }
 
-  async parseInvoiceFile(filePath: string, mimeType: string): Promise<ParsedInvoiceLine[]> {
+  async parseInvoiceFile(fileBuffer: Buffer, mimeType: string): Promise<ParsedInvoiceLine[]> {
     if (!this.genAI) {
       throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
     }
 
     const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const data = fs.readFileSync(filePath).toString('base64');
+    const data = fileBuffer.toString('base64');
 
     const prompt = `
       You are a data-entry assistant for a retail or wholesale business. You will be shown a

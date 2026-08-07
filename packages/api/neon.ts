@@ -7,6 +7,10 @@ export default defineConfig({
   preview: {
     buckets: {
       'app-releases': { access: 'public_read' },
+      // public_read matches current behavior: both were served unauthenticated
+      // via Express static /uploads, just on Render's disk instead of a bucket.
+      'product-images': { access: 'public_read' },
+      'invoice-scans': { access: 'public_read' },
     },
   },
 });
