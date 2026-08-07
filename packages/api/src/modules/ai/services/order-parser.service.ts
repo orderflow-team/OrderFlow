@@ -222,7 +222,7 @@ export class OrderParserService {
       })
       .filter((i): i is { productId: string; quantity: number; unit: string | undefined } => i !== null);
 
-    const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity}${unit}` : `${quantity}x`);
+    const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity} ${unit}` : `${quantity}x`);
 
     if (existingOrder) {
       const originalCount = existingOrder.items?.length || 0;
