@@ -189,9 +189,12 @@ export class OrderParserService {
         For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
         "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
         price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
-        price: 1000 for quantity: 10, NOT price: 1000 per kg). If no price is stated, use null. Never invent a
-        price. A price mentioned for an item that IS on the menu (goes in "matched") is never captured — the
-        menu's own price always applies there, so "matched" has no price field at all.
+        price: 1000 for quantity: 10, NOT price: 1000 per kg). A trailing number+"rs"/"rupees"/"₹" is ALWAYS
+        the price of the item right before it — it is never a separate item on its own. For example,
+        "10kg mango 1000rs" is ONE unmatched entry: { "name": "mango", "quantity": 10, "unit": "kg", "price":
+        1000 } — never two entries where "1000rs" becomes its own item. If no price is stated, use null. Never
+        invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
+        captured — the menu's own price always applies there, so "matched" has no price field at all.
 
         Customer message: "${message}"
 
