@@ -3,14 +3,23 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import { extname } from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { AppApkRelease } from '../../database/entities/app-apk-release.entity';
-import { getPublicBaseUrl, uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
+import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
+
+const APK_RELEASES_BUCKET = 'app-releases';
 
 @Injectable()
 export class AppApkReleasesService {
   // Served before any release has ever been published through this system —
   // keeps the public landing-page download button from ever 404ing.
   private static readonly FALLBACK_APK_URL = 'https://obix-apk-download.vercel.app/obix.apk';
+
+  // Public: Neon Object Storage bucket `app-releases` is public_read (see ../../../neon.ts),
+  // so a plain endpoint/bucket/key URL is downloadable without presigning. Credentials,
+  // endpoint, and region come from the AWS_* env vars Neon injects for this branch.
+  private readonly s3 = new S3Client({ forcePathStyle: true });
 
   constructor(@InjectRepository(AppApkRelease) private appApkReleasesRepository: Repository<AppApkRelease>) {}
 
@@ -22,11 +31,15 @@ export class AppApkReleasesService {
   }
 
   /**
-   * Render's disk is ephemeral (no persistent disk on this plan) — a redeploy after a
-   * release was published silently wipes the file while the DB row still points at it.
-   * Only checked for our own /uploads URLs; FALLBACK_APK_URL is external and always trusted.
+   * Legacy releases (published before the move to Neon Object Storage) were saved to
+   * Render's local disk, which is ephemeral — a redeploy silently wipes the file while
+   * the DB row still points at it. Only check existence for those old /uploads URLs;
+   * anything else (the Object Storage bucket, FALLBACK_APK_URL) persists and is trusted.
    */
   private releaseFileExists(apkUrl: string): boolean {
+    if (!apkUrl.includes('/uploads/')) {
+      return true;
+    }
     try {
       return fs.existsSync(uploadsFilePathFromUrl(apkUrl));
     } catch {
@@ -71,11 +84,22 @@ export class AppApkReleasesService {
     if (!dto.versionName) {
       throw new BadRequestException('versionName is required');
     }
-    const checksum = crypto.createHash('sha256').update(fs.readFileSync(file.path)).digest('hex');
+    const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: APK_RELEASES_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        ContentDisposition: 'attachment; filename="OBIX.apk"',
+      }),
+    );
+
     const release = this.appApkReleasesRepository.create({
       platform: dto.platform || 'android',
       version_name: dto.versionName,
-      apk_url: `${getPublicBaseUrl()}/uploads/app-apk-releases/${file.filename}`,
+      apk_url: `${process.env.AWS_ENDPOINT_URL_S3}/${APK_RELEASES_BUCKET}/${key}`,
       checksum,
       notes: dto.notes || null,
       is_active: true,
