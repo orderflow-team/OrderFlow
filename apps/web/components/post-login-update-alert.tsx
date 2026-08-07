@@ -44,11 +44,11 @@ export function PostLoginUpdateAlert() {
           {latest?.notes && <p className="text-xs text-slate-400">{latest.notes}</p>}
           {error && <p className="text-xs text-rose-600 font-medium">{error}</p>}
         </div>
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => setDismissed(true)} disabled={installing}>
+        <DialogFooter className="flex-row items-center gap-3">
+          <Button type="button" variant="ghost" onClick={() => setDismissed(true)} disabled={installing} className="flex-1">
             Later
           </Button>
-          <Button type="button" onClick={install} disabled={installing} className="gap-1.5">
+          <Button type="button" onClick={install} disabled={installing} className="flex-1 gap-1.5">
             <Download className="w-4 h-4" /> {installing ? 'Downloading…' : 'Download & Install'}
           </Button>
         </DialogFooter>
