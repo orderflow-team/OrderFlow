@@ -201,8 +201,8 @@ export function buildA4ReceiptHtml(data: ReceiptData): string {
   .two-col { display: flex; justify-content: space-between; margin-bottom: 16px; }
   .two-col .col { width: 48%; }
   .two-col .label { font-weight: bold; margin-bottom: 2px; }
-  table.items { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-  table.items th { background: #7B7FD4; color: #fff; padding: 8px; font-size: 12px; text-align: left; font-weight: 600; }
+  table.items { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 14px; }
+  table.items th { background: #7B7FD4; color: #fff; padding: 8px; font-size: 12px; text-align: left; font-weight: 600; word-break: break-word; }
   table.items td { padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
   table.items .num { text-align: right; }
   table.items tfoot td { font-weight: bold; border-top: 2px solid #0f172a; border-bottom: none; }
@@ -251,6 +251,9 @@ export function buildA4ReceiptHtml(data: ReceiptData): string {
   </div>
 
   <table class="items">
+    <colgroup>
+      <col style="width:24%"><col style="width:18%"><col style="width:12%"><col style="width:10%"><col style="width:16%"><col style="width:20%">
+    </colgroup>
     <thead>
       <tr><th>Item name</th><th>HSN/SAC</th><th class="num">Quantity</th><th>Unit</th><th class="num">Price/unit</th><th class="num">Amount</th></tr>
     </thead>
