@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { Capacitor } from '@capacitor/core';
 import { isTokenExpired } from '@/lib/auth';
 
 const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => m.LandingPage), { ssr: false });
@@ -35,6 +36,13 @@ export default function Home() {
     if (token) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
+    }
+    // The marketing landing page is only useful to web visitors — someone
+    // opening the installed Android app has already signed up, so send them
+    // straight to sign-in instead (they can reach /signup from there too).
+    if (Capacitor.isNativePlatform()) {
+      router.push('/login');
+      return;
     }
     setShowLanding(true);
   }, []);
