@@ -127,12 +127,19 @@ export class OrderParserService {
       }
     }
 
+    // For brand-new orders, pull out a customer name ("for Neel...") and a 10-digit
+    // phone number up front — deterministically, regardless of whether the item list
+    // itself ends up going through the fast path or Gemini below. Editing an existing
+    // order never touches the customer on record, so this is skipped there.
+    const contactInfo = existingOrder ? null : this.extractContactInfo(message);
+    const itemMessage = contactInfo ? contactInfo.cleanMessage : message;
+
     let parsed: {
       matched: { menuName: string; quantity: number; unit?: string | null }[];
       unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
       orderType?: string;
       tableName?: string | null;
-    } | null = existingOrder ? null : this.tryDeterministicParse(message, available, tables);
+    } | null = existingOrder ? null : this.tryDeterministicParse(itemMessage, available, tables);
 
     if (!parsed) {
       if (!this.geminiKeyPool.isConfigured) {
@@ -193,7 +200,7 @@ export class OrderParserService {
           invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
           captured — the menu's own price always applies there, so "matched" has no price field at all.
 
-          Customer message: "${message}"
+          Customer message: "${itemMessage}"
 
           Return ONLY JSON in this exact shape, no other text:
           {
@@ -309,7 +316,8 @@ export class OrderParserService {
 
     const order = await this.ordersService.create({
       businessId,
-      customerName: table ? `Table ${table.name}` : 'Chat Order',
+      customerName: table ? `Table ${table.name}` : contactInfo?.customerName || 'Chat Order',
+      phone: contactInfo?.phone || undefined,
       orderType: table ? 'dine_in' : 'take_away',
       tableId: table?.id,
       items: allItems,
@@ -332,15 +340,86 @@ export class OrderParserService {
     const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
 
     const placementNote = table ? `for Table ${table.name}` : `— Token #${order.token_number}`;
+    const namePart = contactInfo?.customerName ? ` for ${contactInfo.customerName}` : '';
 
     return {
-      reply: `Order placed! ${summary} ${placementNote}.`,
+      reply: `Order placed${namePart}! ${summary} ${placementNote}.`,
       order,
     };
   }
 
+  // Longer/more-specific unit words are listed before their single-letter shorthand
+  // (e.g. "liters?" before "l") — regex alternation takes the first branch that
+  // matches, so "l" alone would otherwise win against "4liter" and strand "iter"
+  // in the item name.
   private static readonly UNIT_WORDS =
-    'kg|kilograms?|g|grams?|l|ltrs?|litres?|liters?|ml|pieces?|pcs?|packets?|pkts?|tins?|boxe?s?|bags?|dozens?';
+    'kilograms?|kg|litres?|liters?|ltrs?|l|grams?|g|ml|pieces?|pcs?|packets?|pkts?|tins?|boxe?s?|bags?|dozens?';
+
+  /**
+   * Pulls a customer name and/or 10-digit phone number out of a brand-new chat
+   * order message, e.g. "make a order for the neel 3kg rice 4liter milk 9876543210" —
+   * deterministically, so this works whether the item list itself ends up going
+   * through the fast path below or falls through to Gemini. Only fires on the
+   * unambiguous "for [the] <name>" shape immediately followed by a quantity digit,
+   * and a standalone 10-digit run for the phone; anything less clear-cut is simply
+   * left alone (no name/phone captured) rather than guessed — a miss here just
+   * costs a defaulted "Chat Order" name, never a misplaced item.
+   */
+  private extractContactInfo(message: string): { customerName: string | null; phone: string | null; cleanMessage: string } {
+    let text = message.trim();
+
+    text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
+
+    let phone: string | null = null;
+    const phoneMatch = text.match(/\b(\d{10})\b/);
+    if (phoneMatch && phoneMatch.index !== undefined) {
+      phone = phoneMatch[1];
+      text = (text.slice(0, phoneMatch.index) + ' ' + text.slice(phoneMatch.index + phoneMatch[0].length)).trim();
+    }
+
+    let customerName: string | null = null;
+    // "table" is excluded so "for table 3..." isn't mistaken for a customer named
+    // Table — that phrase is handled separately by the dine-in table detection.
+    const nameMatch = text.match(/\b(?:order\s+)?for\s+(?:the\s+)?(?!table\b)([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?=[\s,]*\d)/i);
+    if (nameMatch && nameMatch.index !== undefined) {
+      customerName = nameMatch[1]
+        .trim()
+        .split(/\s+/)
+        .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+      text = (text.slice(0, nameMatch.index) + ' ' + text.slice(nameMatch.index + nameMatch[0].length)).trim();
+    }
+
+    return { customerName, phone, cleanMessage: text.replace(/\s+/g, ' ').trim() };
+  }
+
+  /**
+   * Splits a segment-less message (no comma/"and"/"&") into per-item chunks by
+   * cutting right before each fresh quantity digit, e.g. "3kg rice 4liter milk
+   * 3pkts cookies" -> ["3kg rice", "4liter milk", "3pkts cookies"]. A trailing
+   * stated price (e.g. "10kg mango 1000rs") is set aside first and reattached to
+   * the last chunk, so a single priced item isn't mistaken for two items — the
+   * price digits themselves would otherwise look like a second item's quantity.
+   */
+  private splitImplicitSegments(text: string): string[] {
+    let trailingPrice = '';
+    let body = text;
+    const priceMatch = text.match(
+      /(?:₹\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:rs\.?|rupees?)|rs\.?\s*\d+(?:\.\d+)?)\s*$/i,
+    );
+    if (priceMatch && priceMatch.index !== undefined) {
+      trailingPrice = priceMatch[0].trim();
+      body = text.slice(0, priceMatch.index).trim();
+    }
+
+    const chunks = body.match(/\d+(?:\.\d+)?[^\d]*/g);
+    if (!chunks || chunks.length <= 1) return [text];
+
+    const lastIndex = chunks.length - 1;
+    return chunks
+      .map((chunk, i) => (i === lastIndex ? `${chunk.trim()} ${trailingPrice}`.trim() : chunk.trim()))
+      .filter(Boolean);
+  }
 
   /**
    * Tries to resolve a brand-new order's message without spending a Gemini call —
@@ -383,10 +462,12 @@ export class OrderParserService {
       }
     }
 
-    const segments = text
-      .split(/\s*(?:,|\band\b|&)\s*/i)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const segments = /[,&]|\band\b/i.test(text)
+      ? text
+          .split(/\s*(?:,|\band\b|&)\s*/i)
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : this.splitImplicitSegments(text).map((s) => s.trim()).filter(Boolean);
     if (segments.length === 0) return null;
 
     const matched: { menuName: string; quantity: number; unit?: string | null }[] = [];

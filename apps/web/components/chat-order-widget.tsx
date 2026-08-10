@@ -20,7 +20,7 @@ const EXAMPLE_BY_CATEGORY: Record<string, string> = {
 
 function greetingFor(category: string | null) {
   const example = (category && EXAMPLE_BY_CATEGORY[category]) || 'rice, sugar and a packet of tea';
-  return `Tell me what to order, e.g. "${example}".`;
+  return `Tell me what to order, e.g. "${example}". You can also name who it's for, e.g. "order for Neel, ${example}".`;
 }
 
 interface EditingOrderInfo {
