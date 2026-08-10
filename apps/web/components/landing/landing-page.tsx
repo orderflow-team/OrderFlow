@@ -175,7 +175,7 @@ export function LandingPage() {
             </Link>
             <Link
               href="/signup"
-              className={`text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 px-5 py-2.5 rounded-full transition-all ring-1 ring-white/10 ${GLASS_SHEEN}`}
+              className={`hidden sm:inline-block whitespace-nowrap text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 px-5 py-2.5 rounded-full transition-all ring-1 ring-white/10 ${GLASS_SHEEN}`}
             >
               Get started free
             </Link>
