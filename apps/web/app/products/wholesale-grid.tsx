@@ -362,7 +362,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
 
         {/* New / Edit Dialog */}
         <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setScanMode(false); }}>
-          <DialogContent className="sm:max-w-[650px] p-6 max-h-[90vh] overflow-y-auto">
+          <DialogContent className={`sm:max-w-[650px] p-6 max-h-[90vh] overflow-y-auto ${scanMode ? 'barcode-scanner-modal bg-transparent' : ''}`}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <Box className="w-5 h-5 text-amber-600" /> {editingId ? 'Edit Wholesale Product' : 'New Bulk Product'}

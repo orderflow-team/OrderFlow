@@ -408,7 +408,7 @@ function ProductsPageContent() {
             }
           }}
         >
-          <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto p-6">
+          <DialogContent className={`sm:max-w-[650px] max-h-[85vh] overflow-y-auto p-6 ${scanMode ? 'barcode-scanner-modal bg-transparent' : ''}`}>
             <DialogHeader>
               <DialogTitle className="text-xl">{editingId ? `Edit ${entityName}` : `New ${entityName}`}</DialogTitle>
             </DialogHeader>

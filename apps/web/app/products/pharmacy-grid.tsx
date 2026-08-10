@@ -382,7 +382,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
         {/* Item Form Dialog */}
         <Dialog open={showItemForm} onOpenChange={(open) => { setShowItemForm(open); if (!open) setScanMode(false); }}>
-          <DialogContent className="sm:max-w-[560px] p-6 max-h-[85vh] overflow-y-auto">
+          <DialogContent className={`sm:max-w-[560px] p-6 max-h-[85vh] overflow-y-auto ${scanMode ? 'barcode-scanner-modal bg-transparent' : ''}`}>
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">{editingItem ? 'Edit Medicine' : 'Add Medicine'}</DialogTitle>
             </DialogHeader>

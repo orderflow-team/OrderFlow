@@ -347,7 +347,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
         {/* Item Form Dialog */}
         <Dialog open={showItemForm} onOpenChange={(open) => { setShowItemForm(open); if (!open) setScanMode(false); }}>
-          <DialogContent className="sm:max-w-[500px] p-6">
+          <DialogContent className={`sm:max-w-[500px] p-6 ${scanMode ? 'barcode-scanner-modal bg-transparent' : ''}`}>
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">{editingItem ? (isRestaurant ? 'Edit Menu Item' : 'Edit Product') : (isRestaurant ? 'Add Menu Item' : 'Add Product')}</DialogTitle>
             </DialogHeader>
