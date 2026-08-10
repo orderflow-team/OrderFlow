@@ -67,6 +67,7 @@ export default function SettingsPage() {
     logoUrl: '',
     upiQrUrl: '',
     termsAndConditions: '',
+    paperSize: '3inch' as '2inch' | '3inch' | 'a4',
     inventoryEnabled: true,
     aiChatEnabled: true,
     allowOrdersBeyondStock: true,
@@ -134,6 +135,7 @@ export default function SettingsPage() {
           logoUrl: res.data.logo_url || '',
           upiQrUrl: res.data.upi_qr_url || '',
           termsAndConditions: res.data.custom_settings?.receipt?.termsAndConditions || '',
+          paperSize: res.data.custom_settings?.receipt?.paperSize || '3inch',
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
           allowOrdersBeyondStock: res.data.allow_orders_beyond_stock !== false,
@@ -165,7 +167,11 @@ export default function SettingsPage() {
         allowOrdersBeyondStock: form.allowOrdersBeyondStock,
         customSettings: {
           ...customSettings,
-          receipt: { ...customSettings?.receipt, termsAndConditions: form.termsAndConditions || undefined },
+          receipt: {
+            ...customSettings?.receipt,
+            termsAndConditions: form.termsAndConditions || undefined,
+            paperSize: form.paperSize,
+          },
         },
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
@@ -481,6 +487,19 @@ export default function SettingsPage() {
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Address</label>
                   <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Receipt Paper Size</label>
+                  <p className="text-xs text-slate-500 mb-2">"Full A4 Sheet" switches printed receipts to the rich Bill of Supply layout (item table, UPI QR, Acknowledgment slip). Thermal sizes keep the compact receipt.</p>
+                  <select
+                    value={form.paperSize}
+                    onChange={(e) => setForm({ ...form, paperSize: e.target.value as '2inch' | '3inch' | 'a4' })}
+                    className="w-full h-11 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
+                  >
+                    <option value="3inch">3-inch Thermal (80mm)</option>
+                    <option value="2inch">2-inch Thermal (58mm)</option>
+                    <option value="a4">Full A4 Sheet</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Terms and Conditions</label>
