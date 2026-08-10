@@ -34,9 +34,11 @@ interface BusinessProfile {
   drug_license_number_1: string | null;
   drug_license_number_2: string | null;
   logo_url: string | null;
+  upi_qr_url: string | null;
   inventory_enabled: boolean;
   ai_chat_enabled: boolean;
   allow_orders_beyond_stock: boolean;
+  custom_settings: Record<string, any> | null;
 }
 
 export default function SettingsPage() {
@@ -63,12 +65,20 @@ export default function SettingsPage() {
     drugLicenseNumber1: '',
     drugLicenseNumber2: '',
     logoUrl: '',
+    upiQrUrl: '',
+    termsAndConditions: '',
     inventoryEnabled: true,
     aiChatEnabled: true,
     allowOrdersBeyondStock: true,
   });
+  // Held raw so saving termsAndConditions doesn't clobber wizard-set toggles
+  // (showLogoOnReceipt, paperSize, etc.) — businesses.service.ts replaces
+  // custom_settings wholesale, not a deep merge.
+  const [customSettings, setCustomSettings] = useState<Record<string, any> | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState('');
+  const [upiQrUploading, setUpiQrUploading] = useState(false);
+  const [upiQrError, setUpiQrError] = useState('');
   const [showCustomWizard, setShowCustomWizard] = useState(false);
 
   const handleWizardComplete = async (wizardData: any) => {
@@ -122,10 +132,13 @@ export default function SettingsPage() {
           drugLicenseNumber1: res.data.drug_license_number_1 || '',
           drugLicenseNumber2: res.data.drug_license_number_2 || '',
           logoUrl: res.data.logo_url || '',
+          upiQrUrl: res.data.upi_qr_url || '',
+          termsAndConditions: res.data.custom_settings?.receipt?.termsAndConditions || '',
           inventoryEnabled: res.data.inventory_enabled,
           aiChatEnabled: res.data.ai_chat_enabled !== false,
           allowOrdersBeyondStock: res.data.allow_orders_beyond_stock !== false,
         });
+        setCustomSettings(res.data.custom_settings || null);
         setSupportCategory(res.data.category || 'others');
       })
       .catch((err: any) => setError(err.response?.data?.message || 'Failed to load business settings'))
@@ -150,6 +163,10 @@ export default function SettingsPage() {
         inventoryEnabled: form.inventoryEnabled,
         aiChatEnabled: form.aiChatEnabled,
         allowOrdersBeyondStock: form.allowOrdersBeyondStock,
+        customSettings: {
+          ...customSettings,
+          receipt: { ...customSettings?.receipt, termsAndConditions: form.termsAndConditions || undefined },
+        },
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
       // reload so AppShell re-fetches and picks up the change immediately.
@@ -194,6 +211,42 @@ export default function SettingsPage() {
     } catch (err: any) {
       setLogoError(err.response?.data?.message || 'Failed to remove logo');
       setLogoUploading(false);
+    }
+  };
+
+  const handleUpiQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !businessId) return;
+
+    setUpiQrUploading(true);
+    setUpiQrError('');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await apiClient.post<BusinessProfile>(`/api/businesses/${businessId}/upi-qr`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm((prev) => ({ ...prev, upiQrUrl: res.data.upi_qr_url || '' }));
+    } catch (err: any) {
+      setUpiQrError(err.response?.data?.message || 'Failed to upload UPI QR code');
+    } finally {
+      setUpiQrUploading(false);
+    }
+  };
+
+  const handleUpiQrRemove = async () => {
+    if (!businessId) return;
+    setUpiQrUploading(true);
+    setUpiQrError('');
+    try {
+      await apiClient.delete(`/api/businesses/${businessId}/upi-qr`);
+      setForm((prev) => ({ ...prev, upiQrUrl: '' }));
+    } catch (err: any) {
+      setUpiQrError(err.response?.data?.message || 'Failed to remove UPI QR code');
+    } finally {
+      setUpiQrUploading(false);
     }
   };
 
@@ -362,6 +415,42 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">UPI QR Code</label>
+                  <p className="text-xs text-slate-500 mb-2">Shown in the Bank Details section of A4 receipts, with a "Click to pay" badge. PNG, JPG, WEBP or GIF up to 5MB.</p>
+                  <div className="flex items-center gap-4">
+                    {form.upiQrUrl ? (
+                      <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/35 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={toAbsoluteFileUrl(form.upiQrUrl) ?? undefined} alt="UPI QR code" className="w-full h-full object-contain" />
+                        <button
+                          type="button"
+                          onClick={handleUpiQrRemove}
+                          disabled={upiQrUploading}
+                          className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full p-1 shadow-md transition-colors disabled:opacity-50"
+                          title="Remove UPI QR code"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="relative w-24 h-24 rounded-2xl border-2 border-dashed border-white/60 bg-white/25 backdrop-blur-md flex flex-col items-center justify-center cursor-pointer hover:bg-white/35 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          onChange={handleUpiQrUpload}
+                          disabled={upiQrUploading}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <ImageUp className="w-5 h-5 text-slate-400 mb-1" />
+                        <span className="text-[10px] font-medium text-slate-500">
+                          {upiQrUploading ? 'Uploading...' : 'Upload'}
+                        </span>
+                      </label>
+                    )}
+                    {upiQrError && <p className="text-xs text-rose-600 font-medium">{upiQrError}</p>}
+                  </div>
+                </div>
+                <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Business name</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
@@ -392,6 +481,17 @@ export default function SettingsPage() {
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Address</label>
                   <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Terms and Conditions</label>
+                  <p className="text-xs text-slate-500 mb-2">Shown on A4 receipts when set. Leave blank to omit.</p>
+                  <textarea
+                    value={form.termsAndConditions}
+                    onChange={(e) => setForm({ ...form, termsAndConditions: e.target.value })}
+                    rows={3}
+                    className="w-full rounded-2xl border border-transparent bg-white/35 backdrop-blur-md px-4 py-2.5 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70 resize-y"
+                    placeholder="e.g. Goods once sold will not be taken back or exchanged."
+                  />
                 </div>
                 {form.category === 'pharmacy' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -18,6 +18,12 @@ function deleteLogoFile(logoUrl: string | null | undefined) {
   fs.unlink(uploadsFilePathFromUrl(logoUrl), () => {});
 }
 
+/** Best-effort cleanup of a previously uploaded UPI QR image so replacing/removing it doesn't leak files under uploads/upi-qr. */
+function deleteUpiQrFile(upiQrUrl: string | null | undefined) {
+  if (!upiQrUrl || !upiQrUrl.includes('/uploads/upi-qr/')) return;
+  fs.unlink(uploadsFilePathFromUrl(upiQrUrl), () => {});
+}
+
 @Injectable()
 export class BusinessesService {
   constructor(
@@ -148,6 +154,32 @@ export class BusinessesService {
     business.logo_url = null as any;
     const saved = await this.businessesRepository.save(business);
     deleteLogoFile(previousLogoUrl);
+    return saved;
+  }
+
+  async updateUpiQr(id: string, upiQrUrl: string, requestingUserId: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('You do not have permission to edit this business');
+    }
+    const previousUpiQrUrl = business.upi_qr_url;
+    business.upi_qr_url = upiQrUrl;
+    const saved = await this.businessesRepository.save(business);
+    if (previousUpiQrUrl !== upiQrUrl) {
+      deleteUpiQrFile(previousUpiQrUrl);
+    }
+    return saved;
+  }
+
+  async removeUpiQr(id: string, requestingUserId: string) {
+    const business = await this.findOneOrFail(id);
+    if (business.owner_user_id !== requestingUserId) {
+      throw new ForbiddenException('You do not have permission to edit this business');
+    }
+    const previousUpiQrUrl = business.upi_qr_url;
+    business.upi_qr_url = null as any;
+    const saved = await this.businessesRepository.save(business);
+    deleteUpiQrFile(previousUpiQrUrl);
     return saved;
   }
 

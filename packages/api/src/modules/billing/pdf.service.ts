@@ -11,35 +11,13 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
 import { InvoicesService } from './invoices.service';
 import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderThermalReceiptHtml } from './templates/invoice.template';
-import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
+import { loadImageDataUri } from '../../common/utils/image-data-uri.util';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
 
-const LOGO_MIME_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-};
-
-/**
- * Puppeteer's page.setContent() has no base URL (effectively about:blank), so a
- * relative <img src="/uploads/..."> can't resolve the way it does in the browser.
- * Inline the logo as a base64 data URI instead, read straight off disk.
- */
 function loadLogoDataUri(business: Business | null): string | null {
-  if (!business?.logo_url) return null;
-  const mimeType = LOGO_MIME_TYPES[path.extname(business.logo_url).toLowerCase()];
-  if (!mimeType) return null;
-  const filePath = uploadsFilePathFromUrl(business.logo_url);
-  try {
-    const buffer = fs.readFileSync(filePath);
-    return `data:${mimeType};base64,${buffer.toString('base64')}`;
-  } catch {
-    return null;
-  }
+  return loadImageDataUri(business?.logo_url);
 }
 
 @Injectable()

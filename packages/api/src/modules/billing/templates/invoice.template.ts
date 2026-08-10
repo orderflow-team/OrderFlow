@@ -36,6 +36,42 @@ function tz(business: Business | null): string {
   return business?.timezone || 'Asia/Kolkata';
 }
 
+const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+function twoDigitWords(n: number): string {
+  if (n < 20) return ONES[n];
+  return TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + ONES[n % 10] : '');
+}
+
+function threeDigitWords(n: number): string {
+  const hundreds = Math.floor(n / 100);
+  const rest = n % 100;
+  if (!hundreds) return twoDigitWords(rest);
+  return `${ONES[hundreds]} Hundred${rest ? ' and ' + twoDigitWords(rest) : ''}`;
+}
+
+/** Indian numbering system (lakh/crore) — e.g. 8462 -> "Eight Thousand Four Hundred and Sixty Two". */
+function numberToWordsIndian(n: number): string {
+  if (n === 0) return 'Zero';
+  const crore = Math.floor(n / 10000000); n %= 10000000;
+  const lakh = Math.floor(n / 100000); n %= 100000;
+  const thousand = Math.floor(n / 1000); n %= 1000;
+  const hundred = n;
+  const parts: string[] = [];
+  if (crore) parts.push(`${threeDigitWords(crore)} Crore`);
+  if (lakh) parts.push(`${threeDigitWords(lakh)} Lakh`);
+  if (thousand) parts.push(`${threeDigitWords(thousand)} Thousand`);
+  if (hundred) parts.push(threeDigitWords(hundred));
+  return parts.join(' ');
+}
+
+/** "8462.00" -> "Eight Thousand Four Hundred and Sixty Two Rupees only". Paise are dropped, matching how small merchants actually speak amounts. */
+function amountInWords(n: number | string): string {
+  return `${numberToWordsIndian(Math.floor(Number(n)))} Rupees only`;
+}
+
 /** Batch/expiry/Rx are pharmacy-specific product fields — only rendered when actually set. */
 function itemDetails(item: InvoiceItem, timeZone: string): string[] {
   const p = item.product;
@@ -320,6 +356,187 @@ export function renderPharmacyCashMemoHtml(
 </html>`;
 }
 
+/**
+ * Rich A4 "Bill of Supply" style order receipt — used instead of the narrow
+ * thermal layout when the business's Paper Size setting is "a4". Distinct
+ * from renderInvoiceHtml (the formal GST Invoice under the Billing module):
+ * this is the receipt printed straight from the Orders screen at checkout.
+ *
+ * `invoice` here is a lightweight order-shaped stand-in (see
+ * orders.service.ts's getOrderReceiptHtml), not a real Invoice entity — same
+ * pattern renderThermalReceiptHtml already uses for order receipts.
+ */
+export function renderA4ReceiptHtml(
+  invoice: Invoice,
+  items: InvoiceItem[],
+  business: Business | null,
+  customer: Customer | null,
+  order: any | null,
+  receivedAmount = 0,
+  logoDataUri: string | null = null,
+  upiQrDataUri: string | null = null,
+) {
+  const timeZone = tz(business);
+  const showUpiQr = !!upiQrDataUri && business?.custom_settings?.receipt?.showUpiQrCode !== false;
+  const termsAndConditions = business?.custom_settings?.receipt?.termsAndConditions as string | undefined;
+
+  const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity), 0);
+  const rows = items
+    .map((item) => `
+        <tr>
+          <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}</td>
+          <td></td>
+          <td class="num">${money(item.quantity)}</td>
+          <td>${escapeHtml((item as any).unit ?? item.product?.unit ?? '-')}</td>
+          <td class="num">₹${money(item.unit_price)}</td>
+          <td class="num">₹${money(item.subtotal)}</td>
+        </tr>`)
+    .join('');
+
+  const totalAmount = Number(invoice.total_amount);
+  const subTotal = totalAmount - Number(invoice.tax_amount);
+  const balance = totalAmount - receivedAmount;
+  const previousBalance = 0;
+  const currentBalance = previousBalance + balance;
+
+  const invoiceDate = new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone });
+  const invoiceTime = new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone });
+  const customerName = escapeHtml(customer?.name ?? order?.customer_name ?? 'Walk-in Customer');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="color-scheme" content="light only" />
+<style>
+  /* A printed document must always look the same regardless of the viewer's
+     dark-mode setting — without an explicit background + color-scheme,
+     Android Chrome's "force dark" (and similar) recolors the page to a
+     near-black background, making the light-gray/muted text unreadable. */
+  :root { color-scheme: light only; }
+  html, body { background: #ffffff; }
+  body { font-family: Arial, sans-serif; color: #1e293b; padding: 32px; font-size: 13px; }
+  .muted { color: #64748b; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .business-header { display: flex; align-items: center; gap: 14px; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 10px; }
+  .business-header .logo { height: 56px; max-width: 180px; object-fit: contain; }
+  .business-header h1 { font-size: 22px; margin: 0 0 2px; }
+  .bos-title { text-align: center; font-size: 18px; font-weight: bold; padding: 8px 0; border-bottom: 2px solid #0f172a; margin-bottom: 14px; }
+  .two-col { display: flex; justify-content: space-between; margin-bottom: 16px; }
+  .two-col .col { width: 48%; }
+  .two-col .label { font-weight: bold; margin-bottom: 2px; }
+  table.items { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  table.items th { background: #7B7FD4; color: #fff; padding: 8px; font-size: 12px; text-align: left; font-weight: 600; }
+  table.items td { padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+  table.items .num { text-align: right; }
+  table.items tfoot td { font-weight: bold; border-top: 2px solid #0f172a; border-bottom: none; }
+  .below-table { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+  .words-terms { width: 55%; font-size: 12px; }
+  .words-terms .row { margin-bottom: 10px; }
+  .summary-box { width: 40%; font-size: 13px; }
+  .summary-box .row { display: flex; justify-content: space-between; padding: 3px 0; }
+  .summary-box .row.total, .summary-box .row.current { font-weight: bold; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 2px; }
+  .bank-section { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; }
+  .bank-details .qr { width: 100px; height: 100px; object-fit: contain; display: block; }
+  .bank-details .upi-badge { display: inline-block; background: #00BA5B; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 4px; margin-top: 4px; }
+  .signature { text-align: right; font-size: 13px; }
+  .signature .for-line { margin-bottom: 48px; }
+  .ack-divider { border-top: 1px dashed #94a3b8; margin: 28px 0 16px; }
+  .ack-title { text-align: center; color: #8B8FE8; font-weight: bold; font-size: 16px; margin-bottom: 16px; }
+  .ack-cols { display: flex; justify-content: space-between; font-size: 12px; }
+  .ack-cols .muted-label { color: #94a3b8; }
+  .ack-seal { text-align: center; font-size: 11px; }
+  .ack-seal .line { border-top: 1px dashed #94a3b8; width: 100px; margin: 24px auto 4px; }
+</style>
+</head>
+<body>
+  <div class="business-header">
+    ${logoDataUri ? `<img class="logo" src="${logoDataUri}" alt="${escapeHtml(business?.name ?? 'Logo')}" />` : ''}
+    <div>
+      <h1>${escapeHtml(business?.name ?? 'OrderFlow')}</h1>
+      ${business?.address ? `<div class="muted">${escapeHtml(business.address)}</div>` : ''}
+      ${business?.phone ? `<div class="muted">Phone no.: ${escapeHtml(business.phone)}</div>` : ''}
+    </div>
+  </div>
+  <div class="bos-title">Bill of Supply</div>
+
+  <div class="two-col">
+    <div class="col">
+      <div class="label">Bill To</div>
+      <div class="bold">${customerName}</div>
+      ${customer?.phone ? `<div class="muted">Contact No.: ${escapeHtml(customer.phone)}</div>` : ''}
+    </div>
+    <div class="col right">
+      <div class="label">Invoice Details</div>
+      <div>Invoice No.: ${escapeHtml(invoice.invoice_number)}</div>
+      <div>Date: ${invoiceDate}</div>
+      <div>Time: ${invoiceTime}</div>
+    </div>
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr><th>Item name</th><th>HSN/SAC</th><th class="num">Quantity</th><th>Unit</th><th class="num">Price/unit</th><th class="num">Amount</th></tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr><td>Total</td><td></td><td class="num">${money(totalQuantity)}</td><td></td><td></td><td class="num">₹${money(totalAmount)}</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="below-table">
+    <div class="words-terms">
+      <div class="row"><span class="bold">Invoice Amount In Words:</span> ${amountInWords(totalAmount)}</div>
+      ${termsAndConditions ? `<div class="row"><span class="bold">Terms and conditions:</span> ${escapeHtml(termsAndConditions)}</div>` : ''}
+    </div>
+    <div class="summary-box">
+      <div class="row"><span>Sub Total</span><span>₹${money(subTotal)}</span></div>
+      <div class="row total"><span>Total</span><span>₹${money(totalAmount)}</span></div>
+      <div class="row"><span>Received</span><span>₹${money(receivedAmount)}</span></div>
+      <div class="row"><span>Balance</span><span>₹${money(balance)}</span></div>
+      <div class="row"><span>Previous Balance</span><span>₹${money(previousBalance)}</span></div>
+      <div class="row current"><span>Current Balance</span><span>₹${money(currentBalance)}</span></div>
+    </div>
+  </div>
+
+  <div class="bank-section">
+    ${showUpiQr ? `
+    <div class="bank-details">
+      <div class="bold">Bank Details</div>
+      <img class="qr" src="${upiQrDataUri}" alt="UPI QR Code" />
+      <div class="upi-badge">CLICK TO PAY</div>
+    </div>
+    ` : '<div></div>'}
+    <div class="signature">
+      <div class="for-line">For: ${escapeHtml(business?.name ?? 'OrderFlow')}</div>
+      <div>Authorized Signatory</div>
+    </div>
+  </div>
+
+  <div class="ack-divider"></div>
+  <div class="ack-title">Acknowledgment</div>
+  <div class="ack-cols">
+    <div>
+      <div class="muted-label">Invoice To:</div>
+      <div class="bold">${customerName}</div>
+    </div>
+    <div>
+      <div class="muted-label">Invoice Details:</div>
+      <div>Invoice No. : ${escapeHtml(invoice.invoice_number)}</div>
+      <div>Invoice Date : ${invoiceDate}</div>
+      <div>Invoice Amount : ₹${money(totalAmount)}</div>
+    </div>
+    <div class="ack-seal">
+      <div class="line"></div>
+      <div>Receiver's Seal &amp; Sign</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 /** Narrow 58/80mm receipt layout for thermal printers, rendered via the browser's print dialog. */
 export function renderThermalReceiptHtml(
   invoice: Invoice,
@@ -344,8 +561,11 @@ export function renderThermalReceiptHtml(
 <html>
 <head>
 <meta charset="utf-8" />
+<meta name="color-scheme" content="light only" />
 <style>
+  :root { color-scheme: light only; }
   @page { size: 80mm; margin: 0; }
+  html, body { background: #ffffff; color: #000000; }
   body { width: 76mm; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre; padding: 8px; }
   @media print { body { width: 76mm; } }
 </style>

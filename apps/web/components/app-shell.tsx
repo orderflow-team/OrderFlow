@@ -194,7 +194,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setChatEnabled(cachedChatEnabled ?? true);
 
     apiClient
-      .get<{ name: string; category: string | null; logo_url: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
+      .get<{ name: string; category: string | null; logo_url: string | null; upi_qr_url?: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; phone?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
         setBusinessCategory(res.data.category || '');
@@ -205,11 +205,15 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         setChatEnabled(isChatEnabled);
         setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings));
         // Cached so the client-side receipt renderer can print a business
-        // header (name/address/GSTIN) even with zero network.
+        // header (name/address/GSTIN/logo/UPI QR) even with zero network.
         setCached(businessId, 'business-profile', {
           name: res.data.name,
           address: res.data.address,
+          phone: res.data.phone,
           gst_number: res.data.gst_number,
+          logo_url: res.data.logo_url,
+          upi_qr_url: res.data.upi_qr_url,
+          custom_settings: res.data.custom_settings,
         });
       })
       .catch(() => {

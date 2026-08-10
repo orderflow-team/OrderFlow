@@ -1290,13 +1290,24 @@ export class OrdersService {
       product: item.product,
       custom_product_name: item.custom_product_name,
       quantity: Number(item.quantity),
+      unit: item.unit || item.product?.unit,
       unit_price: Number(item.unit_price),
       subtotal: Number(item.subtotal),
       tax_percentage: Number(item.tax_percentage),
       tax_amount: Number(item.tax_amount),
     })) as any[];
 
-    const { renderThermalReceiptHtml } = require('../billing/templates/invoice.template');
+    const { renderThermalReceiptHtml, renderA4ReceiptHtml } = require('../billing/templates/invoice.template');
+
+    if (business?.custom_settings?.receipt?.paperSize === 'a4') {
+      const { loadImageDataUri } = require('../../common/utils/image-data-uri.util');
+      const payments = await this.dataSource.getRepository(Payment).find({ where: { order_id: id } });
+      const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const logoDataUri = loadImageDataUri(business?.logo_url);
+      const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
+      return renderA4ReceiptHtml(dummyInvoice, mappedItems, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
+    }
+
     return renderThermalReceiptHtml(dummyInvoice, mappedItems, business, customer, order);
   }
 }

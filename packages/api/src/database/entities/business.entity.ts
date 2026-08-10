@@ -46,6 +46,9 @@ export class Business {
   logo_url: string;
 
   @Column({ type: 'text', nullable: true })
+  upi_qr_url: string;
+
+  @Column({ type: 'text', nullable: true })
   address: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })

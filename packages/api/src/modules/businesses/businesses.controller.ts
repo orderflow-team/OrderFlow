@@ -26,7 +26,7 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
-const ALLOWED_LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/businesses')
@@ -95,7 +95,7 @@ export class BusinessesController {
         },
       }),
       fileFilter: (req, file, cb) => {
-        cb(null, ALLOWED_LOGO_MIME_TYPES.has(file.mimetype));
+        cb(null, ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype));
       },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
@@ -111,6 +111,42 @@ export class BusinessesController {
   @Delete(':id/logo')
   removeLogo(@Req() req: any, @Param('id') id: string) {
     return this.businessesService.removeLogo(id, req.user.userId);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post(':id/upi-qr')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req, file, cb) => {
+          const uploadPath = './uploads/upi-qr';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          cb(null, uploadPath);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        cb(null, ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype));
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  uploadUpiQr(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
+    }
+    return this.businessesService.updateUpiQr(id, `${getPublicBaseUrl()}/uploads/upi-qr/${file.filename}`, req.user.userId);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Delete(':id/upi-qr')
+  removeUpiQr(@Req() req: any, @Param('id') id: string) {
+    return this.businessesService.removeUpiQr(id, req.user.userId);
   }
 
   /** Permanently deletes the business and everything in it. Owner-only (checked in the service). */

@@ -13,7 +13,7 @@ import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
 import { useOfflineStore } from '@/lib/offline-store';
-import { buildReceiptHtml, printReceiptHtml } from '@/lib/receipt-template';
+import { buildReceiptHtml, buildA4ReceiptHtml, printReceiptHtml } from '@/lib/receipt-template';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
@@ -472,17 +472,17 @@ export function GenericOrders() {
           unitPrice: Number(it.unit_price),
           subtotal: Number(it.subtotal),
         }));
-        printReceiptHtml(
-          buildReceiptHtml({
-            business: business as any,
-            orderNumber: drawerOrder.order_number || drawerOrder.id.slice(0, 8),
-            createdAt: drawerOrder.created_at || new Date().toISOString(),
-            customerName: drawerOrder.customer_name || 'Walk-in',
-            items,
-            totalAmount: Number(drawerOrder.total_amount),
-            queued: isUnsyncedOrder,
-          }),
-        );
+        const receiptData = {
+          business: business as any,
+          orderNumber: drawerOrder.order_number || drawerOrder.id.slice(0, 8),
+          createdAt: drawerOrder.created_at || new Date().toISOString(),
+          customerName: drawerOrder.customer_name || 'Walk-in',
+          items,
+          totalAmount: Number(drawerOrder.total_amount),
+          queued: isUnsyncedOrder,
+        };
+        const isA4 = (business as any)?.custom_settings?.receipt?.paperSize === 'a4';
+        printReceiptHtml(isA4 ? buildA4ReceiptHtml(receiptData) : buildReceiptHtml(receiptData));
       } else {
         const res = await apiClient.get(`/api/orders/${drawerOrder.id}/receipt`, { params: { businessId } });
         printReceiptHtml(res.data);

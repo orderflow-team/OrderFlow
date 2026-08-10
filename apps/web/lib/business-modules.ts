@@ -110,6 +110,7 @@ export interface CustomBusinessSettings {
     showLogoOnReceipt?: boolean;
     showUpiQrCode?: boolean;
     showTermsAndConditions?: boolean;
+    termsAndConditions?: string;
     receiptCopyCount?: number;
     autoCutPaper?: boolean;
     autoKickCashDrawer?: boolean;
