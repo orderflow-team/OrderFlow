@@ -355,15 +355,24 @@ export class OrderParserService {
   private static readonly UNIT_WORDS =
     'kilograms?|kg|litres?|liters?|ltrs?|l|grams?|g|ml|pieces?|pcs?|packets?|pkts?|tins?|boxe?s?|bags?|dozens?';
 
+  // Words that could otherwise get swept into the leading "<name> order ..."
+  // capture below via greedy backtracking — e.g. "Make Neel order 2 rice" should
+  // yield the name "Neel", not "Make Neel".
+  private static readonly NAME_STOPWORDS = new Set([
+    'make', 'create', 'place', 'please', 'order', 'new', 'the', 'a', 'an',
+    'this', 'that', 'my', 'quick', 'table', 'kindly', 'hi', 'hello', 'hey',
+  ]);
+
   /**
    * Pulls a customer name and/or 10-digit phone number out of a brand-new chat
-   * order message, e.g. "make a order for the neel 3kg rice 4liter milk 9876543210" —
-   * deterministically, so this works whether the item list itself ends up going
-   * through the fast path below or falls through to Gemini. Only fires on the
-   * unambiguous "for [the] <name>" shape immediately followed by a quantity digit,
-   * and a standalone 10-digit run for the phone; anything less clear-cut is simply
-   * left alone (no name/phone captured) rather than guessed — a miss here just
-   * costs a defaulted "Chat Order" name, never a misplaced item.
+   * order message, e.g. "Neel order 2kg rice 4liter milk" or "make a order for
+   * the neel 3kg rice 9876543210" — deterministically, so this works whether the
+   * item list itself ends up going through the fast path below or falls through
+   * to Gemini. Only fires on two unambiguous shapes ("<name> order ..." leading,
+   * or "for [the] <name> ..." trailing), each immediately followed by a quantity
+   * digit, and a standalone 10-digit run for the phone; anything less clear-cut
+   * is simply left alone (no name/phone captured) rather than guessed — a miss
+   * here just costs a defaulted "Chat Order" name, never a misplaced item.
    */
   private extractContactInfo(message: string): { customerName: string | null; phone: string | null; cleanMessage: string } {
     let text = message.trim();
@@ -377,17 +386,27 @@ export class OrderParserService {
       text = (text.slice(0, phoneMatch.index) + ' ' + text.slice(phoneMatch.index + phoneMatch[0].length)).trim();
     }
 
+    const titleCase = (raw: string) =>
+      raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
     let customerName: string | null = null;
-    // "table" is excluded so "for table 3..." isn't mistaken for a customer named
-    // Table — that phrase is handled separately by the dine-in table detection.
-    const nameMatch = text.match(/\b(?:order\s+)?for\s+(?:the\s+)?(?!table\b)([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?=[\s,]*\d)/i);
-    if (nameMatch && nameMatch.index !== undefined) {
-      customerName = nameMatch[1]
-        .trim()
-        .split(/\s+/)
-        .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
-      text = (text.slice(0, nameMatch.index) + ' ' + text.slice(nameMatch.index + nameMatch[0].length)).trim();
+
+    // "Neel order 2kg rice..." / "Neel's order for 3kg rice..." — name leads,
+    // immediately followed by the word "order" itself.
+    const leadingMatch = text.match(/^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?:'s)?\s+order\b(?:\s+for)?[\s,]*(?=\d)/i);
+    const leadingWords = leadingMatch ? leadingMatch[1].trim().split(/\s+/) : [];
+    if (leadingMatch && !leadingWords.some((w) => OrderParserService.NAME_STOPWORDS.has(w.toLowerCase()))) {
+      customerName = titleCase(leadingMatch[1]);
+      text = text.slice(leadingMatch[0].length).trim();
+    } else {
+      // "order for [the] Neel..." — name trails "for". "table" is excluded so
+      // "for table 3..." isn't mistaken for a customer named Table — that phrase
+      // is handled separately by the dine-in table detection.
+      const nameMatch = text.match(/\b(?:order\s+)?for\s+(?:the\s+)?(?!table\b)([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?=[\s,]*\d)/i);
+      if (nameMatch && nameMatch.index !== undefined) {
+        customerName = titleCase(nameMatch[1]);
+        text = (text.slice(0, nameMatch.index) + ' ' + text.slice(nameMatch.index + nameMatch[0].length)).trim();
+      }
     }
 
     return { customerName, phone, cleanMessage: text.replace(/\s+/g, ' ').trim() };
