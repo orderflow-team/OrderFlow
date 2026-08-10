@@ -244,11 +244,26 @@ function ProductsPageContent() {
     setShowForm(true);
   };
 
-  // Scanning while the item dialog is open just fills the SKU/barcode field —
-  // same behavior as the pharmacy grid's scanner-gun handling.
+  // A match opens that product for editing right there instead of just
+  // filling the SKU field into what might be a different, half-filled item.
+  // products here can be scoped by the on-screen search box, so look up
+  // fresh against the scanned code rather than trusting local state.
   const handleBarcodeScan = (code: string) => {
-    setForm((f) => ({ ...f, sku: code }));
-    setScanMode(false);
+    apiClient
+      .get<Product[]>('/api/products', { params: { businessId, search: code, isDraft: 'all' } })
+      .then((res) => {
+        const match = res.data.find((p) => p.sku === code);
+        if (match) {
+          openEditForm(match);
+        } else {
+          setForm((f) => ({ ...f, sku: code }));
+          setScanMode(false);
+        }
+      })
+      .catch(() => {
+        setForm((f) => ({ ...f, sku: code }));
+        setScanMode(false);
+      });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

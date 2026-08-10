@@ -257,11 +257,26 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     setShowItemForm(true);
   };
 
-  // Scanning while the item dialog is open just fills the barcode field —
-  // same behavior as the pharmacy grid's scanner-gun handling.
+  // A match opens that item for editing right there instead of just filling
+  // the barcode field into what might be a different, half-filled item.
+  // products here can be scoped by the on-screen search box, so look up
+  // fresh against the scanned code rather than trusting local state.
   const handleBarcodeScan = (code: string) => {
-    setForm((f) => ({ ...f, barcode: code }));
-    setScanMode(false);
+    apiClient
+      .get<Product[]>('/api/products', { params: { businessId, search: code } })
+      .then((res) => {
+        const match = res.data.find((p) => p.barcode === code);
+        if (match) {
+          openEdit(match);
+        } else {
+          setForm((f) => ({ ...f, barcode: code }));
+          setScanMode(false);
+        }
+      })
+      .catch(() => {
+        setForm((f) => ({ ...f, barcode: code }));
+        setScanMode(false);
+      });
   };
 
   useEffect(() => {

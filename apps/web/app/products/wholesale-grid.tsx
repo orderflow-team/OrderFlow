@@ -168,11 +168,18 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     setShowForm(true);
   };
 
-  // Scanning while the item dialog is open just fills the barcode field —
-  // same behavior as the pharmacy grid's scanner-gun handling.
+  // A match opens that product for editing right there instead of just
+  // filling the barcode field into what might be a different, half-filled
+  // item. products is the full unfiltered catalog here (loadData doesn't
+  // scope it by the on-screen search box), so a local lookup is reliable.
   const handleBarcodeScan = (code: string) => {
-    setForm((f) => ({ ...f, barcode: code }));
-    setScanMode(false);
+    const match = products.find((p) => p.barcode === code);
+    if (match) {
+      openEditForm(match);
+    } else {
+      setForm((f) => ({ ...f, barcode: code }));
+      setScanMode(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

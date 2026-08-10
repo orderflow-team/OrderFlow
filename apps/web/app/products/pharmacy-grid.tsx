@@ -107,10 +107,28 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   // only, via the Manual/Scan toggle inside the item dialog below).
   const handleBarcodeScan = (code: string) => {
     vibrateScanSuccess();
-    // With the medicine form open, a scan just fills the barcode field.
+    // With the medicine form already open (the in-dialog Scan tab), a match
+    // opens that medicine for editing right there instead of just filling
+    // the barcode field into what might be a different, half-filled item.
     if (showItemForm) {
-      setForm((f) => ({ ...f, barcode: code }));
-      showScanToast(`Barcode captured: ${code}`, 'ok');
+      apiClient
+        .get<Product[]>('/api/products', { params: { businessId, search: code } })
+        .then((res) => {
+          const match = res.data.find((p) => p.barcode === code);
+          if (match) {
+            openEdit(match);
+            showScanToast(`Found: ${match.name}`, 'ok');
+          } else {
+            setForm((f) => ({ ...f, barcode: code }));
+            setScanMode(false);
+            showScanToast(`Barcode captured: ${code}`, 'ok');
+          }
+        })
+        .catch(() => {
+          setForm((f) => ({ ...f, barcode: code }));
+          setScanMode(false);
+          showScanToast('Scan lookup failed — barcode filled in anyway', 'new');
+        });
       return;
     }
     // Otherwise: look the code up — show the match, or start a new medicine with it.
