@@ -12,7 +12,8 @@ import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { ClearModuleButton } from '@/components/clear-module-button';
-import { ScanBarcodeButton } from '@/components/scan-barcode-button';
+import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
+import { CameraScannerView } from '@/components/camera-scanner-view';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface VolumeTier {
@@ -77,6 +78,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [scanMode, setScanMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm);
@@ -134,12 +136,14 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
   }, [businessId]);
 
   const openCreateForm = () => {
+    setScanMode(false);
     setEditingId(null);
     setForm({ ...emptyForm, category: categories[0]?.name || '' });
     setShowForm(true);
   };
 
   const openEditForm = (p: Product) => {
+    setScanMode(false);
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -164,17 +168,11 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     setShowForm(true);
   };
 
-  // Camera scan: an existing barcode opens that item for editing, an unknown
-  // one opens a blank form with the barcode already filled in.
+  // Scanning while the item dialog is open just fills the barcode field —
+  // same behavior as the pharmacy grid's scanner-gun handling.
   const handleBarcodeScan = (code: string) => {
-    const match = products.find((p) => p.barcode === code);
-    if (match) {
-      openEditForm(match);
-    } else {
-      setEditingId(null);
-      setForm({ ...emptyForm, barcode: code, category: categories[0]?.name || '' });
-      setShowForm(true);
-    }
+    setForm((f) => ({ ...f, barcode: code }));
+    setScanMode(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,7 +318,6 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" onClick={() => setShowBulkUpload(true)} className="gap-1.5">
               <Upload className="w-4 h-4" /> Bulk Upload
             </Button>
-            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button onClick={openCreateForm} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-md">
               <Plus className="w-4 h-4" /> Add Bulk Product
             </Button>
@@ -364,13 +361,17 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
         />
 
         {/* New / Edit Dialog */}
-        <Dialog open={showForm} onOpenChange={setShowForm}>
+        <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setScanMode(false); }}>
           <DialogContent className="sm:max-w-[650px] p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <Box className="w-5 h-5 text-amber-600" /> {editingId ? 'Edit Wholesale Product' : 'New Bulk Product'}
               </DialogTitle>
             </DialogHeader>
+            <ManualOrScanToggle scanMode={scanMode} onChange={setScanMode} />
+            {scanMode ? (
+              <CameraScannerView active={showForm && scanMode} onScan={handleBarcodeScan} />
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4 pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2 space-y-1">
@@ -405,7 +406,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Barcode</label>
-                  <Input placeholder="Scan with Scan Barcode, or type the number" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+                  <Input placeholder="Tap Scan above, or type the number" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Packaging Unit</label>
@@ -500,6 +501,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 </Button>
               </div>
             </form>
+            )}
           </DialogContent>
         </Dialog>
 

@@ -11,7 +11,8 @@ import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 import { vibrateScanSuccess } from '@/lib/haptics';
-import { ScanBarcodeButton } from '@/components/scan-barcode-button';
+import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
+import { CameraScannerView } from '@/components/camera-scanner-view';
 import { expiryStatus } from '@/lib/expiry-status';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
@@ -67,6 +68,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   // Form states
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState<Product | null>(null);
+  const [scanMode, setScanMode] = useState(false);
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -102,7 +104,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
   // Shared by both scan input methods: a USB/Bluetooth scanner-gun (works on
   // web and native, via useBarcodeScanner below) and the device camera (native
-  // only, via the ScanBarcodeButton rendered in the action bar).
+  // only, via the Manual/Scan toggle inside the item dialog below).
   const handleBarcodeScan = (code: string) => {
     vibrateScanSuccess();
     // With the medicine form open, a scan just fills the barcode field.
@@ -272,6 +274,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   };
 
   const openEdit = (p: Product) => {
+    setScanMode(false);
     setEditingItem(p);
     setForm({
       name: p.name,
@@ -292,6 +295,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   };
 
   const openCreate = () => {
+    setScanMode(false);
     setEditingItem(null);
     setForm(emptyForm);
     setShowItemForm(true);
@@ -341,7 +345,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
               <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
-            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Medicine
             </Button>
@@ -378,11 +381,23 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
         </Dialog>
 
         {/* Item Form Dialog */}
-        <Dialog open={showItemForm} onOpenChange={setShowItemForm}>
+        <Dialog open={showItemForm} onOpenChange={(open) => { setShowItemForm(open); if (!open) setScanMode(false); }}>
           <DialogContent className="sm:max-w-[560px] p-6 max-h-[85vh] overflow-y-auto">
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">{editingItem ? 'Edit Medicine' : 'Add Medicine'}</DialogTitle>
             </DialogHeader>
+            <ManualOrScanToggle scanMode={scanMode} onChange={setScanMode} />
+            {scanMode ? (
+              <div className="flex flex-col gap-3">
+                <CameraScannerView
+                  active={showItemForm && scanMode}
+                  onScan={(code) => {
+                    handleBarcodeScan(code);
+                    setScanMode(false);
+                  }}
+                />
+              </div>
+            ) : (
             <form onSubmit={handleItemSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Medicine Name</label>
@@ -462,6 +477,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 </Button>
               </div>
             </form>
+            )}
           </DialogContent>
         </Dialog>
 

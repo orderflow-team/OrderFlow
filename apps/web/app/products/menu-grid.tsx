@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getDefaultItemCategories } from '@/lib/business-modules';
-import { ScanBarcodeButton } from '@/components/scan-barcode-button';
+import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
+import { CameraScannerView } from '@/components/camera-scanner-view';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface Product {
@@ -48,6 +49,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   // Form states
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState<Product | null>(null);
+  const [scanMode, setScanMode] = useState(false);
   
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -230,6 +232,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   };
 
   const openEdit = (p: Product) => {
+    setScanMode(false);
     setEditingItem(p);
     setForm({
       name: p.name,
@@ -246,6 +249,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   };
 
   const openCreate = () => {
+    setScanMode(false);
     setEditingItem(null);
     setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true, barcode: '' });
     setUploading(false);
@@ -253,19 +257,11 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     setShowItemForm(true);
   };
 
-  // Camera scan: an existing barcode opens that item for editing, an unknown
-  // one opens a blank form with the barcode already filled in.
+  // Scanning while the item dialog is open just fills the barcode field —
+  // same behavior as the pharmacy grid's scanner-gun handling.
   const handleBarcodeScan = (code: string) => {
-    const match = products.find((p) => p.barcode === code);
-    if (match) {
-      openEdit(match);
-    } else {
-      setEditingItem(null);
-      setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true, barcode: code });
-      setUploading(false);
-      setUploadError('');
-      setShowItemForm(true);
-    }
+    setForm((f) => ({ ...f, barcode: code }));
+    setScanMode(false);
   };
 
   useEffect(() => {
@@ -314,7 +310,6 @@ export function MenuGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
               <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
-            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Item
             </Button>
@@ -351,11 +346,15 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         </Dialog>
 
         {/* Item Form Dialog */}
-        <Dialog open={showItemForm} onOpenChange={setShowItemForm}>
+        <Dialog open={showItemForm} onOpenChange={(open) => { setShowItemForm(open); if (!open) setScanMode(false); }}>
           <DialogContent className="sm:max-w-[500px] p-6">
             <DialogHeader className="mb-2">
               <DialogTitle className="text-xl">{editingItem ? (isRestaurant ? 'Edit Menu Item' : 'Edit Product') : (isRestaurant ? 'Add Menu Item' : 'Add Product')}</DialogTitle>
             </DialogHeader>
+            <ManualOrScanToggle scanMode={scanMode} onChange={setScanMode} />
+            {scanMode ? (
+              <CameraScannerView active={showItemForm && scanMode} onScan={handleBarcodeScan} />
+            ) : (
             <form onSubmit={handleItemSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Name</label>
@@ -380,7 +379,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Barcode</label>
-                <Input className="h-11" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} placeholder="Scan with Scan Barcode, or type the number" />
+                <Input className="h-11" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} placeholder="Tap Scan above, or type the number" />
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Description</label>
@@ -459,6 +458,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 </Button>
               </div>
             </form>
+            )}
           </DialogContent>
         </Dialog>
 

@@ -13,7 +13,8 @@ import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventor
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ScanBarcodeButton } from '@/components/scan-barcode-button';
+import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
+import { CameraScannerView } from '@/components/camera-scanner-view';
 import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus, Upload } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 import { PharmacyGrid } from './pharmacy-grid';
@@ -52,6 +53,7 @@ function ProductsPageContent() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [scanMode, setScanMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -213,6 +215,7 @@ function ProductsPageContent() {
   }
 
   const openCreateForm = () => {
+    setScanMode(false);
     setEditingId(null);
     setForm(emptyForm);
     setCustomFieldValues({});
@@ -220,6 +223,7 @@ function ProductsPageContent() {
   };
 
   const openEditForm = (p: Product & { custom_fields?: Record<string, any> }) => {
+    setScanMode(false);
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -240,18 +244,11 @@ function ProductsPageContent() {
     setShowForm(true);
   };
 
-  // Camera scan: an existing barcode/SKU opens that product for editing, an
-  // unknown one opens a blank form with the barcode already filled in.
+  // Scanning while the item dialog is open just fills the SKU/barcode field —
+  // same behavior as the pharmacy grid's scanner-gun handling.
   const handleBarcodeScan = (code: string) => {
-    const match = products.find((p) => p.sku === code);
-    if (match) {
-      openEditForm(match);
-    } else {
-      setEditingId(null);
-      setForm({ ...emptyForm, sku: code });
-      setCustomFieldValues({});
-      setShowForm(true);
-    }
+    setForm((f) => ({ ...f, sku: code }));
+    setScanMode(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,7 +332,6 @@ function ProductsPageContent() {
             >
               <Upload className="w-4 h-4" /> Bulk Upload
             </Button>
-            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add {entityName}
             </Button>
@@ -405,6 +401,7 @@ function ProductsPageContent() {
           open={showForm}
           onOpenChange={(open) => {
             setShowForm(open);
+            setScanMode(false);
             if (!open) {
               setEditingId(null);
               setForm(emptyForm);
@@ -415,6 +412,10 @@ function ProductsPageContent() {
             <DialogHeader>
               <DialogTitle className="text-xl">{editingId ? `Edit ${entityName}` : `New ${entityName}`}</DialogTitle>
             </DialogHeader>
+            <ManualOrScanToggle scanMode={scanMode} onChange={setScanMode} />
+            {scanMode ? (
+              <CameraScannerView active={showForm && scanMode} onScan={handleBarcodeScan} />
+            ) : (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <Input
                   placeholder={
@@ -588,6 +589,7 @@ function ProductsPageContent() {
                   )}
                 </div>
               </form>
+            )}
           </DialogContent>
         </Dialog>
 
