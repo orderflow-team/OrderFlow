@@ -12,6 +12,7 @@ import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { ClearModuleButton } from '@/components/clear-module-button';
+import { ScanBarcodeButton } from '@/components/scan-barcode-button';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface VolumeTier {
@@ -163,6 +164,19 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     setShowForm(true);
   };
 
+  // Camera scan: an existing barcode opens that item for editing, an unknown
+  // one opens a blank form with the barcode already filled in.
+  const handleBarcodeScan = (code: string) => {
+    const match = products.find((p) => p.barcode === code);
+    if (match) {
+      openEditForm(match);
+    } else {
+      setEditingId(null);
+      setForm({ ...emptyForm, barcode: code, category: categories[0]?.name || '' });
+      setShowForm(true);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessId) return;
@@ -306,6 +320,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" onClick={() => setShowBulkUpload(true)} className="gap-1.5">
               <Upload className="w-4 h-4" /> Bulk Upload
             </Button>
+            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button onClick={openCreateForm} className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-md">
               <Plus className="w-4 h-4" /> Add Bulk Product
             </Button>
@@ -387,6 +402,10 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">SKU / Batch Code</label>
                   <Input placeholder="e.g. WLS-SUG-50K" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Barcode</label>
+                  <Input placeholder="Scan with Scan Barcode, or type the number" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Packaging Unit</label>

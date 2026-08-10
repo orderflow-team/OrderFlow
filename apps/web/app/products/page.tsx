@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AppShell } from '@/components/app-shell';
@@ -14,6 +13,7 @@ import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventor
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
+import { ScanBarcodeButton } from '@/components/scan-barcode-button';
 import { Plus, Trash2, Package, Search, ChevronRight, Tag, FolderPlus, Upload } from 'lucide-react';
 import { MenuGrid } from './menu-grid';
 import { PharmacyGrid } from './pharmacy-grid';
@@ -216,7 +216,7 @@ function ProductsPageContent() {
     setEditingId(null);
     setForm(emptyForm);
     setCustomFieldValues({});
-    setShowForm((s) => (editingId ? true : !s));
+    setShowForm(true);
   };
 
   const openEditForm = (p: Product & { custom_fields?: Record<string, any> }) => {
@@ -238,6 +238,20 @@ function ProductsPageContent() {
     });
     setCustomFieldValues(p.custom_fields || {});
     setShowForm(true);
+  };
+
+  // Camera scan: an existing barcode/SKU opens that product for editing, an
+  // unknown one opens a blank form with the barcode already filled in.
+  const handleBarcodeScan = (code: string) => {
+    const match = products.find((p) => p.sku === code);
+    if (match) {
+      openEditForm(match);
+    } else {
+      setEditingId(null);
+      setForm({ ...emptyForm, sku: code });
+      setCustomFieldValues({});
+      setShowForm(true);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -312,21 +326,20 @@ function ProductsPageContent() {
       <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">{entityNamePlural}</h1>
-          {!showForm && (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setShowBulkUpload(true)}
-              >
-                <Upload className="w-4 h-4" /> Bulk Upload
-              </Button>
-              <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
-                <Plus className="w-4 h-4" /> Add {entityName}
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShowBulkUpload(true)}
+            >
+              <Upload className="w-4 h-4" /> Bulk Upload
+            </Button>
+            <ScanBarcodeButton onScan={handleBarcodeScan} />
+            <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
+              <Plus className="w-4 h-4" /> Add {entityName}
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -388,24 +401,21 @@ function ProductsPageContent() {
           {`Total: ${products.length} • Recent`}
         </p>
 
-        {showForm && (
-          <Card className="ring-white/50 glass-sheen-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{editingId ? `Edit ${entityName}` : `New ${entityName}`}</CardTitle>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setForm(emptyForm);
-                  setShowForm(false);
-                }}
-                className="text-xs font-medium text-slate-400 hover:text-slate-600"
-              >
-                Cancel
-              </button>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Dialog
+          open={showForm}
+          onOpenChange={(open) => {
+            setShowForm(open);
+            if (!open) {
+              setEditingId(null);
+              setForm(emptyForm);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl">{editingId ? `Edit ${entityName}` : `New ${entityName}`}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <Input
                   placeholder={
                     category === 'restaurant'
@@ -578,9 +588,8 @@ function ProductsPageContent() {
                   )}
                 </div>
               </form>
-            </CardContent>
-          </Card>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>

@@ -11,6 +11,7 @@ import { getDefaultItemCategories } from '@/lib/business-modules';
 import { getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 import { vibrateScanSuccess } from '@/lib/haptics';
+import { ScanBarcodeButton } from '@/components/scan-barcode-button';
 import { expiryStatus } from '@/lib/expiry-status';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
@@ -99,7 +100,10 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   };
   useEffect(() => () => { if (scanToastTimer.current) clearTimeout(scanToastTimer.current); }, []);
 
-  useBarcodeScanner((code) => {
+  // Shared by both scan input methods: a USB/Bluetooth scanner-gun (works on
+  // web and native, via useBarcodeScanner below) and the device camera (native
+  // only, via the ScanBarcodeButton rendered in the action bar).
+  const handleBarcodeScan = (code: string) => {
     vibrateScanSuccess();
     // With the medicine form open, a scan just fills the barcode field.
     if (showItemForm) {
@@ -124,7 +128,9 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
         }
       })
       .catch(() => showScanToast('Scan lookup failed', 'new'));
-  });
+  };
+
+  useBarcodeScanner(handleBarcodeScan);
 
   const loadData = async () => {
     setLoading(true);
@@ -335,6 +341,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
               <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
+            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Medicine
             </Button>

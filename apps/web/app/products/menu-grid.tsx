@@ -9,12 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getDefaultItemCategories } from '@/lib/business-modules';
+import { ScanBarcodeButton } from '@/components/scan-barcode-button';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
 
 interface Product {
   id: string;
   name: string;
   sku: string | null;
+  barcode: string | null;
   unit: string;
   selling_price: string | number;
   purchase_price: string | number | null;
@@ -59,6 +61,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     category: '',
     imageUrl: '',
     isAvailable: true,
+    barcode: '',
   });
 
   const [uploading, setUploading] = useState(false);
@@ -182,6 +185,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
       sellingPrice: Number(form.sellingPrice),
       category: form.category || undefined,
       isAvailable: form.isAvailable,
+      barcode: form.barcode || undefined,
       unit: 'piece',
       taxPercentage: 0,
       stockQuantity: 0,
@@ -234,6 +238,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
       category: p.category || '',
       imageUrl: p.image_url || '',
       isAvailable: p.is_available,
+      barcode: p.barcode || '',
     });
     setUploading(false);
     setUploadError('');
@@ -242,10 +247,25 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
   const openCreate = () => {
     setEditingItem(null);
-    setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true });
+    setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true, barcode: '' });
     setUploading(false);
     setUploadError('');
     setShowItemForm(true);
+  };
+
+  // Camera scan: an existing barcode opens that item for editing, an unknown
+  // one opens a blank form with the barcode already filled in.
+  const handleBarcodeScan = (code: string) => {
+    const match = products.find((p) => p.barcode === code);
+    if (match) {
+      openEdit(match);
+    } else {
+      setEditingItem(null);
+      setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true, barcode: code });
+      setUploading(false);
+      setUploadError('');
+      setShowItemForm(true);
+    }
   };
 
   useEffect(() => {
@@ -294,6 +314,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
             <Button variant="outline" className="h-11 gap-1.5" onClick={() => setShowBulkUpload(true)}>
               <Upload className="h-4 w-4" /> Bulk Upload
             </Button>
+            <ScanBarcodeButton onScan={handleBarcodeScan} />
             <Button className="h-11 gap-1.5" onClick={openCreate}>
               <Plus className="h-4 w-4" /> Add Item
             </Button>
@@ -356,6 +377,10 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Barcode</label>
+                <Input className="h-11" value={form.barcode} onChange={e => setForm({...form, barcode: e.target.value})} placeholder="Scan with Scan Barcode, or type the number" />
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Description</label>
