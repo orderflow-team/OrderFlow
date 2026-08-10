@@ -1297,17 +1297,12 @@ export class OrdersService {
       tax_amount: Number(item.tax_amount),
     })) as any[];
 
-    const { renderThermalReceiptHtml, renderA4ReceiptHtml } = require('../billing/templates/invoice.template');
-
-    if (business?.custom_settings?.receipt?.paperSize === 'a4') {
-      const { loadImageDataUri } = require('../../common/utils/image-data-uri.util');
-      const payments = await this.dataSource.getRepository(Payment).find({ where: { order_id: id } });
-      const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const logoDataUri = loadImageDataUri(business?.logo_url);
-      const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
-      return renderA4ReceiptHtml(dummyInvoice, mappedItems, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
-    }
-
-    return renderThermalReceiptHtml(dummyInvoice, mappedItems, business, customer, order);
+    const { renderA4ReceiptHtml } = require('../billing/templates/invoice.template');
+    const { loadImageDataUri } = require('../../common/utils/image-data-uri.util');
+    const payments = await this.dataSource.getRepository(Payment).find({ where: { order_id: id } });
+    const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const logoDataUri = loadImageDataUri(business?.logo_url);
+    const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
+    return renderA4ReceiptHtml(dummyInvoice, mappedItems, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
   }
 }

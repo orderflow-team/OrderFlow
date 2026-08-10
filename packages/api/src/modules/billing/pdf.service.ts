@@ -11,7 +11,7 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { InvoicesService } from './invoices.service';
-import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderThermalReceiptHtml, renderA4ReceiptHtml } from './templates/invoice.template';
+import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderA4ReceiptHtml } from './templates/invoice.template';
 import { loadImageDataUri } from '../../common/utils/image-data-uri.util';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
@@ -95,17 +95,13 @@ export class PdfService {
   }
 
   async getThermalReceiptHtml(invoiceId: string, businessId: string): Promise<string> {
-    const { invoice, items, business, customer, order, previousBalanceDue } = await this.loadInvoiceContext(invoiceId, businessId);
+    const { invoice, items, business, customer, order } = await this.loadInvoiceContext(invoiceId, businessId);
 
-    if (business?.custom_settings?.receipt?.paperSize === 'a4') {
-      const payments = order ? await this.paymentsRepository.find({ where: { order_id: order.id } }) : [];
-      const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const logoDataUri = loadImageDataUri(business?.logo_url);
-      const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
-      return renderA4ReceiptHtml(invoice, items, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
-    }
-
-    return renderThermalReceiptHtml(invoice, items, business, customer, order, previousBalanceDue);
+    const payments = order ? await this.paymentsRepository.find({ where: { order_id: order.id } }) : [];
+    const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const logoDataUri = loadImageDataUri(business?.logo_url);
+    const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
+    return renderA4ReceiptHtml(invoice, items, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
   }
 
   /**

@@ -13,7 +13,7 @@ import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
 import { useOfflineStore } from '@/lib/offline-store';
-import { buildReceiptHtml, buildA4ReceiptHtml, printReceiptHtml } from '@/lib/receipt-template';
+import { buildA4ReceiptHtml, printReceiptHtml } from '@/lib/receipt-template';
 import {
   Plus, X, ShoppingCart, FileText, Trash2,
   IndianRupee, CheckCircle2, Clock, Package, Truck, XCircle,
@@ -481,8 +481,7 @@ export function GenericOrders() {
           totalAmount: Number(drawerOrder.total_amount),
           queued: isUnsyncedOrder,
         };
-        const isA4 = (business as any)?.custom_settings?.receipt?.paperSize === 'a4';
-        printReceiptHtml(isA4 ? buildA4ReceiptHtml(receiptData) : buildReceiptHtml(receiptData));
+        printReceiptHtml(buildA4ReceiptHtml(receiptData));
       } else {
         const res = await apiClient.get(`/api/orders/${drawerOrder.id}/receipt`, { params: { businessId } });
         printReceiptHtml(res.data);
