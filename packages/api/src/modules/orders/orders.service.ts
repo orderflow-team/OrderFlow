@@ -10,6 +10,7 @@ import { Ledger } from '../../database/entities/ledger.entity';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
 import { Stock } from '../../database/entities/stock.entity';
+import { ProductBatch } from '../../database/entities/product-batch.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
@@ -388,6 +389,69 @@ export class OrdersService {
    * available) so the caller can price/persist the order item against what
    * was really sold.
    */
+  /**
+   * Draws `quantity` units down from a product's ProductBatch rows,
+   * soonest-expiry first (FEFO), then re-derives Product.batch_number/
+   * expiry_date from whichever batch now has the soonest expiry among those
+   * still with stock. A no-op for products with no batch rows (non-pharmacy,
+   * or pharmacy stock never received through a batch-tracked PO line) —
+   * that stock simply isn't batch-tracked, same as today.
+   */
+  private async consumeBatchesFefo(manager: EntityManager, productId: string, quantity: number) {
+    let remaining = quantity;
+    const batches = await manager
+      .createQueryBuilder(ProductBatch, 'batch')
+      .where('batch.product_id = :productId', { productId })
+      .andWhere('batch.quantity > 0')
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .getMany();
+
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const take = Math.min(Number(batch.quantity), remaining);
+      await manager.update(ProductBatch, { id: batch.id }, { quantity: Number(batch.quantity) - take });
+      remaining -= take;
+    }
+
+    if (batches.length > 0) {
+      await this.syncProductBatchSummary(manager, productId);
+    }
+  }
+
+  /**
+   * Credits returned/deleted-order stock back into whichever batch currently
+   * has the soonest expiry — an approximation (not necessarily the exact
+   * batch it was originally sold from, which would need a sale->batch
+   * allocation table), but keeps batch totals from drifting away from
+   * Product.stock_quantity on every return.
+   */
+  private async creditBackToSoonestBatch(manager: EntityManager, productId: string, quantity: number) {
+    const target = await manager
+      .createQueryBuilder(ProductBatch, 'batch')
+      .where('batch.product_id = :productId', { productId })
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .limit(1)
+      .getOne();
+    if (!target) return;
+    await manager.update(ProductBatch, { id: target.id }, { quantity: Number(target.quantity) + quantity });
+    await this.syncProductBatchSummary(manager, productId);
+  }
+
+  private async syncProductBatchSummary(manager: EntityManager, productId: string) {
+    const soonest = await manager
+      .createQueryBuilder(ProductBatch, 'batch')
+      .where('batch.product_id = :productId', { productId })
+      .andWhere('batch.quantity > 0')
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .limit(1)
+      .getOne();
+
+    await manager.update(Product, { id: productId }, {
+      batch_number: soonest?.batch_number ?? null,
+      expiry_date: soonest?.expiry_date ?? null,
+    });
+  }
+
   private async decrementStock(
     manager: import('typeorm').EntityManager,
     businessId: string,
@@ -442,6 +506,8 @@ export class OrdersService {
         notes: 'Sold via order',
       }),
     );
+
+    await this.consumeBatchesFefo(manager, productId, fulfilled);
 
     return { fulfilled, productName: product.name };
   }
@@ -542,6 +608,7 @@ export class OrdersService {
       for (const item of order.items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
+          await this.creditBackToSoonestBatch(manager, item.product_id, Number(item.quantity));
         }
       }
 
@@ -840,6 +907,7 @@ export class OrdersService {
               notes: 'Restored via return',
             }),
           );
+          await this.creditBackToSoonestBatch(manager, item.product_id, qty);
         }
 
         // Track how many units of this line item have been returned so far

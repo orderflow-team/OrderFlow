@@ -21,4 +21,15 @@ export class AdjustStockDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // When set, also adjusts this specific ProductBatch's remaining quantity
+  // (in addition to the product's aggregate stock_quantity) — used by the
+  // per-batch "write off" action in the pharmacy medicine catalog.
+  @IsOptional()
+  @IsUUID()
+  batchId?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

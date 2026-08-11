@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Business } from './business.entity';
 import { Supplier } from './supplier.entity';
+import { ProductBatch } from './product-batch.entity';
 
 @Entity('products')
 export class Product {
@@ -50,6 +51,11 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock_quantity: number;
 
+  // Auto-synced summary of this product's ProductBatch rows: whichever
+  // batch has the soonest expiry among batches that still have stock (see
+  // InventoryService.syncProductBatchSummary). Not the source of truth —
+  // that's the `batches` relation below — kept here so existing single-value
+  // displays/queries keep working without a join.
   @Column({ type: 'varchar', length: 100, nullable: true })
   batch_number: string;
 
@@ -64,6 +70,9 @@ export class Product {
   @ManyToOne(() => Supplier)
   @JoinColumn({ name: 'last_supplier_id' })
   last_supplier: Supplier;
+
+  @OneToMany(() => ProductBatch, (batch) => batch.product)
+  batches: ProductBatch[];
 
   // Generic/salt composition, e.g. "Paracetamol 500mg" — pharmacy-specific.
   @Column({ type: 'varchar', length: 255, nullable: true })

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload, Sparkles } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload, Sparkles, ChevronDown, ChevronRight, PackageMinus } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { fetchBarcodeSuggestion } from '@/lib/barcode-suggestion';
 import { AppShell } from '@/components/app-shell';
@@ -42,6 +42,15 @@ interface Category {
   name: string;
 }
 
+interface Batch {
+  id: string;
+  batch_number: string | null;
+  expiry_date: string | null;
+  quantity: string | number;
+  initial_quantity: string | number;
+  received_at: string;
+}
+
 export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -75,6 +84,67 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [categoryName, setCategoryName] = useState('');
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Per-product batch cache (lazy-loaded on expand or on opening Edit), plus
+  // which card currently has its batch list expanded.
+  const [batchesByProduct, setBatchesByProduct] = useState<Record<string, Batch[]>>({});
+  const [loadingBatchesFor, setLoadingBatchesFor] = useState<string | null>(null);
+  const [expandedBatchesFor, setExpandedBatchesFor] = useState<string | null>(null);
+  const [editingBatches, setEditingBatches] = useState<Batch[]>([]);
+  const [writeOffFor, setWriteOffFor] = useState<string | null>(null);
+  const [writeOffQty, setWriteOffQty] = useState('');
+  const [writeOffReason, setWriteOffReason] = useState<'expired' | 'damaged' | 'other'>('expired');
+
+  const loadBatches = async (productId: string): Promise<Batch[]> => {
+    if (batchesByProduct[productId]) return batchesByProduct[productId];
+    setLoadingBatchesFor(productId);
+    try {
+      const res = await apiClient.get<Batch[]>(`/api/inventory/products/${productId}/batches`, { params: { businessId } });
+      setBatchesByProduct((prev) => ({ ...prev, [productId]: res.data }));
+      return res.data;
+    } catch (err) {
+      console.error('Failed to load batches', err);
+      return [];
+    } finally {
+      setLoadingBatchesFor(null);
+    }
+  };
+
+  const toggleBatches = async (productId: string) => {
+    if (expandedBatchesFor === productId) {
+      setExpandedBatchesFor(null);
+      return;
+    }
+    setExpandedBatchesFor(productId);
+    await loadBatches(productId);
+  };
+
+  const submitWriteOff = async (productId: string, batchId: string) => {
+    const qty = Number(writeOffQty);
+    if (!qty || qty <= 0) return;
+    try {
+      await apiClient.post('/api/inventory/adjust', {
+        businessId,
+        productId,
+        batchId,
+        type: 'OUT',
+        quantity: qty,
+        reason: writeOffReason,
+        notes: 'Batch write-off',
+      });
+      setWriteOffFor(null);
+      setWriteOffQty('');
+      setBatchesByProduct((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      await loadBatches(productId);
+      loadData();
+    } catch (err) {
+      console.error('Failed to write off batch', err);
+    }
+  };
 
   const emptyForm = {
     name: '',
@@ -318,10 +388,11 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     }
   };
 
-  const openEdit = (p: Product) => {
+  const openEdit = async (p: Product) => {
     setScanMode(false);
     setSuggestedName('');
     setEditingItem(p);
+    setEditingBatches([]);
     setForm({
       name: p.name,
       brand: p.brand || '',
@@ -338,12 +409,14 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       description: p.description || '',
     });
     setShowItemForm(true);
+    setEditingBatches(await loadBatches(p.id));
   };
 
   const openCreate = () => {
     setScanMode(false);
     setSuggestedName('');
     setEditingItem(null);
+    setEditingBatches([]);
     setForm(emptyForm);
     setShowItemForm(true);
   };
@@ -496,14 +569,23 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                   <Input className="h-11" type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
                 </div>
               )}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Batch Number</label>
-                <Input className="h-11" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. CR2024A" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Expiry Date</label>
-                <Input className="h-11" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
-              </div>
+              {!editingItem || editingBatches.length === 0 ? (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Batch Number</label>
+                    <Input className="h-11" value={form.batchNumber} onChange={(e) => setForm({ ...form, batchNumber: e.target.value })} placeholder="e.g. CR2024A" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700">Expiry Date</label>
+                    <Input className="h-11" type="date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5 md:col-span-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3 ring-1 ring-slate-100">
+                  Batch &amp; expiry are managed per-batch now — receive a Purchase Order or use the batch list on this
+                  medicine's card to add stock, and the write-off action there to remove expired/damaged units.
+                </div>
+              )}
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5"><ScanBarcode className="w-4 h-4 text-slate-400" /> Barcode</label>
                 <Input className="h-11" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Scan with the scanner gun, or type the number" />
@@ -594,10 +676,12 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                       <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Stock</p>
                       <p className="font-semibold text-slate-700 text-sm">{p.stock_quantity} units</p>
                     </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Batch</p>
+                    <button type="button" className="text-left" onClick={() => toggleBatches(p.id)}>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold flex items-center gap-0.5">
+                        Batch {expandedBatchesFor === p.id ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </p>
                       <p className="font-medium text-slate-600 text-sm truncate">{p.batch_number || '—'}</p>
-                    </div>
+                    </button>
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Category</p>
                       <p className="font-medium text-slate-600 text-sm truncate flex items-center gap-1">
@@ -611,6 +695,81 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                       </p>
                     </div>
                   </div>
+                  {expandedBatchesFor === p.id && (
+                    <div className="mb-2 rounded-xl ring-1 ring-white/50 bg-white/30 backdrop-blur-md overflow-hidden">
+                      {loadingBatchesFor === p.id ? (
+                        <p className="text-xs text-slate-400 p-3">Loading batches…</p>
+                      ) : (batchesByProduct[p.id]?.length ?? 0) === 0 ? (
+                        <p className="text-xs text-slate-400 p-3">No batches recorded yet — receive a Purchase Order to start tracking.</p>
+                      ) : (
+                        <table className="w-full text-xs text-left">
+                          <thead className="text-[10px] text-slate-400 uppercase bg-white/30 border-b border-white/40">
+                            <tr>
+                              <th className="px-3 py-1.5">Batch</th>
+                              <th className="px-3 py-1.5">Expiry</th>
+                              <th className="px-3 py-1.5 text-right">Qty</th>
+                              <th className="px-3 py-1.5"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {batchesByProduct[p.id]!.map((b) => (
+                              <Fragment key={b.id}>
+                                <tr>
+                                  <td className="px-3 py-1.5 text-slate-600">{b.batch_number || '—'}</td>
+                                  <td className="px-3 py-1.5 text-slate-500">
+                                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-medium text-slate-700">{Number(b.quantity)}</td>
+                                  <td className="px-3 py-1.5 text-right">
+                                    {Number(b.quantity) > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
+                                        className="text-rose-500 hover:text-rose-700"
+                                        title="Write off damaged/expired stock"
+                                      >
+                                        <PackageMinus className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                                {writeOffFor === b.id && (
+                                  <tr className="bg-rose-50/40">
+                                    <td colSpan={4} className="px-3 py-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Input
+                                          type="number"
+                                          placeholder="Qty"
+                                          value={writeOffQty}
+                                          onChange={(e) => setWriteOffQty(e.target.value)}
+                                          className="h-8 w-20 text-xs"
+                                        />
+                                        <select
+                                          value={writeOffReason}
+                                          onChange={(e) => setWriteOffReason(e.target.value as 'expired' | 'damaged' | 'other')}
+                                          className="h-8 text-xs rounded-lg border border-slate-200 px-2"
+                                        >
+                                          <option value="expired">Expired</option>
+                                          <option value="damaged">Damaged</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <Button type="button" size="sm" className="h-8 text-xs bg-rose-600 hover:bg-rose-700 text-white" onClick={() => submitWriteOff(p.id, b.id)}>
+                                          Write off
+                                        </Button>
+                                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setWriteOffFor(null)}>
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                   {p.description && (
                     <p className="text-sm text-slate-500 mb-2 flex-1 line-clamp-2">{p.description}</p>
                   )}

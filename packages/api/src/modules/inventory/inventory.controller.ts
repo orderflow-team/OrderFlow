@@ -70,6 +70,11 @@ export class InventoryController {
     return this.inventoryService.adjustStock(dto);
   }
 
+  @Get('products/:productId/batches')
+  findProductBatches(@Param('productId') productId: string, @Query('businessId') businessId: string) {
+    return this.inventoryService.findProductBatches(productId, businessId);
+  }
+
   @Get('stock-history')
   findStockHistory(@Query('businessId') businessId: string, @Query('productId') productId?: string) {
     return this.inventoryService.findStockHistory(businessId, productId);

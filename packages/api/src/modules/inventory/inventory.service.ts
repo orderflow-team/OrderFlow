@@ -5,6 +5,7 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
 import { Product } from '../../database/entities/product.entity';
+import { ProductBatch } from '../../database/entities/product-batch.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
@@ -27,8 +28,134 @@ export class InventoryService {
     @InjectRepository(PurchaseItem) private purchaseItemsRepository: Repository<PurchaseItem>,
     @InjectRepository(Stock) private stocksRepository: Repository<Stock>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
+    @InjectRepository(ProductBatch) private productBatchesRepository: Repository<ProductBatch>,
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * Re-derives Product.batch_number/expiry_date from the batch (among this
+   * product's ProductBatch rows that still have stock) with the soonest
+   * expiry — called after any batch is created, topped up, or drawn down, so
+   * the flat summary fields (and everything that reads them: pharmacy-grid,
+   * dashboard cards) always reflect the most urgent batch rather than
+   * whichever was most recently received.
+   */
+  private async syncProductBatchSummary(manager: EntityManager, productId: string) {
+    const soonest = await manager
+      .createQueryBuilder(ProductBatch, 'batch')
+      .where('batch.product_id = :productId', { productId })
+      .andWhere('batch.quantity > 0')
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .limit(1)
+      .getOne();
+
+    await manager.update(Product, { id: productId }, {
+      batch_number: soonest?.batch_number ?? null,
+      expiry_date: soonest?.expiry_date ?? null,
+    });
+  }
+
+  /**
+   * Find-or-create the ProductBatch a PO line's receipt belongs to (matched
+   * on product_id + batch_number + expiry_date — the same physical batch
+   * arriving twice tops up rather than duplicating), crediting `quantity`
+   * units into it. No-ops when the line carries neither a batch number nor
+   * an expiry date (non-pharmacy businesses, or a pharmacy line entered
+   * without either) — those products simply aren't batch-tracked.
+   */
+  private async creditReceivedBatch(
+    manager: EntityManager,
+    params: {
+      businessId: string;
+      productId: string;
+      batchNumber: string | null | undefined;
+      expiryDate: Date | null | undefined;
+      quantity: number;
+      purchasePrice: number | null | undefined;
+      supplierId: string | null | undefined;
+      purchaseOrderId: string;
+    },
+  ) {
+    const { businessId, productId, batchNumber, expiryDate, quantity, purchasePrice, supplierId, purchaseOrderId } = params;
+    if (!batchNumber && !expiryDate) return;
+
+    const existing = await manager.findOne(ProductBatch, {
+      where: {
+        product_id: productId,
+        batch_number: batchNumber ?? null,
+        expiry_date: expiryDate ?? null,
+      },
+    });
+
+    if (existing) {
+      await manager.update(ProductBatch, { id: existing.id }, {
+        quantity: () => `quantity + ${quantity}`,
+        initial_quantity: () => `initial_quantity + ${quantity}`,
+        ...(purchasePrice != null ? { purchase_price: purchasePrice } : {}),
+      });
+    } else {
+      const batch = manager.create(ProductBatch, {
+        business_id: businessId,
+        product_id: productId,
+        batch_number: batchNumber ?? null,
+        expiry_date: expiryDate ?? null,
+        quantity,
+        initial_quantity: quantity,
+        purchase_price: purchasePrice ?? null,
+        supplier_id: supplierId ?? null,
+        purchase_order_id: purchaseOrderId,
+      });
+      await manager.save(batch);
+    }
+
+    await this.syncProductBatchSummary(manager, productId);
+  }
+
+  /**
+   * Applies a quantity delta (positive or negative) to the ProductBatch
+   * matching product_id + batch_number + expiry_date, used when an
+   * already-received PO's line items are edited. Creates the batch if a
+   * positive delta doesn't match an existing one (e.g. batch details were
+   * added on edit); clamps at 0 rather than going negative (extra units
+   * beyond what a since-modified/depleted batch has are simply not
+   * batch-tracked, matching how un-batched stock already behaves).
+   */
+  private async applyBatchDelta(
+    manager: EntityManager,
+    params: {
+      businessId: string;
+      productId: string;
+      batchNumber: string | null | undefined;
+      expiryDate: Date | null | undefined;
+      delta: number;
+      purchaseOrderId: string;
+    },
+  ) {
+    const { businessId, productId, batchNumber, expiryDate, delta, purchaseOrderId } = params;
+    if (!batchNumber && !expiryDate) return;
+
+    const existing = await manager.findOne(ProductBatch, {
+      where: { product_id: productId, batch_number: batchNumber ?? null, expiry_date: expiryDate ?? null },
+    });
+
+    if (existing) {
+      const newQty = Math.max(0, Number(existing.quantity) + delta);
+      await manager.update(ProductBatch, { id: existing.id }, { quantity: newQty });
+    } else if (delta > 0) {
+      const batch = manager.create(ProductBatch, {
+        business_id: businessId,
+        product_id: productId,
+        batch_number: batchNumber ?? null,
+        expiry_date: expiryDate ?? null,
+        quantity: delta,
+        initial_quantity: delta,
+        purchase_order_id: purchaseOrderId,
+      });
+      await manager.save(batch);
+    }
+
+    await this.syncProductBatchSummary(manager, productId);
+  }
 
   async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
     return this.dataSource.transaction(async (manager) => {
@@ -131,17 +258,27 @@ export class InventoryService {
       for (const item of items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
-          // Set is_available to true since stock was added, and update latest batch/expiry/last-supplier if present.
+          // Set is_available to true since stock was added, and update last-supplier if present.
+          // batch_number/expiry_date are no longer set directly here — creditReceivedBatch
+          // below credits a ProductBatch row and re-derives them from the soonest-expiry batch.
           await manager.update(
             Product,
             { id: item.product_id },
             {
               is_available: true,
-              ...(item.batch_number ? { batch_number: item.batch_number } : {}),
-              ...(item.expiry_date ? { expiry_date: item.expiry_date } : {}),
               ...(item.supplier_id ? { last_supplier_id: item.supplier_id } : {}),
             },
           );
+          await this.creditReceivedBatch(manager, {
+            businessId,
+            productId: item.product_id,
+            batchNumber: item.batch_number,
+            expiryDate: item.expiry_date,
+            quantity: Number(item.quantity),
+            purchasePrice: item.unit_price != null ? Number(item.unit_price) : null,
+            supplierId: item.supplier_id ?? order.supplier_id,
+            purchaseOrderId: order.id,
+          });
         }
         const stock = manager.create(Stock, {
           business_id: businessId,
@@ -245,17 +382,31 @@ export class InventoryService {
           if (!r.product_id) continue;
           const delta = -Number(r.quantity);
           await this.applyStockDelta(manager, businessId, order.order_number, r.product_id, delta);
+          await this.applyBatchDelta(manager, {
+            businessId,
+            productId: r.product_id,
+            batchNumber: r.batch_number,
+            expiryDate: r.expiry_date,
+            delta,
+            purchaseOrderId: order.id,
+          });
         }
         for (const { item, existing, qtyDelta } of priced) {
           if (!item.productId || qtyDelta === 0) continue;
           await this.applyStockDelta(manager, businessId, order.order_number, item.productId, qtyDelta);
+          await this.applyBatchDelta(manager, {
+            businessId,
+            productId: item.productId,
+            batchNumber: item.batchNumber ?? existing?.batch_number,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate) : existing?.expiry_date,
+            delta: qtyDelta,
+            purchaseOrderId: order.id,
+          });
           const supplierId = item.supplierId ?? existing?.supplier_id;
           await manager.update(
             Product,
             { id: item.productId },
             {
-              ...(item.batchNumber ? { batch_number: item.batchNumber } : {}),
-              ...(item.expiryDate ? { expiry_date: new Date(item.expiryDate) } : {}),
               ...(supplierId ? { last_supplier_id: supplierId } : {}),
             },
           );
@@ -349,16 +500,40 @@ export class InventoryService {
         { is_available: newStock > 0 },
       );
 
+      if (dto.batchId) {
+        const batch = await manager.findOne(ProductBatch, {
+          where: { id: dto.batchId, business_id: dto.businessId, product_id: dto.productId },
+        });
+        if (!batch) {
+          throw new NotFoundException('Batch not found');
+        }
+        if (dto.type === 'OUT' && Number(batch.quantity) < dto.quantity) {
+          throw new BadRequestException('Insufficient quantity remaining in this batch');
+        }
+        const newBatchQty = Number(batch.quantity) + delta;
+        await manager.update(ProductBatch, { id: batch.id }, { quantity: newBatchQty });
+        await this.syncProductBatchSummary(manager, dto.productId);
+      }
+
       const stock = manager.create(Stock, {
         business_id: dto.businessId,
         product_id: dto.productId,
         type: dto.type,
         quantity: dto.quantity,
         reference: dto.reference,
-        notes: dto.notes,
+        notes: dto.reason ? `${dto.notes ?? ''} (${dto.reason})`.trim() : dto.notes,
       });
       return manager.save(stock);
     });
+  }
+
+  findProductBatches(productId: string, businessId: string) {
+    return this.productBatchesRepository
+      .createQueryBuilder('batch')
+      .where('batch.product_id = :productId', { productId })
+      .andWhere('batch.business_id = :businessId', { businessId })
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .getMany();
   }
 
   findStockHistory(businessId: string, productId?: string) {

@@ -15,6 +15,7 @@ export * from './order-item.entity';
 export * from './order.entity';
 export * from './payment.entity';
 export * from './price-history.entity';
+export * from './product-batch.entity';
 export * from './product-variant.entity';
 export * from './product.entity';
 export * from './purchase-item.entity';

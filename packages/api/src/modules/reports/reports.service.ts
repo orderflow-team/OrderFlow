@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
+import { ProductBatch } from '../../database/entities/product-batch.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
@@ -31,6 +32,7 @@ export class ReportsService {
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
+    @InjectRepository(ProductBatch) private productBatchesRepository: Repository<ProductBatch>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     @InjectRepository(PurchaseOrder) private purchaseOrdersRepository: Repository<PurchaseOrder>,
     @InjectRepository(PurchaseItem) private purchaseItemsRepository: Repository<PurchaseItem>,
@@ -103,15 +105,20 @@ export class ReportsService {
             .getMany()
         : Promise.resolve([]),
       showExpiry
-        ? this.productsRepository
-            .createQueryBuilder('product')
-            .where('product.business_id = :businessId', { businessId })
-            .andWhere('product.expiry_date IS NOT NULL')
-            .andWhere('product.expiry_date >= :today', { today: new Date() })
-            .andWhere(`product.expiry_date <= :soon`, { soon: this.daysFromNow(30) })
-            .orderBy('product.expiry_date', 'ASC')
+        ? this.productBatchesRepository
+            .createQueryBuilder('batch')
+            .innerJoin('batch.product', 'product')
+            .where('batch.business_id = :businessId', { businessId })
+            .andWhere('batch.quantity > 0')
+            .andWhere('batch.expiry_date IS NOT NULL')
+            .andWhere('batch.expiry_date >= :today', { today: new Date() })
+            .andWhere('batch.expiry_date <= :soon', { soon: this.daysFromNow(30) })
+            .select('batch.id', 'id')
+            .addSelect('product.name', 'name')
+            .addSelect('batch.expiry_date', 'expiry_date')
+            .orderBy('batch.expiry_date', 'ASC')
             .limit(10)
-            .getMany()
+            .getRawMany()
         : Promise.resolve([]),
       this.orderItemsRepository
         .createQueryBuilder('item')
@@ -443,15 +450,23 @@ export class ReportsService {
             .getMany()
         : Promise.resolve([]),
       showExpiry
-        ? this.productsRepository
-            .createQueryBuilder('product')
-            .where('product.business_id = :businessId', { businessId })
-            .andWhere('product.expiry_date IS NOT NULL')
-            .andWhere('product.expiry_date >= :minDate', { minDate: this.daysFromNow(90) })
-            .andWhere('product.expiry_date <= :maxDate', { maxDate: this.daysFromNow(180) })
-            .orderBy('product.expiry_date', 'ASC')
+        ? this.productBatchesRepository
+            .createQueryBuilder('batch')
+            .innerJoin('batch.product', 'product')
+            .where('batch.business_id = :businessId', { businessId })
+            .andWhere('batch.quantity > 0')
+            .andWhere('batch.expiry_date IS NOT NULL')
+            .andWhere('batch.expiry_date >= :minDate', { minDate: this.daysFromNow(90) })
+            .andWhere('batch.expiry_date <= :maxDate', { maxDate: this.daysFromNow(180) })
+            .select('batch.id', 'id')
+            .addSelect('product.name', 'name')
+            .addSelect('batch.batch_number', 'batch_number')
+            .addSelect('batch.expiry_date', 'expiry_date')
+            .addSelect('batch.quantity', 'stock_quantity')
+            .addSelect('batch.purchase_price', 'purchase_price')
+            .orderBy('batch.expiry_date', 'ASC')
             .limit(10)
-            .getMany()
+            .getRawMany()
         : Promise.resolve([]),
       this.topCustomersSince(businessId, chartSince),
       this.newVsReturningSince(businessId, chartSince),
@@ -1246,7 +1261,9 @@ export class ReportsService {
    */
   private buildActionItems(
     reorderSuggestions: { id: string; name: string; stockQuantity: number; velocityPerDay: number; daysLeft: number | null }[],
-    expiringSoon: Product[],
+    // One row per near-expiry batch (not per product) — id is the batch id,
+    // stock_quantity/purchase_price are that specific batch's own figures.
+    expiringSoon: { id: string; name: string; batch_number: string | null; expiry_date: string | null; stock_quantity: number; purchase_price: number | null }[],
     slowMoving: { id: string; name: string; stockQuantity: number; tiedUpValue: number }[],
     creditExposure: { id: string; name: string; outstandingAmount: number; creditLimit: number; utilizationPercent: number }[],
   ) {
