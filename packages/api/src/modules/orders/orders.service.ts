@@ -40,8 +40,9 @@ export class OrdersService {
    * against a just-billed order, up to whatever's still unpaid on it. Called
    * right after a debit is posted so credit from a prior overpayment is spent
    * automatically instead of sitting idle while new debt piles up alongside it.
-   * Returns true if the order is now fully covered (caller may want to flip
-   * its status to 'paid').
+   * Bookkeeping only — deliberately never used to change the order's own
+   * status, which should only ever reflect what was explicitly requested.
+   * Returns true if the order is now fully covered by the credit applied.
    */
   private async applyAdvanceCredit(
     manager: EntityManager,
@@ -765,13 +766,11 @@ export class OrdersService {
           );
 
           // Spend any advance credit against this new debt right away rather
-          // than leaving it idle. If it fully covers the order, treat the
-          // requested status as 'paid' so the rest of this method (price
-          // history, table release) runs the same as an explicit pay-off.
-          const fullyCovered = await this.applyAdvanceCredit(manager, businessId, order.customer_id, order);
-          if (fullyCovered) {
-            dto.status = 'paid';
-          }
+          // than leaving it idle — but never let this silently promote the
+          // order past whatever status was actually requested. The caller's
+          // explicit choice (e.g. "confirmed"/unpaid) always wins; credit
+          // application is bookkeeping only here, not a status change.
+          await this.applyAdvanceCredit(manager, businessId, order.customer_id, order);
         } else if (wasBilled && !isBilled) {
           // Billed status exited (e.g. cancelled or reverted to draft): decrement outstanding by remaining unpaid
           const payments = await manager.find(Payment, { where: { order_id: id } });
@@ -1297,11 +1296,9 @@ export class OrdersService {
             }),
           );
           if (diff > 0) {
-            const fullyCovered = await this.applyAdvanceCredit(manager, businessId, order.customer_id, savedOrder);
-            if (fullyCovered) {
-              savedOrder.status = 'paid';
-              await manager.save(savedOrder);
-            }
+            // Bookkeeping only — never silently promotes the order's own
+            // status (see updateStatus for the same reasoning).
+            await this.applyAdvanceCredit(manager, businessId, order.customer_id, savedOrder);
           }
         }
       }
