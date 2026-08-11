@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, Coffee, Upload } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, Coffee, Upload, Sparkles } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
+import { fetchBarcodeSuggestion } from '@/lib/barcode-suggestion';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -68,6 +69,9 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  // Name of the cross-business barcode suggestion currently applied, so the
+  // hint below Name only shows while the user hasn't edited it away.
+  const [suggestedName, setSuggestedName] = useState('');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -233,6 +237,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
   const openEdit = (p: Product) => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingItem(p);
     setForm({
       name: p.name,
@@ -250,6 +255,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
 
   const openCreate = () => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingItem(null);
     setForm({ name: '', description: '', sellingPrice: '', category: '', imageUrl: '', isAvailable: true, barcode: '' });
     setUploading(false);
@@ -271,12 +277,32 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         } else {
           setForm((f) => ({ ...f, barcode: code }));
           setScanMode(false);
+          applyBarcodeSuggestion(code);
         }
       })
       .catch(() => {
         setForm((f) => ({ ...f, barcode: code }));
         setScanMode(false);
       });
+  };
+
+  // Barcode unrecognized in this business's own menu — check whether any
+  // other business has already named a product for it (shared_barcode_catalog)
+  // and prefill name/price from that, still fully editable.
+  const applyBarcodeSuggestion = (code: string) => {
+    setSuggestedName('');
+    fetchBarcodeSuggestion(code).then((suggestion) => {
+      if (!suggestion) return;
+      setForm((f) => {
+        if (f.barcode !== code || f.name) return f;
+        return {
+          ...f,
+          name: suggestion.name,
+          sellingPrice: suggestion.suggestedPrice != null ? String(suggestion.suggestedPrice) : f.sellingPrice,
+        };
+      });
+      setSuggestedName(suggestion.name);
+    });
   };
 
   useEffect(() => {
@@ -374,6 +400,11 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Name</label>
                 <Input className="h-11" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                {suggestedName && form.name === suggestedName && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                    <Sparkles className="w-3.5 h-3.5" /> Suggested from another business — edit if needed
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Price (₹)</label>

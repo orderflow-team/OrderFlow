@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Trash2, Plus, FolderPlus, Tag, Package, Layers, ShieldCheck, TrendingDown, Box, Layers3, Sparkles, Upload } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+import { fetchBarcodeSuggestion } from '@/lib/barcode-suggestion';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -82,6 +83,9 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm);
+  // Name of the cross-business barcode suggestion currently applied, so the
+  // hint below Name only shows while the user hasn't edited it away.
+  const [suggestedName, setSuggestedName] = useState('');
 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -137,6 +141,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
 
   const openCreateForm = () => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingId(null);
     setForm({ ...emptyForm, category: categories[0]?.name || '' });
     setShowForm(true);
@@ -144,6 +149,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
 
   const openEditForm = (p: Product) => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -179,7 +185,27 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     } else {
       setForm((f) => ({ ...f, barcode: code }));
       setScanMode(false);
+      applyBarcodeSuggestion(code);
     }
+  };
+
+  // Barcode unrecognized in this business's own catalog — check whether any
+  // other business has already named a product for it (shared_barcode_catalog)
+  // and prefill name/price from that, still fully editable.
+  const applyBarcodeSuggestion = (code: string) => {
+    setSuggestedName('');
+    fetchBarcodeSuggestion(code).then((suggestion) => {
+      if (!suggestion) return;
+      setForm((f) => {
+        if (f.barcode !== code || f.name) return f;
+        return {
+          ...f,
+          name: suggestion.name,
+          sellingPrice: suggestion.suggestedPrice != null ? String(suggestion.suggestedPrice) : f.sellingPrice,
+        };
+      });
+      setSuggestedName(suggestion.name);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -389,6 +415,11 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                   />
+                  {suggestedName && form.name === suggestedName && (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                      <Sparkles className="w-3.5 h-3.5" /> Suggested from another business — edit if needed
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Brand / Manufacturer</label>

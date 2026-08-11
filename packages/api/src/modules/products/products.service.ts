@@ -135,6 +135,12 @@ export class ProductsService {
       );
       const savedVariants = await manager.save(ProductVariant, variants);
 
+      for (const v of savedVariants) {
+        if (v.barcode) {
+          await this.contributeToSharedBarcodeCatalog(v.barcode, `${savedProduct.name} (${v.name})`, v.selling_price);
+        }
+      }
+
       return { ...savedProduct, variants: savedVariants };
     });
   }

@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload, Sparkles } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+import { fetchBarcodeSuggestion } from '@/lib/barcode-suggestion';
 import { AppShell } from '@/components/app-shell';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
@@ -91,6 +92,10 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     description: '',
   };
   const [form, setForm] = useState(emptyForm);
+  // Name of the cross-business suggestion currently applied to the form (if
+  // any), so the hint below the Medicine Name field only shows while the
+  // user hasn't edited it away.
+  const [suggestedName, setSuggestedName] = useState('');
 
   // Transient feedback for barcode scans; fixed-position so it never shifts layout.
   const [scanToast, setScanToast] = useState<{ text: string; tone: 'ok' | 'new' } | null>(null);
@@ -122,6 +127,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
             setForm((f) => ({ ...f, barcode: code }));
             setScanMode(false);
             showScanToast(`Barcode captured: ${code}`, 'ok');
+            applyBarcodeSuggestion(code);
           }
         })
         .catch(() => {
@@ -145,9 +151,30 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           setForm({ ...emptyForm, barcode: code });
           setShowItemForm(true);
           showScanToast(`New barcode ${code} — add this medicine`, 'new');
+          applyBarcodeSuggestion(code);
         }
       })
       .catch(() => showScanToast('Scan lookup failed', 'new'));
+  };
+
+  // Barcode unrecognized in this business's own catalog — check whether any
+  // other business has already named a product for it (shared_barcode_catalog)
+  // and prefill name/price from that, still fully editable.
+  const applyBarcodeSuggestion = (code: string) => {
+    setSuggestedName('');
+    fetchBarcodeSuggestion(code).then((suggestion) => {
+      if (!suggestion) return;
+      setForm((f) => {
+        if (f.barcode !== code || f.name) return f;
+        return {
+          ...f,
+          name: suggestion.name,
+          sellingPrice: suggestion.suggestedPrice != null ? String(suggestion.suggestedPrice) : f.sellingPrice,
+        };
+      });
+      setSuggestedName(suggestion.name);
+      showScanToast(`Suggested: ${suggestion.name} (from another business)`, 'new');
+    });
   };
 
   useBarcodeScanner(handleBarcodeScan);
@@ -293,6 +320,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
   const openEdit = (p: Product) => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingItem(p);
     setForm({
       name: p.name,
@@ -314,6 +342,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
 
   const openCreate = () => {
     setScanMode(false);
+    setSuggestedName('');
     setEditingItem(null);
     setForm(emptyForm);
     setShowItemForm(true);
@@ -420,6 +449,11 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-sm font-medium text-slate-700">Medicine Name</label>
                 <Input className="h-11" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Crocin Advance" required />
+                {suggestedName && form.name === suggestedName && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                    <Sparkles className="w-3.5 h-3.5" /> Suggested from another business — edit if needed
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Manufacturer</label>
