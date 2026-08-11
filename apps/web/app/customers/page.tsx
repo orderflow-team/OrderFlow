@@ -300,13 +300,97 @@ function CustomersPageContent() {
     return digits.length === 10 ? `91${digits}` : digits;
   };
 
-  const sendReminder = (c: Customer) => {
-    const target = buildWhatsappTarget(c.phone);
-    if (!target) return;
+  const formatOrdinalDate = (d: Date) => {
+    const day = d.getDate();
+    const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+    const month = d.toLocaleDateString('en-IN', { month: 'long' });
+    return `${day}${suffix} ${month} ${d.getFullYear()}`;
+  };
+
+  // Draws a payment-reminder card (teal header, amount, date) matching the
+  // style of reminder notifications from other billing apps, so the owner
+  // has an actual image to send alongside the text — not just a chat link.
+  const buildReminderImage = (c: Customer, signOff: string): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const width = 700;
+      const height = 620;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      ctx.fillStyle = '#0e7490';
+      ctx.fillRect(0, 0, width, 200);
+      ctx.font = '64px sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('🔔', 55, 110);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 38px sans-serif';
+      ctx.fillText(businessName || 'Payment Reminder', 150, 90, width - 190);
+      ctx.font = '24px sans-serif';
+      const contact = getCurrentUser()?.email || '';
+      if (contact) ctx.fillText(contact, 150, 130, width - 190);
+
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(0, 200, width, height - 200);
+
+      ctx.fillStyle = '#0e7490';
+      ctx.font = 'bold 46px sans-serif';
+      ctx.fillText('Payment Reminder', 55, 300);
+
+      ctx.fillStyle = '#f97316';
+      ctx.font = 'bold 54px sans-serif';
+      ctx.fillText(`₹ ${Number(c.outstanding_amount).toFixed(2)}`, 55, 380);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '26px sans-serif';
+      ctx.fillText(`as of ${formatOrdinalDate(new Date())}`, 55, 440);
+
+      ctx.font = '22px sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.fillText(`To: ${c.name}`, 55, 500);
+      ctx.fillText(`From: ${signOff}`, 55, 535);
+
+      canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+  };
+
+  const sendReminder = async (c: Customer) => {
     const ownerName = getCurrentUser()?.fullName;
     const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
     const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
-    window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+    const target = buildWhatsappTarget(c.phone);
+    const blob = await buildReminderImage(c, signOff);
+
+    if (blob && navigator.canShare) {
+      try {
+        const file = new File([blob], `payment-reminder-${c.name}.png`, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text, title: 'Payment Reminder' });
+          return; // User picked an app and can send from there
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return; // User cancelled the share sheet
+      }
+    }
+
+    // No file-sharing support — fall back to downloading the image (so it
+    // can be attached manually) and opening WhatsApp with the text ready.
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payment-reminder-${c.name}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    if (target) {
+      window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+    }
   };
 
   const openCreateForm = () => {
@@ -604,7 +688,7 @@ function CustomersPageContent() {
                       }}
                       className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 shrink-0 transition-colors rounded-lg"
                       aria-label="Send Payment Reminder"
-                      title="Send Payment Reminder via WhatsApp"
+                      title="Share Payment Reminder Card"
                     >
                       <Bell className="w-4 h-4" />
                     </button>
