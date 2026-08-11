@@ -98,7 +98,7 @@ export class ReportsService {
         ? this.productsRepository
             .createQueryBuilder('product')
             .where('product.business_id = :businessId', { businessId })
-            .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
+            .andWhere('product.stock_quantity <= COALESCE(product.reorder_point, :threshold)', { threshold: 10 })
             .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
             .orderBy('product.stock_quantity', 'ASC')
             .limit(10)
@@ -443,7 +443,7 @@ export class ReportsService {
         ? this.productsRepository
             .createQueryBuilder('product')
             .where('product.business_id = :businessId', { businessId })
-            .andWhere('product.stock_quantity <= :threshold', { threshold: 10 })
+            .andWhere('product.stock_quantity <= COALESCE(product.reorder_point, :threshold)', { threshold: 10 })
             .andWhere('product.name != :placeholder', { placeholder: 'Table Session Started' })
             .orderBy('product.stock_quantity', 'ASC')
             .limit(10)

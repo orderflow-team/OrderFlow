@@ -363,7 +363,7 @@ export default function DashboardPage() {
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <CardTitle>{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
                 </div>
-                <CardDescription>{isPharmacy ? 'Medicines at or below 10 units' : 'Products at or below 10 units'}</CardDescription>
+                <CardDescription>{isPharmacy ? 'Medicines at or below their reorder point' : 'Products at or below their reorder point'}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.lowStockProducts.length === 0 ? (

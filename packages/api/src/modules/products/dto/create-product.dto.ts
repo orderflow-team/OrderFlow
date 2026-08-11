@@ -60,6 +60,11 @@ export class CreateProductDto {
   stockQuantity?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  reorderPoint?: number;
+
+  @IsOptional()
   @IsString()
   batchNumber?: string;
 

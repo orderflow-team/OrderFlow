@@ -35,6 +35,7 @@ interface Product {
   purchase_price: string | number | null;
   tax_percentage: string | number;
   stock_quantity: number;
+  reorder_point: number | null;
   batch_number: string | null;
   expiry_date: string | null;
   description: string | null;
@@ -62,6 +63,7 @@ const emptyForm = {
   purchasePrice: '',
   taxPercentage: '18',
   stockQuantity: '100',
+  reorderPoint: '',
   batchNumber: '',
   expiryDate: '',
   description: '',
@@ -163,6 +165,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       taxPercentage: String(p.tax_percentage ?? '18'),
       stockQuantity: String(p.stock_quantity ?? '0'),
+      reorderPoint: p.reorder_point != null ? String(p.reorder_point) : '',
       batchNumber: p.batch_number || '',
       expiryDate: p.expiry_date ? p.expiry_date.split('T')[0] : '',
       description: p.description || '',
@@ -230,6 +233,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
+      reorderPoint: inventoryEnabled && form.reorderPoint ? Number(form.reorderPoint) : undefined,
       batchNumber: form.batchNumber || undefined,
       expiryDate: form.expiryDate || undefined,
       description: form.description || undefined,
@@ -472,6 +476,12 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                     <Input type="number" placeholder="e.g. 500" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
                   </div>
                 )}
+                {inventoryEnabled && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Reorder Point</label>
+                    <Input type="number" placeholder="Default: 10" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} />
+                  </div>
+                )}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Minimum Order Quantity (MOQ)</label>
                   <Input type="number" placeholder="e.g. 10" value={form.moq} onChange={(e) => setForm({ ...form, moq: e.target.value })} />
@@ -621,7 +631,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                     <div className="flex items-center justify-end text-xs">
                       <div className="text-right">
                         <span className="text-slate-400 block text-[10px] uppercase">Stock</span>
-                        <span className={`font-bold text-sm ${p.stock_quantity <= 10 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        <span className={`font-bold text-sm ${p.stock_quantity <= (p.reorder_point ?? 10) ? 'text-rose-600' : 'text-emerald-700'}`}>
                           {p.stock_quantity} {p.unit}s
                         </span>
                       </div>

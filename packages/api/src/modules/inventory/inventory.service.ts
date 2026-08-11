@@ -544,11 +544,13 @@ export class InventoryService {
     return this.stocksRepository.find({ where, order: { created_at: 'DESC' } });
   }
 
+  // threshold is the fallback for products with no manually-set reorder_point
+  // (COALESCE) — a product's own reorder_point always wins when set.
   lowStock(businessId: string, threshold = 10) {
     return this.productsRepository
       .createQueryBuilder('product')
       .where('product.business_id = :businessId', { businessId })
-      .andWhere('product.stock_quantity <= :threshold', { threshold })
+      .andWhere('product.stock_quantity <= COALESCE(product.reorder_point, :threshold)', { threshold })
       .orderBy('product.stock_quantity', 'ASC')
       .getMany();
   }

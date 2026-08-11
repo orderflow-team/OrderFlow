@@ -30,6 +30,7 @@ interface Product {
   purchase_price: string | number | null;
   tax_percentage: string | number;
   stock_quantity: number;
+  reorder_point: number | null;
   is_draft?: boolean;
   description: string | null;
   is_available: boolean;
@@ -42,7 +43,7 @@ interface Category {
   name: string;
 }
 
-const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
+const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', reorderPoint: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
 
 function ProductsPageContent() {
   const searchParams = useSearchParams();
@@ -233,6 +234,7 @@ function ProductsPageContent() {
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       taxPercentage: String(p.tax_percentage ?? ''),
       stockQuantity: String(p.stock_quantity ?? ''),
+      reorderPoint: p.reorder_point != null ? String(p.reorder_point) : '',
       description: p.description || '',
       isAvailable: p.is_available ?? true,
       category: p.category || '',
@@ -285,6 +287,7 @@ function ProductsPageContent() {
       purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : undefined,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : undefined,
+      reorderPoint: inventoryEnabled && form.reorderPoint ? Number(form.reorderPoint) : undefined,
       description: form.description || undefined,
       isAvailable: form.isAvailable,
       category: form.category || undefined,
@@ -493,6 +496,14 @@ function ProductsPageContent() {
                     onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
                   />
                 )}
+                {inventoryEnabled && (
+                  <Input
+                    placeholder="Reorder point (default 10)"
+                    type="number"
+                    value={form.reorderPoint}
+                    onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })}
+                  />
+                )}
                 <select
                   className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                   value={form.category}
@@ -634,7 +645,7 @@ function ProductsPageContent() {
             />
             {filteredProducts.map((p) => {
               const stockTone =
-                p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= 10 ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
+                p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= (p.reorder_point ?? 10) ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
               return (
                 <div key={p.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
                   <button onClick={() => openEditForm(p)} className="flex-1 flex items-center gap-3 min-w-0 text-left">

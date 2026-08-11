@@ -26,6 +26,7 @@ interface Product {
   selling_price: string | number;
   purchase_price: string | number | null;
   stock_quantity: number;
+  reorder_point: number | null;
   batch_number: string | null;
   expiry_date: string | null;
   description: string | null;
@@ -155,6 +156,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     sellingPrice: '',
     purchasePrice: '',
     stockQuantity: '',
+    reorderPoint: '',
     batchNumber: '',
     expiryDate: '',
     barcode: '',
@@ -342,6 +344,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       sellingPrice: Number(form.sellingPrice),
       purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
+      reorderPoint: inventoryEnabled && form.reorderPoint ? Number(form.reorderPoint) : undefined,
       batchNumber: form.batchNumber || undefined,
       expiryDate: form.expiryDate || undefined,
       barcode: form.barcode || undefined,
@@ -402,6 +405,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       sellingPrice: String(p.selling_price),
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       stockQuantity: String(p.stock_quantity ?? ''),
+      reorderPoint: p.reorder_point != null ? String(p.reorder_point) : '',
       batchNumber: p.batch_number || '',
       expiryDate: p.expiry_date ? p.expiry_date.slice(0, 10) : '',
       barcode: p.barcode || '',
@@ -567,6 +571,12 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Stock Quantity</label>
                   <Input className="h-11" type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
+                </div>
+              )}
+              {inventoryEnabled && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Reorder Point</label>
+                  <Input className="h-11" type="number" placeholder="Default: 10" value={form.reorderPoint} onChange={(e) => setForm({ ...form, reorderPoint: e.target.value })} />
                 </div>
               )}
               {!editingItem || editingBatches.length === 0 ? (

@@ -109,6 +109,12 @@ export class Product {
   @Column({ type: 'int', default: 1 })
   moq: number;
 
+  // Manual per-product "needs reorder" threshold — null means fall back to
+  // the app-wide default (see InventoryService.lowStock / ReportsService's
+  // lowStockProducts queries, which COALESCE this against a flat 10).
+  @Column({ type: 'int', nullable: true })
+  reorder_point: number | null;
+
   // Volume pricing tiers, e.g. [{ minQty: 10, price: 420 }, { minQty: 50, price: 390 }].
   @Column({ type: 'jsonb', nullable: true })
   volume_tiers: { minQty: number; price: number }[] | null;
