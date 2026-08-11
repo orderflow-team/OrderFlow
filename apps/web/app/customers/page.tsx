@@ -9,8 +9,8 @@ import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { getCachedBusinessCategory } from '@/lib/auth';
-import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon } from 'lucide-react';
+import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
+import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Customer {
@@ -278,18 +278,36 @@ function CustomersPageContent() {
 
   const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+  const [businessName, setBusinessName] = useState('');
 
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
-      .get<{ customSettings?: any }>(`/api/businesses/${businessId}`)
+      .get<{ name?: string; customSettings?: any }>(`/api/businesses/${businessId}`)
       .then((res) => {
+        setBusinessName(res.data.name || '');
         const settings = res.data.customSettings;
         const schema = settings?.customerCustomFields || settings?.customFields || [];
         setCustomFieldSchema(schema);
       })
       .catch(() => {});
   }, [ready, businessId]);
+
+  const buildWhatsappTarget = (phone?: string | null) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    if (!digits) return '';
+    // Bare 10-digit Indian mobile numbers arrive without a country code.
+    return digits.length === 10 ? `91${digits}` : digits;
+  };
+
+  const sendReminder = (c: Customer) => {
+    const target = buildWhatsappTarget(c.phone);
+    if (!target) return;
+    const ownerName = getCurrentUser()?.fullName;
+    const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
+    const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
+    window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   const openCreateForm = () => {
     setEditingId(null);
@@ -578,6 +596,19 @@ function CustomersPageContent() {
                   {Number(c.outstanding_amount) > 0.01 && (
                     <span className="text-xs font-bold text-rose-600 shrink-0">{`₹${Number(c.outstanding_amount).toFixed(0)} due`}</span>
                   )}
+                  {c.phone && Number(c.outstanding_amount) > 0.01 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sendReminder(c);
+                      }}
+                      className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 shrink-0 transition-colors rounded-lg"
+                      aria-label="Send Payment Reminder"
+                      title="Send Payment Reminder via WhatsApp"
+                    >
+                      <Bell className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (editingId === c.id && showForm) {
@@ -732,6 +763,16 @@ function CustomersPageContent() {
               <p className="text-xs text-slate-400 mt-0.5">{historyCustomer?.phone || 'No phone number'}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {!isEditingInHistory && historyCustomer?.phone && Number(historyCustomer?.outstanding_amount) > 0.01 && (
+                <Button
+                  onClick={() => sendReminder(historyCustomer)}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Bell className="w-3.5 h-3.5" /> Remind
+                </Button>
+              )}
               <Button
                 onClick={() => {
                   if (isEditingInHistory) {
