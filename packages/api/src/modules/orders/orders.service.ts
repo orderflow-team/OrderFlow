@@ -15,7 +15,6 @@ import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
-import { Notification } from '../../database/entities/notification.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
@@ -195,7 +194,6 @@ export class OrdersService {
       // Guards against two items in the same order with the same custom name
       // (e.g. two "Maggi" lines) creating two separate Product rows.
       const newlyCreatedProductIds = new Map<string, string>();
-      const shortfalls: { productName: string; requested: number; fulfilled: number }[] = [];
 
       for (const item of dto.items) {
         if (!item.productId && !item.customProductName) {
@@ -205,13 +203,7 @@ export class OrdersService {
 
         if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled, productName } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber, allowOrdersBeyondStock);
-          if (fulfilled < requestedQuantity) {
-            shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
-          }
-          if (fulfilled === 0) {
-            continue; // nothing in stock — leave this item out of the order entirely
-          }
+          const { fulfilled } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber, allowOrdersBeyondStock);
           item.quantity = fulfilled;
         }
 
@@ -291,17 +283,6 @@ export class OrdersService {
         client_request_id: dto.clientRequestId,
       });
       const savedOrder = await manager.save(order);
-
-      if (shortfalls.length > 0) {
-        await manager.save(
-          Notification,
-          manager.create(Notification, {
-            business_id: dto.businessId,
-            type: 'stock_shortfall',
-            message: this.buildShortfallMessage(resolvedCustomerName, orderNumber, shortfalls),
-          }),
-        );
-      }
 
       if (dto.tableId) {
         await manager.update(Table, { id: dto.tableId }, { status: 'occupied' });
@@ -400,18 +381,18 @@ export class OrdersService {
    * (never for a Quick-Parchi free-text item auto-linked to a fresh
    * zero-stock draft product — that would break the "sell without inventory
    * tracking" workflow those exist for). By default (allowBeyondStock=true,
-   * matching Business.allow_orders_beyond_stock), clamps to whatever is
-   * actually available instead of rejecting the whole order — requesting 5
-   * with only 2 in stock sells 2, not zero — and flips the product to "out
-   * of stock" (is_available = false) the moment stock hits zero. When a
-   * business has turned that off, an order exceeding available stock is
-   * rejected outright instead of being silently clamped. Locks the product
-   * row for the rest of this transaction (pessimistic write) rather than the
-   * old lock-free conditional UPDATE, since the fulfilled quantity now
-   * depends on a prior read that must not race with another order against
-   * the same row. Returns the quantity actually fulfilled (0 if none
-   * available) so the caller can price/persist the order item against what
-   * was really sold.
+   * matching Business.allow_orders_beyond_stock), the full requested quantity
+   * always sells through — stock_quantity is allowed to go negative — so a
+   * scanned/selected item is never silently dropped from the order just
+   * because it's out of stock; the product flips to "out of stock"
+   * (is_available = false) once stock hits zero or below. When a business
+   * has turned that off, an order exceeding available stock is rejected
+   * outright instead. Locks the product row for the rest of this transaction
+   * (pessimistic write) rather than the old lock-free conditional UPDATE,
+   * since the fulfilled quantity now depends on a prior read that must not
+   * race with another order against the same row. Returns the quantity
+   * actually fulfilled so the caller can price/persist the order item
+   * against what was really sold.
    */
   /**
    * Draws `quantity` units down from a product's ProductBatch rows,
@@ -495,28 +476,26 @@ export class OrdersService {
     }
 
     const available = Number(product.stock_quantity);
-    const fulfilled = Math.max(0, Math.min(available, requestedQuantity));
-
-    if (!allowBeyondStock && fulfilled < requestedQuantity) {
+    // A permissive business (the default) always sells the full requested
+    // quantity — stock_quantity is allowed to go negative to reflect the
+    // deficit — rather than silently clamping to what's on hand and
+    // dropping the rest of the order. A strict business still gets the
+    // original clamp-and-reject behavior.
+    const clamped = Math.max(0, Math.min(available, requestedQuantity));
+    if (!allowBeyondStock && clamped < requestedQuantity) {
       throw new BadRequestException(
-        fulfilled === 0
+        clamped === 0
           ? `${product.name} is out of stock`
-          : `Only ${fulfilled} ${product.name} in stock (requested ${requestedQuantity})`,
+          : `Only ${clamped} ${product.name} in stock (requested ${requestedQuantity})`,
       );
     }
-
-    if (fulfilled === 0) {
-      if (product.is_available) {
-        await manager.update(Product, { id: productId }, { is_available: false });
-      }
-      return { fulfilled: 0, productName: product.name };
-    }
+    const fulfilled = allowBeyondStock ? requestedQuantity : clamped;
 
     const remaining = available - fulfilled;
     await manager.update(
       Product,
       { id: productId },
-      { stock_quantity: remaining, ...(remaining <= 0 ? { is_available: false } : {}) },
+      { stock_quantity: remaining, is_available: remaining > 0 },
     );
 
     await manager.save(
@@ -534,26 +513,6 @@ export class OrdersService {
     await this.consumeBatchesFefo(manager, productId, fulfilled);
 
     return { fulfilled, productName: product.name };
-  }
-
-  /**
-   * decrementStock() clamps a request to whatever's actually on the shelf
-   * instead of failing the whole order — correct, but silent: the order just
-   * ends up with fewer/no units of that item and nobody's told. Builds the
-   * one notification message summarizing everything that came up short, so
-   * staff can follow up with the customer instead of it going unnoticed.
-   */
-  private buildShortfallMessage(
-    customerName: string,
-    orderNumber: string,
-    shortfalls: { productName: string; requested: number; fulfilled: number }[],
-  ): string {
-    const clauses = shortfalls.map((s) =>
-      s.fulfilled === 0
-        ? `dropped ${s.productName} entirely (out of stock)`
-        : `got only ${s.fulfilled} of ${s.requested} ${s.productName} (not enough in stock)`,
-    );
-    return `${customerName}'s order ${orderNumber} ${clauses.join('; ')} — follow up with the customer.`;
   }
 
   /**
@@ -1037,7 +996,6 @@ export class OrdersService {
       }> = [];
 
       const newlyCreatedProductIds = new Map<string, string>();
-      const shortfalls: { productName: string; requested: number; fulfilled: number }[] = [];
 
       for (const item of dto.items) {
         if (!item.productId && !item.customProductName) {
@@ -1047,13 +1005,7 @@ export class OrdersService {
 
         if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled, productName } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number, allowOrdersBeyondStock);
-          if (fulfilled < requestedQuantity) {
-            shortfalls.push({ productName, requested: requestedQuantity, fulfilled });
-          }
-          if (fulfilled === 0) {
-            continue; // nothing in stock — leave this item out of the order entirely
-          }
+          const { fulfilled } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number, allowOrdersBeyondStock);
           item.quantity = fulfilled;
         }
 
@@ -1130,17 +1082,6 @@ export class OrdersService {
       order.tax_amount = Number(order.tax_amount) + additionalTax;
 
       const savedOrder = await manager.save(order);
-
-      if (shortfalls.length > 0) {
-        await manager.save(
-          Notification,
-          manager.create(Notification, {
-            business_id: businessId,
-            type: 'stock_shortfall',
-            message: this.buildShortfallMessage(order.customer_name, order.order_number, shortfalls),
-          }),
-        );
-      }
 
       // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
       await this.invoicesService.syncFromOrder(order.id, manager);
