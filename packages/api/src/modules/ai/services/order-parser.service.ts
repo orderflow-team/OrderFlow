@@ -20,14 +20,14 @@ export class OrderParserService {
    * ("for table 3...") or "takeaway" explicitly; defaults to takeaway
    * (with a token number) when no table is mentioned or matched.
    *
-   * On a brand-new order, an item that isn't on the menu is still added —
-   * seamlessly, same as the New Order screen's free-text "Quick Parchi" quick-add
-   * (findOrCreateProductFromCustomName in orders.service.ts) — at ₹0 for the
-   * merchant to correct afterward, since there's no price to trust yet. When
-   * editing an existing order, "unmatched" stays a reported note instead: there
-   * the model's failure to match can just as easily mean a misread edit/removal
-   * instruction as a genuinely new item, and auto-creating a product from a
-   * misunderstood "remove X" would be the wrong call.
+   * An item that isn't on the menu is still added — seamlessly, same as the
+   * New Order screen's free-text "Quick Parchi" quick-add
+   * (findOrCreateProductFromCustomName in orders.service.ts) — at ₹0 (or the
+   * stated total/quantity price) for the merchant to correct afterward. This
+   * applies on both a brand-new order and an edit to an existing one, for
+   * parity between the two. Editing can also reassign who the order is for,
+   * by name and/or phone, when the customer explicitly asks — orders.service.ts's
+   * replaceItems() reconciles the outstanding-balance ledger for the swap.
    */
   async parseChatOrder(businessId: string, message: string, orderId?: string) {
     if (!message || message.trim().length === 0) {
@@ -139,6 +139,8 @@ export class OrderParserService {
       unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
       orderType?: string;
       tableName?: string | null;
+      customerName?: string | null;
+      phone?: string | null;
     } | null = existingOrder ? null : this.tryDeterministicParse(itemMessage, available, tables);
 
     if (!parsed) {
@@ -155,10 +157,11 @@ export class OrderParserService {
           The current items in this order are: ${currentItemsDesc || 'None'}
 
           The customer is giving instructions to edit the order. They may want to:
-          - Add new items (append to the order or increment quantity).
+          - Add new items — including items NOT on the menu (append to the order or increment quantity).
           - Remove items (delete them from the order completely).
           - Change quantity of items (update the count).
           - Replace items.
+          - Change who the order is for (a new customer name, and/or a 10-digit phone number).
 
           Please interpret the customer's instruction: "${message}"
 
@@ -168,10 +171,22 @@ export class OrderParserService {
           "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
           bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
 
+          For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
+          "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
+          price they said for that item's whole quantity (not a per-unit price). If no price is stated, use
+          null. Never invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is
+          never captured — the menu's own price always applies there.
+
+          Only if the customer explicitly asked to change who the order is for (e.g. "this is for Priya now",
+          "change customer to Neel", "set customer 9876543210"), capture that in "customerName" and/or "phone".
+          Otherwise leave both null — never guess a customer change from ambiguous wording.
+
           Return ONLY JSON in this exact shape, no other text:
           {
             "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
-            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null" }]
+            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
+            "customerName": "string or null",
+            "phone": "10-digit string or null"
           }
         `;
       } else {
@@ -233,50 +248,13 @@ export class OrderParserService {
 
     const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity} ${unit}` : `${quantity}x`);
 
-    if (existingOrder) {
-      const originalCount = existingOrder.items?.length || 0;
-      const lowerMsg = message.toLowerCase();
-      const hasClearIntent = lowerMsg.includes('remove all') ||
-                             lowerMsg.includes('clear') ||
-                             lowerMsg.includes('delete all') ||
-                             lowerMsg.includes('empty') ||
-                             lowerMsg.includes('cancel');
-
-      if (matchedItems.length === 0 && originalCount > 0 && !hasClearIntent) {
-        const unmatchedNote = parsed.unmatched?.length
-          ? ` (couldn't match: ${parsed.unmatched.map((u) => u.name).join(', ')})`
-          : '';
-        return {
-          reply: `I couldn't understand what you wanted to change${unmatchedNote}. The items in Order #${existingOrder.order_number} remain unchanged. Try saying "add 2 cokes" or "remove milk".`,
-          order: existingOrder,
-        };
-      }
-
-      const updatedOrder = await this.ordersService.replaceItems(orderId!, businessId, { items: matchedItems });
-
-      const summary = matchedItems
-        .map((i) => {
-          const product = available.find((p) => p.id === i.productId)!;
-          return `${fmtQty(i.quantity, i.unit)} ${product.name}`;
-        })
-        .join(', ');
-
-      const unmatchedNote = parsed.unmatched?.length
-        ? ` (couldn't match: ${parsed.unmatched.map((u) => u.name).join(', ')})`
-        : '';
-
-      return {
-        reply: `Order #${updatedOrder.order_number} updated! New items: ${summary || 'None'}.${unmatchedNote}`,
-        order: updatedOrder,
-      };
-    }
-
     // Anything not on the menu still gets ordered — same seamless quick-add the
-    // New Order screen's free-text flow already does. If the customer stated a
-    // price for it (a TOTAL for the whole quantity, e.g. "10kg mango 1000rs"),
-    // use price/quantity as the unit price; otherwise ₹0 for the merchant to set
-    // afterward. findOrCreateProductFromCustomName (orders.service.ts) creates
-    // the Product row the first time each name is used.
+    // New Order screen's free-text flow already does, whether this is a brand-new
+    // order or an edit. If the customer stated a price for it (a TOTAL for the
+    // whole quantity, e.g. "10kg mango 1000rs"), use price/quantity as the unit
+    // price; otherwise ₹0 for the merchant to set afterward.
+    // findOrCreateProductFromCustomName (orders.service.ts) creates the Product
+    // row the first time each name is used.
     const newItems = (parsed.unmatched || [])
       .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
       .map((u) => {
@@ -289,6 +267,48 @@ export class OrderParserService {
           unit: u.unit || undefined,
         };
       });
+
+    if (existingOrder) {
+      const originalCount = existingOrder.items?.length || 0;
+      const lowerMsg = message.toLowerCase();
+      const hasClearIntent = lowerMsg.includes('remove all') ||
+                             lowerMsg.includes('clear') ||
+                             lowerMsg.includes('delete all') ||
+                             lowerMsg.includes('empty') ||
+                             lowerMsg.includes('cancel');
+
+      if (matchedItems.length === 0 && newItems.length === 0 && originalCount > 0 && !hasClearIntent) {
+        return {
+          reply: `I couldn't understand what you wanted to change. The items in Order #${existingOrder.order_number} remain unchanged. Try saying "add 2 cokes" or "remove milk".`,
+          order: existingOrder,
+        };
+      }
+
+      const editItems = [...matchedItems, ...newItems];
+      const updatedOrder = await this.ordersService.replaceItems(orderId!, businessId, {
+        items: editItems,
+        customerName: parsed.customerName || undefined,
+        phone: parsed.phone || undefined,
+      });
+
+      const matchedSummary = matchedItems
+        .map((i) => {
+          const product = available.find((p) => p.id === i.productId)!;
+          return `${fmtQty(i.quantity, i.unit)} ${product.name}`;
+        })
+        .join(', ');
+      const newSummary = newItems
+        .map((i) => `${fmtQty(i.quantity, i.unit)} ${i.customProductName} (new)`)
+        .join(', ');
+      const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
+
+      const customerNote = parsed.customerName ? ` Now for ${updatedOrder.customer_name}.` : '';
+
+      return {
+        reply: `Order #${updatedOrder.order_number} updated!${customerNote} Items: ${summary || 'None'}.`,
+        order: updatedOrder,
+      };
+    }
 
     const allItems: Array<{ productId?: string; customProductName?: string; quantity: number; unitPrice?: number; unit?: string }> = [
       ...matchedItems,

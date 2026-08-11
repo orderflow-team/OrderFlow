@@ -177,39 +177,11 @@ export class OrdersService {
       const inventoryEnabled = business?.inventory_enabled !== false;
       const allowOrdersBeyondStock = business?.allow_orders_beyond_stock !== false;
 
-      let resolvedCustomerId = dto.customerId;
-      // If phone provided, look up customer by phone first (phone is unique identifier)
-      if (dto.phone && !resolvedCustomerId) {
-        const byPhone = await manager.findOne(Customer, {
-          where: { business_id: dto.businessId, phone: dto.phone }
-        });
-        if (byPhone) resolvedCustomerId = byPhone.id;
-      }
-      if (!resolvedCustomerId && dto.customerName && dto.customerName.toLowerCase() !== 'guest' && dto.customerName.toLowerCase() !== 'take away guest' && !dto.customerName.toLowerCase().startsWith('table')) {
-        let customer = await manager.findOne(Customer, {
-          where: { business_id: dto.businessId, name: dto.customerName }
-        });
-        if (!customer) {
-          customer = manager.create(Customer, {
-            business_id: dto.businessId,
-            name: dto.customerName,
-            phone: dto.phone,
-          });
-          customer = await manager.save(Customer, customer);
-        } else if (dto.phone && !customer.phone) {
-          // Save phone to existing customer if they didn't have one
-          customer.phone = dto.phone;
-          await manager.save(Customer, customer);
-        }
-        resolvedCustomerId = customer.id;
-      } else if (resolvedCustomerId && dto.phone) {
-        // Customer matched by phone or ID — ensure phone is saved on their record
-        const existing = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
-        if (existing && !existing.phone) {
-          existing.phone = dto.phone;
-          await manager.save(Customer, existing);
-        }
-      }
+      let resolvedCustomerId = await this.resolveCustomer(manager, dto.businessId, {
+        customerId: dto.customerId,
+        customerName: dto.customerName,
+        phone: dto.phone,
+      });
 
       let totalAmount = 0;
       let totalTax = 0;
@@ -369,6 +341,58 @@ export class OrdersService {
 
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: savedOrder.id }, relations: { product: true } }) };
     });
+  }
+
+  /**
+   * Matches an order to a Customer by id, then phone, then exact name —
+   * creating one if a name is given and nothing matched. Shared by create()
+   * (a brand-new order) and replaceItems() (reassigning who an existing
+   * order is for via edit). "Guest"/"Take Away Guest"/anything starting
+   * with "Table" are treated as placeholder names, never matched/created as
+   * real customers.
+   */
+  private async resolveCustomer(
+    manager: EntityManager,
+    businessId: string,
+    params: { customerId?: string; customerName?: string; phone?: string },
+  ): Promise<string | undefined> {
+    let resolvedCustomerId = params.customerId;
+    if (params.phone && !resolvedCustomerId) {
+      const byPhone = await manager.findOne(Customer, {
+        where: { business_id: businessId, phone: params.phone },
+      });
+      if (byPhone) resolvedCustomerId = byPhone.id;
+    }
+    if (
+      !resolvedCustomerId &&
+      params.customerName &&
+      params.customerName.toLowerCase() !== 'guest' &&
+      params.customerName.toLowerCase() !== 'take away guest' &&
+      !params.customerName.toLowerCase().startsWith('table')
+    ) {
+      let customer = await manager.findOne(Customer, {
+        where: { business_id: businessId, name: params.customerName },
+      });
+      if (!customer) {
+        customer = manager.create(Customer, {
+          business_id: businessId,
+          name: params.customerName,
+          phone: params.phone,
+        });
+        customer = await manager.save(Customer, customer);
+      } else if (params.phone && !customer.phone) {
+        customer.phone = params.phone;
+        await manager.save(Customer, customer);
+      }
+      resolvedCustomerId = customer.id;
+    } else if (resolvedCustomerId && params.phone) {
+      const existing = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
+      if (existing && !existing.phone) {
+        existing.phone = params.phone;
+        await manager.save(Customer, existing);
+      }
+    }
+    return resolvedCustomerId;
   }
 
   /**
@@ -1160,6 +1184,53 @@ export class OrdersService {
       const order = await manager.findOne(Order, { where: { id, business_id: businessId } });
       if (!order) throw new NotFoundException('Order not found');
 
+      // Reassigning who this order is for (e.g. via "Edit with AI"): resolve
+      // before touching items, and — same billedStatuses gate as the
+      // item-total reconciliation below — move the order's current total
+      // off the old customer's ledger and onto the new one, so outstanding
+      // balances stay correct across the swap.
+      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
+      if (dto.customerId !== undefined || dto.customerName !== undefined) {
+        const previousCustomerId = order.customer_id;
+        const resolvedCustomerId = await this.resolveCustomer(manager, businessId, {
+          customerId: dto.customerId,
+          customerName: dto.customerName,
+          phone: dto.phone,
+        });
+        if (resolvedCustomerId && resolvedCustomerId !== previousCustomerId) {
+          const totalBeforeEdit = Number(order.total_amount);
+          if (billedStatuses.includes(order.status) && Math.abs(totalBeforeEdit) > 0.01) {
+            if (previousCustomerId) {
+              await manager.increment(Customer, { id: previousCustomerId }, 'outstanding_amount', -totalBeforeEdit);
+              await manager.save(
+                Ledger,
+                manager.create(Ledger, {
+                  business_id: businessId,
+                  customer_id: previousCustomerId,
+                  type: 'CREDIT',
+                  amount: totalBeforeEdit,
+                  description: `Order ${order.order_number} reassigned to another customer`,
+                }),
+              );
+            }
+            await manager.increment(Customer, { id: resolvedCustomerId }, 'outstanding_amount', totalBeforeEdit);
+            await manager.save(
+              Ledger,
+              manager.create(Ledger, {
+                business_id: businessId,
+                customer_id: resolvedCustomerId,
+                type: 'DEBIT',
+                amount: totalBeforeEdit,
+                description: `Order ${order.order_number} reassigned from another customer`,
+              }),
+            );
+          }
+          const newCustomer = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
+          order.customer_id = resolvedCustomerId;
+          order.customer_name = newCustomer?.name ?? dto.customerName ?? order.customer_name;
+        }
+      }
+
       // Remove existing items
       await manager.delete(OrderItem, { order_id: order.id });
 
@@ -1270,7 +1341,6 @@ export class OrdersService {
       // Keep an already-generated invoice (and its printed/thermal totals) in sync with the order
       await this.invoicesService.syncFromOrder(order.id, manager);
 
-      const billedStatuses = ['confirmed', 'packed', 'dispatched', 'delivered'];
       if (order.customer_id && billedStatuses.includes(order.status)) {
         const diff = totalAmount - oldTotal;
         if (Math.abs(diff) > 0.01) {
