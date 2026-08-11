@@ -10,6 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
+import { shareToWhatsApp } from '@/lib/whatsapp-share';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -359,12 +360,28 @@ function CustomersPageContent() {
     });
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(((reader.result as string) || '').split(',')[1] || '');
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
   const sendReminder = async (c: Customer) => {
     const ownerName = getCurrentUser()?.fullName;
     const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
     const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
     const target = buildWhatsappTarget(c.phone);
     const blob = await buildReminderImage(c, signOff);
+
+    // Native path (Android): opens WhatsApp directly with image+text attached,
+    // skipping the OS share-sheet app picker. Falls through on non-Android
+    // platforms or if WhatsApp isn't installed.
+    if (blob) {
+      const base64 = await blobToBase64(blob);
+      if (base64 && (await shareToWhatsApp(base64, text))) return;
+    }
 
     if (blob && navigator.canShare) {
       try {
