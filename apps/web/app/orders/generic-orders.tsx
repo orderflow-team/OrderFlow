@@ -1296,26 +1296,16 @@ export function GenericOrders() {
                 )
               )}
 
-              {/* Thermal Receipt & Invoice */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleThermalPrint}
-                  variant="outline"
-                  className="flex-1 h-11 gap-2"
-                >
-                  <Printer className="w-4 h-4" />
-                  Thermal Print
-                </Button>
-                <Button
-                  onClick={handleGenerateInvoice}
-                  disabled={invoiceLoading}
-                  variant="outline"
-                  className="flex-1 h-11 gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Invoice'}
-                </Button>
-              </div>
+              {/* Invoice */}
+              <Button
+                onClick={handleGenerateInvoice}
+                disabled={invoiceLoading}
+                variant="outline"
+                className="w-full h-11 gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Invoice'}
+              </Button>
 
               {/* Delete */}
               {!deleteConfirm ? (
