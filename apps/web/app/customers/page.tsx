@@ -12,6 +12,7 @@ import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Capacitor } from '@capacitor/core';
 
 interface Customer {
   id: string;
@@ -306,7 +307,13 @@ function CustomersPageContent() {
     const ownerName = getCurrentUser()?.fullName;
     const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
     const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
-    window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+    // '_blank' opens inside Capacitor's own WebView on native, which can't
+    // resolve a wa.me deep link and is left in a stuck/half-navigated state —
+    // the reminder button then looks like it silently stopped working on a
+    // repeat send. '_system' hands the URL to Android itself, which opens the
+    // WhatsApp app directly (same as tapping the link from anywhere else on
+    // the device) and leaves this WebView untouched.
+    window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, Capacitor.isNativePlatform() ? '_system' : '_blank');
   };
 
   const openCreateForm = () => {

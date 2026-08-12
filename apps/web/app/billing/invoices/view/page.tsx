@@ -300,7 +300,10 @@ function InvoiceDetailPageInner() {
       const pdfUrl = `${API_BASE_URL}${data.url}`;
       const text = `Here is your invoice ${invoice?.invoice_number}: ${pdfUrl}`;
       const target = buildWhatsappTarget(invoice?.customer?.phone);
-      window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, '_blank');
+      // '_system' on native hands this off to Android (which opens the
+      // WhatsApp app directly) instead of Capacitor's WebView trying to
+      // navigate to a wa.me deep link in-place, which doesn't resolve.
+      window.open(`https://wa.me/${target}?text=${encodeURIComponent(text)}`, Capacitor.isNativePlatform() ? '_system' : '_blank');
     } catch (err) {
       setError(await extractErrorMessage(err, 'Failed to process invoice PDF for sharing'));
     }

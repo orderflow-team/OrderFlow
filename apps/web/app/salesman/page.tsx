@@ -11,6 +11,7 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
 import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt, Download, Share2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
@@ -338,8 +339,10 @@ export default function SalesmanPage() {
         }
       }
 
-      // Fallback/direct WhatsApp Link
-      window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(text)}`, '_blank');
+      // Fallback/direct WhatsApp Link — '_system' on native so Android hands
+      // this off to the WhatsApp app itself instead of Capacitor's WebView
+      // trying (and failing) to navigate to a wa.me deep link in-place.
+      window.open(`https://wa.me/${whatsappPhone}?text=${encodeURIComponent(text)}`, Capacitor.isNativePlatform() ? '_system' : '_blank');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to share invoice');
     } finally {
