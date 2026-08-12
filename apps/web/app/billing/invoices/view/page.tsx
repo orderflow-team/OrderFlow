@@ -8,6 +8,10 @@ import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { Printer, Download, MessageCircle } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { FileOpener } from '@capacitor-community/file-opener';
+import { ThermalPrint } from '@/lib/thermal-print-plugin';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
@@ -139,6 +143,29 @@ function InvoiceDetailPageInner() {
         params: { businessId },
         responseType: 'text',
       });
+
+      // Native app: window.open('', '_blank') has no separate tab to open into, so
+      // it hijacked the app's own WebView — and a plain WebView shows no UI at all
+      // for a JS window.print() call, so the receipt was just stuck full-screen with
+      // no way out (force-quit required). ThermalPrint is a native plugin that renders
+      // the receipt off-screen and hands it straight to Android's own PrintManager —
+      // the same system print dialog Chrome's "Print" menu opens.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await ThermalPrint.print({ html: res.data });
+        } catch (pluginErr) {
+          // Older installed build without the native plugin compiled in yet (this
+          // JS shipped via OTA ahead of the next app-store/APK release) — fall back
+          // to opening the receipt in the device's default browser instead.
+          console.warn('[thermal print] native print plugin unavailable, falling back', pluginErr);
+          const fileName = `receipt-${id}.html`;
+          await Filesystem.writeFile({ path: fileName, data: res.data, directory: Directory.Cache, encoding: Encoding.UTF8 });
+          const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+          await FileOpener.open({ filePath: uri, contentType: 'text/html' });
+        }
+        return;
+      }
+
       const win = window.open('', '_blank');
       if (!win) {
         setError('Pop-up blocked — please allow pop-ups to print the receipt.');
