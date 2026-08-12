@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
-import { ShoppingCart, Plus, Minus, Search, Save, Check, Trash2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Save, Check, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 
@@ -60,6 +60,7 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
   
   const [cart, setCart] = useState<Record<string, CartItem>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [isCartCollapsed, setIsCartCollapsed] = useState(false);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
   const [unitPriceSaveState, setUnitPriceSaveState] = useState<Record<string, 'saving' | 'saved'>>({});
   const [validationError, setValidationError] = useState('');
@@ -396,12 +397,23 @@ export function MenuSelectionModal({ businessId, isOpen, guestName, onClose, onS
 
         {/* Cart Bottom Sheet */}
         <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 p-5 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
-          <div className="flex items-center gap-2 mb-4 font-semibold text-slate-800">
-            <ShoppingCart className="w-5 h-5" />
-            Cart ({cartItems.length} items)
-          </div>
-          
-          <div className="max-h-40 overflow-y-auto space-y-3 mb-4 pr-2">
+          <button
+            type="button"
+            onClick={() => setIsCartCollapsed(!isCartCollapsed)}
+            className="w-full flex items-center justify-between gap-2 mb-4 font-semibold text-slate-800"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5" />
+              Cart ({cartItems.length} items)
+            </span>
+            <span className="p-1 -m-1 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+              {isCartCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </span>
+          </button>
+
+          <div className={`overflow-y-auto space-y-3 mb-4 pr-2 transition-all duration-300 ease-in-out ${
+            isCartCollapsed ? 'max-h-0 !mb-0 opacity-0 pointer-events-none' : 'max-h-40 opacity-100'
+          }`}>
             {cartItems.map(item => (
               <div key={item.product.id} className="flex flex-col gap-2 pb-3 border-b border-white/20 last:border-0 last:pb-0 text-sm">
                 <input

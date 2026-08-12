@@ -90,6 +90,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isCartCollapsed, setIsCartCollapsed] = useState(false);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
   // Camera barcode scanning is native-only (Capacitor Android) — the toggle
   // stays hidden entirely on web/PWA, where search + a hardware scanner-gun
@@ -206,6 +207,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setPatientName('');
       setDoctorName('');
       setIsHeaderCollapsed(false);
+      setIsCartCollapsed(false);
       setShowOptionalFields(false);
       setScanMode(false);
       setQuickAddOpen(false);
@@ -901,12 +903,23 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
         {/* Cart */}
         <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 px-4 pt-4 pb-4 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
-          <div className="flex items-center gap-2 mb-3 font-semibold text-slate-800 text-sm">
-            <ShoppingCart className="w-4 h-4" />
-            Cart ({cartItems.length} items)
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsCartCollapsed(!isCartCollapsed)}
+            className="w-full flex items-center justify-between gap-2 mb-3 font-semibold text-slate-800 text-sm"
+          >
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              Cart ({cartItems.length} items)
+            </span>
+            <span className="p-1 -m-1 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+              {isCartCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </span>
+          </button>
 
-          <div className="max-h-36 overflow-y-auto space-y-2.5 mb-3 pr-1">
+          <div className={`overflow-y-auto space-y-2.5 mb-3 pr-1 transition-all duration-300 ease-in-out ${
+            isCartCollapsed ? 'max-h-0 !mb-0 opacity-0 pointer-events-none' : 'max-h-36 opacity-100'
+          }`}>
             {cartItems.map(item => (
               <div key={item.product.id} className="flex flex-col gap-2 pb-3 border-b border-white/20 last:border-0 last:pb-0 text-sm">
                 <input
