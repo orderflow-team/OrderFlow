@@ -55,6 +55,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await apiClient.post('/auth/password/reset', { email, code, newPassword });
       localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       router.push(getPostLoginPath(response.data.user.role));
     } catch (err: any) {

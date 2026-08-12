@@ -327,6 +327,7 @@ export default function SettingsPage() {
     try {
       await apiClient.delete(`/api/businesses/${businessId}`, { data: { confirmName: deleteAccountConfirmText } });
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       router.push('/login');
     } catch (err: any) {

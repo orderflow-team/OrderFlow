@@ -35,6 +35,7 @@ export default function Home() {
     }
     if (token) {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
     }
     // The marketing landing page is only useful to web visitors — someone

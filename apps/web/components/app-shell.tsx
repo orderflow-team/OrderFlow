@@ -256,6 +256,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       .post(`/api/businesses/${value}/select`)
       .then((res) => {
         localStorage.setItem('access_token', res.data.access_token);
+        localStorage.setItem('refresh_token', res.data.refresh_token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
         // Full navigation so every page re-mounts and picks up the new businessId.
         // Target "/" (not "/dashboard" directly) — Capacitor's local WebViewAssetLoader
@@ -464,6 +465,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
 
   const logout = () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('business_category');
     localStorage.removeItem('business_inventory_enabled');

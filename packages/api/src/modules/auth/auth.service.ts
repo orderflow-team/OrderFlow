@@ -12,6 +12,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { MailService } from './mail.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 
@@ -112,6 +113,47 @@ export class AuthService {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+    return this.issueTokens(user);
+  }
+
+  /**
+   * Redeems a still-valid refresh token for a fresh access_token +
+   * refresh_token pair, so a client never needs to force a full re-login
+   * just because the short-lived access_token expired — only once the
+   * refresh_token itself lapses (7d, and every refresh slides that window
+   * forward) does the user actually need to sign in again. Real users get
+   * re-checked against is_active so a since-disabled account can't stay
+   * logged in via a refresh alone. Guest sessions (table/takeaway QR-code
+   * logins) aren't rows in the users table, so their payload is reissued
+   * directly instead of a DB lookup.
+   */
+  async refresh(dto: RefreshTokenDto) {
+    let payload: { sub: string; email: string; businessId: string | null; role: string };
+    try {
+      payload = this.jwtService.verify(dto.refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // Guest sessions have a synthetic id like "guest-takeaway-<businessId>" —
+    // not a UUID, so it must never reach the users.id (uuid column) lookup
+    // below, which would throw a raw DB error instead of just missing.
+    if (payload.role === UserRole.GUEST) {
+      return this.issueTokens({
+        id: payload.sub,
+        email: payload.email,
+        business_id: payload.businessId,
+        role: payload.role,
+      } as any);
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: payload.sub } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (!user.is_active) {
+      throw new UnauthorizedException('Account is disabled');
     }
     return this.issueTokens(user);
   }

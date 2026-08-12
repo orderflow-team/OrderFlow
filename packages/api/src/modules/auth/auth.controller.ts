@@ -8,6 +8,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -21,6 +22,14 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  // Public — the refresh token itself (verified via JWT signature/expiry) is
+  // the credential here, same as every other identity-establishing route on
+  // this controller.
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto);
   }
 
   @Post('otp/request')

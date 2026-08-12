@@ -36,14 +36,35 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// De-duplicates concurrent refreshes: if several requests 401 around the same
+// moment (e.g. a handful of components fetching right after the app resumes
+// from background), they all await this same in-flight call instead of each
+// triggering their own POST /auth/refresh.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = localStorage.getItem('refresh_token');
+  if (!refreshToken) return null;
+  try {
+    // Bare axios, not apiClient — a call through apiClient would re-enter
+    // this same response interceptor if the refresh itself ever 401s.
+    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+    localStorage.setItem('access_token', res.data.access_token);
+    localStorage.setItem('refresh_token', res.data.refresh_token);
+    return res.data.access_token;
+  } catch {
+    return null;
+  }
+}
+
 // Handle response and dispatch events for dashboard/billing updates
 apiClient.interceptors.response.use(
   (response) => {
     const url = response.config.url;
     const method = response.config.method?.toUpperCase();
     if (url && (
-      url.includes('/api/orders') || 
-      url.includes('/api/billing') || 
+      url.includes('/api/orders') ||
+      url.includes('/api/billing') ||
       url.includes('/api/ai/chat-order') ||
       url.includes('/api/dev/seed')
     )) {
@@ -55,10 +76,30 @@ apiClient.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // A short-lived access_token expiring is routine — try a silent refresh
+    // and retry once before treating this as a real logout. _retry guards
+    // against looping if the retried request 401s again (e.g. the refresh
+    // token itself turned out to be invalid/expired).
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newToken = await refreshPromise;
+      if (newToken) {
+        return apiClient(originalRequest);
+      }
+    }
+
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
         // Can't call useRouter() from a plain module — AuthRedirectListener
         // (mounted in the root layout) does the actual router.push('/login').

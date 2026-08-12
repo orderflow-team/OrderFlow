@@ -58,6 +58,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     try {
       const response = await apiClient.post('/api/businesses/onboard', { name, category, inventoryEnabled });
       localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
       setCurrentUser(response.data.user);
       onCreated();
     } catch (err: any) {
@@ -73,6 +74,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     try {
       const response = await apiClient.post('/api/businesses/onboard', wizardData);
       localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
       setCurrentUser(response.data.user);
       onCreated();
     } catch (err: any) {
@@ -202,6 +204,7 @@ export default function SelectBusinessPage() {
     try {
       const response = await apiClient.post(`/api/businesses/${businessId}/select`);
       localStorage.setItem('access_token', response.data.access_token);
+      localStorage.setItem('refresh_token', response.data.refresh_token);
       setCurrentUser(response.data.user);
       // Hard navigation resets all app state for the newly selected business; target "/"
       // since that's the only path Capacitor's local server always resolves correctly —
