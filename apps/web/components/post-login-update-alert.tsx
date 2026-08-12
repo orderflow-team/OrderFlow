@@ -21,7 +21,7 @@ let alertShownThisSession = false;
 export function PostLoginUpdateAlert() {
   const [dismissed, setDismissed] = useState(false);
   const [eligible] = useState(() => !alertShownThisSession);
-  const { available, latest, installing, error, install } = useNativeAppUpdate();
+  const { available, latest, installing, error, install, progressPct } = useNativeAppUpdate();
 
   const open = eligible && available && !dismissed;
 
@@ -49,7 +49,7 @@ export function PostLoginUpdateAlert() {
             Later
           </Button>
           <Button type="button" onClick={install} disabled={installing} className="flex-1 gap-1.5">
-            <Download className="w-4 h-4" /> {installing ? 'Downloading…' : 'Download & Install'}
+            <Download className="w-4 h-4" /> {installing ? `Downloading…${progressPct != null ? ` ${progressPct}%` : ''}` : 'Download & Install'}
           </Button>
         </DialogFooter>
       </DialogContent>

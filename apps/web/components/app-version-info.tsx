@@ -11,7 +11,7 @@ import { Download } from 'lucide-react';
 /** Purely informational — lets a user read off their version when reporting an issue. No UI on web (there's no separate "version" there, it's just the site). */
 export function AppVersionInfo() {
   const [info, setInfo] = useState<{ native: string; bundle: string } | null>(null);
-  const { available, latest, installing, error, install } = useNativeAppUpdate();
+  const { available, latest, installing, error, install, progressPct } = useNativeAppUpdate();
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -45,7 +45,7 @@ export function AppVersionInfo() {
               disabled={installing}
             >
               <Download className="w-3.5 h-3.5" />
-              {installing ? 'Downloading…' : 'Download & Install'}
+              {installing ? `Downloading…${progressPct != null ? ` ${progressPct}%` : ''}` : 'Download & Install'}
             </Button>
           </div>
         )}
