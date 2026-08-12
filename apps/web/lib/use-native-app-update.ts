@@ -51,7 +51,17 @@ export function useNativeAppUpdate() {
     setInstalling(true);
     setError('');
     try {
-      await Filesystem.downloadFile({ url: latest.url, path: 'update.apk', directory: Directory.Cache });
+      // Without explicit timeouts, Capacitor's downloadFile waits forever on a
+      // stalled connection — a DNS hiccup or a network that silently drops the
+      // request to this host never surfaces an error, leaving the button stuck
+      // on "Downloading…" indefinitely instead of failing into the retry state.
+      await Filesystem.downloadFile({
+        url: latest.url,
+        path: 'update.apk',
+        directory: Directory.Cache,
+        connectTimeout: 15000,
+        readTimeout: 30000,
+      });
       const { uri } = await Filesystem.getUri({ path: 'update.apk', directory: Directory.Cache });
       await FileOpener.open({ filePath: uri, contentType: 'application/vnd.android.package-archive' });
     } catch (err) {
