@@ -11,6 +11,7 @@ import { Printer, Download, MessageCircle } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
+import { Share } from '@capacitor/share';
 import { ThermalPrint } from '@/lib/thermal-print-plugin';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
@@ -104,25 +105,62 @@ function InvoiceDetailPageInner() {
     return data?.message || fallback;
   };
 
+  const resolvePdfBlob = async (): Promise<Blob> => {
+    let blob = pdfBlobRef.current;
+    if (!blob) {
+      if (pdfBlobPromiseRef.current) {
+        blob = await pdfBlobPromiseRef.current;
+      } else if (id && businessId) {
+        const res = await apiClient.get(`/api/billing/invoices/${id}/pdf`, {
+          params: { businessId },
+          responseType: 'blob',
+        });
+        blob = res.data;
+        pdfBlobRef.current = blob;
+      }
+    }
+    if (!blob) {
+      throw new Error('Failed to retrieve PDF blob.');
+    }
+    return blob;
+  };
+
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      // Filesystem.writeFile wants base64 with no data-URL prefix on native.
+      reader.onloadend = () => resolve((reader.result as string).slice((reader.result as string).indexOf(',') + 1));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+
+  // Writes the PDF into the app's cache dir and returns its file:// URI —
+  // shared by the native "Download" and native WhatsApp-share paths below,
+  // both of which need the PDF as a real file rather than an in-memory blob.
+  const writePdfToCache = async (blob: Blob): Promise<string> => {
+    const base64 = await blobToBase64(blob);
+    const fileName = `${invoice?.invoice_number || 'invoice'}.pdf`;
+    await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+    const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+    return uri;
+  };
+
   const downloadPdf = async () => {
     try {
       setError('');
-      let blob = pdfBlobRef.current;
-      if (!blob) {
-        if (pdfBlobPromiseRef.current) {
-          blob = await pdfBlobPromiseRef.current;
-        } else if (id && businessId) {
-          const res = await apiClient.get(`/api/billing/invoices/${id}/pdf`, {
-            params: { businessId },
-            responseType: 'blob',
-          });
-          blob = res.data;
-          pdfBlobRef.current = blob;
-        }
+      const blob = await resolvePdfBlob();
+
+      // <a download> silently no-ops inside Capacitor's WebView — there's no
+      // "Downloads" surface for it to save into the way a real browser tab
+      // has. Writing the file to disk and handing it to FileOpener instead
+      // opens it in the device's own PDF viewer, which has its own save/share
+      // controls.
+      if (Capacitor.isNativePlatform()) {
+        const uri = await writePdfToCache(blob);
+        await FileOpener.open({ filePath: uri, contentType: 'application/pdf' });
+        return;
       }
-      if (!blob) {
-        throw new Error('Failed to retrieve PDF blob.');
-      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -189,6 +227,35 @@ function InvoiceDetailPageInner() {
     try {
       setError('');
       setShareFallbackReason('');
+
+      // Capacitor's WebView reports navigator.canShare as supported but the
+      // file-share attempt below silently fails on it in practice — falling
+      // through to the text-link path every time instead of ever attaching
+      // the real PDF. @capacitor/share drives Android's native share sheet
+      // directly with an actual file:// URI, which WhatsApp (and everything
+      // else in the sheet) can attach for real.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const blob = await resolvePdfBlob();
+          const uri = await writePdfToCache(blob);
+          await Share.share({
+            title: `Invoice ${invoice?.invoice_number}`,
+            text: `Here is the invoice ${invoice?.invoice_number}`,
+            files: [uri],
+            dialogTitle: 'Share invoice',
+          });
+          return;
+        } catch (shareErr: any) {
+          // Dismissing the native share sheet without picking an app rejects
+          // with this exact message — not a real failure, don't surface it.
+          if (shareErr?.message === 'Share canceled') return;
+          // Older installed build without this plugin compiled in yet (this JS
+          // shipped ahead of the next APK release) — fall through to the
+          // web-style attempt below, which degrades to the old link-based
+          // share rather than erroring outright.
+          console.warn('[share] native Share plugin unavailable, falling back', shareErr);
+        }
+      }
 
       // On devices that support sharing files (mobile Web Share API), hand
       // WhatsApp the real PDF directly — no download/attach step at all.
