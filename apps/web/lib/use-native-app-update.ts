@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -26,15 +26,32 @@ interface LatestApkRelease {
  */
 // A trickling-but-never-fully-stalled connection keeps resetting Filesystem's
 // per-chunk readTimeout forever, so it alone can't catch "technically still
-// moving, but at a speed that'll never realistically finish." This wall-clock
-// ceiling on the whole download is what actually bounds that case.
-const DOWNLOAD_TIMEOUT_MS = 120_000;
+// moving, but at a speed that'll never realistically finish." A wall-clock
+// ceiling on the whole download is what actually bounds that case — but a
+// FLAT one flags a real connection as "too slow" just because the release
+// got bigger, even if it's downloading at a perfectly fine rate. So the
+// ceiling below is sized to the actual release once we know it (first
+// 'progress' event), against a floor throughput low enough that only a
+// connection that genuinely can't finish trips it.
+const CONNECT_GRACE_MS = 30_000; // covers DNS/TLS/connect before we know the file's size
+const MIN_ACCEPTABLE_BYTES_PER_SEC = 100 * 1024; // ~800kbps — well below anything that could stream 4K video
+const MAX_DOWNLOAD_TIMEOUT_MS = 10 * 60_000; // sanity ceiling regardless of size
+
+// How often we check our own file's size to compute progress. We can't trust
+// the plugin's shared 'progress' event for this: it has no per-download id,
+// and a timed-out attempt's native thread keeps running (and keeps firing
+// that event) in the background since this plugin has no cancel API. On a
+// retry, the new listener would receive the abandoned attempt's stale byte
+// counts mixed in with its own — polling the size of a uniquely-named file
+// per attempt sidesteps that entirely.
+const PROGRESS_POLL_MS = 400;
 
 export function useNativeAppUpdate() {
   const [latest, setLatest] = useState<LatestApkRelease | null>(null);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState('');
   const [progressPct, setProgressPct] = useState<number | null>(null);
+  const attemptSeq = useRef(0);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -59,19 +76,50 @@ export function useNativeAppUpdate() {
     setError('');
     setProgressPct(0);
 
-    // Surfaces real progress instead of an opaque "Downloading…" — on a slow
-    // connection that's still technically moving, seeing "12%" (vs a frozen
-    // spinner) is the difference between "working, just slow" and "stuck."
+    // Unique per attempt so a retry never shares a destination file with an
+    // abandoned prior download that's still writing in the background.
+    const attemptId = ++attemptSeq.current;
+    const path = `update-${attemptId}.apk`;
+    if (attemptId > 1) {
+      Filesystem.deleteFile({ path: `update-${attemptId - 1}.apk`, directory: Directory.Cache }).catch(() => {});
+    }
+
+    const downloadStart = Date.now();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let rejectTimeout: (() => void) | undefined;
+    const scheduleTimeout = (ms: number) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => rejectTimeout?.(), ms);
+    };
+    const timeout = new Promise<never>((_, reject) => {
+      rejectTimeout = () => reject(new Error('timeout'));
+      scheduleTimeout(CONNECT_GRACE_MS);
+    });
+
+    // Total size is attempt-invariant (same release URL every time), so it's
+    // safe to read off this event even though `bytes` isn't — see
+    // PROGRESS_POLL_MS above for why bytes-so-far comes from polling instead.
+    let contentLength = 0;
     const progressListener = await Filesystem.addListener('progress', (event) => {
-      if (event.contentLength > 0) {
-        setProgressPct(Math.round((event.bytes / event.contentLength) * 100));
+      if (contentLength === 0 && event.contentLength > 0) {
+        contentLength = event.contentLength;
+        const budgetMs = Math.min(
+          MAX_DOWNLOAD_TIMEOUT_MS,
+          Math.max(CONNECT_GRACE_MS, (contentLength / MIN_ACCEPTABLE_BYTES_PER_SEC) * 1000),
+        );
+        scheduleTimeout(Math.max(0, budgetMs - (Date.now() - downloadStart)));
       }
     });
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('timeout')), DOWNLOAD_TIMEOUT_MS);
-    });
+    const pollTimer = setInterval(async () => {
+      if (!contentLength) return;
+      try {
+        const stat = await Filesystem.stat({ path, directory: Directory.Cache });
+        setProgressPct(Math.round((stat.size / contentLength) * 100));
+      } catch {
+        // Destination file doesn't exist yet — connection still opening.
+      }
+    }, PROGRESS_POLL_MS);
 
     try {
       // connectTimeout/readTimeout catch a fully-dead connection; the race
@@ -80,7 +128,7 @@ export function useNativeAppUpdate() {
       await Promise.race([
         Filesystem.downloadFile({
           url: latest.url,
-          path: 'update.apk',
+          path,
           directory: Directory.Cache,
           connectTimeout: 15000,
           readTimeout: 30000,
@@ -88,7 +136,7 @@ export function useNativeAppUpdate() {
         }),
         timeout,
       ]);
-      const { uri } = await Filesystem.getUri({ path: 'update.apk', directory: Directory.Cache });
+      const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
       await FileOpener.open({ filePath: uri, contentType: 'application/vnd.android.package-archive' });
     } catch (err: any) {
       console.error('[native update] install failed', err);
@@ -99,6 +147,7 @@ export function useNativeAppUpdate() {
       );
     } finally {
       clearTimeout(timeoutId);
+      clearInterval(pollTimer);
       await progressListener.remove();
       setInstalling(false);
       setProgressPct(null);
