@@ -27,6 +27,7 @@ interface PurchaseOrder {
   status: string;
   supplier_id: string | null;
   total_amount: string | number;
+  origin?: string;
   items?: {
     id: string;
     product_id: string | null;
@@ -121,7 +122,12 @@ export function PurchaseOrderList({
                   <td className="px-6 py-4 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>
                     {expandedPo === po.id ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>{po.order_number}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800 cursor-pointer" onClick={() => setExpandedPo(expandedPo === po.id ? null : po.id)}>
+                    {po.order_number}
+                    {po.origin === 'synced' && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-full">Synced via OBIX</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-slate-600">{supplierName(po.supplier_id) || '—'}</td>
                   <td className="px-6 py-4 text-right font-semibold text-slate-800">₹{Number(po.total_amount).toFixed(2)}</td>
                   <td className="px-6 py-4"><StatusBadge status={po.status} /></td>

@@ -64,6 +64,17 @@ export class Order {
   @Column({ type: 'varchar', length: 50, default: 'draft' })
   status: string;
 
+  // 'manual' (entered directly by shop staff) vs 'synced' (auto-created because
+  // a linked retailer business raised a PurchaseOrder against a Customer here
+  // that has linked_business_id set — see OrdersService.mirrorFromPurchaseOrder).
+  @Column({ type: 'varchar', length: 20, default: 'manual' })
+  origin: string;
+
+  // The PurchaseOrder on the counterpart (retailer) business this Order was
+  // mirrored from. Null for manually entered orders.
+  @Column({ type: 'uuid', nullable: true })
+  mirrored_purchase_order_id: string | null;
+
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   total_amount: number;
 

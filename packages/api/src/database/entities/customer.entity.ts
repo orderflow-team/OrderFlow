@@ -19,6 +19,16 @@ export class Customer {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
+  // Set once a BusinessConnection to this customer's real OBIX account is
+  // accepted — sales orders against this customer then auto-mirror into a
+  // PurchaseOrder on that business (see OrdersService.create).
+  @Column({ type: 'uuid', nullable: true })
+  linked_business_id: string | null;
+
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'linked_business_id' })
+  linked_business: Business;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   email: string;
 

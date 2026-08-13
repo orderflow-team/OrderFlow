@@ -150,6 +150,10 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessId) return;
+    if (!form.phone.trim()) {
+      setError('Phone number is required — add it below before saving.');
+      return;
+    }
     setSaving(true);
     setError('');
     setSaved(false);
@@ -477,8 +481,9 @@ export default function SettingsPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-medium text-slate-500 mb-1.5 block">Phone</label>
-                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                    <label className="text-xs font-medium text-slate-500 mb-1.5 block">Phone *</label>
+                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                    <p className="text-[11px] text-slate-500 mt-1">Required — this is how other OBIX businesses find and connect with you as a retailer or wholesaler.</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-500 mb-1.5 block">GST number</label>

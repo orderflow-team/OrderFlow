@@ -13,6 +13,16 @@ export class Supplier {
   @JoinColumn({ name: 'business_id' })
   business: Business;
 
+  // Set once a BusinessConnection to this supplier's real OBIX account is
+  // accepted — purchase orders against this supplier then auto-mirror into
+  // an Order on that business (see InventoryService.createPurchaseOrder).
+  @Column({ type: 'uuid', nullable: true })
+  linked_business_id: string | null;
+
+  @ManyToOne(() => Business)
+  @JoinColumn({ name: 'linked_business_id' })
+  linked_business: Business;
+
   @Column({ type: 'varchar', length: 255 })
   name: string;
 

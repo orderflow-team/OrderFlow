@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AiModule } from './modules/ai/ai.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
+import { BusinessConnectionsModule } from './modules/business-connections/business-connections.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ProductsModule } from './modules/products/products.module';
 import { OrdersModule } from './modules/orders/orders.module';
@@ -38,6 +39,7 @@ import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-release
     AuthModule,
     AiModule,
     BusinessesModule,
+    BusinessConnectionsModule,
     CustomersModule,
     ProductsModule,
     OrdersModule,

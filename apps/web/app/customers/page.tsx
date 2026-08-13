@@ -13,6 +13,7 @@ import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Capacitor } from '@capacitor/core';
+import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 
 interface Customer {
   id: string;
@@ -27,6 +28,7 @@ interface Customer {
   payment_terms?: string | null;
   trade_discount_percentage?: string | number | null;
   custom_fields?: Record<string, any> | null;
+  linked_business_id?: string | null;
 }
 
 const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', creditLimit: '', paymentTerms: 'due_on_receipt', tradeDiscountPercentage: '0' };
@@ -428,6 +430,8 @@ function CustomersPageContent() {
           {businessId && <ClearModuleButton module="customers" businessId={businessId} />}
         </div>
 
+        {businessId && <BusinessConnectionsPanel businessId={businessId} role="wholesaler" />}
+
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">
             <Users className="w-3.5 h-3.5" /> {`${customers.length} client${customers.length === 1 ? '' : 's'} • Recent`}
@@ -587,7 +591,12 @@ function CustomersPageContent() {
                       <Users className="w-5 h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-slate-800 text-sm truncate">{c.name}</p>
+                      <p className="font-bold text-slate-800 text-sm truncate">
+                        {c.name}
+                        {c.linked_business_id && (
+                          <span className="ml-1.5 text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-full">Linked via OBIX</span>
+                        )}
+                      </p>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate mt-0.5 flex-wrap">
                         {c.phone && <span>{c.phone}</span>}
                         {c.gst_number && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px]">GST: {c.gst_number}</span>}

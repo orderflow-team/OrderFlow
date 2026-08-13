@@ -52,6 +52,7 @@ interface Order {
   created_at: string;
   items?: OrderItem[];
   created_by?: { full_name: string | null } | null;
+  origin?: string;
 }
 
 const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'returned', 'cancelled'];
@@ -848,7 +849,12 @@ export function GenericOrders() {
                       {o.customer_name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-800 text-sm truncate">{o.customer_name}</p>
+                      <p className="font-bold text-slate-800 text-sm truncate">
+                        {o.customer_name}
+                        {o.origin === 'synced' && (
+                          <span className="ml-1.5 text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-full">Synced via OBIX</span>
+                        )}
+                      </p>
                       <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
                         {o.created_by?.full_name ? (
                           <span className="flex items-center gap-1 truncate"><UserRound className="w-3 h-3 shrink-0" />{o.created_by.full_name}</span>

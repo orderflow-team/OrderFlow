@@ -6,9 +6,15 @@ import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
 import { Product } from '../../database/entities/product.entity';
 import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { Supplier } from '../../database/entities/supplier.entity';
+import { Customer } from '../../database/entities/customer.entity';
+import { Business } from '../../database/entities/business.entity';
+import { Order } from '../../database/entities/order.entity';
+import { OrderItem } from '../../database/entities/order-item.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { findOrCreateProductByName } from '../../common/utils/find-or-create-product.util';
 
 // A PO can never be (re-)received once it's already received, paid, or cancelled.
 const NOT_RECEIVABLE_STATUSES = ['received', 'paid', 'cancelled'];
@@ -194,8 +200,91 @@ export class InventoryService {
       );
       await manager.save(PurchaseItem, items);
 
+      if (dto.supplierId) {
+        const supplier = await manager.findOne(Supplier, { where: { id: dto.supplierId, business_id: dto.businessId } });
+        if (supplier?.linked_business_id) {
+          await this.mirrorOrderToWholesaler(manager, saved, items, supplier);
+        }
+      }
+
       return { ...saved, items };
     });
+  }
+
+  /**
+   * When a PurchaseOrder is raised against a Supplier linked to a real OBIX
+   * business (business-connections module), auto-creates the mirrored Order
+   * on that wholesaler's account so they see it in their order list with the
+   * retailer's shop details, without either side re-entering the same order
+   * twice. No-ops silently if the reciprocal Customer link is missing (e.g.
+   * the connection was unlinked after this supplier was set up).
+   */
+  private async mirrorOrderToWholesaler(
+    manager: EntityManager,
+    purchaseOrder: PurchaseOrder,
+    items: PurchaseItem[],
+    supplier: Supplier,
+  ) {
+    const customer = await manager.findOne(Customer, {
+      where: { business_id: supplier.linked_business_id, linked_business_id: purchaseOrder.business_id },
+    });
+    if (!customer) return;
+
+    const retailerBusiness = await manager.findOne(Business, { where: { id: purchaseOrder.business_id } });
+
+    let totalAmount = 0;
+    let totalTax = 0;
+    const orderItems: OrderItem[] = [];
+
+    for (const item of items) {
+      const sourceProduct = item.product_id ? await manager.findOne(Product, { where: { id: item.product_id } }) : null;
+      const product = await findOrCreateProductByName(
+        manager,
+        supplier.linked_business_id,
+        sourceProduct?.name ?? 'Item',
+        sourceProduct?.unit,
+        Number(item.unit_price),
+        Number(item.tax_percentage),
+      );
+
+      const quantity = Number(item.quantity);
+      const subtotal = quantity * Number(item.unit_price);
+      const taxAmount = subtotal * (Number(item.tax_percentage) / 100);
+      totalAmount += subtotal + taxAmount;
+      totalTax += taxAmount;
+
+      orderItems.push(
+        manager.create(OrderItem, {
+          product_id: product.id,
+          quantity,
+          unit: product.unit,
+          unit_price: item.unit_price,
+          subtotal,
+          tax_percentage: item.tax_percentage,
+          tax_amount: taxAmount,
+        }),
+      );
+
+      const remaining = Number(product.stock_quantity) - quantity;
+      await manager.update(Product, { id: product.id }, { stock_quantity: remaining, is_available: remaining > 0 });
+    }
+
+    const order = manager.create(Order, {
+      business_id: supplier.linked_business_id,
+      customer_id: customer.id,
+      customer_name: retailerBusiness?.name ?? customer.name,
+      order_number: `ORD-${Date.now()}`,
+      order_type: 'regular',
+      status: 'confirmed',
+      origin: 'synced',
+      mirrored_purchase_order_id: purchaseOrder.id,
+      total_amount: totalAmount,
+      tax_amount: totalTax,
+      notes: `Synced from purchase order ${purchaseOrder.order_number} placed by ${retailerBusiness?.name ?? 'a linked retailer'} via OBIX.`,
+    });
+    const savedOrder = await manager.save(order);
+    orderItems.forEach((orderItem) => (orderItem.order_id = savedOrder.id));
+    await manager.save(OrderItem, orderItems);
   }
 
   findAllPurchaseOrders(businessId: string, status?: string) {

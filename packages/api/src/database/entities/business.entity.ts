@@ -54,6 +54,12 @@ export class Business {
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
+  // Off switch for the B2B linking feature (business-connections module) —
+  // lets a business stop receiving connection requests without unlinking
+  // any wholesalers/retailers it's already connected to.
+  @Column({ type: 'boolean', default: true })
+  b2b_sync_enabled: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   custom_settings: Record<string, any>;
 

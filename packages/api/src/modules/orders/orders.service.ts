@@ -15,9 +15,13 @@ import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
+import { Supplier } from '../../database/entities/supplier.entity';
+import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
+import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
+import { findOrCreateProductByName } from '../../common/utils/find-or-create-product.util';
 
 /** Internal marker item used to open a table session before real items are added — never a real product. */
 const TABLE_SESSION_PLACEHOLDER_ITEM = 'table session started';
@@ -321,8 +325,79 @@ export class OrdersService {
       );
       await manager.save(OrderItem, orderItems);
 
+      if (resolvedCustomerId) {
+        const customer = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
+        if (customer?.linked_business_id) {
+          await this.mirrorPurchaseOrderToRetailer(manager, savedOrder, resolvedItems, customer);
+        }
+      }
+
       return { ...savedOrder, items: await manager.find(OrderItem, { where: { order_id: savedOrder.id }, relations: { product: true } }) };
     });
+  }
+
+  /**
+   * When an Order is placed against a Customer linked to a real OBIX business
+   * (business-connections module), auto-creates the mirrored PurchaseOrder on
+   * that retailer's account — the reverse direction of
+   * InventoryService.mirrorOrderToWholesaler. Left in 'confirmed' (never
+   * 'received') since the goods haven't physically arrived at the retailer
+   * yet; they still explicitly receive it once the shipment does.
+   */
+  private async mirrorPurchaseOrderToRetailer(
+    manager: EntityManager,
+    order: Order,
+    resolvedItems: Array<{ item: CreateOrderItemDto; unitPrice: number; subtotal: number; taxPercentage: number; taxAmount: number }>,
+    customer: Customer,
+  ) {
+    const supplier = await manager.findOne(Supplier, {
+      where: { business_id: customer.linked_business_id, linked_business_id: order.business_id },
+    });
+    if (!supplier) return;
+
+    const wholesalerBusiness = await manager.findOne(Business, { where: { id: order.business_id } });
+
+    let totalAmount = 0;
+    let totalTax = 0;
+    const purchaseItems: PurchaseItem[] = [];
+
+    for (const { item, unitPrice, taxPercentage } of resolvedItems) {
+      const sourceProduct = item.productId ? await manager.findOne(Product, { where: { id: item.productId } }) : null;
+      const name = sourceProduct?.name ?? item.customProductName ?? 'Item';
+      const product = await findOrCreateProductByName(manager, customer.linked_business_id, name, sourceProduct?.unit, unitPrice, taxPercentage);
+
+      const quantity = Number(item.quantity);
+      const subtotal = quantity * unitPrice;
+      const taxAmount = subtotal * (taxPercentage / 100);
+      totalAmount += subtotal + taxAmount;
+      totalTax += taxAmount;
+
+      purchaseItems.push(
+        manager.create(PurchaseItem, {
+          product_id: product.id,
+          supplier_id: supplier.id,
+          quantity,
+          unit_price: unitPrice,
+          subtotal,
+          tax_percentage: taxPercentage,
+          tax_amount: taxAmount,
+        }),
+      );
+    }
+
+    const purchaseOrder = manager.create(PurchaseOrder, {
+      business_id: customer.linked_business_id,
+      supplier_id: supplier.id,
+      order_number: `PO-${Date.now()}`,
+      status: 'confirmed',
+      origin: 'synced',
+      mirrored_order_id: order.id,
+      total_amount: totalAmount,
+      tax_amount: totalTax,
+    });
+    const savedPurchaseOrder = await manager.save(purchaseOrder);
+    purchaseItems.forEach((purchaseItem) => (purchaseItem.purchase_order_id = savedPurchaseOrder.id));
+    await manager.save(PurchaseItem, purchaseItems);
   }
 
   /**

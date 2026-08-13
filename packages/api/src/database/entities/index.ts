@@ -1,4 +1,5 @@
 export * from './business.entity';
+export * from './business-connection.entity';
 export * from './category.entity';
 export * from './customer.entity';
 export * from './expense.entity';

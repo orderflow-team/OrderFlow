@@ -10,6 +10,7 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { Plus, ArrowLeft, Warehouse, Pencil, Trash2, Search } from 'lucide-react';
 import { SupplierFormDialog, type Supplier } from './supplier-form-dialog';
+import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 
 export default function SuppliersPage() {
   const { businessId, ready } = useBusiness();
@@ -72,6 +73,8 @@ export default function SuppliersPage() {
           />
         </div>
 
+        {businessId && <BusinessConnectionsPanel businessId={businessId} role="retailer" />}
+
         <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">
             {loading ? (
@@ -105,7 +108,12 @@ export default function SuppliersPage() {
                   {filtered.map((s) => (
                     <tr key={s.id} className="hover:bg-white/40 transition-colors">
                       <td className="px-6 py-4 font-medium text-slate-800">
-                        {s.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          {s.name}
+                          {s.linked_business_id && (
+                            <span className="text-[10px] font-semibold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded-full">Linked via OBIX</span>
+                          )}
+                        </span>
                         {s.contact_person && <div className="text-xs text-slate-400 font-normal">{s.contact_person}</div>}
                       </td>
                       <td className="px-6 py-4 text-slate-600">

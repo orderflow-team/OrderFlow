@@ -27,6 +27,7 @@ export interface Supplier {
   bank_details: { accountName?: string; accountNumber?: string; ifsc?: string; bankName?: string } | null;
   is_active: boolean;
   notes: string | null;
+  linked_business_id?: string | null;
 }
 
 const emptyForm = {
