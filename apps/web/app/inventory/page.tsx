@@ -16,6 +16,7 @@ import { Plus, X, AlertTriangle, Warehouse, Truck } from 'lucide-react';
 import { ScanToInventoryDialog } from './scan-to-inventory';
 import { PurchaseOrderForm, type EditingPo } from './purchase-order-form';
 import { PurchaseOrderList } from './purchase-order-list';
+import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 
 interface Supplier {
   id: string;
@@ -120,6 +121,8 @@ export default function InventoryPage() {
         />
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
+
+        {businessId && <BusinessConnectionsPanel businessId={businessId} role="retailer" />}
 
         <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>

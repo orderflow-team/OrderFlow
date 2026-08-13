@@ -10,7 +10,6 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { Plus, ArrowLeft, Warehouse, Pencil, Trash2, Search } from 'lucide-react';
 import { SupplierFormDialog, type Supplier } from './supplier-form-dialog';
-import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 
 export default function SuppliersPage() {
   const { businessId, ready } = useBusiness();
@@ -72,8 +71,6 @@ export default function SuppliersPage() {
             className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm outline-none"
           />
         </div>
-
-        {businessId && <BusinessConnectionsPanel businessId={businessId} role="retailer" />}
 
         <Card className="ring-white/50 glass-sheen-sm">
           <CardContent className="p-0">

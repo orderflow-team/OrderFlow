@@ -345,7 +345,7 @@ export default function SettingsPage() {
   return (
     <>
     <AppShell>
-      <div className="p-6 md:p-10 max-w-2xl lg:max-w-5xl mx-auto">
+      <div className="p-6 md:p-10 pb-28 md:pb-24 max-w-2xl lg:max-w-5xl mx-auto">
       <div className="lg:flex lg:gap-6 lg:items-start">
       <div className="lg:flex-1 lg:min-w-0 space-y-8">
         <PageHeader title="Settings" description="Manage your business profile and modules." />
@@ -585,12 +585,25 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {error && <p className="text-sm text-rose-600">{error}</p>}
-            {saved && <p className="text-sm text-emerald-600">Saved.</p>}
-
-            <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-              {saving ? 'Saving...' : 'Save changes'}
-            </Button>
+            {/* Fixed so "Save changes" is always reachable without scrolling to the
+                bottom of this long form — losing an edited draft because the button
+                was off-screen was the whole problem being fixed here. Sits above the
+                mobile bottom tab bar (bottom-16), flush to the viewport bottom on
+                desktop where there's no tab bar (md:bottom-0). */}
+            <div className="fixed inset-x-0 bottom-16 md:bottom-0 z-20 px-6 md:px-10 py-3 pointer-events-none">
+              <div className="max-w-2xl lg:max-w-5xl mx-auto pointer-events-auto bg-white/85 backdrop-blur-xl ring-1 ring-white/60 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.15)] rounded-2xl px-4 py-3 flex items-center gap-3">
+                {error ? (
+                  <p className="text-sm text-rose-600 flex-1 truncate">{error}</p>
+                ) : saved ? (
+                  <p className="text-sm text-emerald-600 flex-1">Saved.</p>
+                ) : (
+                  <span className="flex-1 text-xs text-slate-400">Remember to save your changes</span>
+                )}
+                <Button type="submit" disabled={saving} className="shrink-0">
+                  {saving ? 'Saving...' : 'Save changes'}
+                </Button>
+              </div>
+            </div>
           </form>
         )}
 

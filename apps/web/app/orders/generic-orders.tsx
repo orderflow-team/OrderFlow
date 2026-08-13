@@ -415,7 +415,9 @@ export function GenericOrders() {
   };
 
   const quickSetStatus = async (order: Order, status: string) => {
-    if (!businessId) return;
+    // Once paid, a quick tap must never silently revert it back to unpaid/new —
+    // that status change needs the full drawer editor, not a one-tap mistake.
+    if (!businessId || order.status === 'paid') return;
     try {
       await apiClient.patch(`/api/orders/${order.id}/status`, { status }, { params: { businessId } });
       setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, status } : o)));
@@ -429,9 +431,10 @@ export function GenericOrders() {
   };
 
   const quickMarkPaid = async (order: Order) => {
-    if (!businessId) return;
+    if (!businessId || order.status === 'paid') return;
+    const amount = Number(order.total_amount);
+    if (!confirm(`Mark this order as paid (₹${amount.toFixed(2)})? Once paid, it can't be quickly reverted to unpaid.`)) return;
     try {
-      const amount = Number(order.total_amount);
       if (amount > 0) {
         await apiClient.post('/api/billing/payments', {
           businessId,
@@ -875,13 +878,21 @@ export function GenericOrders() {
                   <div className="flex items-center gap-2">
                     {o.status !== 'returned' && o.status !== 'cancelled' && (['NEW', 'UNPAID', 'PAID'] as const).map((b) => {
                       const active = bucket === b;
+                      // Once paid, only the (already-active) PAID button stays usable —
+                      // no one-tap way back to NEW/UNPAID from here.
+                      const lockedByPaid = bucket === 'PAID' && b !== 'PAID';
                       const BucketIcon = b === 'NEW' ? Clock : b === 'UNPAID' ? AlertCircle : CheckCircle2;
                       return (
                         <button
                           key={b}
+                          disabled={lockedByPaid}
                           onClick={() => (b === 'PAID' ? quickMarkPaid(o) : quickSetStatus(o, b === 'NEW' ? 'draft' : 'confirmed'))}
                           className={`flex-1 flex items-center justify-center gap-1 h-8 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors ${
-                            active ? 'bg-accent-orange text-white' : 'bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-slate-500'
+                            active
+                              ? 'bg-accent-orange text-white'
+                              : lockedByPaid
+                              ? 'bg-white/20 text-slate-300 cursor-not-allowed'
+                              : 'bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-slate-500'
                           }`}
                         >
                           <BucketIcon className="w-3 h-3" />
