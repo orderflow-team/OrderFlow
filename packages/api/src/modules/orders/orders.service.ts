@@ -866,6 +866,15 @@ export class OrdersService {
 
       let returnedAmount = 0;
       let returnedTax = 0;
+      const creditNoteLines: {
+        product_id: string | null;
+        custom_product_name: string | null;
+        quantity: number;
+        unit_price: number;
+        subtotal: number;
+        tax_percentage: number;
+        tax_amount: number;
+      }[] = [];
 
       for (const { item, qty } of targets) {
         const itemQty = Number(item.quantity);
@@ -874,6 +883,15 @@ export class OrdersService {
         const itemReturnedTax = taxPerUnit * qty;
         returnedAmount += itemReturnedSubtotal + itemReturnedTax;
         returnedTax += itemReturnedTax;
+        creditNoteLines.push({
+          product_id: item.product_id,
+          custom_product_name: item.custom_product_name,
+          quantity: qty,
+          unit_price: Number(item.unit_price),
+          subtotal: itemReturnedSubtotal,
+          tax_percentage: Number(item.tax_percentage),
+          tax_amount: itemReturnedTax,
+        });
 
         // 1. Restore stock for the returned quantity only
         if (inventoryEnabled && item.product_id) {
@@ -969,6 +987,13 @@ export class OrdersService {
       }
 
       await manager.save(order);
+
+      // 5. Formal paper trail for the return — no-ops if this order was never
+      // invoiced in the first place. The original Invoice is deliberately
+      // left untouched (never re-synced to the shrunk order total): it must
+      // stay an immutable record of what was actually sold, with the credit
+      // note as the separate document that reverses part of it.
+      await this.invoicesService.generateCreditNoteForReturn(manager, order.id, businessId, creditNoteLines);
     });
 
     return this.findOne(id, businessId);

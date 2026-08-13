@@ -151,6 +151,10 @@ export function GenericOrders() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  // Credit notes are generated automatically (server-side) the moment a
+  // return happens on an invoiced order — there's no "generate" action here,
+  // just a link to view whichever one most recently applied.
+  const [creditNoteId, setCreditNoteId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Credit'>('Cash');
 
@@ -259,15 +263,26 @@ export function GenericOrders() {
     if (typeof window !== 'undefined' && o.status !== 'queued' && o.status !== 'sync_failed') {
       window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: o.id, orderNumber: o.order_number } }));
     }
-    // Check for existing invoice
+    // Check for an existing invoice (type-filtered so a credit note on this
+    // same order — newer, and otherwise indistinguishable by orderId alone —
+    // is never mistaken for the sale invoice).
+    setCreditNoteId(null);
     if (businessId) {
       try {
         const res = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
-          params: { businessId, orderId: o.id },
+          params: { businessId, orderId: o.id, type: 'invoice' },
         });
         if (res.data.length > 0) setInvoiceId(res.data[0].id);
       } catch {
         // no invoice yet
+      }
+      try {
+        const cn = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
+          params: { businessId, orderId: o.id, type: 'credit_note' },
+        });
+        if (cn.data.length > 0) setCreditNoteId(cn.data[0].id);
+      } catch {
+        // no credit note
       }
     }
   };
@@ -373,6 +388,17 @@ export function GenericOrders() {
       setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: res.data.status, total_amount: res.data.total_amount } : o));
       setReturnMode(false);
       setReturnQty({});
+      // A return against an invoiced order generates its credit note
+      // automatically (server-side) — fetch it so a "View Credit Note" link
+      // can appear right away instead of only after reopening the drawer.
+      try {
+        const cn = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
+          params: { businessId, orderId: drawerOrder.id, type: 'credit_note' },
+        });
+        if (cn.data.length > 0) setCreditNoteId(cn.data[0].id);
+      } catch {
+        // no credit note (order was never invoiced) — fine, nothing to show
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to return order');
     } finally {
@@ -428,7 +454,7 @@ export function GenericOrders() {
   const quickInvoice = async (order: Order) => {
     if (!businessId) return;
     try {
-      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id, type: 'invoice' } });
       if (existing.data.length > 0) {
         router.push(`/billing/invoices/view?id=${existing.data[0].id}`);
         return;
@@ -1294,6 +1320,20 @@ export function GenericOrders() {
                     Return & Refund Order
                   </Button>
                 )
+              )}
+
+              {/* Credit Note — appears once a return has generated one; there's
+                  no manual "generate" step, it's created automatically when
+                  the return happens against an invoiced order. */}
+              {creditNoteId && (
+                <Button
+                  onClick={() => router.push(`/billing/invoices/view?id=${creditNoteId}`)}
+                  variant="outline"
+                  className="w-full h-11 gap-2 border-amber-500 text-amber-700 hover:bg-amber-50 hover:text-amber-800 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  View Credit Note
+                </Button>
               )}
 
               {/* Invoice */}

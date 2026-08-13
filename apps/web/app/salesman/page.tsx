@@ -251,7 +251,7 @@ export default function SalesmanPage() {
 
     // 2. Fetch or generate the invoice for this order
     const invoicesRes = await apiClient.get<{ id: string; invoice_number: string }[]>('/api/billing/invoices', {
-      params: { businessId, orderId: order.id },
+      params: { businessId, orderId: order.id, type: 'invoice' },
     });
     
     let invoice = invoicesRes.data?.[0];

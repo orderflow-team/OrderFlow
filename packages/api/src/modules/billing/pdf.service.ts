@@ -50,8 +50,11 @@ export class PdfService {
     const previousBalanceDue = order?.customer_id
       ? await this.invoicesService.getPreviousBalanceDue(businessId, order.customer_id, order.id)
       : 0;
+    const referenceInvoiceNumber = invoice.reference_invoice_id
+      ? (await this.invoicesRepository.findOne({ where: { id: invoice.reference_invoice_id } }))?.invoice_number ?? null
+      : null;
 
-    return { invoice, items, business, customer, order, previousBalanceDue };
+    return { invoice, items, business, customer, order, previousBalanceDue, referenceInvoiceNumber };
   }
 
   /** Generates (or returns the cached) PDF for an invoice and updates invoice.pdf_url. */
@@ -66,10 +69,10 @@ export class PdfService {
       return filePath;
     }
 
-    const { items, business, customer, order, previousBalanceDue } = await this.loadInvoiceContext(invoiceId, businessId);
+    const { items, business, customer, order, previousBalanceDue, referenceInvoiceNumber } = await this.loadInvoiceContext(invoiceId, businessId);
     const html = business?.category === 'pharmacy'
-      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue)
-      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue);
+      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber)
+      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber);
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 

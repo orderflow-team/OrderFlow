@@ -170,7 +170,7 @@ function RestaurantPageContent() {
   const openInvoice = async (order: HistoryOrder) => {
     if (!businessId) return;
     try {
-      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id } });
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id, type: 'invoice' } });
       if (existing.data.length > 0) {
         router.push(`/billing/invoices/view?id=${existing.data[0].id}`);
         return;

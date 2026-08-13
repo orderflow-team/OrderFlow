@@ -37,8 +37,12 @@ export class BillingController {
 
   @UseGuards(JwtAuthGuard, BusinessScopeGuard)
   @Get('invoices')
-  findAllInvoices(@Query('businessId') businessId: string, @Query('orderId') orderId?: string) {
-    return this.invoicesService.findAll(businessId, orderId);
+  findAllInvoices(
+    @Query('businessId') businessId: string,
+    @Query('orderId') orderId?: string,
+    @Query('type') type?: 'invoice' | 'credit_note',
+  ) {
+    return this.invoicesService.findAll(businessId, orderId, type);
   }
 
   @UseGuards(JwtAuthGuard, BusinessScopeGuard)

@@ -91,7 +91,9 @@ export function renderInvoiceHtml(
   order: any | null,
   logoDataUri: string | null = null,
   previousBalanceDue = 0,
+  referenceInvoiceNumber: string | null = null,
 ) {
+  const isCreditNote = invoice.type === 'credit_note';
   const timeZone = tz(business);
   const hasMrp = items.some((item) => item.product?.mrp != null);
   const rows = items
@@ -145,10 +147,12 @@ export function renderInvoiceHtml(
       <div class="muted">${business?.gst_number ? `GSTIN: ${escapeHtml(business.gst_number)}` : ''}</div>
     </div>
     <div>
-      <div class="muted">Invoice No.</div>
+      <div class="muted">${isCreditNote ? 'Credit Note No.' : 'Invoice No.'}</div>
       <div><strong>${escapeHtml(invoice.invoice_number)}</strong></div>
       <div class="muted">${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })} ${new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone })}</div>
-      ${order?.status ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${escapeHtml(String(order.status))}</div>` : ''}
+      ${isCreditNote
+        ? (referenceInvoiceNumber ? `<div class="muted" style="margin-top: 4px;">Reversing Invoice: ${escapeHtml(referenceInvoiceNumber)}</div>` : '')
+        : (order?.status ? `<div class="muted" style="margin-top: 4px; color: #059669; font-weight: bold; text-transform: uppercase;">STATUS: ${escapeHtml(String(order.status))}</div>` : '')}
     </div>
   </div>
 
@@ -166,11 +170,15 @@ export function renderInvoiceHtml(
 
   <div class="totals">
     <div><span>Tax</span><span>₹${money(invoice.tax_amount)}</span></div>
+    ${isCreditNote ? `
+    <div class="grand"><span>Amount Credited</span><span>₹${money(invoice.total_amount)}</span></div>
+    ` : `
     <div class="${previousBalanceDue > 0.01 ? '' : 'grand'}"><span>${previousBalanceDue > 0.01 ? 'This Invoice' : 'Total'}</span><span>₹${money(invoice.total_amount)}</span></div>
     ${previousBalanceDue > 0.01 ? `
     <div><span>Previous Balance Due</span><span>₹${money(previousBalanceDue)}</span></div>
     <div class="grand"><span>Total Amount Due</span><span>₹${money(Number(invoice.total_amount) + previousBalanceDue)}</span></div>
     ` : ''}
+    `}
   </div>
 </body>
 </html>`;
@@ -192,7 +200,9 @@ export function renderPharmacyCashMemoHtml(
   order: any | null,
   logoDataUri: string | null = null,
   previousBalanceDue = 0,
+  referenceInvoiceNumber: string | null = null,
 ) {
+  const isCreditNote = invoice.type === 'credit_note';
   const timeZone = tz(business);
   const rows = items
     .map((item) => {
@@ -256,7 +266,7 @@ export function renderPharmacyCashMemoHtml(
         ${business?.drug_license_number_1 ? `<div>Lic. No. ${escapeHtml(business.drug_license_number_1)}</div>` : ''}
         ${business?.drug_license_number_2 ? `<div>Lic. No. ${escapeHtml(business.drug_license_number_2)}</div>` : ''}
       </div>
-      <div class="memo-label">CASH MEMO</div>
+      <div class="memo-label">${isCreditNote ? 'CREDIT NOTE' : 'CASH MEMO'}</div>
       <div>${business?.phone ? `Mob. ${escapeHtml(business.phone)}` : ''}</div>
     </div>
 
@@ -271,6 +281,12 @@ export function renderPharmacyCashMemoHtml(
       <div>No. <strong>${escapeHtml(invoice.invoice_number)}</strong></div>
       <div>Dated ${new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone })}</div>
     </div>
+    ${isCreditNote && referenceInvoiceNumber ? `
+    <div class="patient-row">
+      <span class="label">Reversing Invoice</span>
+      <span class="dots">${escapeHtml(referenceInvoiceNumber)}</span>
+    </div>
+    ` : ''}
 
     ${customer?.name || order?.customer_name ? `
     <div class="patient-row">
@@ -324,12 +340,12 @@ export function renderPharmacyCashMemoHtml(
           <td class="num rs">Tax (GST) ₹${taxRupees}</td>
           <td class="ps">${taxPaise}</td>
         </tr>
-        <tr class="${previousBalanceDue > 0.01 ? 'summary-row' : 'total-row'}">
+        <tr class="${!isCreditNote && previousBalanceDue > 0.01 ? 'summary-row' : 'total-row'}">
           <td colspan="4"></td>
-          <td class="num rs">${previousBalanceDue > 0.01 ? 'This Memo' : 'Total'} ₹${totalRupees}</td>
+          <td class="num rs">${isCreditNote ? 'Amount Credited' : previousBalanceDue > 0.01 ? 'This Memo' : 'Total'} ₹${totalRupees}</td>
           <td class="ps">${totalPaise}</td>
         </tr>
-        ${previousBalanceDue > 0.01 ? (() => {
+        ${!isCreditNote && previousBalanceDue > 0.01 ? (() => {
           const { rupees: prevRupees, paise: prevPaise } = splitRupeesPaise(previousBalanceDue);
           const { rupees: dueRupees, paise: duePaise } = splitRupeesPaise(Number(invoice.total_amount) + previousBalanceDue);
           return `

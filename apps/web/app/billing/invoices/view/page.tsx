@@ -32,6 +32,8 @@ interface Invoice {
   id: string;
   invoice_number: string;
   order_id: string;
+  type?: 'invoice' | 'credit_note';
+  reference_invoice_number?: string | null;
   total_amount: string | number;
   tax_amount: string | number;
   created_at: string;
@@ -314,7 +316,7 @@ function InvoiceDetailPageInner() {
       <div className="p-6 md:p-10 max-w-3xl mx-auto space-y-6 print:p-0">
         <div className="print:hidden">
           <PageHeader
-            title="Invoice"
+            title={invoice?.type === 'credit_note' ? 'Credit Note' : 'Invoice'}
             action={
               invoice && (
                 <div className="flex gap-2">
@@ -348,12 +350,15 @@ function InvoiceDetailPageInner() {
 
         {invoice && (
           <div id="invoice-pdf-content" className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
-            <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-400 print:hidden" />
+            <div className={`h-2 print:hidden bg-gradient-to-r ${invoice.type === 'credit_note' ? 'from-amber-500 to-orange-400' : 'from-emerald-500 to-teal-400'}`} />
             <div className="p-8">
             <div className="flex justify-between items-start mb-8">
               <div>
-                <h2 className="text-xl font-bold text-slate-800">Tax Invoice</h2>
+                <h2 className="text-xl font-bold text-slate-800">{invoice.type === 'credit_note' ? 'Credit Note' : 'Tax Invoice'}</h2>
                 <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
+                {invoice.type === 'credit_note' && invoice.reference_invoice_number && (
+                  <p className="text-amber-700 text-xs mt-1">Reversing Invoice: {invoice.reference_invoice_number}</p>
+                )}
               </div>
               <div className="text-right">
                 <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
@@ -458,7 +463,12 @@ function InvoiceDetailPageInner() {
                   <span>Tax (GST)</span>
                   <span>{Number(invoice.tax_amount).toFixed(2)}</span>
                 </div>
-                {previousBalanceDue > 0.01 ? (
+                {invoice.type === 'credit_note' ? (
+                  <div className="flex justify-between text-base font-bold text-amber-700 border-t border-slate-200 pt-2">
+                    <span>Amount Credited</span>
+                    <span>{Number(invoice.total_amount).toFixed(2)}</span>
+                  </div>
+                ) : previousBalanceDue > 0.01 ? (
                   <>
                     <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
                       <span>This Invoice</span>

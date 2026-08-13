@@ -87,7 +87,7 @@ export function StandardBilling() {
     try {
       const [ordersRes, invoicesRes, paymentsRes] = await Promise.all([
         apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
-        apiClient.get<Invoice[]>('/api/billing/invoices', { params: { businessId: bizId } }),
+        apiClient.get<Invoice[]>('/api/billing/invoices', { params: { businessId: bizId, type: 'invoice' } }),
         apiClient.get<Payment[]>('/api/billing/payments', { params: { businessId: bizId } }),
       ]);
       setCached(bizId, 'orders', ordersRes.data);

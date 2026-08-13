@@ -24,6 +24,18 @@ export class Invoice {
   @Column({ type: 'varchar', length: 50 })
   invoice_number: string;
 
+  /** 'credit_note' rows reverse part of an 'invoice' row (same order_id) rather than billing anything new. */
+  @Column({ type: 'varchar', length: 20, default: 'invoice' })
+  type: 'invoice' | 'credit_note';
+
+  /** Set only on credit_note rows — the original sale Invoice this note reverses. */
+  @Column({ type: 'uuid', nullable: true })
+  reference_invoice_id: string | null;
+
+  @ManyToOne(() => Invoice)
+  @JoinColumn({ name: 'reference_invoice_id' })
+  reference_invoice: Invoice;
+
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   total_amount: number;
 

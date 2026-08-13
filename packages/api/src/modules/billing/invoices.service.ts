@@ -59,7 +59,11 @@ export class InvoicesService {
         throw new NotFoundException('Order not found');
       }
 
-      const existing = await manager.findOne(Invoice, { where: { order_id: orderId } });
+      // Filtered to type: 'invoice' — an order that's already had a credit
+      // note generated against it (see generateCreditNoteForReturn below)
+      // still shares this order_id, and must not be mistaken for an
+      // already-generated sale invoice.
+      const existing = await manager.findOne(Invoice, { where: { order_id: orderId, type: 'invoice' } });
       if (existing) {
         throw new ConflictException('Invoice already generated for this order');
       }
@@ -69,6 +73,7 @@ export class InvoicesService {
       const invoice = manager.create(Invoice, {
         business_id: businessId,
         order_id: orderId,
+        type: 'invoice',
         invoice_number: `INV-${Date.now()}`,
         total_amount: order.total_amount,
         tax_amount: order.tax_amount,
@@ -102,7 +107,10 @@ export class InvoicesService {
    * order has no invoice yet.
    */
   async syncFromOrder(orderId: string, manager: EntityManager) {
-    const invoice = await manager.findOne(Invoice, { where: { order_id: orderId } });
+    // type: 'invoice' — never re-sync a credit note's snapshot from the
+    // order's current (post-return) totals; a credit note is an immutable
+    // record of what was returned, not a live view of the order.
+    const invoice = await manager.findOne(Invoice, { where: { order_id: orderId, type: 'invoice' } });
     if (!invoice) return;
 
     const order = await manager.findOne(Order, { where: { id: orderId } });
@@ -135,9 +143,10 @@ export class InvoicesService {
     }
   }
 
-  findAll(businessId: string, orderId?: string) {
+  findAll(businessId: string, orderId?: string, type?: 'invoice' | 'credit_note') {
     const where: any = { business_id: businessId };
     if (orderId) where.order_id = orderId;
+    if (type) where.type = type;
     return this.invoicesRepository.find({ where, order: { created_at: 'DESC' } });
   }
 
@@ -157,6 +166,9 @@ export class InvoicesService {
     const previousBalanceDue = order?.customer_id
       ? await this.getPreviousBalanceDue(businessId, order.customer_id, order.id)
       : 0;
+    const referenceInvoice = invoice.reference_invoice_id
+      ? await this.invoicesRepository.findOne({ where: { id: invoice.reference_invoice_id } })
+      : null;
     return {
       ...invoice,
       items,
@@ -166,6 +178,59 @@ export class InvoicesService {
       patient_name: order?.patient_name,
       doctor_name: order?.doctor_name,
       previous_balance_due: previousBalanceDue,
+      reference_invoice_number: referenceInvoice?.invoice_number ?? null,
     };
+  }
+
+  /**
+   * Snapshots the units just returned by OrdersService.returnOrder into an
+   * immutable credit note — the GST-correct paper trail for a return,
+   * mirroring generateFromOrder's Order -> Invoice snapshot but reversed.
+   * Called from *inside* returnOrder's own transaction (hence taking a
+   * manager, not opening its own) using that exact call's returned
+   * quantities, so multiple partial returns over time each get their own
+   * credit note instead of one note racing to cover cumulative state.
+   * No-op (returns null) if the order was never formally invoiced — nothing
+   * to issue a credit note against.
+   */
+  async generateCreditNoteForReturn(
+    manager: EntityManager,
+    orderId: string,
+    businessId: string,
+    returnedLines: {
+      product_id: string | null;
+      custom_product_name: string | null;
+      quantity: number;
+      unit_price: number;
+      subtotal: number;
+      tax_percentage: number;
+      tax_amount: number;
+    }[],
+  ): Promise<Invoice | null> {
+    if (returnedLines.length === 0) return null;
+
+    const originalInvoice = await manager.findOne(Invoice, { where: { order_id: orderId, type: 'invoice' } });
+    if (!originalInvoice) return null;
+
+    const totalAmount = returnedLines.reduce((sum, l) => sum + l.subtotal + l.tax_amount, 0);
+    const totalTax = returnedLines.reduce((sum, l) => sum + l.tax_amount, 0);
+
+    const creditNote = manager.create(Invoice, {
+      business_id: businessId,
+      order_id: orderId,
+      type: 'credit_note',
+      reference_invoice_id: originalInvoice.id,
+      invoice_number: `CN-${Date.now()}`,
+      total_amount: totalAmount,
+      tax_amount: totalTax,
+    });
+    const savedNote = await manager.save(creditNote);
+
+    const creditNoteItems = returnedLines.map((line) =>
+      manager.create(InvoiceItem, { invoice_id: savedNote.id, ...line }),
+    );
+    await manager.save(InvoiceItem, creditNoteItems);
+
+    return savedNote;
   }
 }
