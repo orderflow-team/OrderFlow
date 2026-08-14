@@ -464,6 +464,7 @@ export class PlatformAdminService {
         id: p.id,
         name: p.name,
         sku: p.sku,
+        barcode: p.barcode,
         price: p.selling_price || 0,
         cost_price: p.purchase_price || 0,
         current_stock: p.stock_quantity || 0,

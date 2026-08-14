@@ -21,6 +21,7 @@ interface ProductItem {
   id: string;
   name: string;
   sku: string;
+  barcode: string;
   price: number;
   cost_price: number;
   current_stock: number;
@@ -107,23 +108,38 @@ export default function AdminProductsPage() {
   const handleExportCSV = async () => {
     setExporting(true);
     try {
-      const res = await apiClient.get('/api/platform-admin/products-overview', {
-        params: {
-          search,
-          category: selectedCategory,
-          business_id: selectedStoreId,
-          page: 1,
-          limit: 500,
-        },
-      });
+      // Backend caps each page at 500 rows, so page through all results
+      // rather than assuming a single request returns the full catalog.
+      const EXPORT_PAGE_SIZE = 500;
+      const exportData: ProductItem[] = [];
+      let exportPage = 1;
+      let totalCount = Infinity;
 
-      const exportData: ProductItem[] = res.data.data;
+      while (exportData.length < totalCount) {
+        const res = await apiClient.get('/api/platform-admin/products-overview', {
+          params: {
+            search,
+            category: selectedCategory,
+            business_id: selectedStoreId,
+            page: exportPage,
+            limit: EXPORT_PAGE_SIZE,
+          },
+        });
+
+        const pageData: ProductItem[] = res.data.data || [];
+        totalCount = res.data.meta?.total ?? pageData.length;
+        exportData.push(...pageData);
+
+        if (pageData.length === 0) break;
+        exportPage += 1;
+      }
+
       if (!exportData || exportData.length === 0) {
         alert('No products found matching filters to export.');
         return;
       }
 
-      const headers = ['ID', 'Product Name', 'SKU / Code', 'Store Name', 'Category', 'Selling Price (INR)', 'Cost Price (INR)', 'Stock Quantity', 'Created Date'];
+      const headers = ['ID', 'Product Name', 'SKU / Code', 'Barcode', 'Store Name', 'Category', 'Selling Price (INR)', 'Cost Price (INR)', 'Stock Quantity', 'Created Date'];
       const csvRows = [headers.join(',')];
 
       exportData.forEach((p) => {
@@ -131,6 +147,7 @@ export default function AdminProductsPage() {
           `"${p.id}"`,
           `"${(p.name || '').replace(/"/g, '""')}"`,
           `"${(p.sku || 'N/A').replace(/"/g, '""')}"`,
+          `"${(p.barcode || 'N/A').replace(/"/g, '""')}"`,
           `"${(p.business_name || '').replace(/"/g, '""')}"`,
           `"${(p.category || 'General').replace(/"/g, '""')}"`,
           p.price || 0,
