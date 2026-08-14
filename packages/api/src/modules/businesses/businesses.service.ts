@@ -49,6 +49,7 @@ export class BusinessesService {
       inventory_enabled: dto.inventoryEnabled ?? true,
       ai_chat_enabled: dto.aiChatEnabled ?? true,
       allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? true,
+      b2b_sync_enabled: dto.b2bSyncEnabled ?? true,
       custom_settings: dto.customSettings ?? null,
     });
     return this.businessesRepository.save(business);
@@ -126,6 +127,7 @@ export class BusinessesService {
       inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
       ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
       allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? business.allow_orders_beyond_stock,
+      b2b_sync_enabled: dto.b2bSyncEnabled ?? business.b2b_sync_enabled,
       custom_settings: dto.customSettings ?? business.custom_settings,
     });
     return this.businessesRepository.save(business);

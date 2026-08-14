@@ -53,5 +53,9 @@ export class CreateBusinessDto {
   allowOrdersBeyondStock?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  b2bSyncEnabled?: boolean;
+
+  @IsOptional()
   customSettings?: Record<string, any>;
 }

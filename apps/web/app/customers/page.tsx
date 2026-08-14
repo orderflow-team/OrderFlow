@@ -14,6 +14,8 @@ import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pen
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Capacitor } from '@capacitor/core';
 import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
+import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
+import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
 
 interface Customer {
   id: string;
@@ -44,6 +46,7 @@ function CustomersPageContent() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
+  const phoneMatch = useObixPhoneMatch(businessId);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
   const [customerPayments, setCustomerPayments] = useState<any[]>([]);
@@ -323,10 +326,12 @@ function CustomersPageContent() {
     setForm(emptyForm);
     setCustomFieldValues({});
     setShowForm((s) => (editingId ? true : !s));
+    phoneMatch.dismiss();
   };
 
   const openEditForm = (c: Customer) => {
     setEditingId(c.id);
+    phoneMatch.dismiss();
     setForm({
       name: c.name,
       phone: c.phone || '',
@@ -474,14 +479,27 @@ function CustomersPageContent() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
                 />
-                <Input
-                  placeholder="10-Digit Mobile # (e.g. 9876543210)"
-                  value={form.phone}
-                  onChange={(e) => {
-                    setForm({ ...form, phone: e.target.value });
-                    if (error) setError('');
-                  }}
-                />
+                <div>
+                  <Input
+                    placeholder="10-Digit Mobile # (e.g. 9876543210)"
+                    value={form.phone}
+                    onChange={(e) => {
+                      setForm({ ...form, phone: e.target.value });
+                      if (error) setError('');
+                      if (phoneMatch.match) phoneMatch.dismiss();
+                    }}
+                    onBlur={() => phoneMatch.check(form.phone)}
+                  />
+                  <ObixPhoneMatchBanner
+                    match={phoneMatch.match}
+                    connectionStatus={phoneMatch.connectionStatus}
+                    connecting={phoneMatch.connecting}
+                    error={phoneMatch.error}
+                    role="wholesaler"
+                    onConnect={() => phoneMatch.connect('wholesaler', form.phone)}
+                    onDismiss={phoneMatch.dismiss}
+                  />
+                </div>
                 <Input
                   placeholder="Email (e.g. client@domain.com)"
                   value={form.email}
@@ -662,15 +680,28 @@ function CustomersPageContent() {
                         required
                         className="h-10 text-xs bg-white/60"
                       />
-                      <Input
-                        placeholder="Phone"
-                        value={form.phone}
-                        onChange={(e) => {
-                          setForm({ ...form, phone: e.target.value });
-                          if (error) setError('');
-                        }}
-                        className="h-10 text-xs bg-white/60"
-                      />
+                      <div>
+                        <Input
+                          placeholder="Phone"
+                          value={form.phone}
+                          onChange={(e) => {
+                            setForm({ ...form, phone: e.target.value });
+                            if (error) setError('');
+                            if (phoneMatch.match) phoneMatch.dismiss();
+                          }}
+                          onBlur={() => phoneMatch.check(form.phone)}
+                          className="h-10 text-xs bg-white/60"
+                        />
+                        <ObixPhoneMatchBanner
+                          match={phoneMatch.match}
+                          connectionStatus={phoneMatch.connectionStatus}
+                          connecting={phoneMatch.connecting}
+                          error={phoneMatch.error}
+                          role="wholesaler"
+                          onConnect={() => phoneMatch.connect('wholesaler', form.phone)}
+                          onDismiss={phoneMatch.dismiss}
+                        />
+                      </div>
                       <Input
                         placeholder="Email"
                         value={form.email}

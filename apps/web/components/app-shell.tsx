@@ -33,6 +33,7 @@ import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, g
 import { getOptionalModulesForCategory, getBusinessTerminology, CustomBusinessSettings, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
+import { PendingConnectionRequestAlert } from '@/components/pending-connection-request-alert';
 import { ObixMark } from '@/components/obix-logo';
 
 const CORE_PRIMARY_NAV = [
@@ -893,6 +894,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         )
       ))}
       <PostLoginUpdateAlert />
+      <PendingConnectionRequestAlert businessId={businessId} />
     </div>
   );
 }

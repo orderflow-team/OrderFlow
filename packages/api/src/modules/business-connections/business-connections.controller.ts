@@ -20,6 +20,11 @@ export class BusinessConnectionsController {
     return this.connectionsService.listForBusiness(businessId);
   }
 
+  @Get('check-phone')
+  checkPhone(@Query('businessId') businessId: string, @Query('phone') phone: string) {
+    return this.connectionsService.checkPhone(businessId, phone);
+  }
+
   @Post(':id/accept')
   accept(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
     return this.connectionsService.accept(id, dto.businessId);

@@ -15,6 +15,8 @@ import { CameraScannerView } from '@/components/camera-scanner-view';
 import { QuickAddProductDialog } from '@/components/quick-add-product-dialog';
 import { Capacitor } from '@capacitor/core';
 import { vibrateScanSuccess } from '@/lib/haptics';
+import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
+import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
 
 interface Product {
   id: string;
@@ -68,6 +70,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [customerName, setCustomerName] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
+  const phoneMatch = useObixPhoneMatch(businessId);
   const [phoneError, setPhoneError] = useState('');
   const [patientName, setPatientName] = useState('');
   const [doctorName, setDoctorName] = useState('');
@@ -204,6 +207,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setSelectedCategory(null);
       setCreatingCustomer(false);
       setJustCreatedCustomer(false);
+      phoneMatch.dismiss();
       setPatientName('');
       setDoctorName('');
       setIsHeaderCollapsed(false);
@@ -247,6 +251,9 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   // list even if this visit doesn't end in a sale. Fires on blur of either field;
   // safe to call repeatedly since it no-ops once a customer is already resolved.
   const maybeCreateCustomer = async () => {
+    // Runs even once a customer is already resolved, so blurring the phone field
+    // after picking/creating a customer still surfaces the OBIX match nudge.
+    phoneMatch.check(phone);
     if (customerId || creatingCustomer) return;
     const trimmedName = customerName.trim();
     if (!trimmedName || !/^\d{10}$/.test(phone)) return;
@@ -308,6 +315,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const handlePhoneChange = (val: string) => {
     setPhone(val);
     setPhoneError('');
+    if (phoneMatch.match) phoneMatch.dismiss();
     console.log('[phone] typed', val, 'customers with phone:', customers.filter(c => c.phone).map(c => ({ name: c.name, phone: c.phone })));
     const existing = customers.find(c => c.phone === val);
     if (existing) {
@@ -733,6 +741,15 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
               )}
             </div>
           )}
+          <ObixPhoneMatchBanner
+            match={phoneMatch.match}
+            connectionStatus={phoneMatch.connectionStatus}
+            connecting={phoneMatch.connecting}
+            error={phoneMatch.error}
+            role="wholesaler"
+            onConnect={() => phoneMatch.connect('wholesaler', phone)}
+            onDismiss={phoneMatch.dismiss}
+          />
         </DialogHeader>
 
         {/* Product area */}

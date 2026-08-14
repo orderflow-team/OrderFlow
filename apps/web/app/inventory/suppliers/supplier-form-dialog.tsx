@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
+import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
+import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
 
 export interface Supplier {
   id: string;
@@ -98,10 +100,12 @@ export function SupplierFormDialog({
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const phoneMatch = useObixPhoneMatch(businessId);
 
   useEffect(() => {
     setForm(editingSupplier ? toForm(editingSupplier) : emptyForm);
     setError('');
+    phoneMatch.dismiss();
   }, [editingSupplier, open]);
 
   const set = (patch: Partial<typeof emptyForm>) => setForm((prev) => ({ ...prev, ...patch }));
@@ -168,7 +172,23 @@ export function SupplierFormDialog({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input placeholder="Supplier / company name" value={form.name} onChange={(e) => set({ name: e.target.value })} required />
               <Input placeholder="Contact person" value={form.contactPerson} onChange={(e) => set({ contactPerson: e.target.value })} />
-              <Input placeholder="Phone" value={form.phone} onChange={(e) => set({ phone: e.target.value })} />
+              <div>
+                <Input
+                  placeholder="Phone"
+                  value={form.phone}
+                  onChange={(e) => { set({ phone: e.target.value }); if (phoneMatch.match) phoneMatch.dismiss(); }}
+                  onBlur={() => phoneMatch.check(form.phone)}
+                />
+                <ObixPhoneMatchBanner
+                  match={phoneMatch.match}
+                  connectionStatus={phoneMatch.connectionStatus}
+                  connecting={phoneMatch.connecting}
+                  error={phoneMatch.error}
+                  role="retailer"
+                  onConnect={() => phoneMatch.connect('retailer', form.phone)}
+                  onDismiss={phoneMatch.dismiss}
+                />
+              </div>
               <Input placeholder="Alternate phone" value={form.alternatePhone} onChange={(e) => set({ alternatePhone: e.target.value })} />
               <Input placeholder="Email" type="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
               <select

@@ -40,6 +40,33 @@ export class BusinessConnectionsService {
       .getOne();
   }
 
+  /**
+   * Non-mutating lookup used to nudge the "connect?" prompt at every phone
+   * field in the app (Supplier/Customer forms, placing an order), not just
+   * the dedicated Business Network panel. Reports any existing connection's
+   * status regardless of direction, since the caller hasn't chosen a role
+   * yet at this point — so the UI can show "pending"/"already linked"
+   * instead of letting request() throw a duplicate-request error.
+   */
+  async checkPhone(businessId: string, phone: string) {
+    const target = await this.findBusinessByPhone(phone, businessId);
+    if (!target || target.b2b_sync_enabled === false) {
+      return { match: null, connectionStatus: 'none' as const };
+    }
+
+    const existing = await this.connectionsRepository.findOne({
+      where: [
+        { retailer_business_id: businessId, wholesaler_business_id: target.id },
+        { retailer_business_id: target.id, wholesaler_business_id: businessId },
+      ],
+    });
+
+    return {
+      match: { businessId: target.id, name: target.name },
+      connectionStatus: (existing?.status as 'pending' | 'accepted' | 'rejected' | undefined) ?? 'none',
+    };
+  }
+
   async request(dto: RequestConnectionDto) {
     const requester = await this.businessesRepository.findOne({ where: { id: dto.businessId } });
     if (!requester) {
