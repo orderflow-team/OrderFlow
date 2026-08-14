@@ -265,7 +265,9 @@ export class InventoryService {
         }),
       );
 
-      const remaining = Number(product.stock_quantity) - quantity;
+      // Same floor-at-0 behavior as OrdersService.decrementStock — the full
+      // synced quantity still ships, but stock_quantity never goes negative.
+      const remaining = Math.max(0, Number(product.stock_quantity) - quantity);
       await manager.update(Product, { id: product.id }, { stock_quantity: remaining, is_available: remaining > 0 });
     }
 

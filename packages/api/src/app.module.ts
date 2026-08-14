@@ -74,6 +74,14 @@ export class AppModule implements OnApplicationBootstrap {
       );
       console.log(`✅ Startup database correction complete.`, result);
 
+      // Heal stock left negative by oversold orders placed before decrementStock
+      // started flooring at 0 — new oversells no longer go negative, but this
+      // catches whatever was already sitting negative in the DB.
+      const stockFloorResult = await this.dataSource.query(
+        `UPDATE products SET stock_quantity = 0 WHERE stock_quantity < 0`
+      );
+      console.log(`✅ Negative stock correction complete.`, stockFloorResult);
+
       // Seed / Ensure super_admin user admin@orderflow.com exists
       const bcrypt = await import('bcryptjs');
       const hash = await bcrypt.hash('admin123', 10);

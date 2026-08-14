@@ -567,7 +567,11 @@ export class OrdersService {
     }
     const fulfilled = allowBeyondStock ? requestedQuantity : clamped;
 
-    const remaining = available - fulfilled;
+    // The full requested quantity still sells through (fulfilled) even when it
+    // exceeds what's on hand, but the recorded stock_quantity floors at 0 rather
+    // than going negative — a negative "stock on hand" is confusing to display
+    // and isn't needed to know the sale went through in full.
+    const remaining = Math.max(0, available - fulfilled);
     await manager.update(
       Product,
       { id: productId },
