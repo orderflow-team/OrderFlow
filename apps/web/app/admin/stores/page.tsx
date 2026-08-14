@@ -22,6 +22,8 @@ import {
   Tag,
   Boxes,
   Key,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -87,6 +89,12 @@ export default function AdminStoresPage() {
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Delete Store Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StoreData | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // Inspect Store Products Modal State
   const [productsModalOpen, setProductsModalOpen] = useState(false);
@@ -176,6 +184,29 @@ export default function AdminStoresPage() {
       window.open('/', '_blank');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to impersonate store');
+    }
+  };
+
+  const openDeleteModal = (store: StoreData) => {
+    setDeleteTarget(store);
+    setDeleteConfirmText('');
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteStore = async () => {
+    if (!deleteTarget || deleteConfirmText !== deleteTarget.name) return;
+    setDeleting(true);
+    try {
+      await apiClient.delete(`/api/platform-admin/stores/${deleteTarget.id}`);
+      setMessage(`Store "${deleteTarget.name}" and all its data were permanently deleted.`);
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
+      fetchStores();
+      setTimeout(() => setMessage(''), 4000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete store');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -444,6 +475,13 @@ export default function AdminStoresPage() {
                             className="p-2 bg-secondary hover:bg-accent text-foreground rounded-lg border border-border transition"
                           >
                             <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openDeleteModal(store)}
+                            title="Delete Store"
+                            className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg border border-rose-500/30 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -754,6 +792,69 @@ export default function AdminStoresPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Store Confirmation Modal */}
+      {deleteModalOpen && deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-rose-500/30 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div className="flex items-center gap-3 pb-4 border-b border-border">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Delete Store Permanently</h3>
+                <p className="text-xs text-muted-foreground">This cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="text-sm text-foreground space-y-2">
+              <p>
+                You are about to permanently delete <span className="font-bold">{deleteTarget.name}</span> and{' '}
+                <span className="font-bold">all</span> of its data:
+              </p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-0.5">
+                <li>{deleteTarget.user_count} user account{deleteTarget.user_count === 1 ? '' : 's'}</li>
+                <li>{deleteTarget.product_count} product{deleteTarget.product_count === 1 ? '' : 's'}</li>
+                <li>{deleteTarget.order_count} order{deleteTarget.order_count === 1 ? '' : 's'}</li>
+                <li>Customers, suppliers, invoices, and every other record tied to this store</li>
+              </ul>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Type <span className="font-mono text-rose-600 dark:text-rose-400">{deleteTarget.name}</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteTarget.name}
+                autoFocus
+                className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteStore}
+                disabled={deleting || deleteConfirmText !== deleteTarget.name}
+                className="flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:hover:bg-rose-600 rounded-xl transition shadow-lg shadow-rose-600/30"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -101,6 +102,12 @@ export class PlatformAdminController {
     @Req() req: any,
   ) {
     return this.platformAdminService.updateStore(storeId, dto, req.user?.userId);
+  }
+
+  @Delete('stores/:id')
+  @Roles(UserRole.SUPER_ADMIN)
+  deleteStore(@Param('id') storeId: string, @Req() req: any) {
+    return this.platformAdminService.deleteStore(storeId, req.user?.userId);
   }
 
   @Get('activity-logs')

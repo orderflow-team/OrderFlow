@@ -391,6 +391,96 @@ export class PlatformAdminService {
   }
 
   /**
+   * Permanently delete a tenant business and everything scoped to it
+   * (products, orders, customers, suppliers, staff accounts, etc).
+   * Irreversible — used by platform admins to clean up test/dummy stores.
+   *
+   * Most business-scoped tables have no ON DELETE CASCADE back to
+   * `businesses`, so child rows are removed in dependency order inside one
+   * transaction rather than relying on the DB to cascade for us.
+   */
+  async deleteStore(storeId: string, adminUserId?: string) {
+    const store = await this.businessRepo.findOne({ where: { id: storeId } });
+    if (!store) {
+      throw new NotFoundException(`Store with ID ${storeId} not found`);
+    }
+
+    // UserRole.ADMIN is also the default role every normal store owner gets on
+    // signup, so it can't be used to detect the platform admin's own dev-shell
+    // business — key off the well-known bootstrap email instead (same check
+    // the admin UI uses for "isDevAccount").
+    if (store.owner_user_id) {
+      const owner = await this.userRepo.findOne({ where: { id: store.owner_user_id } });
+      if (owner?.email === 'admin@orderflow.com') {
+        throw new BadRequestException('Cannot delete the platform admin\'s own business account');
+      }
+    }
+
+    const storeName = store.name;
+
+    await this.dataSource.transaction(async (manager) => {
+      // Clear cross-business references that point INTO this business —
+      // otherwise another tenant's row could block this delete.
+      await manager.query(`UPDATE customers SET linked_business_id = NULL WHERE linked_business_id = $1`, [storeId]);
+      await manager.query(`UPDATE suppliers SET linked_business_id = NULL WHERE linked_business_id = $1`, [storeId]);
+      await manager.query(
+        `UPDATE products SET last_supplier_id = NULL WHERE last_supplier_id IN (SELECT id FROM suppliers WHERE business_id = $1)`,
+        [storeId],
+      );
+      await manager.query(
+        `DELETE FROM business_connections WHERE retailer_business_id = $1 OR wholesaler_business_id = $1`,
+        [storeId],
+      );
+
+      // Orders and everything billed/ticketed against them.
+      await manager.query(`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM payments WHERE business_id = $1`, [storeId]);
+      await manager.query(`UPDATE invoices SET reference_invoice_id = NULL WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM invoices WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM kot WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM commissions WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM orders WHERE business_id = $1`, [storeId]);
+
+      // Products and their purchase/scan history.
+      await manager.query(`DELETE FROM invoice_scan_items WHERE scan_id IN (SELECT id FROM invoice_scans WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM invoice_scan_files WHERE scan_id IN (SELECT id FROM invoice_scans WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM invoice_scans WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM purchase_items WHERE purchase_order_id IN (SELECT id FROM purchase_orders WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM purchase_orders WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM price_history WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM stocks WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM products WHERE business_id = $1`, [storeId]); // cascades product_variants, product_batches
+
+      // Customers, suppliers, and the rest of the business-scoped tables.
+      await manager.query(`DELETE FROM visits WHERE salesman_id IN (SELECT id FROM salesmen WHERE business_id = $1)`, [storeId]);
+      await manager.query(`DELETE FROM ledgers WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM customers WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM suppliers WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM notifications WHERE business_id = $1`, [storeId]);
+      await manager.query(`UPDATE categories SET parent_id = NULL WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM categories WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM tables WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM waiters WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM salesmen WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM expenses WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM attendances WHERE business_id = $1`, [storeId]);
+
+      // Staff/owner accounts, then the business row itself. `users.business_id`
+      // has no cascade back to `businesses`, so the business can't go first;
+      // `businesses.owner_user_id` is cleared first since it blocks deleting
+      // the owner's own user row while it's still set.
+      await manager.query(`UPDATE businesses SET owner_user_id = NULL WHERE id = $1`, [storeId]);
+      await manager.query(`DELETE FROM users WHERE business_id = $1`, [storeId]);
+      await manager.query(`DELETE FROM businesses WHERE id = $1`, [storeId]);
+    });
+
+    await this.logActivity('DELETE_STORE', adminUserId, undefined, 'Business', { storeId, storeName });
+
+    return { success: true, message: `Store "${storeName}" and all associated data permanently deleted.` };
+  }
+
+  /**
    * Activity & Audit Logs
    */
   async getActivityLogs(query: { action?: string; search?: string; page?: number; limit?: number }) {
