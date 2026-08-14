@@ -105,7 +105,6 @@ export class PlatformAdminController {
   }
 
   @Delete('stores/:id')
-  @Roles(UserRole.SUPER_ADMIN)
   deleteStore(@Param('id') storeId: string, @Req() req: any) {
     return this.platformAdminService.deleteStore(storeId, req.user?.userId);
   }
