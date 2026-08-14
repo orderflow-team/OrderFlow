@@ -33,6 +33,7 @@ function categoryLabel(category: string | null) {
 
 function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('grocery');
   const [inventoryEnabled, setInventoryEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -56,7 +57,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     setLoading(true);
     setError('');
     try {
-      const response = await apiClient.post('/api/businesses/onboard', { name, category, inventoryEnabled });
+      const response = await apiClient.post('/api/businesses/onboard', { name, phone, category, inventoryEnabled });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
       setCurrentUser(response.data.user);
@@ -108,6 +109,14 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       <CardContent>
         <form onSubmit={handleStandardSubmit} className="space-y-4">
           <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            type="tel"
+            inputMode="numeric"
+            placeholder="10-digit mobile number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required
+          />
           <div>
             <label className="text-xs font-medium text-slate-600 mb-1 block">Category</label>
             <select
