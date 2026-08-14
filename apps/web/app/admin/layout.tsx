@@ -10,6 +10,8 @@ import {
   Activity,
   Package,
   ShieldAlert,
+  Rocket,
+  Link2,
   Menu,
   X,
   LogOut,
@@ -82,6 +84,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       icon: Store,
     },
     {
+      name: 'Business Network',
+      href: '/admin/business-connections',
+      icon: Link2,
+    },
+    {
       name: 'Global Orders Stream',
       href: '/admin/orders',
       icon: ShoppingCart,
@@ -105,6 +112,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       name: 'Broadcast Alerts',
       href: '/admin/notifications',
       icon: Bell,
+    },
+    {
+      name: 'App Releases',
+      href: '/admin/releases',
+      icon: Rocket,
     },
   ];
 

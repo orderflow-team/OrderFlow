@@ -95,6 +95,7 @@ export class PlatformAdminController {
       category?: string;
       inventory_enabled?: boolean;
       ai_chat_enabled?: boolean;
+      b2b_sync_enabled?: boolean;
       gst_number?: string;
     },
     @Req() req: any,
@@ -128,10 +129,21 @@ export class PlatformAdminController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('business_id') business_id?: string,
+    @Query('origin') origin?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.platformAdminService.getGlobalOrders({ search, status, business_id, page, limit });
+    return this.platformAdminService.getGlobalOrders({ search, status, business_id, origin, page, limit });
+  }
+
+  @Get('business-connections')
+  getBusinessConnections(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.platformAdminService.getBusinessConnections({ search, status, page, limit });
   }
 
   @Get('health')

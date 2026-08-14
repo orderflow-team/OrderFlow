@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { Business, User, Product, Order, UserActivityLog } from '../../database/entities';
+import { Business, User, Product, Order, UserActivityLog, BusinessConnection } from '../../database/entities';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 @Injectable()
@@ -19,6 +19,8 @@ export class PlatformAdminService {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(UserActivityLog)
     private readonly activityLogRepo: Repository<UserActivityLog>,
+    @InjectRepository(BusinessConnection)
+    private readonly businessConnectionRepo: Repository<BusinessConnection>,
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
   ) {}
@@ -370,6 +372,7 @@ export class PlatformAdminService {
       category?: string;
       inventory_enabled?: boolean;
       ai_chat_enabled?: boolean;
+      b2b_sync_enabled?: boolean;
       gst_number?: string;
     },
     adminUserId?: string,
@@ -481,7 +484,7 @@ export class PlatformAdminService {
   /**
    * System-wide Global Orders Stream & Telemetry
    */
-  async getGlobalOrders(query: { search?: string; status?: string; business_id?: string; page?: number; limit?: number }) {
+  async getGlobalOrders(query: { search?: string; status?: string; business_id?: string; origin?: string; page?: number; limit?: number }) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 15));
     const skip = (page - 1) * limit;
@@ -505,6 +508,10 @@ export class PlatformAdminService {
       qb.andWhere('order.business_id = :bId', { bId: query.business_id });
     }
 
+    if (query.origin) {
+      qb.andWhere('order.origin = :origin', { origin: query.origin });
+    }
+
     const [orders, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
     // Calculate total gross platform revenue
@@ -522,6 +529,7 @@ export class PlatformAdminService {
         business_id: o.business_id,
         business_name: o.business?.name || 'N/A',
         status: o.status || 'completed',
+        origin: o.origin || 'manual',
         total_amount: Number(o.total_amount) || 0,
         tax_amount: Number(o.tax_amount) || 0,
         created_at: o.created_at,
@@ -530,6 +538,56 @@ export class PlatformAdminService {
         totalOrders: total,
         totalRevenue,
       },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Platform-wide view of every B2B account link (business-connections
+   * module) — who's linked, who has a pending request, who got rejected.
+   * Support has had no way to see this at all short of a direct DB query;
+   * this is what a "my wholesaler's orders aren't syncing" ticket needs.
+   */
+  async getBusinessConnections(query: { search?: string; status?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const qb = this.businessConnectionRepo
+      .createQueryBuilder('conn')
+      .leftJoinAndSelect('conn.retailer_business', 'retailer')
+      .leftJoinAndSelect('conn.wholesaler_business', 'wholesaler')
+      .orderBy('conn.created_at', 'DESC');
+
+    if (query.status) {
+      qb.andWhere('conn.status = :status', { status: query.status });
+    }
+
+    if (query.search) {
+      qb.andWhere('(retailer.name ILIKE :search OR wholesaler.name ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    const [rows, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    return {
+      data: rows.map((c) => ({
+        id: c.id,
+        status: c.status,
+        retailer_business_id: c.retailer_business_id,
+        retailer_name: c.retailer_business?.name || 'N/A',
+        wholesaler_business_id: c.wholesaler_business_id,
+        wholesaler_name: c.wholesaler_business?.name || 'N/A',
+        initiated_by_business_id: c.initiated_by_business_id,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+      })),
       meta: {
         total,
         page,

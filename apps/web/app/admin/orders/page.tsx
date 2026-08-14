@@ -26,6 +26,7 @@ interface OrderItem {
   business_id: string;
   business_name: string;
   status: string;
+  origin: string;
   total_amount: number;
   tax_amount: number;
   created_at: string;
@@ -40,6 +41,7 @@ export default function AdminOrdersPage() {
   // Filters & Pagination
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
@@ -52,6 +54,7 @@ export default function AdminOrdersPage() {
         params: {
           search,
           status: statusFilter,
+          origin: originFilter,
           page,
           limit,
         },
@@ -69,7 +72,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, [search, statusFilter, page, limit]);
+  }, [search, statusFilter, originFilter, page, limit]);
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -78,6 +81,7 @@ export default function AdminOrdersPage() {
         params: {
           search,
           status: statusFilter,
+          origin: originFilter,
           page: 1,
           limit: 500,
         },
@@ -89,7 +93,7 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      const headers = ['Order ID', 'Order Number', 'Customer Name', 'Store Name', 'Status', 'Total Amount (INR)', 'Tax (INR)', 'Date'];
+      const headers = ['Order ID', 'Order Number', 'Customer Name', 'Store Name', 'Status', 'Origin', 'Total Amount (INR)', 'Tax (INR)', 'Date'];
       const csvRows = [headers.join(',')];
 
       exportData.forEach((o) => {
@@ -99,6 +103,7 @@ export default function AdminOrdersPage() {
           `"${(o.customer_name || 'Walk-in').replace(/"/g, '""')}"`,
           `"${(o.business_name || '').replace(/"/g, '""')}"`,
           `"${o.status}"`,
+          `"${o.origin || 'manual'}"`,
           o.total_amount || 0,
           o.tax_amount || 0,
           `"${new Date(o.created_at).toLocaleString()}"`,
@@ -255,6 +260,32 @@ export default function AdminOrdersPage() {
             </button>
           )}
         </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={originFilter}
+            onChange={(e) => {
+              setOriginFilter(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 font-medium"
+          >
+            <option value="">All Orders (manual + synced)</option>
+            <option value="manual">Manual only</option>
+            <option value="synced">Synced via OBIX B2B only</option>
+          </select>
+          {originFilter && (
+            <button
+              onClick={() => {
+                setOriginFilter('');
+                setPage(1);
+              }}
+              className="p-2 text-muted-foreground hover:text-foreground bg-secondary rounded-xl border border-border"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Orders Data Table */}
@@ -289,7 +320,14 @@ export default function AdminOrdersPage() {
                 orders.map((o) => (
                   <tr key={o.id} className="hover:bg-accent transition">
                     <td className="px-6 py-4 font-mono font-semibold text-foreground">
-                      #{o.order_number}
+                      <div className="flex items-center gap-2">
+                        #{o.order_number}
+                        {o.origin === 'synced' && (
+                          <span title="Auto-created by the OBIX B2B order sync, not entered by staff" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-sans normal-case">
+                            Synced
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-6 py-4 font-medium text-foreground">

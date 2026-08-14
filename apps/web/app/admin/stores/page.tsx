@@ -32,6 +32,8 @@ interface StoreData {
   gst_number: string;
   inventory_enabled: boolean;
   ai_chat_enabled: boolean;
+  b2b_sync_enabled: boolean;
+  phone: string | null;
   user_count: number;
   product_count: number;
   order_count: number;
@@ -80,6 +82,7 @@ export default function AdminStoresPage() {
     category: '',
     inventory_enabled: true,
     ai_chat_enabled: true,
+    b2b_sync_enabled: true,
     gst_number: '',
   });
   const [saving, setSaving] = useState(false);
@@ -154,6 +157,7 @@ export default function AdminStoresPage() {
       category: store.category || '',
       inventory_enabled: store.inventory_enabled ?? true,
       ai_chat_enabled: store.ai_chat_enabled ?? true,
+      b2b_sync_enabled: store.b2b_sync_enabled ?? true,
       gst_number: store.gst_number || '',
     });
     setEditModalOpen(true);
@@ -400,6 +404,16 @@ export default function AdminStoresPage() {
                         {store.ai_chat_enabled && (
                           <span title="AI Chat module enabled" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                             AI
+                          </span>
+                        )}
+                        {store.b2b_sync_enabled === false && (
+                          <span title="OBIX Business Network disabled for this store" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            B2B Off
+                          </span>
+                        )}
+                        {!isDevAccount && !store.phone && (
+                          <span title="No phone on file — still behind the required-phone backfill popup" className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            No phone
                           </span>
                         )}
                       </div>
@@ -705,6 +719,19 @@ export default function AdminStoresPage() {
                     checked={editForm.ai_chat_enabled}
                     onChange={(e) => setEditForm({ ...editForm, ai_chat_enabled: e.target.checked })}
                     className="w-4 h-4 rounded bg-card border-border text-blue-600 focus:ring-0"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3 bg-background rounded-xl border border-border cursor-pointer">
+                  <div>
+                    <span className="text-xs font-semibold text-foreground block">OBIX Business Network Enabled</span>
+                    <span className="text-[10px] text-muted-foreground">Turn off to stop this store from sending/receiving B2B connection requests</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={editForm.b2b_sync_enabled}
+                    onChange={(e) => setEditForm({ ...editForm, b2b_sync_enabled: e.target.checked })}
+                    className="w-4 h-4 rounded bg-card border-border text-blue-600 focus:ring-0 shrink-0 ml-3"
                   />
                 </label>
               </div>
