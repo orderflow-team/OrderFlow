@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Rocket, RefreshCw, CheckCircle2, RotateCcw, PlayCircle } from 'lucide-react';
+import { Rocket, RefreshCw, CheckCircle2, RotateCcw, PlayCircle, ChevronDown } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+
+// Same default as CollapsibleList (components/collapsible-list.tsx) — kept
+// consistent across the app rather than reusing that component directly,
+// since it wraps rows in a <div> and can't sit inside a <table>'s <tbody>.
+const COLLAPSE_LIMIT = 5;
 
 interface OtaRelease {
   id: string;
@@ -160,6 +165,10 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
   getVersion: (row: T) => string;
   onToggle: (id: string, isActive: boolean) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSE_LIMIT);
+  const hiddenCount = rows.length - COLLAPSE_LIMIT;
+
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
       <div className="px-4 py-3 border-b border-border">
@@ -191,7 +200,7 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
                 </td>
               </tr>
             ) : (
-              rows.map((r) => {
+              visibleRows.map((r) => {
                 const isLive = r.id === liveId;
                 return (
                   <tr key={r.id} className="hover:bg-accent transition">
@@ -241,6 +250,20 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
                   </tr>
                 );
               })
+            )}
+            {!loading && hiddenCount > 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-2.5 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((v) => !v)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition"
+                  >
+                    {expanded ? 'Show less' : `Show ${hiddenCount} more`}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </button>
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
