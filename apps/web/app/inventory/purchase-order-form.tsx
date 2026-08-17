@@ -18,6 +18,7 @@ interface ProductOption {
   name: string;
   purchase_price?: string | number | null;
   tax_percentage?: string | number | null;
+  hsn_code?: string | null;
 }
 
 export interface PoLine {
@@ -27,6 +28,7 @@ export interface PoLine {
   quantity: string;
   unitPrice: string;
   taxPercentage: string;
+  hsnCode: string;
   schemeQuantity: string;
   batchNumber: string;
   expiryDate: string;
@@ -43,6 +45,7 @@ export interface EditingPo {
     quantity: string | number;
     unit_price: string | number;
     tax_percentage?: string | number;
+    hsn_code?: string | null;
     scheme_quantity?: string | number | null;
     batch_number?: string | null;
     expiry_date?: string | null;
@@ -55,6 +58,7 @@ const emptyLine = (): PoLine => ({
   quantity: '1',
   unitPrice: '',
   taxPercentage: '',
+  hsnCode: '',
   schemeQuantity: '',
   batchNumber: '',
   expiryDate: '',
@@ -149,6 +153,7 @@ function toLine(item: EditingPo['items'][number], products: ProductOption[]): Po
     quantity: String(item.quantity ?? ''),
     unitPrice: String(item.unit_price ?? ''),
     taxPercentage: item.tax_percentage != null ? String(item.tax_percentage) : '',
+    hsnCode: item.hsn_code ?? '',
     schemeQuantity: item.scheme_quantity != null ? String(item.scheme_quantity) : '',
     batchNumber: item.batch_number ?? '',
     expiryDate: item.expiry_date ? item.expiry_date.slice(0, 10) : '',
@@ -172,7 +177,7 @@ export function PurchaseOrderForm({
   editingPo: EditingPo | null;
   onSaved: () => void;
   onCancel: () => void;
-  onProductCreated?: (product: { id: string; name: string; purchasePrice?: number; taxPercentage?: number }) => void;
+  onProductCreated?: (product: { id: string; name: string; purchasePrice?: number; taxPercentage?: number; hsnCode?: string }) => void;
 }) {
   const [supplierId, setSupplierId] = useState(editingPo?.supplier_id ?? '');
   const [orderNumber, setOrderNumber] = useState(editingPo?.order_number ?? '');
@@ -235,6 +240,7 @@ export function PurchaseOrderForm({
     const purchasePrice = Number(match.purchase_price);
     if (purchasePrice > 0) patch.unitPrice = String(purchasePrice);
     if (match.tax_percentage != null && match.tax_percentage !== '') patch.taxPercentage = String(Number(match.tax_percentage));
+    if (match.hsn_code) patch.hsnCode = match.hsn_code;
     return patch;
   };
 
@@ -276,19 +282,21 @@ export function PurchaseOrderForm({
       try {
         const purchasePrice = Number(line.unitPrice) || 0;
         const taxPercentage = line.taxPercentage ? Number(line.taxPercentage) : undefined;
+        const hsnCode = line.hsnCode || undefined;
         const res = await apiClient.post('/api/products', {
           businessId,
           name: trimmed,
           sellingPrice: purchasePrice,
           purchasePrice: line.unitPrice ? purchasePrice : undefined,
           taxPercentage,
+          hsnCode,
           isDraft: true,
         });
-        const created: ProductOption = { id: res.data.id, name: res.data.name, purchase_price: purchasePrice, tax_percentage: taxPercentage };
+        const created: ProductOption = { id: res.data.id, name: res.data.name, purchase_price: purchasePrice, tax_percentage: taxPercentage, hsn_code: hsnCode };
         createdThisSession.current.add(created.id);
         setKnownProducts((prev) => [...prev, created]);
         updateLine(index, { productId: created.id });
-        onProductCreated?.({ id: created.id, name: created.name, purchasePrice, taxPercentage });
+        onProductCreated?.({ id: created.id, name: created.name, purchasePrice, taxPercentage, hsnCode });
         return created.id;
       } catch (err) {
         console.error('[purchase order] failed to create new product', err);
@@ -355,8 +363,9 @@ export function PurchaseOrderForm({
         if (!productId || !createdThisSession.current.has(productId)) return Promise.resolve();
         const purchasePrice = Number(l.unitPrice) || 0;
         const taxPercentage = l.taxPercentage ? Number(l.taxPercentage) : undefined;
+        const hsnCode = l.hsnCode || undefined;
         return apiClient
-          .patch(`/api/products/${productId}`, { purchasePrice, sellingPrice: purchasePrice, taxPercentage }, { params: { businessId } })
+          .patch(`/api/products/${productId}`, { purchasePrice, sellingPrice: purchasePrice, taxPercentage, hsnCode }, { params: { businessId } })
           .catch((err) => console.error('[purchase order] failed to sync new product price', err));
       }),
     );
@@ -367,6 +376,7 @@ export function PurchaseOrderForm({
       quantity: Number(l.quantity),
       unitPrice: Number(l.unitPrice),
       taxPercentage: l.taxPercentage ? Number(l.taxPercentage) : undefined,
+      hsnCode: l.hsnCode || undefined,
       schemeQuantity: fieldConfig.schemeQuantity && l.schemeQuantity ? Number(l.schemeQuantity) : undefined,
       batchNumber: fieldConfig.batchExpiry ? l.batchNumber || undefined : undefined,
       expiryDate: fieldConfig.batchExpiry ? l.expiryDate || undefined : undefined,
@@ -490,6 +500,14 @@ export function PurchaseOrderForm({
                         />
                       </Field>
                     </div>
+                    <Field label="HSN Code">
+                      <input
+                        value={line.hsnCode}
+                        onChange={(e) => updateLine(index, { hsnCode: e.target.value })}
+                        placeholder="e.g. 3004"
+                        className={`${cellInput} h-9`}
+                      />
+                    </Field>
                     {(fieldConfig.batchExpiry || fieldConfig.schemeQuantity) && (
                       <div className="grid grid-cols-3 gap-2">
                         {fieldConfig.batchExpiry && (
@@ -541,6 +559,7 @@ export function PurchaseOrderForm({
                       <th className="px-2 py-2 text-left w-20">Qty</th>
                       <th className="px-2 py-2 text-left w-24">Unit price</th>
                       <th className="px-2 py-2 text-left w-16">Tax %</th>
+                      <th className="px-2 py-2 text-left w-20">HSN</th>
                       {fieldConfig.batchExpiry && <th className="px-2 py-2 text-left w-28">Batch</th>}
                       {fieldConfig.batchExpiry && <th className="px-2 py-2 text-left w-32">Expiry</th>}
                       {fieldConfig.schemeQuantity && <th className="px-2 py-2 text-left w-20">Scheme</th>}
@@ -586,6 +605,14 @@ export function PurchaseOrderForm({
                               type="number"
                               value={line.taxPercentage}
                               onChange={(e) => updateLine(index, { taxPercentage: e.target.value })}
+                              className={cellInput}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              value={line.hsnCode}
+                              onChange={(e) => updateLine(index, { hsnCode: e.target.value })}
+                              placeholder="3004"
                               className={cellInput}
                             />
                           </td>

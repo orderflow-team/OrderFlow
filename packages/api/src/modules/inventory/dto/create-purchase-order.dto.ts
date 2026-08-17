@@ -38,6 +38,10 @@ export class PurchaseItemDto {
   expiryDate?: string;
 
   @IsOptional()
+  @IsString()
+  hsnCode?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   schemeQuantity?: number;

@@ -33,6 +33,7 @@ interface Product {
   last_supplier?: { id: string; name: string } | null;
   purchase_price?: string | number | null;
   tax_percentage?: string | number | null;
+  hsn_code?: string | null;
 }
 
 export default function InventoryPage() {
@@ -221,7 +222,7 @@ export default function InventoryPage() {
             editingPo={editingPo}
             onSaved={handleSaved}
             onCancel={closeForm}
-            onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0, purchase_price: p.purchasePrice, tax_percentage: p.taxPercentage }])}
+            onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0, purchase_price: p.purchasePrice, tax_percentage: p.taxPercentage, hsn_code: p.hsnCode }])}
           />
         )}
 

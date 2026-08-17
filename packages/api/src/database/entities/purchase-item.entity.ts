@@ -49,6 +49,12 @@ export class PurchaseItem {
   @Column({ type: 'date', nullable: true })
   expiry_date: Date;
 
+  // Harmonized System of Nomenclature code for this line — mirrors
+  // Product.hsn_code so a purchase invoice can carry it even before (or
+  // instead of) the linked product having its own HSN code set.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  hsn_code: string | null;
+
   // Free "scheme" quantity billed alongside the paid quantity (distributor
   // invoices often write this as e.g. "3+.15" — 3 billed, 0.15 scheme).
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
