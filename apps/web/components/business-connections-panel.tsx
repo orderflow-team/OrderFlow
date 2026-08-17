@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { Link2, Check, X, Loader2 } from 'lucide-react';
+import { Link2, Check, X, Loader2, RefreshCw } from 'lucide-react';
 
 interface ConnectionSummary {
   id: string;
@@ -44,6 +44,7 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [resyncingId, setResyncingId] = useState<string | null>(null);
 
   const copy = ROLE_COPY[role];
 
@@ -88,6 +89,23 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
       setError(err.response?.data?.message || `Failed to ${action} request`);
     } finally {
       setRespondingId(null);
+    }
+  };
+
+  // Catches up a connection accepted before an order/PO existed to mirror, or
+  // one whose mirror otherwise failed to attach — same backfill accept() now
+  // runs automatically, just replayable on demand for already-linked pairs.
+  const resync = async (id: string) => {
+    setResyncingId(id);
+    setError('');
+    setNotice('');
+    try {
+      await apiClient.post(`/api/business-connections/${id}/resync`, { businessId });
+      setNotice('Checked for missed orders — any found are now synced.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to sync');
+    } finally {
+      setResyncingId(null);
     }
   };
 
@@ -182,7 +200,17 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
                 <span className="text-xs text-slate-700 truncate">
                   {c.counterpartName} <span className="text-slate-400">({c.myRole === 'retailer' ? 'your wholesaler' : 'your retailer'})</span>
                 </span>
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full shrink-0">Linked</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    disabled={resyncingId === c.id}
+                    onClick={() => resync(c.id)}
+                    title="Check for orders placed before this connection was linked"
+                    className="p-1 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 disabled:opacity-50"
+                  >
+                    {resyncingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  </button>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">Linked</span>
+                </div>
               </div>
             ))}
           </div>

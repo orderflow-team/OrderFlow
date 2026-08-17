@@ -30,6 +30,11 @@ export class BusinessConnectionsController {
     return this.connectionsService.accept(id, dto.businessId);
   }
 
+  @Post(':id/resync')
+  resync(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
+    return this.connectionsService.resync(id, dto.businessId);
+  }
+
   @Post(':id/reject')
   reject(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
     return this.connectionsService.reject(id, dto.businessId);

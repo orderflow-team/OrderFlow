@@ -267,23 +267,7 @@ export class BusinessConnectionsService {
         await manager.save(Customer, customer);
       }
 
-      // Backfill: mirror any Order/PurchaseOrder already raised against these
-      // contacts before the link existed (e.g. the one that prompted this
-      // connection request) — mirrorPurchaseOrderToRetailer/mirrorOrderToWholesaler
-      // only ever run at creation time and had nothing to attach to back then.
-      const unmirroredOrders = await manager.find(Order, {
-        where: { business_id: connection.wholesaler_business_id, customer_id: customer.id, origin: Not('synced') },
-      });
-      for (const order of unmirroredOrders) {
-        await this.ordersService.mirrorExistingOrderToRetailer(manager, order, customer);
-      }
-
-      const unmirroredPurchaseOrders = await manager.find(PurchaseOrder, {
-        where: { business_id: connection.retailer_business_id, supplier_id: supplier.id, origin: Not('synced') },
-      });
-      for (const purchaseOrder of unmirroredPurchaseOrders) {
-        await this.inventoryService.mirrorExistingPurchaseOrderToWholesaler(manager, purchaseOrder, supplier);
-      }
+      await this.backfillUnmirroredOrders(manager, connection, supplier, customer);
 
       const accepterName = businessId === connection.retailer_business_id ? retailer?.name : wholesaler?.name;
       await manager.save(
@@ -296,6 +280,67 @@ export class BusinessConnectionsService {
       );
 
       return connection;
+    });
+  }
+
+  /**
+   * Mirrors any Order/PurchaseOrder already raised against the now-linked
+   * contacts that predates the link (e.g. the one that prompted the connect
+   * request in the first place, placed against a Customer/Supplier contact
+   * that only got its linked_business_id set moments later). Shared by
+   * accept() (runs automatically the moment the link is made) and resync()
+   * (manual catch-up for connections accepted before this backfill existed,
+   * or if a mirror attempt failed transiently). Idempotent — each mirror
+   * call no-ops if a PurchaseOrder/Order already points back to the source.
+   */
+  private async backfillUnmirroredOrders(manager: EntityManager, connection: BusinessConnection, supplier: Supplier, customer: Customer) {
+    const unmirroredOrders = await manager.find(Order, {
+      where: { business_id: connection.wholesaler_business_id, customer_id: customer.id, origin: Not('synced') },
+    });
+    for (const order of unmirroredOrders) {
+      await this.ordersService.mirrorExistingOrderToRetailer(manager, order, customer);
+    }
+
+    const unmirroredPurchaseOrders = await manager.find(PurchaseOrder, {
+      where: { business_id: connection.retailer_business_id, supplier_id: supplier.id, origin: Not('synced') },
+    });
+    for (const purchaseOrder of unmirroredPurchaseOrders) {
+      await this.inventoryService.mirrorExistingPurchaseOrderToWholesaler(manager, purchaseOrder, supplier);
+    }
+  }
+
+  /**
+   * Manual catch-up for an already-accepted connection: re-runs the same
+   * backfill accept() does, for cases where the order predates this backfill
+   * feature (accepted before it shipped) or a mirror silently failed. Either
+   * side of the connection can trigger it — unlike accept()/reject(), it's
+   * not a recipient-only action.
+   */
+  async resync(connectionId: string, businessId: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const connection = await manager.findOne(BusinessConnection, { where: { id: connectionId } });
+      if (!connection) {
+        throw new NotFoundException('Connection not found');
+      }
+      if (connection.retailer_business_id !== businessId && connection.wholesaler_business_id !== businessId) {
+        throw new ForbiddenException('Not part of this connection');
+      }
+      if (connection.status !== 'accepted') {
+        throw new BadRequestException('Connection must be accepted before it can be resynced');
+      }
+
+      const supplier = await manager.findOne(Supplier, {
+        where: { business_id: connection.retailer_business_id, linked_business_id: connection.wholesaler_business_id },
+      });
+      const customer = await manager.findOne(Customer, {
+        where: { business_id: connection.wholesaler_business_id, linked_business_id: connection.retailer_business_id },
+      });
+      if (!supplier || !customer) {
+        throw new BadRequestException('Linked contact is missing — try unlinking and reconnecting instead');
+      }
+
+      await this.backfillUnmirroredOrders(manager, connection, supplier, customer);
+      return { synced: true };
     });
   }
 
