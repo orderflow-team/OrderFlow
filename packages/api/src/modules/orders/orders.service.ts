@@ -413,6 +413,29 @@ export class OrdersService {
   }
 
   /**
+   * Backfills the mirror for an Order that was placed against this Customer
+   * *before* the business-connections link existed (e.g. the very order that
+   * prompted sending the connect request in the first place) — called from
+   * BusinessConnectionsService.accept() once the Customer is linked, since
+   * mirrorPurchaseOrderToRetailer only ever runs at order-creation time and
+   * had nothing to attach to back then. No-ops if a mirror already exists.
+   */
+  async mirrorExistingOrderToRetailer(manager: EntityManager, order: Order, customer: Customer) {
+    const alreadyMirrored = await manager.findOne(PurchaseOrder, { where: { mirrored_order_id: order.id } });
+    if (alreadyMirrored) return;
+
+    const orderItems = await manager.find(OrderItem, { where: { order_id: order.id } });
+    const resolvedItems = orderItems.map((oi) => ({
+      item: { productId: oi.product_id, customProductName: oi.custom_product_name, quantity: Number(oi.quantity) } as CreateOrderItemDto,
+      unitPrice: Number(oi.unit_price),
+      subtotal: Number(oi.subtotal),
+      taxPercentage: Number(oi.tax_percentage),
+      taxAmount: Number(oi.tax_amount),
+    }));
+    await this.mirrorPurchaseOrderToRetailer(manager, order, resolvedItems, customer);
+  }
+
+  /**
    * Matches an order to a Customer by id, then phone, then exact name —
    * creating one if a name is given and nothing matched. Shared by create()
    * (a brand-new order) and replaceItems() (reassigning who an existing

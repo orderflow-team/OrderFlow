@@ -1,13 +1,17 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Not, Repository } from 'typeorm';
 import { BusinessConnection } from '../../database/entities/business-connection.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Supplier } from '../../database/entities/supplier.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Notification } from '../../database/entities/notification.entity';
+import { Order } from '../../database/entities/order.entity';
+import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { RequestConnectionDto } from './dto/request-connection.dto';
 import { normalizePhoneDigits } from '../../common/utils/phone.util';
+import { OrdersService } from '../orders/orders.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class BusinessConnectionsService {
@@ -16,7 +20,34 @@ export class BusinessConnectionsService {
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(Notification) private notificationsRepository: Repository<Notification>,
     private dataSource: DataSource,
+    private ordersService: OrdersService,
+    private inventoryService: InventoryService,
   ) {}
+
+  /**
+   * Finds an existing, not-yet-linked Supplier/Customer contact by phone —
+   * used at accept() time so a contact the user already created/matched
+   * while placing an order (e.g. via the OBIX phone-match "Connect" prompt)
+   * gets linked in place, instead of accept() creating a second, disconnected
+   * duplicate contact that the already-placed order has no relation to.
+   */
+  private async findLinkableContact<T extends { id: string; business_id: string; linked_business_id: string | null }>(
+    manager: EntityManager,
+    entity: new () => T,
+    businessId: string,
+    counterpartPhone: string | null | undefined,
+  ): Promise<T | null> {
+    if (!counterpartPhone) return null;
+    const last10 = normalizePhoneDigits(counterpartPhone).slice(-10);
+    if (!last10) return null;
+    return manager
+      .createQueryBuilder(entity, 't')
+      .where('t.business_id = :businessId', { businessId })
+      .andWhere('t.linked_business_id IS NULL')
+      .andWhere(`t.phone IS NOT NULL AND RIGHT(regexp_replace(t.phone, '[^0-9]', '', 'g'), 10) = :last10`, { last10 })
+      .orderBy('t.created_at', 'DESC')
+      .getOne();
+  }
 
   /**
    * Finds the real OBIX Business behind a phone number, comparing the last 10
@@ -191,6 +222,17 @@ export class BusinessConnectionsService {
         where: { business_id: connection.retailer_business_id, linked_business_id: connection.wholesaler_business_id },
       });
       if (!supplier) {
+        // Reuse a contact the retailer already has for this wholesaler (by phone)
+        // if one exists, so any PurchaseOrder already raised against it — the one
+        // that may have prompted this very connection request — gets picked up
+        // by the backfill below instead of being orphaned under a fresh duplicate.
+        supplier = await this.findLinkableContact(manager, Supplier, connection.retailer_business_id, wholesaler?.phone);
+        if (supplier) {
+          supplier.linked_business_id = connection.wholesaler_business_id;
+          await manager.save(Supplier, supplier);
+        }
+      }
+      if (!supplier) {
         supplier = manager.create(Supplier, {
           business_id: connection.retailer_business_id,
           linked_business_id: connection.wholesaler_business_id,
@@ -206,6 +248,15 @@ export class BusinessConnectionsService {
         where: { business_id: connection.wholesaler_business_id, linked_business_id: connection.retailer_business_id },
       });
       if (!customer) {
+        // Same reuse-by-phone logic as the supplier lookup above, mirrored for
+        // the wholesaler's existing Customer contact for this retailer.
+        customer = await this.findLinkableContact(manager, Customer, connection.wholesaler_business_id, retailer?.phone);
+        if (customer) {
+          customer.linked_business_id = connection.retailer_business_id;
+          await manager.save(Customer, customer);
+        }
+      }
+      if (!customer) {
         customer = manager.create(Customer, {
           business_id: connection.wholesaler_business_id,
           linked_business_id: connection.retailer_business_id,
@@ -214,6 +265,24 @@ export class BusinessConnectionsService {
           address: retailer?.address,
         });
         await manager.save(Customer, customer);
+      }
+
+      // Backfill: mirror any Order/PurchaseOrder already raised against these
+      // contacts before the link existed (e.g. the one that prompted this
+      // connection request) — mirrorPurchaseOrderToRetailer/mirrorOrderToWholesaler
+      // only ever run at creation time and had nothing to attach to back then.
+      const unmirroredOrders = await manager.find(Order, {
+        where: { business_id: connection.wholesaler_business_id, customer_id: customer.id, origin: Not('synced') },
+      });
+      for (const order of unmirroredOrders) {
+        await this.ordersService.mirrorExistingOrderToRetailer(manager, order, customer);
+      }
+
+      const unmirroredPurchaseOrders = await manager.find(PurchaseOrder, {
+        where: { business_id: connection.retailer_business_id, supplier_id: supplier.id, origin: Not('synced') },
+      });
+      for (const purchaseOrder of unmirroredPurchaseOrders) {
+        await this.inventoryService.mirrorExistingPurchaseOrderToWholesaler(manager, purchaseOrder, supplier);
       }
 
       const accepterName = businessId === connection.retailer_business_id ? retailer?.name : wholesaler?.name;

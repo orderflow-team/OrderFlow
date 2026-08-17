@@ -303,6 +303,21 @@ export class InventoryService {
     );
   }
 
+  /**
+   * Backfills the mirror for a PurchaseOrder that was raised against this
+   * Supplier *before* the business-connections link existed — called from
+   * BusinessConnectionsService.accept() once the Supplier is linked, since
+   * mirrorOrderToWholesaler only ever runs at PO-creation time and had
+   * nothing to attach to back then. No-ops if a mirror already exists.
+   */
+  async mirrorExistingPurchaseOrderToWholesaler(manager: EntityManager, purchaseOrder: PurchaseOrder, supplier: Supplier) {
+    const alreadyMirrored = await manager.findOne(Order, { where: { mirrored_purchase_order_id: purchaseOrder.id } });
+    if (alreadyMirrored) return;
+
+    const items = await manager.find(PurchaseItem, { where: { purchase_order_id: purchaseOrder.id } });
+    await this.mirrorOrderToWholesaler(manager, purchaseOrder, items, supplier);
+  }
+
   findAllPurchaseOrders(businessId: string, status?: string) {
     const where: Record<string, any> = { business_id: businessId };
     if (status) {
