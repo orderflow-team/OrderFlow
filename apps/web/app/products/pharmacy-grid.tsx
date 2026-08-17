@@ -25,6 +25,8 @@ interface Product {
   unit: string;
   selling_price: string | number;
   purchase_price: string | number | null;
+  tax_percentage: string | number;
+  hsn_code: string | null;
   stock_quantity: number;
   reorder_point: number | null;
   batch_number: string | null;
@@ -33,6 +35,7 @@ interface Product {
   is_available: boolean;
   is_draft?: boolean;
   prescription_required: boolean;
+  is_schedule_h1: boolean;
   category: string | null;
   barcode: string | null;
   last_supplier?: { id: string; name: string } | null;
@@ -95,6 +98,11 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [writeOffFor, setWriteOffFor] = useState<string | null>(null);
   const [writeOffQty, setWriteOffQty] = useState('');
   const [writeOffReason, setWriteOffReason] = useState<'expired' | 'damaged' | 'other'>('expired');
+  const [returnFor, setReturnFor] = useState<string | null>(null);
+  const [returnQty, setReturnQty] = useState('');
+  const [returnReason, setReturnReason] = useState<'expired' | 'damaged' | 'wrong_item' | 'other'>('expired');
+  const [returnUnitPrice, setReturnUnitPrice] = useState('');
+  const [returnError, setReturnError] = useState('');
 
   const loadBatches = async (productId: string): Promise<Batch[]> => {
     if (batchesByProduct[productId]) return batchesByProduct[productId];
@@ -147,6 +155,39 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const submitReturnToSupplier = async (product: Product, batchId: string) => {
+    const qty = Number(returnQty);
+    if (!qty || qty <= 0) return;
+    if (!product.last_supplier) {
+      setReturnError('No supplier on record for this medicine — receive a Purchase Order from a supplier first.');
+      return;
+    }
+    setReturnError('');
+    try {
+      await apiClient.post('/api/inventory/supplier-returns', {
+        businessId,
+        supplierId: product.last_supplier.id,
+        productId: product.id,
+        batchId,
+        quantity: qty,
+        unitPrice: returnUnitPrice ? Number(returnUnitPrice) : Number(product.purchase_price ?? 0),
+        reason: returnReason,
+      });
+      setReturnFor(null);
+      setReturnQty('');
+      setReturnUnitPrice('');
+      setBatchesByProduct((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+      await loadBatches(product.id);
+      loadData();
+    } catch (err: any) {
+      setReturnError(err.response?.data?.message || 'Failed to record supplier return');
+    }
+  };
+
   const emptyForm = {
     name: '',
     brand: '',
@@ -155,12 +196,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     unit: '',
     sellingPrice: '',
     purchasePrice: '',
+    taxPercentage: '12',
+    hsnCode: '',
     stockQuantity: '',
     reorderPoint: '',
     batchNumber: '',
     expiryDate: '',
     barcode: '',
     prescriptionRequired: false,
+    isScheduleH1: false,
     description: '',
   };
   const [form, setForm] = useState(emptyForm);
@@ -349,8 +393,10 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       expiryDate: form.expiryDate || undefined,
       barcode: form.barcode || undefined,
       prescriptionRequired: form.prescriptionRequired,
+      isScheduleH1: form.isScheduleH1,
       description: form.description || undefined,
-      taxPercentage: 0,
+      taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
+      hsnCode: form.hsnCode || undefined,
     };
 
     try {
@@ -404,12 +450,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       unit: p.unit || '',
       sellingPrice: String(p.selling_price),
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
+      taxPercentage: String(p.tax_percentage ?? '12'),
+      hsnCode: p.hsn_code || '',
       stockQuantity: String(p.stock_quantity ?? ''),
       reorderPoint: p.reorder_point != null ? String(p.reorder_point) : '',
       batchNumber: p.batch_number || '',
       expiryDate: p.expiry_date ? p.expiry_date.slice(0, 10) : '',
       barcode: p.barcode || '',
       prescriptionRequired: p.prescription_required,
+      isScheduleH1: p.is_schedule_h1,
       description: p.description || '',
     });
     setShowItemForm(true);
@@ -435,11 +484,14 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     { key: 'unit', label: 'Pack Size', aliases: ['packsize'], width: 'w-24', example: '10 tablets/strip' },
     { key: 'sellingPrice', label: 'MRP', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '35' },
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '28' },
+    { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '12' },
+    { key: 'hsnCode', label: 'HSN Code', aliases: ['hsn'], width: 'w-20', example: '3004' },
     { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '200' },
     { key: 'batchNumber', label: 'Batch #', aliases: ['batch'], width: 'w-20', example: 'CR2024A' },
     { key: 'expiryDate', label: 'Expiry', aliases: ['expiry', 'expirydate'], type: 'date', width: 'w-32' },
     { key: 'barcode', label: 'Barcode', aliases: ['sku', 'skucode', 'code'], width: 'w-24' },
     { key: 'prescriptionRequired', label: 'Rx Required', aliases: ['rx', 'prescription'], type: 'boolean', width: 'w-20' },
+    { key: 'isScheduleH1', label: 'Schedule H1/X', aliases: ['schedule_h1', 'h1'], type: 'boolean', width: 'w-20' },
     { key: 'description', label: 'Usage / Dosage', aliases: ['dosage', 'usage'], width: 'w-40', example: 'Take 1 tablet twice daily after food' },
   ];
 
@@ -481,7 +533,6 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           businessId={businessId}
           entityLabelPlural="Medicines"
           fields={bulkFields}
-          staticPayload={{ taxPercentage: 0 }}
           onUploaded={loadData}
         />
 
@@ -567,6 +618,14 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                   <Input className="h-11" type="number" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
                 </div>
               )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">GST %</label>
+                <Input className="h-11" type="number" placeholder="e.g. 0, 5, 12, 18" value={form.taxPercentage} onChange={(e) => setForm({ ...form, taxPercentage: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">HSN Code</label>
+                <Input className="h-11" placeholder="e.g. 3004" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
+              </div>
               {inventoryEnabled && (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Stock Quantity</label>
@@ -613,6 +672,18 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                   className="h-4 w-4 text-rose-600 rounded border-slate-300"
                 />
                 <label htmlFor="rx" className="text-sm font-medium text-slate-700">Requires a doctor's prescription (Rx)</label>
+              </div>
+              <div className="md:col-span-2 flex items-center gap-2 bg-white/30 backdrop-blur-sm p-3 rounded-xl ring-1 ring-white/40">
+                <input
+                  type="checkbox"
+                  id="scheduleH1"
+                  checked={form.isScheduleH1}
+                  onChange={(e) => setForm({ ...form, isScheduleH1: e.target.checked })}
+                  className="h-4 w-4 text-rose-600 rounded border-slate-300"
+                />
+                <label htmlFor="scheduleH1" className="text-sm font-medium text-slate-700">
+                  Schedule H1/X drug — log patient &amp; prescribing doctor's registration no. per sale
+                </label>
               </div>
               <div className="md:col-span-2 flex justify-end gap-3 mt-2 pt-4 border-t border-white/40">
                 <Button type="button" variant="ghost" onClick={() => setShowItemForm(false)}>Cancel</Button>
@@ -669,6 +740,11 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                     }`}>
                       <ShieldAlert className="w-3 h-3" /> {p.prescription_required ? 'Rx Required' : 'OTC'}
                     </span>
+                    {p.is_schedule_h1 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20">
+                        <ShieldAlert className="w-3 h-3" /> Schedule H1/X
+                      </span>
+                    )}
                     {expiry && (
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${expiry.tone}`}>
                         <CalendarClock className="w-3 h-3" /> {expiry.label}
@@ -681,6 +757,9 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                       <p className="font-bold text-emerald-600 text-sm">
                         ₹{Number(p.selling_price).toFixed(2)}{p.unit ? <span className="text-slate-400 font-medium"> / {p.unit}</span> : null}
                       </p>
+                      {Number(p.tax_percentage) > 0 && (
+                        <p className="text-[10px] text-slate-400 font-semibold mt-0.5">GST {p.tax_percentage}%</p>
+                      )}
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Stock</p>
@@ -732,17 +811,69 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                                   <td className="px-3 py-1.5 text-right font-medium text-slate-700">{Number(b.quantity)}</td>
                                   <td className="px-3 py-1.5 text-right">
                                     {Number(b.quantity) > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
-                                        className="text-rose-500 hover:text-rose-700"
-                                        title="Write off damaged/expired stock"
-                                      >
-                                        <PackageMinus className="w-3.5 h-3.5" />
-                                      </button>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => { setReturnFor(returnFor === b.id ? null : b.id); setReturnQty(''); setReturnUnitPrice(''); setReturnError(''); }}
+                                          className="text-amber-600 hover:text-amber-700"
+                                          title="Return to supplier"
+                                        >
+                                          <Truck className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
+                                          className="text-rose-500 hover:text-rose-700"
+                                          title="Write off damaged/expired stock"
+                                        >
+                                          <PackageMinus className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
                                     )}
                                   </td>
                                 </tr>
+                                {returnFor === b.id && (
+                                  <tr className="bg-amber-50/40">
+                                    <td colSpan={4} className="px-3 py-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Input
+                                          type="number"
+                                          placeholder="Qty"
+                                          value={returnQty}
+                                          onChange={(e) => setReturnQty(e.target.value)}
+                                          className="h-8 w-20 text-xs"
+                                        />
+                                        <Input
+                                          type="number"
+                                          placeholder={`Unit cost (₹${p.purchase_price ?? '0'})`}
+                                          value={returnUnitPrice}
+                                          onChange={(e) => setReturnUnitPrice(e.target.value)}
+                                          className="h-8 w-32 text-xs"
+                                        />
+                                        <select
+                                          value={returnReason}
+                                          onChange={(e) => setReturnReason(e.target.value as 'expired' | 'damaged' | 'wrong_item' | 'other')}
+                                          className="h-8 text-xs rounded-lg border border-slate-200 px-2"
+                                        >
+                                          <option value="expired">Expired</option>
+                                          <option value="damaged">Damaged</option>
+                                          <option value="wrong_item">Wrong Item</option>
+                                          <option value="other">Other</option>
+                                        </select>
+                                        <Button type="button" size="sm" className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white" onClick={() => submitReturnToSupplier(p, b.id)}>
+                                          Return
+                                        </Button>
+                                        <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => setReturnFor(null)}>
+                                          Cancel
+                                        </Button>
+                                        <p className="w-full text-[11px] text-slate-500">
+                                          {p.last_supplier ? `To: ${p.last_supplier.name}` : 'No supplier on record for this medicine.'}
+                                        </p>
+                                        {returnError && <p className="w-full text-[11px] text-rose-600">{returnError}</p>}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
                                 {writeOffFor === b.id && (
                                   <tr className="bg-rose-50/40">
                                     <td colSpan={4} className="px-3 py-2">

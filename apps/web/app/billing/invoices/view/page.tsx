@@ -7,7 +7,7 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Printer, Download, MessageCircle } from 'lucide-react';
+import { Printer, Download, MessageCircle, FileImage } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { FileOpener } from '@capacitor-community/file-opener';
@@ -19,7 +19,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onr
 interface InvoiceItem {
   id: string;
   product_id: string | null;
-  product?: { name: string; batch_number?: string | null; expiry_date?: string | null; prescription_required?: boolean; mrp?: string | number | null } | null;
+  product?: { name: string; batch_number?: string | null; expiry_date?: string | null; prescription_required?: boolean; mrp?: string | number | null; hsn_code?: string | null } | null;
   custom_product_name: string | null;
   quantity: string | number;
   unit_price: string | number;
@@ -36,12 +36,18 @@ interface Invoice {
   reference_invoice_number?: string | null;
   total_amount: string | number;
   tax_amount: string | number;
+  is_interstate?: boolean;
+  cgst_amount?: string | number;
+  sgst_amount?: string | number;
+  igst_amount?: string | number;
   created_at: string;
   order_status?: string;
   customer?: { name: string; phone?: string | null } | null;
   order_customer_name?: string | null;
   patient_name?: string | null;
   doctor_name?: string | null;
+  doctor_registration_number?: string | null;
+  has_prescription_image?: boolean;
   previous_balance_due?: string | number;
   items: InvoiceItem[];
 }
@@ -62,8 +68,22 @@ function InvoiceDetailPageInner() {
   const [error, setError] = useState('');
   const [shareFallbackReason, setShareFallbackReason] = useState('');
   const [pdfReady, setPdfReady] = useState(false);
+  const [loadingPrescription, setLoadingPrescription] = useState(false);
   const pdfBlobRef = useRef<Blob | null>(null);
   const pdfBlobPromiseRef = useRef<Promise<Blob> | null>(null);
+
+  const handleViewPrescription = async () => {
+    if (!invoice?.order_id || !businessId) return;
+    setLoadingPrescription(true);
+    try {
+      const res = await apiClient.get<{ url: string }>(`/api/orders/${invoice.order_id}/prescription-url`, { params: { businessId } });
+      window.open(res.data.url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Failed to load prescription photo', err);
+    } finally {
+      setLoadingPrescription(false);
+    }
+  };
 
   useEffect(() => {
     if (!ready || !businessId || !id) return;
@@ -387,7 +407,7 @@ function InvoiceDetailPageInner() {
             )}
 
             {/* Pharmacy details (Patient & Doctor) - only shown if they exist */}
-            {(invoice.patient_name || invoice.doctor_name) && (
+            {(invoice.patient_name || invoice.doctor_name || invoice.doctor_registration_number || invoice.has_prescription_image) && (
               <div className="mb-6 grid grid-cols-2 gap-4">
                 {invoice.patient_name && (
                   <div>
@@ -401,6 +421,26 @@ function InvoiceDetailPageInner() {
                     <p className="text-slate-800 font-semibold">{invoice.doctor_name}</p>
                   </div>
                 )}
+                {invoice.doctor_registration_number && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Reg. No.</p>
+                    <p className="text-slate-800 font-semibold">{invoice.doctor_registration_number}</p>
+                  </div>
+                )}
+                {invoice.has_prescription_image && (
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wider">Prescription</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 mt-1"
+                      onClick={handleViewPrescription}
+                      disabled={loadingPrescription}
+                    >
+                      <FileImage className="w-3.5 h-3.5" /> {loadingPrescription ? 'Loading...' : 'View Photo'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -408,12 +448,20 @@ function InvoiceDetailPageInner() {
               <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">
                 <tr>
                   <th className="py-2">Item</th>
+                  <th className="py-2">HSN</th>
                   <th className="py-2 text-right">Qty</th>
                   {invoice.items.some((item) => item.product?.mrp != null) && (
                     <th className="py-2 text-right">MRP</th>
                   )}
                   <th className="py-2 text-right">Unit Price</th>
-                  <th className="py-2 text-right">Tax</th>
+                  {invoice.is_interstate ? (
+                    <th className="py-2 text-right">IGST</th>
+                  ) : (
+                    <>
+                      <th className="py-2 text-right">CGST</th>
+                      <th className="py-2 text-right">SGST</th>
+                    </>
+                  )}
                   <th className="py-2 text-right">Amount</th>
                 </tr>
               </thead>
@@ -433,6 +481,7 @@ function InvoiceDetailPageInner() {
                           <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
                         )}
                       </td>
+                      <td className="py-3 text-slate-600">{item.product?.hsn_code || '-'}</td>
                       <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
                       {hasMrp && (
                         <td className="py-3 text-right text-slate-600">
@@ -440,9 +489,20 @@ function InvoiceDetailPageInner() {
                         </td>
                       )}
                       <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
-                      <td className="py-3 text-right text-slate-600">
-                        {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
-                      </td>
+                      {invoice.is_interstate ? (
+                        <td className="py-3 text-right text-slate-600">
+                          {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="py-3 text-right text-slate-600">
+                            {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
+                          </td>
+                          <td className="py-3 text-right text-slate-600">
+                            {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
+                          </td>
+                        </>
+                      )}
                       <td className="py-3 text-right text-slate-800 font-medium">
                         {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
                       </td>
@@ -459,10 +519,23 @@ function InvoiceDetailPageInner() {
                   <span>Subtotal</span>
                   <span>{subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Tax (GST)</span>
-                  <span>{Number(invoice.tax_amount).toFixed(2)}</span>
-                </div>
+                {invoice.is_interstate ? (
+                  <div className="flex justify-between text-slate-600">
+                    <span>IGST</span>
+                    <span>{Number(invoice.igst_amount ?? invoice.tax_amount).toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-slate-600">
+                      <span>CGST</span>
+                      <span>{Number(invoice.cgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>SGST</span>
+                      <span>{Number(invoice.sgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
                 {invoice.type === 'credit_note' ? (
                   <div className="flex justify-between text-base font-bold text-amber-700 border-t border-slate-200 pt-2">
                     <span>Amount Credited</span>

@@ -57,7 +57,7 @@ interface GenericOrderModalProps {
   isOpen: boolean;
   customers: Customer[];
   onClose: () => void;
-  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string) => Promise<void>;
+  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string) => Promise<void>;
   onCustomerCreated?: (customer: Customer) => void;
 }
 
@@ -74,6 +74,11 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [phoneError, setPhoneError] = useState('');
   const [patientName, setPatientName] = useState('');
   const [doctorName, setDoctorName] = useState('');
+  const [doctorRegistrationNumber, setDoctorRegistrationNumber] = useState('');
+  const [prescriptionImageKey, setPrescriptionImageKey] = useState('');
+  const [prescriptionFileName, setPrescriptionFileName] = useState('');
+  const [prescriptionUploading, setPrescriptionUploading] = useState(false);
+  const prescriptionInputRef = useRef<HTMLInputElement>(null);
   const [validationError, setValidationError] = useState('');
   const [baseProducts, setBaseProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -494,6 +499,26 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     }
   };
 
+  const handlePrescriptionFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPrescriptionUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiClient.post<{ key: string }>('/api/orders/prescription-upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setPrescriptionImageKey(res.data.key);
+      setPrescriptionFileName(file.name);
+    } catch (err) {
+      console.error('Failed to upload prescription photo', err);
+    } finally {
+      setPrescriptionUploading(false);
+      if (prescriptionInputRef.current) prescriptionInputRef.current.value = '';
+    }
+  };
+
   const focusSearch = () => {
     setScanMode(false);
     setTimeout(() => {
@@ -522,7 +547,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setValidationError('');
     setPhoneError('');
     try {
-      await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined);
+      await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined, isPharmacy ? doctorRegistrationNumber : undefined, isPharmacy ? prescriptionImageKey || undefined : undefined);
       onClose();
     } catch (err) {
       console.error(err);
@@ -697,6 +722,42 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                             className="pl-8 h-10 text-sm"
                           />
                         </div>
+                      </div>
+                      {/* Doctor's registration no. — required record-keeping for Schedule H1/X drugs */}
+                      <div className="relative">
+                        <Stethoscope className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          placeholder="Doctor's registration no. (required for Schedule H1/X items)"
+                          value={doctorRegistrationNumber}
+                          onChange={(e) => setDoctorRegistrationNumber(e.target.value)}
+                          className="pl-8 h-10 text-sm"
+                        />
+                      </div>
+                      {/* Prescription photo — attached for record-keeping, not required to check out */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={prescriptionInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handlePrescriptionFileChange}
+                          className="hidden"
+                          id="prescription-photo-input"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-xs gap-1.5"
+                          disabled={prescriptionUploading}
+                          onClick={() => prescriptionInputRef.current?.click()}
+                        >
+                          <Camera className="w-3.5 h-3.5" />
+                          {prescriptionUploading ? 'Uploading...' : prescriptionImageKey ? 'Replace prescription photo' : 'Attach prescription photo (optional)'}
+                        </Button>
+                        {prescriptionFileName && !prescriptionUploading && (
+                          <span className="text-xs text-emerald-600 font-medium truncate">{prescriptionFileName}</span>
+                        )}
                       </div>
                       <button
                         type="button"

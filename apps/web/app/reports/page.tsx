@@ -14,15 +14,18 @@ import { ProductsTab } from './products-tab';
 import { SuppliersTab } from './suppliers-tab';
 import { FinanceTab } from './finance-tab';
 import { OperationsTab } from './operations-tab';
+import { GstFilingTab } from './gst-filing-tab';
+import { ScheduleH1RegisterTab } from './schedule-h1-register-tab';
 import type { AnalyticsPayload, OutstandingCustomer } from './types';
 
-const TABS = [
+const BASE_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'customers', label: 'Customers' },
   { id: 'products', label: 'Products & Inventory' },
   { id: 'suppliers', label: 'Suppliers' },
   { id: 'finance', label: 'Finance' },
   { id: 'operations', label: 'Operations' },
+  { id: 'gst', label: 'GST Filing' },
 ];
 
 export default function ReportsPage() {
@@ -63,6 +66,7 @@ export default function ReportsPage() {
     : (businessId ? getCachedInventoryEnabled(businessId) ?? true : true);
   const showExpiry = inventoryEnabled && category !== 'restaurant';
   const isPharmacy = category === 'pharmacy';
+  const tabs = isPharmacy ? [...BASE_TABS, { id: 'rx-register', label: 'Rx Register' }] : BASE_TABS;
 
   return (
     <AppShell>
@@ -70,7 +74,7 @@ export default function ReportsPage() {
         <PageHeader title="Analytics" description="Every angle on the business — sales, purchases, customers, products, suppliers, and finance." />
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <ReportTabBar tabs={TABS} activeTab={activeTab} onSelect={setActiveTab} />
+          <ReportTabBar tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
           <PeriodSelector days={days} onChange={setDays} />
         </div>
 
@@ -82,11 +86,13 @@ export default function ReportsPage() {
             {activeTab === 'overview' && <OverviewTab analytics={analytics} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} isPharmacy={isPharmacy} />}
             {activeTab === 'customers' && <CustomersTab analytics={analytics} outstanding={outstanding} days={days} />}
             {activeTab === 'products' && <ProductsTab analytics={analytics} isPharmacy={isPharmacy} days={days} inventoryEnabled={inventoryEnabled} showExpiry={showExpiry} />}
-            {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} days={days} />}
+            {activeTab === 'suppliers' && <SuppliersTab analytics={analytics} days={days} businessId={businessId || undefined} />}
             {activeTab === 'finance' && businessId && (
               <FinanceTab analytics={analytics} businessId={businessId} days={days} onExpenseChanged={() => load(businessId, days)} />
             )}
             {activeTab === 'operations' && <OperationsTab analytics={analytics} days={days} />}
+            {activeTab === 'gst' && businessId && <GstFilingTab businessId={businessId} />}
+            {activeTab === 'rx-register' && businessId && isPharmacy && <ScheduleH1RegisterTab businessId={businessId} />}
           </>
         )}
       </div>
