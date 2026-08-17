@@ -55,6 +55,10 @@ export class CreateProductDto {
   taxPercentage?: number;
 
   @IsOptional()
+  @IsString()
+  hsnCode?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   stockQuantity?: number;

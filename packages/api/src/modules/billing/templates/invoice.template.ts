@@ -2,6 +2,7 @@ import { Business } from '../../../database/entities/business.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Invoice } from '../../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
+import { isInterStateSale, splitGst } from '../../../common/utils/gst.util';
 
 function money(n: number | string) {
   return Number(n).toFixed(2);
@@ -96,6 +97,10 @@ export function renderInvoiceHtml(
   const isCreditNote = invoice.type === 'credit_note';
   const timeZone = tz(business);
   const hasMrp = items.some((item) => item.product?.mrp != null);
+  const interState = isInterStateSale(business, customer);
+  const gstHeaderCells = interState
+    ? '<th class="num">IGST</th>'
+    : '<th class="num">CGST</th><th class="num">SGST</th>';
   const rows = items
     .map((item) => {
       const details = itemDetails(item, timeZone);
@@ -103,13 +108,18 @@ export function renderInvoiceHtml(
         ? `<div class="muted" style="font-size:11px;margin-top:2px;">${details.join('&nbsp;&nbsp;•&nbsp;&nbsp;')}</div>`
         : '';
       const mrpCell = hasMrp ? `<td class="num">${item.product?.mrp != null ? `₹${money(item.product.mrp)}` : '-'}</td>` : '';
+      const itemGst = splitGst(Number(item.tax_amount), interState);
+      const gstCells = interState
+        ? `<td class="num">${money(item.tax_percentage)}%<br/>₹${money(itemGst.igst)}</td>`
+        : `<td class="num">${money(Number(item.tax_percentage) / 2)}%<br/>₹${money(itemGst.cgst)}</td><td class="num">${money(Number(item.tax_percentage) / 2)}%<br/>₹${money(itemGst.sgst)}</td>`;
       return `
         <tr>
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}${detailsHtml}</td>
+          <td>${escapeHtml(item.product?.hsn_code ?? '')}</td>
           <td class="num">${money(item.quantity)}</td>
           ${mrpCell}
           <td class="num">₹${money(item.unit_price)}</td>
-          <td class="num">${money(item.tax_percentage)}%</td>
+          ${gstCells}
           <td class="num">₹${money(item.subtotal)}</td>
         </tr>`;
     })
@@ -163,13 +173,18 @@ export function renderInvoiceHtml(
 
   <table>
     <thead>
-      <tr><th>Item</th><th class="num">Qty</th>${hasMrp ? '<th class="num">MRP</th>' : ''}<th class="num">Price</th><th class="num">GST</th><th class="num">Amount</th></tr>
+      <tr><th>Item</th><th>HSN</th><th class="num">Qty</th>${hasMrp ? '<th class="num">MRP</th>' : ''}<th class="num">Price</th>${gstHeaderCells}<th class="num">Amount</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
 
   <div class="totals">
-    <div><span>Tax</span><span>₹${money(invoice.tax_amount)}</span></div>
+    ${(() => {
+      const totalGst = splitGst(Number(invoice.tax_amount), interState);
+      return interState
+        ? `<div><span>IGST</span><span>₹${money(totalGst.igst)}</span></div>`
+        : `<div><span>CGST</span><span>₹${money(totalGst.cgst)}</span></div><div><span>SGST</span><span>₹${money(totalGst.sgst)}</span></div>`;
+    })()}
     ${isCreditNote ? `
     <div class="grand"><span>Amount Credited</span><span>₹${money(invoice.total_amount)}</span></div>
     ` : `
@@ -225,7 +240,11 @@ export function renderPharmacyCashMemoHtml(
 
   const subtotalAmount = Number(invoice.total_amount) - Number(invoice.tax_amount);
   const { rupees: subtotalRupees, paise: subtotalPaise } = splitRupeesPaise(subtotalAmount);
-  const { rupees: taxRupees, paise: taxPaise } = splitRupeesPaise(invoice.tax_amount);
+  const interState = isInterStateSale(business, customer);
+  const gstSplit = splitGst(Number(invoice.tax_amount), interState);
+  const { rupees: cgstRupees, paise: cgstPaise } = splitRupeesPaise(gstSplit.cgst);
+  const { rupees: sgstRupees, paise: sgstPaise } = splitRupeesPaise(gstSplit.sgst);
+  const { rupees: igstRupees, paise: igstPaise } = splitRupeesPaise(gstSplit.igst);
   const { rupees: totalRupees, paise: totalPaise } = splitRupeesPaise(invoice.total_amount);
 
   return `<!DOCTYPE html>
@@ -312,6 +331,12 @@ export function renderPharmacyCashMemoHtml(
       <span class="dots">${escapeHtml(order.doctor_name)}</span>
     </div>
     ` : ''}
+    ${order?.doctor_registration_number ? `
+    <div class="patient-row">
+      <span class="label">Dr. Reg. No.</span>
+      <span class="dots">${escapeHtml(order.doctor_registration_number)}</span>
+    </div>
+    ` : ''}
 
     <table>
       <thead>
@@ -335,11 +360,22 @@ export function renderPharmacyCashMemoHtml(
           <td class="num rs">Subtotal ₹${subtotalRupees}</td>
           <td class="ps">${subtotalPaise}</td>
         </tr>
+        ${interState ? `
         <tr class="summary-row">
           <td colspan="4"></td>
-          <td class="num rs">Tax (GST) ₹${taxRupees}</td>
-          <td class="ps">${taxPaise}</td>
+          <td class="num rs">IGST ₹${igstRupees}</td>
+          <td class="ps">${igstPaise}</td>
+        </tr>` : `
+        <tr class="summary-row">
+          <td colspan="4"></td>
+          <td class="num rs">CGST ₹${cgstRupees}</td>
+          <td class="ps">${cgstPaise}</td>
         </tr>
+        <tr class="summary-row">
+          <td colspan="4"></td>
+          <td class="num rs">SGST ₹${sgstRupees}</td>
+          <td class="ps">${sgstPaise}</td>
+        </tr>`}
         <tr class="${!isCreditNote && previousBalanceDue > 0.01 ? 'summary-row' : 'total-row'}">
           <td colspan="4"></td>
           <td class="num rs">${isCreditNote ? 'Amount Credited' : previousBalanceDue > 0.01 ? 'This Memo' : 'Total'} ₹${totalRupees}</td>
@@ -401,7 +437,7 @@ export function renderA4ReceiptHtml(
     .map((item) => `
         <tr>
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}</td>
-          <td></td>
+          <td>${escapeHtml(item.product?.hsn_code ?? '')}</td>
           <td class="num">${money(item.quantity)}</td>
           <td>${escapeHtml((item as any).unit ?? item.product?.unit ?? '-')}</td>
           <td class="num">₹${money(item.unit_price)}</td>
@@ -575,6 +611,11 @@ export function renderThermalReceiptHtml(
       return details.length ? `${row}\n  ${details.join('  ')}` : row;
     })
     .join('\n');
+  const interState = isInterStateSale(business, customer);
+  const gstSplit = splitGst(Number(invoice.tax_amount), interState);
+  const taxLines = interState
+    ? `IGST:   ₹${money(gstSplit.igst)}`
+    : `CGST:   ₹${money(gstSplit.cgst)}\nSGST:   ₹${money(gstSplit.sgst)}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -600,7 +641,7 @@ Customer: ${escapeHtml(customer?.name ?? order?.customer_name ?? 'Walk-in')}
 ${line}
 ${rows}
 ${line}
-Tax:    ₹${money(invoice.tax_amount)}
+${taxLines}
 ${previousBalanceDue > 0.01 ? `THIS BILL: ₹${money(invoice.total_amount)}
 Prev. Due: ₹${money(previousBalanceDue)}
 TOTAL DUE: ₹${money(Number(invoice.total_amount) + previousBalanceDue)}` : `TOTAL:  ₹${money(invoice.total_amount)}`}

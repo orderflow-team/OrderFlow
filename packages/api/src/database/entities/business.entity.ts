@@ -36,6 +36,23 @@ export class Business {
   @Column({ type: 'varchar', length: 50, nullable: true })
   drug_license_number_2: string;
 
+  // GST Rule 46 requires a tax invoice's serial number to be consecutive and
+  // unique for a financial year — these track each numbering series's last
+  // issued value and the FY it was issued in, so InvoicesService can bump
+  // the counter atomically and reset it when the FY rolls over (see
+  // InvoicesService.nextDocumentNumber).
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  invoice_sequence_fy: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  invoice_sequence_value: number;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  credit_note_sequence_fy: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  credit_note_sequence_value: number;
+
   @Column({ type: 'varchar', default: 'INR' })
   currency: string;
 

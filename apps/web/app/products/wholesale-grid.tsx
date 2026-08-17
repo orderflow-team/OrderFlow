@@ -34,6 +34,7 @@ interface Product {
   mrp: string | number | null;
   purchase_price: string | number | null;
   tax_percentage: string | number;
+  hsn_code: string | null;
   stock_quantity: number;
   reorder_point: number | null;
   batch_number: string | null;
@@ -62,6 +63,7 @@ const emptyForm = {
   mrp: '',
   purchasePrice: '',
   taxPercentage: '18',
+  hsnCode: '',
   stockQuantity: '100',
   reorderPoint: '',
   batchNumber: '',
@@ -164,6 +166,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       mrp: p.mrp != null ? String(p.mrp) : '',
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       taxPercentage: String(p.tax_percentage ?? '18'),
+      hsnCode: p.hsn_code || '',
       stockQuantity: String(p.stock_quantity ?? '0'),
       reorderPoint: p.reorder_point != null ? String(p.reorder_point) : '',
       batchNumber: p.batch_number || '',
@@ -232,6 +235,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       mrp: form.mrp ? Number(form.mrp) : undefined,
       purchasePrice: form.purchasePrice ? Number(form.purchasePrice) : undefined,
       taxPercentage: form.taxPercentage ? Number(form.taxPercentage) : 0,
+      hsnCode: form.hsnCode || undefined,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
       reorderPoint: inventoryEnabled && form.reorderPoint ? Number(form.reorderPoint) : undefined,
       batchNumber: form.batchNumber || undefined,
@@ -333,6 +337,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     { key: 'mrp', label: 'MRP', aliases: ['maxretailprice'], type: 'number', width: 'w-16', example: '2100' },
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '1620' },
     { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
+    { key: 'hsnCode', label: 'HSN Code', aliases: ['hsn'], width: 'w-20', example: '1701' },
     { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '500' },
     { key: 'moq', label: 'MOQ', aliases: ['minimumorderquantity'], type: 'number', width: 'w-14', example: '10' },
     { key: 'batchNumber', label: 'Batch / Lot #', aliases: ['batch', 'lot'], width: 'w-24', example: 'BATCH-2026-X9' },
@@ -469,6 +474,10 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">GST Tax %</label>
                   <Input type="number" placeholder="e.g. 5, 12, 18" value={form.taxPercentage} onChange={(e) => setForm({ ...form, taxPercentage: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">HSN Code</label>
+                  <Input placeholder="e.g. 1701" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
                 </div>
                 {inventoryEnabled && (
                   <div className="space-y-1">

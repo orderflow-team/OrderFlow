@@ -7,6 +7,17 @@ import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Payment } from '../../database/entities/payment.entity';
+import { Business } from '../../database/entities/business.entity';
+import { isInterStateSale, splitGst } from '../../common/utils/gst.util';
+
+/** India's financial year runs Apr 1 - Mar 31; e.g. Jan 2026 falls in FY "2025-26". */
+function financialYearLabel(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'numeric' }).formatToParts(date);
+  const year = Number(parts.find((p) => p.type === 'year')!.value);
+  const month = Number(parts.find((p) => p.type === 'month')!.value);
+  const startYear = month >= 4 ? year : year - 1;
+  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
+}
 
 @Injectable()
 export class InvoicesService {
@@ -17,6 +28,7 @@ export class InvoicesService {
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     @InjectRepository(Customer) private customersRepository: Repository<Customer>,
     @InjectRepository(Payment) private paymentsRepository: Repository<Payment>,
+    @InjectRepository(Business) private businessesRepository: Repository<Business>,
     private dataSource: DataSource,
   ) {}
 
@@ -51,6 +63,32 @@ export class InvoicesService {
     }, 0);
   }
 
+  /**
+   * GST Rule 46 requires a tax invoice/credit note number to be a
+   * consecutive serial, unique for a financial year — not just any unique
+   * string. Atomically bumps the business's per-series counter (resetting
+   * to 1 when the FY rolls over) via a single UPDATE...RETURNING, so
+   * concurrent sales on the same business never collide even without an
+   * explicit row lock. `series` is an internal enum, never user input, so
+   * it's safe to splice its derived column/prefix names into the query.
+   */
+  private async nextDocumentNumber(manager: EntityManager, businessId: string, series: 'invoice' | 'credit_note'): Promise<string> {
+    const fy = financialYearLabel(new Date());
+    const fyColumn = series === 'invoice' ? 'invoice_sequence_fy' : 'credit_note_sequence_fy';
+    const valueColumn = series === 'invoice' ? 'invoice_sequence_value' : 'credit_note_sequence_value';
+    const prefix = series === 'invoice' ? 'INV' : 'CN';
+    const result = await manager.query(
+      `UPDATE businesses
+       SET ${valueColumn} = CASE WHEN ${fyColumn} = $2 THEN ${valueColumn} + 1 ELSE 1 END,
+           ${fyColumn} = $2
+       WHERE id = $1
+       RETURNING ${valueColumn}`,
+      [businessId, fy],
+    );
+    const seq = result[0][valueColumn];
+    return `${prefix}/${fy}/${String(seq).padStart(5, '0')}`;
+  }
+
   /** Snapshots a confirmed order's items into an immutable invoice, per the Order -> Invoice flow. */
   async generateFromOrder(orderId: string, businessId: string) {
     return this.dataSource.transaction(async (manager) => {
@@ -74,7 +112,7 @@ export class InvoicesService {
         business_id: businessId,
         order_id: orderId,
         type: 'invoice',
-        invoice_number: `INV-${Date.now()}`,
+        invoice_number: await this.nextDocumentNumber(manager, businessId, 'invoice'),
         total_amount: order.total_amount,
         tax_amount: order.tax_amount,
       });
@@ -169,6 +207,9 @@ export class InvoicesService {
     const referenceInvoice = invoice.reference_invoice_id
       ? await this.invoicesRepository.findOne({ where: { id: invoice.reference_invoice_id } })
       : null;
+    const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+    const interState = isInterStateSale(business, customer);
+    const gstSplit = splitGst(Number(invoice.tax_amount), interState);
     return {
       ...invoice,
       items,
@@ -179,6 +220,10 @@ export class InvoicesService {
       doctor_name: order?.doctor_name,
       previous_balance_due: previousBalanceDue,
       reference_invoice_number: referenceInvoice?.invoice_number ?? null,
+      is_interstate: interState,
+      cgst_amount: gstSplit.cgst,
+      sgst_amount: gstSplit.sgst,
+      igst_amount: gstSplit.igst,
     };
   }
 
@@ -220,7 +265,7 @@ export class InvoicesService {
       order_id: orderId,
       type: 'credit_note',
       reference_invoice_id: originalInvoice.id,
-      invoice_number: `CN-${Date.now()}`,
+      invoice_number: await this.nextDocumentNumber(manager, businessId, 'credit_note'),
       total_amount: totalAmount,
       tax_amount: totalTax,
     });

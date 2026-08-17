@@ -48,6 +48,13 @@ export class Product {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   tax_percentage: number;
 
+  // Harmonized System of Nomenclature code — required on a GST tax invoice
+  // line item (CGST Rule 46(f)) once turnover crosses the HSN-mandatory
+  // threshold. Free text since the exact digit count (4/6/8) businesses must
+  // declare varies by their turnover slab.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  hsn_code: string | null;
+
   @Column({ type: 'int', default: 0 })
   stock_quantity: number;
 
