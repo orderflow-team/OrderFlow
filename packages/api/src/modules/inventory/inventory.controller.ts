@@ -8,6 +8,7 @@ import { InventoryService } from './inventory.service';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { CreateSupplierReturnDto } from './dto/create-supplier-return.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/inventory')
@@ -68,6 +69,32 @@ export class InventoryController {
   @Post('adjust')
   adjustStock(@Body() dto: AdjustStockDto) {
     return this.inventoryService.adjustStock(dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post('supplier-returns')
+  returnToSupplier(@Body() dto: CreateSupplierReturnDto) {
+    return this.inventoryService.returnToSupplier(dto);
+  }
+
+  @Get('supplier-returns')
+  listSupplierReturns(
+    @Query('businessId') businessId: string,
+    @Query('supplierId') supplierId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.inventoryService.listSupplierReturns(businessId, supplierId, from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Patch('supplier-returns/:id/status')
+  updateSupplierReturnStatus(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Body('status') status: 'pending' | 'credited',
+  ) {
+    return this.inventoryService.updateSupplierReturnStatus(id, businessId, status);
   }
 
   @Get('products/:productId/batches')

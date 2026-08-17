@@ -11,9 +11,11 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
+import { SupplierReturn } from '../../database/entities/supplier-return.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
+import { CreateSupplierReturnDto } from './dto/create-supplier-return.dto';
 import { findOrCreateProductByName } from '../../common/utils/find-or-create-product.util';
 
 // A PO can never be (re-)received once it's already received, paid, or cancelled.
@@ -35,6 +37,7 @@ export class InventoryService {
     @InjectRepository(Stock) private stocksRepository: Repository<Stock>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     @InjectRepository(ProductBatch) private productBatchesRepository: Repository<ProductBatch>,
+    @InjectRepository(SupplierReturn) private supplierReturnsRepository: Repository<SupplierReturn>,
     private dataSource: DataSource,
   ) {}
 
@@ -616,6 +619,97 @@ export class InventoryService {
       });
       return manager.save(stock);
     });
+  }
+
+  /**
+   * Sends expired/damaged/wrong-item stock back to the supplier it came
+   * from: decrements Product/ProductBatch stock the same way a plain
+   * write-off does (reuses adjustStock's OUT path), but also records a
+   * SupplierReturn row — the register a distributor reconciliation or an
+   * inspection actually needs, which adjustStock's generic Stock ledger row
+   * has no supplier/amount/reason fields for.
+   */
+  async returnToSupplier(dto: CreateSupplierReturnDto) {
+    return this.dataSource.transaction(async (manager) => {
+      const supplier = await manager.findOne(Supplier, { where: { id: dto.supplierId, business_id: dto.businessId } });
+      if (!supplier) {
+        throw new NotFoundException('Supplier not found');
+      }
+      const product = await manager.findOne(Product, { where: { id: dto.productId, business_id: dto.businessId } });
+      if (!product) {
+        throw new NotFoundException('Product not found');
+      }
+      if (Number(product.stock_quantity) < dto.quantity) {
+        throw new BadRequestException('Insufficient stock for this return');
+      }
+
+      await manager.increment(Product, { id: product.id }, 'stock_quantity', -dto.quantity);
+      const newStock = Number(product.stock_quantity) - dto.quantity;
+      await manager.update(Product, { id: product.id }, { is_available: newStock > 0 });
+
+      let batchNumber = dto.batchNumber ?? null;
+      if (dto.batchId) {
+        const batch = await manager.findOne(ProductBatch, {
+          where: { id: dto.batchId, business_id: dto.businessId, product_id: dto.productId },
+        });
+        if (!batch) {
+          throw new NotFoundException('Batch not found');
+        }
+        if (Number(batch.quantity) < dto.quantity) {
+          throw new BadRequestException('Insufficient quantity remaining in this batch');
+        }
+        await manager.update(ProductBatch, { id: batch.id }, { quantity: Number(batch.quantity) - dto.quantity });
+        await this.syncProductBatchSummary(manager, dto.productId);
+        batchNumber = batch.batch_number;
+      }
+
+      await manager.save(
+        manager.create(Stock, {
+          business_id: dto.businessId,
+          product_id: dto.productId,
+          type: 'OUT',
+          quantity: dto.quantity,
+          reference: dto.purchaseOrderId,
+          notes: `Returned to supplier: ${supplier.name} (${dto.reason})${dto.notes ? ` — ${dto.notes}` : ''}`,
+        }),
+      );
+
+      const supplierReturn = manager.create(SupplierReturn, {
+        business_id: dto.businessId,
+        supplier_id: dto.supplierId,
+        product_id: dto.productId,
+        purchase_order_id: dto.purchaseOrderId ?? null,
+        batch_number: batchNumber,
+        quantity: dto.quantity,
+        unit_price: dto.unitPrice,
+        amount: dto.quantity * dto.unitPrice,
+        reason: dto.reason,
+        status: 'pending',
+        notes: dto.notes ?? null,
+      });
+      return manager.save(supplierReturn);
+    });
+  }
+
+  listSupplierReturns(businessId: string, supplierId?: string, from?: string, to?: string) {
+    const query = this.supplierReturnsRepository
+      .createQueryBuilder('sr')
+      .leftJoinAndSelect('sr.supplier', 'supplier')
+      .leftJoinAndSelect('sr.product', 'product')
+      .where('sr.business_id = :businessId', { businessId });
+    if (supplierId) query.andWhere('sr.supplier_id = :supplierId', { supplierId });
+    if (from) query.andWhere('sr.created_at >= :from', { from });
+    if (to) query.andWhere('sr.created_at <= :to', { to });
+    return query.orderBy('sr.created_at', 'DESC').getMany();
+  }
+
+  async updateSupplierReturnStatus(id: string, businessId: string, status: 'pending' | 'credited') {
+    const supplierReturn = await this.supplierReturnsRepository.findOne({ where: { id, business_id: businessId } });
+    if (!supplierReturn) {
+      throw new NotFoundException('Supplier return not found');
+    }
+    supplierReturn.status = status;
+    return this.supplierReturnsRepository.save(supplierReturn);
   }
 
   findProductBatches(productId: string, businessId: string) {

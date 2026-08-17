@@ -5,11 +5,12 @@ import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
 import { Product } from '../../database/entities/product.entity';
 import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { SupplierReturn } from '../../database/entities/supplier-return.entity';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PurchaseOrder, PurchaseItem, Stock, Product, ProductBatch])],
+  imports: [TypeOrmModule.forFeature([PurchaseOrder, PurchaseItem, Stock, Product, ProductBatch, SupplierReturn])],
   controllers: [InventoryController],
   providers: [InventoryService],
   exports: [InventoryService],

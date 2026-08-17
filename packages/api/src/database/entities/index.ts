@@ -25,6 +25,7 @@ export * from './role.entity';
 export * from './salesman.entity';
 export * from './stock.entity';
 export * from './supplier.entity';
+export * from './supplier-return.entity';
 export * from './table.entity';
 export * from './user.entity';
 export * from './visit.entity';
