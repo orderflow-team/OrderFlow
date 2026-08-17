@@ -808,7 +808,12 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             connecting={phoneMatch.connecting}
             error={phoneMatch.error}
             role="wholesaler"
-            onConnect={() => phoneMatch.connect('wholesaler', phone)}
+            onConnect={() => {
+              // Fill the customer name from the matched business right away —
+              // otherwise the person has to re-type a name that's already on screen.
+              if (phoneMatch.match) setCustomerName(phoneMatch.match.name);
+              phoneMatch.connect('wholesaler', phone);
+            }}
             onDismiss={phoneMatch.dismiss}
           />
         </DialogHeader>

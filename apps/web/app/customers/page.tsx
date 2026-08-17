@@ -496,7 +496,10 @@ function CustomersPageContent() {
                     connecting={phoneMatch.connecting}
                     error={phoneMatch.error}
                     role="wholesaler"
-                    onConnect={() => phoneMatch.connect('wholesaler', form.phone)}
+                    onConnect={() => {
+                      if (phoneMatch.match) setForm((f) => ({ ...f, name: phoneMatch.match!.name }));
+                      phoneMatch.connect('wholesaler', form.phone);
+                    }}
                     onDismiss={phoneMatch.dismiss}
                   />
                 </div>
@@ -698,7 +701,10 @@ function CustomersPageContent() {
                           connecting={phoneMatch.connecting}
                           error={phoneMatch.error}
                           role="wholesaler"
-                          onConnect={() => phoneMatch.connect('wholesaler', form.phone)}
+                          onConnect={() => {
+                            if (phoneMatch.match) setForm((f) => ({ ...f, name: phoneMatch.match!.name }));
+                            phoneMatch.connect('wholesaler', form.phone);
+                          }}
                           onDismiss={phoneMatch.dismiss}
                         />
                       </div>

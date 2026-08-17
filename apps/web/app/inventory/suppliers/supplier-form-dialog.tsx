@@ -185,7 +185,10 @@ export function SupplierFormDialog({
                   connecting={phoneMatch.connecting}
                   error={phoneMatch.error}
                   role="retailer"
-                  onConnect={() => phoneMatch.connect('retailer', form.phone)}
+                  onConnect={() => {
+                    if (phoneMatch.match) set({ name: phoneMatch.match.name });
+                    phoneMatch.connect('retailer', form.phone);
+                  }}
                   onDismiss={phoneMatch.dismiss}
                 />
               </div>
