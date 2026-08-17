@@ -74,6 +74,14 @@ export class CreateOrderDto {
   @IsString()
   doctorName?: string;
 
+  @IsOptional()
+  @IsString()
+  doctorRegistrationNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  prescriptionImageKey?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

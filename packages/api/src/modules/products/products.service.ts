@@ -47,6 +47,7 @@ export class ProductsService {
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
       generic_name: dto.genericName,
       prescription_required: dto.prescriptionRequired ?? false,
+      is_schedule_h1: dto.isScheduleH1 ?? false,
       description: dto.description,
       image_url: dto.imageUrl,
       is_available: dto.isAvailable ?? true,
@@ -201,6 +202,7 @@ export class ProductsService {
       expiry_date: dto.expiryDate ? new Date(dto.expiryDate) : product.expiry_date,
       generic_name: dto.genericName ?? product.generic_name,
       prescription_required: dto.prescriptionRequired !== undefined ? dto.prescriptionRequired : product.prescription_required,
+      is_schedule_h1: dto.isScheduleH1 !== undefined ? dto.isScheduleH1 : product.is_schedule_h1,
       description: dto.description !== undefined ? dto.description : product.description,
       image_url: dto.imageUrl !== undefined ? dto.imageUrl : product.image_url,
       // Selling out flips is_available to false (see orders.service.ts decrementStock).

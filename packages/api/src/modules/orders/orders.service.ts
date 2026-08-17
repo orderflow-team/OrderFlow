@@ -284,6 +284,8 @@ export class OrdersService {
         notes: dto.notes,
         patient_name: dto.patientName,
         doctor_name: dto.doctorName,
+        doctor_registration_number: dto.doctorRegistrationNumber,
+        prescription_image_key: dto.prescriptionImageKey,
         created_by_user_id: createdByUserUuid,
         client_request_id: dto.clientRequestId,
       });

@@ -32,6 +32,10 @@ export class CreateProductDto {
   prescriptionRequired?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isScheduleH1?: boolean;
+
+  @IsOptional()
   @IsString()
   unit?: string;
 

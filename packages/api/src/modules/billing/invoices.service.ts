@@ -218,6 +218,8 @@ export class InvoicesService {
       order_customer_name: order?.customer_name,
       patient_name: order?.patient_name,
       doctor_name: order?.doctor_name,
+      doctor_registration_number: order?.doctor_registration_number,
+      has_prescription_image: !!order?.prescription_image_key,
       previous_balance_due: previousBalanceDue,
       reference_invoice_number: referenceInvoice?.invoice_number ?? null,
       is_interstate: interState,

@@ -55,6 +55,26 @@ export class ReportsController {
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('gst-summary')
+  gstSummaryReport(
+    @Query('businessId') businessId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.gstSummaryReport(businessId, from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('schedule-h1-register')
+  scheduleH1Register(
+    @Query('businessId') businessId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.scheduleH1Register(businessId, from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @Get('analytics')
   analyticsDashboard(@Query('businessId') businessId: string, @Query('days') days?: string) {
     return this.reportsService.analyticsDashboard(businessId, days ? Number(days) : 30);

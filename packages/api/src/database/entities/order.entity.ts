@@ -36,6 +36,20 @@ export class Order {
   @Column({ type: 'varchar', length: 255, nullable: true })
   doctor_name: string;
 
+  // Prescribing doctor's registration number — required record-keeping for a
+  // Schedule H1/X drug sale (Drugs Rules 1945, Rule 65), captured here the
+  // same optional way patient_name/doctor_name already are.
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  doctor_registration_number: string;
+
+  // Object key (not a URL — the `prescriptions` bucket is private) into
+  // Neon Object Storage for a photo of the physical prescription, captured
+  // optionally at checkout. Read access always goes through a presigned
+  // URL (see OrdersController's prescription-url endpoint), never stored
+  // or returned as a bare link.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  prescription_image_key: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   table_id: string;
 

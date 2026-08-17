@@ -89,6 +89,14 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   prescription_required: boolean;
 
+  // Schedule H1/X drugs (Drugs Rules 1945, Rule 65) require the prescribing
+  // doctor's registration number and patient details to be logged for every
+  // sale and retained for 2 years — a stricter bar than an ordinary Rx item.
+  // Staff-set per medicine, same as prescription_required, since there's no
+  // reliable way to auto-derive it from category/name.
+  @Column({ type: 'boolean', default: false })
+  is_schedule_h1: boolean;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

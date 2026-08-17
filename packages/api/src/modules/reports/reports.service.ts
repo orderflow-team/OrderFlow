@@ -12,6 +12,7 @@ import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { Expense } from '../../database/entities/expense.entity';
 import { Salesman } from '../../database/entities/salesman.entity';
+import { isInterStateSale, splitGst } from '../../common/utils/gst.util';
 
 const ACTIVE_ORDER_STATUSES = ['draft', 'confirmed', 'packed', 'dispatched'];
 
@@ -275,6 +276,171 @@ export class ReportsService {
       orderCount: Number(r.orderCount),
       totalSales: Number(r.totalSales),
       totalTax: Number(r.totalTax),
+    }));
+  }
+
+  /**
+   * GSTR-1-shaped filing summary: taxable value + CGST/SGST/IGST grouped by
+   * rate (Table 9) and by HSN (Table 12), plus a B2B/B2C split (Table 4 vs
+   * 7) — the actual figures a return needs, not just a daily total. Per-item
+   * CGST/SGST-vs-IGST is decided the same way a real invoice's is (see
+   * gst.util.isInterStateSale): each order's customer GSTIN state compared
+   * against the business's, defaulting to intra-state when either is
+   * missing (the common walk-in/no-GSTIN case).
+   */
+  async gstSummaryReport(businessId: string, from?: string, to?: string) {
+    const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+
+    const itemQuery = this.orderItemsRepository
+      .createQueryBuilder('item')
+      .innerJoin('orders', 'order', 'order.id = item.order_id')
+      .leftJoin('customers', 'customer', 'customer.id = order.customer_id')
+      .leftJoin('products', 'product', 'product.id = item.product_id')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
+    if (from) itemQuery.andWhere('order.created_at >= :from', { from });
+    if (to) itemQuery.andWhere('order.created_at <= :to', { to });
+
+    const itemRows = await itemQuery
+      .select('item.tax_percentage', 'taxPercentage')
+      .addSelect('item.quantity', 'quantity')
+      .addSelect('item.subtotal', 'subtotal')
+      .addSelect('item.tax_amount', 'taxAmount')
+      .addSelect('product.hsn_code', 'hsnCode')
+      .addSelect('customer.gst_number', 'customerGst')
+      .getRawMany<{ taxPercentage: string; quantity: string; subtotal: string; taxAmount: string; hsnCode: string | null; customerGst: string | null }>();
+
+    const rateMap = new Map<string, { taxableValue: number; cgstAmount: number; sgstAmount: number; igstAmount: number; itemCount: number }>();
+    const hsnMap = new Map<string, { quantity: number; taxableValue: number; taxAmount: number }>();
+
+    for (const row of itemRows) {
+      const interState = isInterStateSale(business, { gst_number: row.customerGst });
+      const split = splitGst(Number(row.taxAmount), interState);
+
+      const rateKey = String(Number(row.taxPercentage));
+      const rateEntry = rateMap.get(rateKey) ?? { taxableValue: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, itemCount: 0 };
+      rateEntry.taxableValue += Number(row.subtotal);
+      rateEntry.cgstAmount += split.cgst;
+      rateEntry.sgstAmount += split.sgst;
+      rateEntry.igstAmount += split.igst;
+      rateEntry.itemCount += 1;
+      rateMap.set(rateKey, rateEntry);
+
+      const hsnKey = row.hsnCode || 'Unclassified';
+      const hsnEntry = hsnMap.get(hsnKey) ?? { quantity: 0, taxableValue: 0, taxAmount: 0 };
+      hsnEntry.quantity += Number(row.quantity);
+      hsnEntry.taxableValue += Number(row.subtotal);
+      hsnEntry.taxAmount += Number(row.taxAmount);
+      hsnMap.set(hsnKey, hsnEntry);
+    }
+
+    const orderQuery = this.ordersRepository
+      .createQueryBuilder('order')
+      .leftJoin('customers', 'customer', 'customer.id = order.customer_id')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
+    if (from) orderQuery.andWhere('order.created_at >= :from', { from });
+    if (to) orderQuery.andWhere('order.created_at <= :to', { to });
+
+    const orderRows = await orderQuery
+      .select('order.total_amount', 'totalAmount')
+      .addSelect('customer.gst_number', 'customerGst')
+      .getRawMany<{ totalAmount: string; customerGst: string | null }>();
+
+    let b2bCount = 0;
+    let b2bValue = 0;
+    let b2cCount = 0;
+    let b2cValue = 0;
+    for (const row of orderRows) {
+      if (row.customerGst) {
+        b2bCount += 1;
+        b2bValue += Number(row.totalAmount);
+      } else {
+        b2cCount += 1;
+        b2cValue += Number(row.totalAmount);
+      }
+    }
+
+    return {
+      businessGstNumber: business?.gst_number ?? null,
+      rateWise: Array.from(rateMap.entries())
+        .map(([rate, v]) => ({
+          taxPercentage: Number(rate),
+          taxableValue: v.taxableValue,
+          cgstAmount: v.cgstAmount,
+          sgstAmount: v.sgstAmount,
+          igstAmount: v.igstAmount,
+          totalTax: v.cgstAmount + v.sgstAmount + v.igstAmount,
+          itemCount: v.itemCount,
+        }))
+        .sort((a, b) => a.taxPercentage - b.taxPercentage),
+      hsnWise: Array.from(hsnMap.entries())
+        .map(([hsnCode, v]) => ({ hsnCode, quantity: v.quantity, taxableValue: v.taxableValue, taxAmount: v.taxAmount }))
+        .sort((a, b) => b.taxableValue - a.taxableValue),
+      b2b: { invoiceCount: b2bCount, totalValue: b2bValue },
+      b2c: { invoiceCount: b2cCount, totalValue: b2cValue },
+    };
+  }
+
+  /**
+   * Schedule H1/X drug sale log — Drugs Rules 1945 Rule 65 requires the
+   * prescribing doctor's registration number and patient details to be kept
+   * on record (2 years) for every sale of a drug marked is_schedule_h1.
+   * Batch/expiry come from the product's *current* tracked batch, not a
+   * historical snapshot of what was actually dispensed at sale time — the
+   * same approximation profitReport's margin figures already rely on, since
+   * order_items don't snapshot a batch number.
+   */
+  async scheduleH1Register(businessId: string, from?: string, to?: string) {
+    const query = this.orderItemsRepository
+      .createQueryBuilder('item')
+      .innerJoin('orders', 'order', 'order.id = item.order_id')
+      .innerJoin('products', 'product', 'product.id = item.product_id')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
+      .andWhere('product.is_schedule_h1 = true');
+    if (from) query.andWhere('order.created_at >= :from', { from });
+    if (to) query.andWhere('order.created_at <= :to', { to });
+
+    const rows = await query
+      .select('order.id', 'orderId')
+      .addSelect('order.order_number', 'orderNumber')
+      .addSelect('order.created_at', 'soldAt')
+      .addSelect('order.customer_name', 'customerName')
+      .addSelect('order.patient_name', 'patientName')
+      .addSelect('order.doctor_name', 'doctorName')
+      .addSelect('order.doctor_registration_number', 'doctorRegistrationNumber')
+      .addSelect('product.name', 'productName')
+      .addSelect('product.batch_number', 'batchNumber')
+      .addSelect('product.expiry_date', 'expiryDate')
+      .addSelect('item.quantity', 'quantity')
+      .orderBy('order.created_at', 'DESC')
+      .getRawMany<{
+        orderId: string;
+        orderNumber: string | null;
+        soldAt: string;
+        customerName: string;
+        patientName: string | null;
+        doctorName: string | null;
+        doctorRegistrationNumber: string | null;
+        productName: string;
+        batchNumber: string | null;
+        expiryDate: string | null;
+        quantity: string;
+      }>();
+
+    return rows.map((r) => ({
+      orderId: r.orderId,
+      orderNumber: r.orderNumber,
+      soldAt: r.soldAt,
+      customerName: r.customerName,
+      patientName: r.patientName,
+      doctorName: r.doctorName,
+      doctorRegistrationNumber: r.doctorRegistrationNumber,
+      productName: r.productName,
+      batchNumber: r.batchNumber,
+      expiryDate: r.expiryDate,
+      quantity: Number(r.quantity),
     }));
   }
 
