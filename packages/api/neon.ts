@@ -15,6 +15,11 @@ export default defineConfig({
       // separate bucket from app-releases (APK binaries) despite both backing
       // "app releases," since they're unrelated artifact types.
       'ota-bundles': { access: 'public_read' },
+      // Prescription photos captured at checkout — patient health information,
+      // so unlike the buckets above this is private (default access): every
+      // read goes through a short-lived presigned URL (see OrdersController's
+      // prescription-url endpoint), never a bare public link.
+      prescriptions: {},
     },
   },
 });
