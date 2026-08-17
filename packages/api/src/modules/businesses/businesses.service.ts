@@ -200,18 +200,79 @@ export class BusinessesService {
       throw new BadRequestException('Business name confirmation does not match');
     }
 
-    // Reuses the same module-by-module cleanup the "Delete All Data" danger-zone
-    // action uses for orders/billing/restaurant/salesman/customers/products/inventory.
-    await this.devToolsService.clearAll(id);
-
     await this.dataSource.transaction(async (manager) => {
-      await manager.delete(Category, { business_id: id });
-      await manager.delete(Waiter, { business_id: id });
-      await manager.delete(Notification, { business_id: id });
-      // Deleting staff/owner logins cascades their Attendance and Commission
-      // rows (both declare onDelete: 'CASCADE' on the User relation).
-      await manager.delete(User, { business_id: id });
-      await manager.delete(Business, { id });
+      // 1. Clear cross-business links pointing INTO this business
+      await manager.query(`UPDATE customers SET linked_business_id = NULL WHERE linked_business_id = $1`, [id]);
+      await manager.query(`UPDATE suppliers SET linked_business_id = NULL WHERE linked_business_id = $1`, [id]);
+      await manager.query(
+        `UPDATE products SET last_supplier_id = NULL WHERE last_supplier_id IN (SELECT id FROM suppliers WHERE business_id = $1)`,
+        [id],
+      );
+      await manager.query(
+        `DELETE FROM business_connections WHERE retailer_business_id = $1 OR wholesaler_business_id = $1`,
+        [id],
+      );
+
+      // 2. Orders, billing, KOT, and commissions
+      await manager.query(`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM payments WHERE business_id = $1`, [id]);
+      await manager.query(`UPDATE invoices SET reference_invoice_id = NULL WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM invoices WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM kot WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM commissions WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM orders WHERE business_id = $1`, [id]);
+
+      // 3. Products, variants, batches, scans, and purchase orders
+      await manager.query(`DELETE FROM invoice_scan_items WHERE scan_id IN (SELECT id FROM invoice_scans WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM invoice_scan_files WHERE scan_id IN (SELECT id FROM invoice_scans WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM invoice_scans WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM purchase_items WHERE purchase_order_id IN (SELECT id FROM purchase_orders WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM purchase_orders WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM supplier_returns WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM price_history WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM stocks WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM product_batches WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM product_variants WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM products WHERE business_id = $1`, [id]);
+
+      // 4. CRM, operations, staff entities, and activity logs
+      await manager.query(`DELETE FROM visits WHERE salesman_id IN (SELECT id FROM salesmen WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM ledgers WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM customers WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM suppliers WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM notifications WHERE business_id = $1`, [id]);
+      await manager.query(`UPDATE categories SET parent_id = NULL WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM categories WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM tables WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM waiters WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM salesmen WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM expenses WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM attendances WHERE business_id = $1`, [id]);
+      await manager.query(`DELETE FROM user_activity_logs WHERE business_id = $1`, [id]);
+
+      // 5. Unlink owner_user_id to prevent FK constraint failure when deleting user(s)
+      await manager.query(`UPDATE businesses SET owner_user_id = NULL WHERE id = $1`, [id]);
+
+      // 6. Delete staff users belonging to this business (other than the owner)
+      await manager.query(`DELETE FROM users WHERE business_id = $1 AND id != $2`, [id, requestingUserId]);
+
+      // 7. Check if owner has other businesses
+      const otherBusinesses = await manager.query(
+        `SELECT id FROM businesses WHERE owner_user_id = $1 AND id != $2`,
+        [requestingUserId, id],
+      );
+
+      if (otherBusinesses && otherBusinesses.length > 0) {
+        // Owner has other businesses — switch owner's active business_id to one of them
+        await manager.query(`UPDATE users SET business_id = $1 WHERE id = $2`, [otherBusinesses[0].id, requestingUserId]);
+      } else {
+        // Owner has no remaining businesses — delete the owner's user account
+        await manager.query(`DELETE FROM users WHERE id = $1`, [requestingUserId]);
+      }
+
+      // 8. Delete the business record itself
+      await manager.query(`DELETE FROM businesses WHERE id = $1`, [id]);
     });
 
     return { message: `"${business.name}" and all associated data have been permanently deleted.` };
