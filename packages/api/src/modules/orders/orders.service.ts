@@ -18,6 +18,7 @@ import { Payment } from '../../database/entities/payment.entity';
 import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseItem } from '../../database/entities/purchase-item.entity';
+import { Notification } from '../../database/entities/notification.entity';
 import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
@@ -400,6 +401,15 @@ export class OrdersService {
     const savedPurchaseOrder = await manager.save(purchaseOrder);
     purchaseItems.forEach((purchaseItem) => (purchaseItem.purchase_order_id = savedPurchaseOrder.id));
     await manager.save(PurchaseItem, purchaseItems);
+
+    await manager.save(
+      Notification,
+      manager.create(Notification, {
+        business_id: customer.linked_business_id,
+        type: 'purchase_order_synced',
+        message: `${wholesalerBusiness?.name ?? 'A linked wholesaler'} dispatched a new order to you (${savedPurchaseOrder.order_number}) via OBIX.`,
+      }),
+    );
   }
 
   /**

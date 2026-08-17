@@ -12,6 +12,7 @@ import { Business } from '../../database/entities/business.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { SupplierReturn } from '../../database/entities/supplier-return.entity';
+import { Notification } from '../../database/entities/notification.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
@@ -291,6 +292,15 @@ export class InventoryService {
     const savedOrder = await manager.save(order);
     orderItems.forEach((orderItem) => (orderItem.order_id = savedOrder.id));
     await manager.save(OrderItem, orderItems);
+
+    await manager.save(
+      Notification,
+      manager.create(Notification, {
+        business_id: supplier.linked_business_id,
+        type: 'order_synced',
+        message: `${retailerBusiness?.name ?? 'A linked retailer'} placed a new order (${savedOrder.order_number}) via OBIX.`,
+      }),
+    );
   }
 
   findAllPurchaseOrders(businessId: string, status?: string) {
