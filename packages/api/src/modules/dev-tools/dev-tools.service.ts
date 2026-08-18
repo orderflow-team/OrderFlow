@@ -517,7 +517,10 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
    */
   async clearModule(module: string, businessId: string) {
     // Wipes real business data with no way back — the frontend's
-    // ClearModuleButton documents this as dev-only, but we are allowing it in production too as requested.
+    // ClearModuleButton documents this as dev-only, but we are allowing it in
+    // production too as requested. Restricted to ADMIN/SUPER_ADMIN at the
+    // controller (@Roles) — do not loosen that without re-adding a confirm
+    // step, this has no undo.
     if (!DEV_MODULES.includes(module as DevModule)) {
       throw new BadRequestException(`Unknown module "${module}"`);
     }
