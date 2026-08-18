@@ -388,6 +388,7 @@ function CustomersPageContent() {
 
   const handleDelete = async (id: string) => {
     if (!businessId) return;
+    if (!confirm("Delete this customer? Their order history stays, but this contact can't be undone.")) return;
     await apiClient.delete(`/api/customers/${id}`, { params: { businessId } });
     load(businessId);
   };

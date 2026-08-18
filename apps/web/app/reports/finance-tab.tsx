@@ -60,6 +60,7 @@ export function FinanceTab({ analytics, businessId, days, onExpenseChanged }: {
   };
 
   const handleDeleteExpense = async (id: string) => {
+    if (!confirm("Delete this expense record? This can't be undone.")) return;
     try {
       await apiClient.delete(`/api/expenses/${id}`, { params: { businessId } });
       onExpenseChanged();

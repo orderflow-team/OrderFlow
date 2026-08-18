@@ -185,6 +185,7 @@ function ProductsPageContent() {
 
   const deleteCategory = async (id: string) => {
     if (!businessId) return;
+    if (!confirm('Delete this category? Products in it will keep their other data, just lose this category tag.')) return;
     try {
       await apiClient.delete(`/api/categories/${id}`, { params: { businessId } });
       loadCategories(businessId, products);
@@ -313,6 +314,7 @@ function ProductsPageContent() {
 
   const handleDelete = async (id: string) => {
     if (!businessId) return;
+    if (!confirm(`Delete this ${entityName.toLowerCase()}? This can't be undone.`)) return;
     await apiClient.delete(`/api/products/${id}`, { params: { businessId } });
     load(businessId);
   };

@@ -414,6 +414,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   };
 
   const deleteItem = async (id: string) => {
+    if (!confirm("Delete this medicine? This can't be undone.")) return;
     try {
       await apiClient.delete(`/api/products/${id}`, { params: { businessId } });
       loadData();

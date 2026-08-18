@@ -227,6 +227,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   };
 
   const deleteItem = async (id: string) => {
+    if (!confirm("Delete this menu item? This can't be undone.")) return;
     try {
       await apiClient.delete(`/api/products/${id}`, { params: { businessId } });
       loadData();
