@@ -782,7 +782,7 @@ export function GenericOrders() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
           {!showForm && (
-            <Button onClick={() => setShowForm(true)} className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
+            <Button onClick={() => setShowForm(true)} title="Press N" className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> New Order
             </Button>
           )}

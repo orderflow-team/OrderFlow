@@ -16,6 +16,7 @@ import { QuickAddProductDialog } from '@/components/quick-add-product-dialog';
 import { Capacitor } from '@capacitor/core';
 import { vibrateScanSuccess } from '@/lib/haptics';
 import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
 
 interface Product {
@@ -624,6 +625,17 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
 
   useBarcodeScanner(handleScannedCode, { enabled: isOpen });
 
+  // '/' jumps to the search box from anywhere in the modal; Ctrl/Cmd+Enter
+  // submits — works even mid-edit in a cart field, so a cashier never has to
+  // reach for the mouse to check out once the cart's built.
+  useKeyboardShortcuts(
+    [
+      { key: '/', handler: focusSearch },
+      { key: 'Enter', ctrl: true, handler: handleSubmit, allowInInput: true },
+    ],
+    isOpen,
+  );
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -1147,12 +1159,14 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
           <div className="flex gap-2">
             <Button
               type="button"
+              title="Press /"
               className="flex-1 h-11 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
               onClick={focusSearch}
             >
               <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : 'Add Product'}
             </Button>
             <Button
+              title="Ctrl+Enter"
               className="flex-1 h-11 text-base font-semibold"
               disabled={cartItems.length === 0 || submitting}
               onClick={handleSubmit}

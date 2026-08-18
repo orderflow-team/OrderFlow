@@ -29,6 +29,7 @@ import {
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
 import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, getBusinessTerminology, CustomBusinessSettings, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
@@ -107,6 +108,10 @@ interface BusinessOption {
 
 const NEW_BUSINESS_OPTION = '__new__';
 
+// Pages with a listener for the shared 'open-new-form' CustomEvent — reused
+// both by the mobile "+" FAB below and the 'n' keyboard shortcut.
+const NEW_FORM_PAGES = ['/orders', '/products', '/customers'];
+
 /** Business icon: the uploaded logo when set, otherwise the generic store glyph. */
 function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; size: string; active?: boolean }) {
   if (logoUrl) {
@@ -119,6 +124,14 @@ function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; si
 export function AppShell({ children, hideNavigation = false }: { children: React.ReactNode; hideNavigation?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // Same shortcut everywhere the "+" FAB already lives — press 'n' to open
+  // the New Order/Product/Customer form without reaching for the mouse.
+  useKeyboardShortcuts(
+    [{ key: 'n', handler: () => window.dispatchEvent(new CustomEvent('open-new-form')) }],
+    !hideNavigation && NEW_FORM_PAGES.includes(pathname),
+  );
+
   const [moreOpen, setMoreOpen] = useState(false);
   const [optionalModules, setOptionalModules] = useState<OptionalModule[] | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -884,7 +897,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       {!hideNavigation && (chatEnabled ? (
         <ChatOrderWidget businessId={businessId} businessCategory={businessCategory} />
       ) : (
-        ['/orders', '/products', '/customers'].includes(pathname) && (
+        NEW_FORM_PAGES.includes(pathname) && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-new-form'))}
             aria-label="Add New"
