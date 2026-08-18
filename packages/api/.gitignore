@@ -1,2 +1,12 @@
 .neon
 .env.local
+
+# Real user-generated uploads (invoice scans, generated invoice PDFs, business
+# logos, misc media) — these were committed to git by accident and can contain
+# real customer/business documents. uploads/seed/ is excluded from this rule:
+# those are static demo-menu fixture images used by the dev-tools seeder, not
+# user content, and are meant to stay tracked.
+uploads/invoice-scans/
+uploads/invoices/
+uploads/logos/
+uploads/media/
