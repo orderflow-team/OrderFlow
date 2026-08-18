@@ -80,6 +80,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   const [prescriptionUploading, setPrescriptionUploading] = useState(false);
   const prescriptionInputRef = useRef<HTMLInputElement>(null);
   const [validationError, setValidationError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [baseProducts, setBaseProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,6 +206,8 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
       setCustomerId('');
       setPhone('');
       setPhoneError('');
+      setValidationError('');
+      setSubmitError('');
       setCustomerPrices({});
       priceLoadRef.current = '';
       setCart({});
@@ -546,11 +549,17 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     setSubmitting(true);
     setValidationError('');
     setPhoneError('');
+    setSubmitError('');
     try {
       await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined, isPharmacy ? doctorRegistrationNumber : undefined, isPharmacy ? prescriptionImageKey || undefined : undefined);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
+      // onSubmit throws on a real save failure (offline queuing handles its
+      // own success path and never throws) — keep the modal open with the
+      // cart intact instead of closing on a failed order, and tell the
+      // cashier why so they can retry rather than re-building it from scratch.
       console.error(err);
+      setSubmitError(err?.message || 'Failed to save this order. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -773,8 +782,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             </div>
           </div>
 
-          {(phoneError || validationError || creatingCustomer || (!creatingCustomer && customerId)) && (
+          {(submitError || phoneError || validationError || creatingCustomer || (!creatingCustomer && customerId)) && (
             <div className="mt-2 space-y-1">
+              {submitError && (
+                <p className="text-xs text-rose-700 font-semibold bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
+                  Order not saved: {submitError}. Your cart is still here — fix the issue and try again.
+                </p>
+              )}
               {phoneError && (
                 <p className="text-xs text-rose-600 font-medium">
                   {phoneError}

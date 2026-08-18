@@ -735,7 +735,13 @@ export function GenericOrders() {
         setShowForm(false);
         load(businessId, true);
       } else {
-        setError(err.response?.data?.message || 'Failed to create order');
+        // A real server-side rejection (e.g. stock validation) — rethrow so
+        // the modal knows to stay open instead of closing on a failed save,
+        // which used to silently destroy the whole cart the cashier had just
+        // built. The modal surfaces this via its own error state.
+        const message = err.response?.data?.message || 'Failed to create order';
+        setError(message);
+        throw new Error(message);
       }
     } finally {
       setSaving(false);
