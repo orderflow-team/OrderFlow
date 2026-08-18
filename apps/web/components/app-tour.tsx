@@ -1,169 +1,123 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import {
-  Sparkles, Mic, Package, Pill, Users, Receipt, Zap, LayoutDashboard,
-  UserRound, ShoppingCart, CheckCircle2, Search, ListPlus, Send,
-  UserPlus, Wallet, FileText, Warehouse, Truck, BellRing,
+  Sparkles, Search, ShoppingCart, CheckCircle2, Package, Pill, BellRing,
+  Users, UserPlus, Wallet, FileText, Warehouse, Truck, UserRound, Zap,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
-interface TourStep {
-  module: string;
+interface TourCard {
+  bg: string;
+  fg: string;
+  /** Literal bg-* class matching fg's color, for the Next button — Tailwind can't
+   *  resolve a bg class derived from fg's text-* string at runtime, so this is
+   *  spelled out explicitly rather than string-replaced. */
+  accentBg: string;
   icon: typeof Sparkles;
-  iconBg: string;
-  iconFg: string;
-  title: string;
+  eyebrow: string;
+  headline: string;
   body: string;
+  /** Small 3-icon animated mini-diagram for cards that show a process, not just a fact. */
+  flow?: [typeof Sparkles, typeof Sparkles, typeof Sparkles];
 }
 
-function getTourSteps(isPharmacy: boolean, isSalesman: boolean, hasInventory: boolean): TourStep[] {
+function getCards(isPharmacy: boolean, isSalesman: boolean, hasInventory: boolean): TourCard[] {
   const itemWord = isPharmacy ? 'medicine' : 'product';
   const catalogWord = isPharmacy ? 'Medicines' : 'Products';
 
   if (isSalesman) {
     return [
       {
-        module: 'Welcome', icon: Sparkles, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-        title: 'Welcome to OBIX',
-        body: "Here's the 30-second version of what you'll use every day.",
+        bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: Sparkles,
+        eyebrow: 'Welcome', headline: "Hey there 👋", body: 'A 20-second look at what you\'ll use every day.',
       },
       {
-        module: 'Visits', icon: UserRound, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-        title: 'Log Visit',
-        body: 'Check in at a shop when you arrive — it keeps a record of every stop on your route.',
+        bg: 'bg-tile-peach', fg: 'text-tile-peach-fg', accentBg: 'bg-tile-peach-fg', icon: UserRound,
+        eyebrow: 'Visits', headline: 'Check in anywhere', body: 'Log a visit the moment you walk into a shop.',
       },
       {
-        module: 'Clients', icon: Users, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-        title: 'Clients',
-        body: "Your assigned retailers, their contact details, and what they've ordered before.",
+        bg: 'bg-tile-sky', fg: 'text-tile-sky-fg', accentBg: 'bg-tile-sky-fg', icon: Users,
+        eyebrow: 'Clients', headline: 'Know every shop', body: 'Contacts and order history for every retailer you visit.',
       },
       {
-        module: 'Orders', icon: ShoppingCart, iconBg: 'bg-tile-sky-icon', iconFg: 'text-tile-sky-fg',
-        title: 'Orders',
-        body: 'Record what a shop wants right there during your visit — no need to write it down and enter it later.',
+        bg: 'bg-tile-mint', fg: 'text-tile-mint-fg', accentBg: 'bg-tile-mint-fg', icon: ShoppingCart,
+        eyebrow: 'Orders', headline: 'Order on the spot', body: 'Take what a shop wants right there — no paper, no re-entry.',
+        flow: [UserRound, ShoppingCart, CheckCircle2],
       },
       {
-        module: 'Done', icon: CheckCircle2, iconBg: 'bg-tile-mint-icon', iconFg: 'text-tile-mint-fg',
-        title: "That's it",
-        body: 'You can replay this tour anytime from the button on your dashboard.',
+        bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: CheckCircle2,
+        eyebrow: 'Ready', headline: "That's it! 🎉", body: 'Replay this anytime from your dashboard.',
       },
     ];
   }
 
-  const steps: TourStep[] = [
+  const cards: TourCard[] = [
     {
-      module: 'Welcome', icon: Sparkles, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-      title: 'Welcome to OBIX',
-      body: `A step-by-step look at every module — New Order, ${catalogWord}, Clients, Billing${hasInventory ? ', and Inventory' : ''}. About two minutes.`,
-    },
-
-    // --- New Order ---
-    {
-      module: 'New Order', icon: ShoppingCart, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-      title: 'Step 1 — Start a sale',
-      body: 'Tap "New Order" on your dashboard (or press N anywhere on the Orders page) to open the order screen.',
+      bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: Sparkles,
+      eyebrow: 'Welcome', headline: 'Hey there 👋', body: "Swipe through — the basics take about 30 seconds.",
     },
     {
-      module: 'New Order', icon: Search, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-      title: 'Step 2 — Add items',
-      body: 'Search by name, scan a barcode with a scanner gun, or tap the mic and just say what the customer wants.',
+      bg: 'bg-tile-peach', fg: 'text-tile-peach-fg', accentBg: 'bg-tile-peach-fg', icon: ShoppingCart,
+      eyebrow: 'New Order', headline: 'Sell in seconds', body: 'Search, scan, or just say what they want.',
+      flow: [Search, ShoppingCart, CheckCircle2],
     },
     {
-      module: 'New Order', icon: ListPlus, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-      title: 'Step 3 — Adjust the cart',
-      body: 'Change quantity, unit, or price on any line before checkout — the total updates as you go.',
+      bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: isPharmacy ? Pill : Package,
+      eyebrow: catalogWord, headline: 'Your whole catalog', body: hasInventory
+        ? `Every ${itemWord}, its price, and its stock — always current.`
+        : `Every ${itemWord} and its price, ready to sell.`,
     },
     {
-      module: 'New Order', icon: Send, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-      title: 'Step 4 — Submit',
-      body: 'Tap "Submit Order" (or Ctrl+Enter) to save it. It shows up instantly in your Orders list, ready to bill.',
-    },
-
-    // --- Products / Medicines ---
-    {
-      module: catalogWord, icon: isPharmacy ? Pill : Package, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-      title: `Your ${catalogWord.toLowerCase()} catalog`,
-      body: `Every ${itemWord} you sell lives here — name, price, unit, and ${hasInventory ? 'stock on hand' : 'category'}.`,
+      bg: 'bg-tile-sky', fg: 'text-tile-sky-fg', accentBg: 'bg-tile-sky-fg', icon: Users,
+      eyebrow: 'Clients', headline: 'Know your customers', body: 'Orders and balances saved automatically — nothing to type twice.',
+      flow: [UserPlus, Users, CheckCircle2],
     },
     {
-      module: catalogWord, icon: ListPlus, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-      title: 'Add or import',
-      body: `Tap + to add one ${itemWord} at a time, or use Bulk Upload to import your whole catalog from a spreadsheet.`,
+      bg: 'bg-tile-mint', fg: 'text-tile-mint-fg', accentBg: 'bg-tile-mint-fg', icon: Wallet,
+      eyebrow: 'Billing', headline: 'Get paid, stay tidy', body: 'Invoices, payments, and your ledger — one tap apart.',
+      flow: [FileText, Wallet, CheckCircle2],
     },
     ...(hasInventory
       ? [{
-          module: catalogWord, icon: BellRing, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-          title: 'Never run out',
-          body: 'Set a reorder point per item — we notify you automatically once stock drops to or below it.',
+          bg: 'bg-tile-peach', fg: 'text-tile-peach-fg', accentBg: 'bg-tile-peach-fg', icon: Warehouse,
+          eyebrow: 'Inventory', headline: 'Never run dry', body: 'Stock levels, purchase orders, and low-stock alerts — handled.',
+          flow: [Warehouse, Truck, BellRing] as [typeof Sparkles, typeof Sparkles, typeof Sparkles],
         }]
       : []),
-
-    // --- Clients ---
     {
-      module: 'Clients', icon: Users, iconBg: 'bg-tile-sky-icon', iconFg: 'text-tile-sky-fg',
-      title: 'Everyone you sell to',
-      body: "Every customer's contact details, full order history, and outstanding balance in one profile.",
-    },
-    {
-      module: 'Clients', icon: UserPlus, iconBg: 'bg-tile-sky-icon', iconFg: 'text-tile-sky-fg',
-      title: 'Saved automatically',
-      body: "Type a phone number and name while placing an order and we save them as a customer — no separate step needed.",
-    },
-
-    // --- Billing ---
-    {
-      module: 'Billing', icon: Wallet, iconBg: 'bg-tile-mint-icon', iconFg: 'text-tile-mint-fg',
-      title: 'Collect payments',
-      body: 'Mark an order fully paid, partially paid, or on credit — the Ledger keeps track either way.',
-    },
-    {
-      module: 'Billing', icon: FileText, iconBg: 'bg-tile-mint-icon', iconFg: 'text-tile-mint-fg',
-      title: 'Invoices',
-      body: 'Every sale gets a proper invoice you can share straight to WhatsApp or print at the counter.',
-    },
-    {
-      module: 'Billing', icon: Receipt, iconBg: 'bg-tile-mint-icon', iconFg: 'text-tile-mint-fg',
-      title: 'The Ledger',
-      body: "See who owes what at a glance from the Ledger tile, and chase overdue balances before they pile up.",
-    },
-
-    // --- Inventory (only if enabled) ---
-    ...(hasInventory
-      ? [
-          {
-            module: 'Inventory', icon: Warehouse, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-            title: 'Track your stock',
-            body: 'The Inventory section (in the menu) shows exactly how much of each item you have on hand, updated with every sale.',
-          },
-          {
-            module: 'Inventory', icon: Truck, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-            title: 'Purchase Orders',
-            body: 'Raise a PO to a supplier when you need to restock — receiving it against a supplier updates your stock automatically.',
-          },
-          {
-            module: 'Inventory', icon: BellRing, iconBg: 'bg-tile-peach-icon', iconFg: 'text-tile-peach-fg',
-            title: 'Low-stock & expiry alerts',
-            body: 'Anything low on stock or nearing its expiry date shows up right on your dashboard and in your notifications — nothing to check manually.',
-          },
-        ]
-      : []),
-
-    // --- Wrap up ---
-    {
-      module: 'Shortcuts', icon: Zap, iconBg: 'bg-tile-lavender-icon', iconFg: 'text-tile-lavender-fg',
-      title: 'Power tip',
-      body: 'Press N anywhere on Orders, Products, or Customers to jump straight into a new one — no mouse needed.',
-    },
-    {
-      module: 'Done', icon: LayoutDashboard, iconBg: 'bg-tile-mint-icon', iconFg: 'text-tile-mint-fg',
-      title: "That's every module",
-      body: 'Deeper sales/tax reports and settings are in the menu. Come back to this tour anytime from the button on your dashboard.',
+      bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: CheckCircle2,
+      eyebrow: 'Ready', headline: "You're all set 🎉", body: 'Press N anytime for a new order. Replay this from your dashboard.',
     },
   ];
 
-  return steps;
+  return cards;
+}
+
+function MiniFlow({ icons, fg }: { icons: [typeof Sparkles, typeof Sparkles, typeof Sparkles]; fg: string }) {
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      {icons.map((Icon, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <div className={`w-9 h-9 rounded-xl bg-white ring-1 ring-black/5 ${fg} flex items-center justify-center shadow-sm`}>
+            <Icon className="w-4 h-4" strokeWidth={2.5} />
+          </div>
+          {i < icons.length - 1 && (
+            <div className="flex gap-0.5">
+              {[0, 1, 2].map((d) => (
+                <span
+                  key={d}
+                  className="w-1 h-1 rounded-full bg-white/80 animate-pulse"
+                  style={{ animationDelay: `${d * 200}ms` }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function AppTour({
@@ -180,65 +134,136 @@ export function AppTour({
   hasInventory: boolean;
 }) {
   const [step, setStep] = useState(0);
-  const steps = getTourSteps(isPharmacy, isSalesman, hasInventory);
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
+  const [dir, setDir] = useState<'next' | 'back'>('next');
+  const touchX = useRef<number | null>(null);
+  const cards = getCards(isPharmacy, isSalesman, hasInventory);
+  const card = cards[step];
+  const isLast = step === cards.length - 1;
   const isFirst = step === 0;
-  const Icon = current.icon;
-  // A new module starts here — used to insert a section divider label so a
-  // long linear flow still reads as separate modules, not one undifferentiated list.
-  const isNewModule = isFirst || current.module !== steps[step - 1].module;
+  const Icon = card.icon;
+
+  const goNext = () => {
+    setDir('next');
+    if (isLast) close();
+    else setStep((s) => s + 1);
+  };
+  const goBack = () => {
+    if (isFirst) return;
+    setDir('back');
+    setStep((s) => s - 1);
+  };
 
   const close = () => {
     onOpenChange(false);
-    // Reset for next time it's reopened (manually, via the "Take a tour" button).
     setTimeout(() => setStep(0), 200);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(delta) < 40) return;
+    if (delta < 0) goNext();
+    else goBack();
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden">
-        <div className="p-6 pb-4 flex flex-col items-center text-center gap-4">
-          {!isFirst && !isLast && isNewModule && (
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{current.module}</span>
-          )}
-          <div className={`${current.iconBg} ${current.iconFg} w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm`}>
-            <Icon className="w-7 h-7" strokeWidth={2.25} />
-          </div>
-          <div className="space-y-1.5">
-            <DialogTitle className="text-lg font-bold text-slate-800">{current.title}</DialogTitle>
-            <DialogDescription className="text-sm text-slate-500 leading-relaxed">{current.body}</DialogDescription>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center gap-1 pb-4 px-6 flex-wrap">
-          {steps.map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${i === step ? 'w-5 bg-tile-lavender-fg' : 'w-1.5 bg-slate-200'}`}
-            />
+      <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden border-none">
+        {/* Progress bar — Instagram-story style segments. Right padding keeps
+            clear of DialogContent's built-in close (X) button, which doubles
+            as this tour's "skip" affordance. */}
+        <div className="flex gap-1 pl-3 pr-10 pt-3">
+          {cards.map((_, i) => (
+            <span key={i} className="h-1 flex-1 rounded-full bg-black/10 overflow-hidden">
+              <span
+                className={`block h-full rounded-full bg-slate-800/70 transition-all duration-300 ${i <= step ? 'w-full' : 'w-0'}`}
+              />
+            </span>
           ))}
         </div>
 
-        <div className="flex items-center gap-2 p-4 pt-0">
-          {!isLast && (
-            <Button type="button" variant="ghost" onClick={close} className="text-slate-400 hover:text-slate-600">
-              Skip
-            </Button>
+        <div
+          className={`${card.bg} relative overflow-hidden`}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Tap zones for click/tap-to-advance, story-style */}
+          {!isFirst && (
+            <button
+              type="button"
+              aria-label="Previous"
+              onClick={goBack}
+              className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer"
+            />
           )}
-          <div className="flex-1" />
-          {step > 0 && (
-            <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
-              Back
-            </Button>
-          )}
-          <Button
+          <button
             type="button"
-            onClick={() => (isLast ? close() : setStep((s) => s + 1))}
-            className="bg-tile-lavender-fg hover:brightness-95 text-white"
+            aria-label="Next"
+            onClick={goNext}
+            className="absolute inset-y-0 right-0 w-2/3 z-10 cursor-pointer"
+          />
+
+          {/* pointer-events-none on the whole card so the tap-zone buttons above
+              always receive clicks/taps regardless of paint order — nothing in
+              here needs to be independently clickable. */}
+          <div
+            key={step}
+            className={`relative pointer-events-none px-7 pt-9 pb-8 flex flex-col items-center text-center gap-3 ${
+              dir === 'next' ? 'animate-in fade-in slide-in-from-right-6' : 'animate-in fade-in slide-in-from-left-6'
+            } duration-300`}
           >
-            {isLast ? 'Got it' : 'Next'}
-          </Button>
+            {/* Big soft watermark icon for depth */}
+            <Icon className={`absolute -top-4 -right-4 w-28 h-28 ${card.fg} opacity-[0.08] rotate-12`} strokeWidth={1.5} />
+
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${card.fg} opacity-70`}>{card.eyebrow}</span>
+
+            <div className={`w-16 h-16 rounded-2xl bg-white ring-1 ring-black/5 ${card.fg} flex items-center justify-center shadow-md animate-in zoom-in duration-300`}>
+              <Icon className="w-7 h-7" strokeWidth={2.25} />
+            </div>
+
+            <div className="space-y-1">
+              <DialogTitle className="text-2xl font-extrabold text-slate-800 text-balance">{card.headline}</DialogTitle>
+              <DialogDescription className="text-sm text-slate-600 leading-relaxed max-w-[26ch] mx-auto">{card.body}</DialogDescription>
+            </div>
+
+            {card.flow && <MiniFlow icons={card.flow} fg={card.fg} />}
+
+            {isFirst && (
+              <span className="text-[11px] font-semibold text-slate-500/80 mt-1 flex items-center gap-1">
+                Tap or swipe to continue <ChevronRight className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom nav — visible controls alongside the tap/swipe zones above */}
+        <div className="flex items-center justify-between p-3 bg-white">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={isFirst}
+            aria-label="Back"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-0 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <span className="text-xs font-semibold text-slate-400">{step + 1} / {cards.length}</span>
+          <button
+            type="button"
+            onClick={goNext}
+            aria-label={isLast ? 'Finish' : 'Next'}
+            className={`h-9 px-4 rounded-full flex items-center justify-center gap-1 text-sm font-bold text-white transition-colors ${card.accentBg} hover:brightness-95`}
+          >
+            {isLast ? (
+              <>Got it <Zap className="w-3.5 h-3.5" /></>
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
         </div>
       </DialogContent>
     </Dialog>
