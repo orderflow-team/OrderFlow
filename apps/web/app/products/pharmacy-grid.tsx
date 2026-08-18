@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload, Sparkles, ChevronDown, ChevronRight, PackageMinus } from 'lucide-react';
+import { Pencil, Trash2, Plus, FolderPlus, Tag, ShieldAlert, CalendarClock, ScanBarcode, Truck, Upload, Sparkles, ChevronDown, ChevronRight, PackageMinus, Search } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { fetchBarcodeSuggestion } from '@/lib/barcode-suggestion';
 import { AppShell } from '@/components/app-shell';
@@ -55,6 +55,17 @@ interface Batch {
   received_at: string;
 }
 
+interface TraceOrder {
+  order_id: string;
+  order_number: string;
+  order_date: string;
+  order_status: string;
+  customer_name: string;
+  customer_phone: string | null;
+  custom_product_name: string | null;
+  quantity_from_batch: string | number;
+}
+
 export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -103,6 +114,11 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [returnReason, setReturnReason] = useState<'expired' | 'damaged' | 'wrong_item' | 'other'>('expired');
   const [returnUnitPrice, setReturnUnitPrice] = useState('');
   const [returnError, setReturnError] = useState('');
+
+  // Recall lookup: which orders/customers received a given batch.
+  const [traceFor, setTraceFor] = useState<string | null>(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceOrders, setTraceOrders] = useState<TraceOrder[]>([]);
 
   const loadBatches = async (productId: string): Promise<Batch[]> => {
     if (batchesByProduct[productId]) return batchesByProduct[productId];
@@ -185,6 +201,24 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       loadData();
     } catch (err: any) {
       setReturnError(err.response?.data?.message || 'Failed to record supplier return');
+    }
+  };
+
+  const toggleTrace = async (batchId: string) => {
+    if (traceFor === batchId) {
+      setTraceFor(null);
+      return;
+    }
+    setTraceFor(batchId);
+    setTraceLoading(true);
+    try {
+      const res = await apiClient.get<{ orders: TraceOrder[] }>(`/api/inventory/batches/${batchId}/orders`, { params: { businessId } });
+      setTraceOrders(res.data.orders);
+    } catch (err) {
+      console.error('Failed to trace batch', err);
+      setTraceOrders([]);
+    } finally {
+      setTraceLoading(false);
     }
   };
 
@@ -811,28 +845,70 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-medium text-slate-700">{Number(b.quantity)}</td>
                                   <td className="px-3 py-1.5 text-right">
-                                    {Number(b.quantity) > 0 && (
-                                      <div className="flex items-center justify-end gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => { setReturnFor(returnFor === b.id ? null : b.id); setReturnQty(''); setReturnUnitPrice(''); setReturnError(''); }}
-                                          className="text-amber-600 hover:text-amber-700"
-                                          title="Return to supplier"
-                                        >
-                                          <Truck className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
-                                          className="text-rose-500 hover:text-rose-700"
-                                          title="Write off damaged/expired stock"
-                                        >
-                                          <PackageMinus className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    )}
+                                    <div className="flex items-center justify-end gap-2">
+                                      {Number(b.quantity) > 0 && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => { setReturnFor(returnFor === b.id ? null : b.id); setReturnQty(''); setReturnUnitPrice(''); setReturnError(''); }}
+                                            className="text-amber-600 hover:text-amber-700"
+                                            title="Return to supplier"
+                                          >
+                                            <Truck className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
+                                            className="text-rose-500 hover:text-rose-700"
+                                            title="Write off damaged/expired stock"
+                                          >
+                                            <PackageMinus className="w-3.5 h-3.5" />
+                                          </button>
+                                        </>
+                                      )}
+                                      {/* Always available, even at 0 qty — a fully-dispensed batch is
+                                          exactly when a recall lookup matters most. */}
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleTrace(b.id)}
+                                        className="text-sky-600 hover:text-sky-700"
+                                        title="Who received this batch (recall lookup)"
+                                      >
+                                        <Search className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
+                                {traceFor === b.id && (
+                                  <tr className="bg-sky-50/40">
+                                    <td colSpan={4} className="px-3 py-2">
+                                      {traceLoading ? (
+                                        <p className="text-[11px] text-slate-400">Looking up orders…</p>
+                                      ) : traceOrders.length === 0 ? (
+                                        <p className="text-[11px] text-slate-400">
+                                          No orders on record for this batch — either nothing's been sold from it yet, or it was received before batch tracing was added.
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-1.5">
+                                          <p className="text-[10px] font-bold uppercase tracking-wide text-sky-700">
+                                            {traceOrders.length} order{traceOrders.length !== 1 ? 's' : ''} received this batch
+                                          </p>
+                                          {traceOrders.map((o) => (
+                                            <div key={`${o.order_id}-${o.custom_product_name ?? ''}`} className="flex items-center justify-between gap-2 text-[11px] bg-white/70 rounded-lg px-2 py-1">
+                                              <span className="text-slate-700 font-medium truncate">
+                                                {o.order_number} · {o.customer_name}
+                                                {o.customer_phone && <span className="text-slate-400"> ({o.customer_phone})</span>}
+                                              </span>
+                                              <span className="text-slate-500 shrink-0">
+                                                {Number(o.quantity_from_batch)} units · {new Date(o.order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
                                 {returnFor === b.id && (
                                   <tr className="bg-amber-50/40">
                                     <td colSpan={4} className="px-3 py-2">

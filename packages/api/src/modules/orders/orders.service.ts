@@ -11,6 +11,7 @@ import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
 import { Stock } from '../../database/entities/stock.entity';
 import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { OrderItemBatch } from '../../database/entities/order-item-batch.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
@@ -196,6 +197,7 @@ export class OrdersService {
         subtotal: number;
         taxPercentage: number;
         taxAmount: number;
+        batchAllocations: Array<{ batchId: string; quantity: number }>;
       }> = [];
       // Guards against two items in the same order with the same custom name
       // (e.g. two "Maggi" lines) creating two separate Product rows.
@@ -207,10 +209,12 @@ export class OrdersService {
         }
         const clientProvidedProductId = !!item.productId;
 
+        let batchAllocations: Array<{ batchId: string; quantity: number }> = [];
         if (clientProvidedProductId && inventoryEnabled && dto.orderType !== 'dine_in' && dto.orderType !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled } = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber, allowOrdersBeyondStock);
-          item.quantity = fulfilled;
+          const result = await this.decrementStock(manager, dto.businessId, item.productId!, requestedQuantity, orderNumber, allowOrdersBeyondStock);
+          item.quantity = result.fulfilled;
+          batchAllocations = result.batchAllocations;
         }
 
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(dto.businessId, dto.customerId, item);
@@ -240,7 +244,7 @@ export class OrdersService {
           item.productId = linkedProductId;
         }
 
-        resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
+        resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount, batchAllocations });
       }
 
       let tokenNumber: number | null = null;
@@ -327,6 +331,7 @@ export class OrdersService {
         }),
       );
       await manager.save(OrderItem, orderItems);
+      await this.saveBatchAllocations(manager, orderItems, resolvedItems);
 
       if (resolvedCustomerId) {
         const customer = await manager.findOne(Customer, { where: { id: resolvedCustomerId } });
@@ -512,8 +517,18 @@ export class OrdersService {
    * still with stock. A no-op for products with no batch rows (non-pharmacy,
    * or pharmacy stock never received through a batch-tracked PO line) —
    * that stock simply isn't batch-tracked, same as today.
+   *
+   * Returns which batch(es) were actually drawn from and how much of each —
+   * a single sale can span more than one batch if FEFO exhausts one mid-line
+   * — so the caller can persist an OrderItemBatch allocation row per batch
+   * once the OrderItem exists. This is what makes a batch recall answerable
+   * ("which orders got this batch") instead of just a stock-quantity number.
    */
-  private async consumeBatchesFefo(manager: EntityManager, productId: string, quantity: number) {
+  private async consumeBatchesFefo(
+    manager: EntityManager,
+    productId: string,
+    quantity: number,
+  ): Promise<Array<{ batchId: string; quantity: number }>> {
     let remaining = quantity;
     const batches = await manager
       .createQueryBuilder(ProductBatch, 'batch')
@@ -522,16 +537,19 @@ export class OrdersService {
       .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
       .getMany();
 
+    const allocations: Array<{ batchId: string; quantity: number }> = [];
     for (const batch of batches) {
       if (remaining <= 0) break;
       const take = Math.min(Number(batch.quantity), remaining);
       await manager.update(ProductBatch, { id: batch.id }, { quantity: Number(batch.quantity) - take });
+      allocations.push({ batchId: batch.id, quantity: take });
       remaining -= take;
     }
 
     if (batches.length > 0) {
       await this.syncProductBatchSummary(manager, productId);
     }
+    return allocations;
   }
 
   /**
@@ -551,6 +569,93 @@ export class OrdersService {
     if (!target) return;
     await manager.update(ProductBatch, { id: target.id }, { quantity: Number(target.quantity) + quantity });
     await this.syncProductBatchSummary(manager, productId);
+  }
+
+  /**
+   * Credits returned/deleted-order stock back to the *exact* batch(es) it was
+   * originally dispensed from, via OrderItemBatch — no longer the
+   * soonest-expiry approximation now that a sale->batch allocation record
+   * exists. Walks allocations in the same FEFO (expiry-ascending) order they
+   * were consumed in, skipping past `alreadyReturned` units from a prior
+   * partial return before crediting the current `quantity` back — so a
+   * second partial return on the same line resumes from the right batch
+   * instead of re-crediting the first one twice. Falls back to
+   * creditBackToSoonestBatch for orders placed before this table existed
+   * (no allocation rows) or if more is being credited back than was ever
+   * allocated (shouldn't happen, but stock integrity matters more than
+   * batch precision if it does).
+   */
+  private async creditBackToOriginalBatches(
+    manager: EntityManager,
+    item: { id: string; product_id: string | null },
+    quantity: number,
+    alreadyReturned: number,
+  ) {
+    if (!item.product_id) return;
+
+    const allocations = await manager
+      .createQueryBuilder(OrderItemBatch, 'oib')
+      .innerJoin('oib.batch', 'batch')
+      .where('oib.order_item_id = :orderItemId', { orderItemId: item.id })
+      .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
+      .select(['oib.batch_id AS batch_id', 'oib.quantity AS quantity'])
+      .getRawMany();
+
+    if (allocations.length === 0) {
+      await this.creditBackToSoonestBatch(manager, item.product_id, quantity);
+      return;
+    }
+
+    let skip = alreadyReturned;
+    let remaining = quantity;
+    for (const alloc of allocations) {
+      if (remaining <= 0) break;
+      const allocQty = Number(alloc.quantity);
+      if (skip >= allocQty) {
+        skip -= allocQty;
+        continue;
+      }
+      const availableHere = allocQty - skip;
+      skip = 0;
+      const take = Math.min(availableHere, remaining);
+      await manager.increment(ProductBatch, { id: alloc.batch_id }, 'quantity', take);
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      await this.creditBackToSoonestBatch(manager, item.product_id, remaining);
+      return;
+    }
+    await this.syncProductBatchSummary(manager, item.product_id);
+  }
+
+  /**
+   * Persists the OrderItemBatch allocation rows recorded during decrementStock,
+   * once the OrderItems they belong to have real ids (i.e. after manager.save).
+   * `orderItems` and `resolvedItems` must be the same length and in the same
+   * order — both are built from a single `.map()` over the same source array
+   * in create()/addItems(), so index i always refers to the same line item.
+   */
+  private async saveBatchAllocations(
+    manager: EntityManager,
+    orderItems: OrderItem[],
+    resolvedItems: Array<{ batchAllocations?: Array<{ batchId: string; quantity: number }> }>,
+  ) {
+    const rows: OrderItemBatch[] = [];
+    resolvedItems.forEach((resolved, i) => {
+      for (const alloc of resolved.batchAllocations ?? []) {
+        if (alloc.quantity <= 0) continue;
+        rows.push(
+          manager.create(OrderItemBatch, {
+            order_item_id: orderItems[i].id,
+            batch_id: alloc.batchId,
+            quantity: alloc.quantity,
+          }),
+        );
+      }
+    });
+    if (rows.length > 0) {
+      await manager.save(OrderItemBatch, rows);
+    }
   }
 
   private async syncProductBatchSummary(manager: EntityManager, productId: string) {
@@ -575,7 +680,7 @@ export class OrdersService {
     requestedQuantity: number,
     orderNumber: string,
     allowBeyondStock: boolean,
-  ): Promise<{ fulfilled: number; productName: string }> {
+  ): Promise<{ fulfilled: number; productName: string; batchAllocations: Array<{ batchId: string; quantity: number }> }> {
     const product = await manager
       .createQueryBuilder(Product, 'product')
       .setLock('pessimistic_write')
@@ -625,9 +730,9 @@ export class OrdersService {
       }),
     );
 
-    await this.consumeBatchesFefo(manager, productId, fulfilled);
+    const batchAllocations = await this.consumeBatchesFefo(manager, productId, fulfilled);
 
-    return { fulfilled, productName: product.name };
+    return { fulfilled, productName: product.name, batchAllocations };
   }
 
   /**
@@ -706,7 +811,7 @@ export class OrdersService {
       for (const item of order.items) {
         if (item.product_id) {
           await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
-          await this.creditBackToSoonestBatch(manager, item.product_id, Number(item.quantity));
+          await this.creditBackToOriginalBatches(manager, item, Number(item.quantity), 0);
         }
       }
 
@@ -1021,7 +1126,7 @@ export class OrdersService {
               notes: 'Restored via return',
             }),
           );
-          await this.creditBackToSoonestBatch(manager, item.product_id, qty);
+          await this.creditBackToOriginalBatches(manager, item, qty, Number(item.returned_quantity));
         }
 
         // Track how many units of this line item have been returned so far
@@ -1131,6 +1236,7 @@ export class OrdersService {
         subtotal: number;
         taxPercentage: number;
         taxAmount: number;
+        batchAllocations: Array<{ batchId: string; quantity: number }>;
       }> = [];
 
       const newlyCreatedProductIds = new Map<string, string>();
@@ -1141,10 +1247,12 @@ export class OrdersService {
         }
         const clientProvidedProductId = !!item.productId;
 
+        let batchAllocations: Array<{ batchId: string; quantity: number }> = [];
         if (clientProvidedProductId && inventoryEnabled && order.order_type !== 'dine_in' && order.order_type !== 'take_away') {
           const requestedQuantity = Number(item.quantity);
-          const { fulfilled } = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number, allowOrdersBeyondStock);
-          item.quantity = fulfilled;
+          const result = await this.decrementStock(manager, businessId, item.productId!, requestedQuantity, order.order_number, allowOrdersBeyondStock);
+          item.quantity = result.fulfilled;
+          batchAllocations = result.batchAllocations;
         }
 
         const { unitPrice, taxPercentage } = await this.resolveItemPricing(businessId, order.customer_id, item);
@@ -1181,7 +1289,7 @@ export class OrdersService {
           }
         }
 
-        resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount });
+        resolvedItems.push({ item, unitPrice, subtotal, taxPercentage, taxAmount, batchAllocations });
       }
 
       let kotId: string | null = null;
@@ -1215,6 +1323,7 @@ export class OrdersService {
         }),
       );
       await manager.save(OrderItem, orderItems);
+      await this.saveBatchAllocations(manager, orderItems, resolvedItems);
 
       order.total_amount = Number(order.total_amount) + additionalAmount;
       order.tax_amount = Number(order.tax_amount) + additionalTax;

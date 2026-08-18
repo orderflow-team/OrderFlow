@@ -102,6 +102,12 @@ export class InventoryController {
     return this.inventoryService.findProductBatches(productId, businessId);
   }
 
+  // Recall lookup: which orders/customers received stock from this batch.
+  @Get('batches/:batchId/orders')
+  findOrdersForBatch(@Param('batchId') batchId: string, @Query('businessId') businessId: string) {
+    return this.inventoryService.findOrdersForBatch(batchId, businessId);
+  }
+
   @Get('stock-history')
   findStockHistory(@Query('businessId') businessId: string, @Query('productId') productId?: string) {
     return this.inventoryService.findStockHistory(businessId, productId);

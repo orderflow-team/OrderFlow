@@ -13,6 +13,7 @@ export * from './ledger.entity';
 export * from './notification.entity';
 export * from './otp-code.entity';
 export * from './order-item.entity';
+export * from './order-item-batch.entity';
 export * from './order.entity';
 export * from './payment.entity';
 export * from './price-history.entity';

@@ -11,6 +11,7 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
+import { OrderItemBatch } from '../../database/entities/order-item-batch.entity';
 import { SupplierReturn } from '../../database/entities/supplier-return.entity';
 import { Notification } from '../../database/entities/notification.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
@@ -746,6 +747,45 @@ export class InventoryService {
       .andWhere('batch.business_id = :businessId', { businessId })
       .orderBy('batch.expiry_date', 'ASC', 'NULLS LAST')
       .getMany();
+  }
+
+  /**
+   * Recall lookup: every order (and the customer on it, if any) that
+   * received stock from this specific batch, via the OrderItemBatch
+   * allocation OrdersService records at sale time. Orders placed before
+   * that existed have no allocation rows and simply won't show up here —
+   * there's no way to reconstruct which batch they drew from after the fact.
+   */
+  async findOrdersForBatch(batchId: string, businessId: string) {
+    const batch = await this.productBatchesRepository.findOne({ where: { id: batchId, business_id: businessId } });
+    if (!batch) {
+      throw new NotFoundException('Batch not found');
+    }
+
+    const rows = await this.dataSource
+      .createQueryBuilder(OrderItemBatch, 'oib')
+      .innerJoin('oib.order_item', 'item')
+      .innerJoin('item.order', 'order')
+      .leftJoin('order.customer', 'customer')
+      .where('oib.batch_id = :batchId', { batchId })
+      .andWhere('order.business_id = :businessId', { businessId })
+      .select([
+        'order.id AS order_id',
+        'order.order_number AS order_number',
+        'order.created_at AS order_date',
+        'order.status AS order_status',
+        'order.customer_name AS customer_name',
+        'customer.phone AS customer_phone',
+        'item.custom_product_name AS custom_product_name',
+        'oib.quantity AS quantity_from_batch',
+      ])
+      .orderBy('order.created_at', 'DESC')
+      .getRawMany();
+
+    return {
+      batch: { id: batch.id, batchNumber: batch.batch_number, expiryDate: batch.expiry_date },
+      orders: rows,
+    };
   }
 
   findStockHistory(businessId: string, productId?: string) {
