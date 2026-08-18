@@ -13,9 +13,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
 import { extname } from 'path';
-import * as fs from 'fs';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -24,13 +23,20 @@ import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
-import { getPublicBaseUrl } from '../../common/utils/public-url.util';
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+const BUSINESS_BRANDING_BUCKET = 'business-branding';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/businesses')
 export class BusinessesController {
+  // Neon Object Storage — see products.controller.ts for the same pattern.
+  // No `storage` option on FileInterceptor below -> multer's default memory
+  // storage, giving us `file.buffer` to upload here instead of writing to
+  // Render's ephemeral disk (which used to make every logo/QR code break on
+  // the next redeploy).
+  private readonly s3 = new S3Client({ forcePathStyle: true });
+
   constructor(
     private businessesService: BusinessesService,
     private authService: AuthService,
@@ -81,30 +87,26 @@ export class BusinessesController {
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/logos';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         cb(null, ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype));
       },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadLogo(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
+  async uploadLogo(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
     }
-    return this.businessesService.updateLogo(id, `${getPublicBaseUrl()}/uploads/logos/${file.filename}`, req.user.userId);
+    const key = `logos/${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: BUSINESS_BRANDING_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+    return this.businessesService.updateLogo(id, `${process.env.AWS_ENDPOINT_URL_S3}/${BUSINESS_BRANDING_BUCKET}/${key}`, req.user.userId);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
@@ -117,30 +119,26 @@ export class BusinessesController {
   @Post(':id/upi-qr')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/upi-qr';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         cb(null, ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype));
       },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadUpiQr(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
+  async uploadUpiQr(@Req() req: any, @Param('id') id: string, @UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
     }
-    return this.businessesService.updateUpiQr(id, `${getPublicBaseUrl()}/uploads/upi-qr/${file.filename}`, req.user.userId);
+    const key = `upi-qr/${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: BUSINESS_BRANDING_BUCKET,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+    return this.businessesService.updateUpiQr(id, `${process.env.AWS_ENDPOINT_URL_S3}/${BUSINESS_BRANDING_BUCKET}/${key}`, req.user.userId);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER)

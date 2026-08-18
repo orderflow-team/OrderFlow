@@ -20,6 +20,12 @@ export default defineConfig({
       // read goes through a short-lived presigned URL (see OrdersController's
       // prescription-url endpoint), never a bare public link.
       prescriptions: {},
+      // Business logos and UPI QR codes, shown on invoices/PDFs — public_read
+      // for the same reason as product-images/invoice-scans (unauthenticated
+      // display, no presigning needed). Previously written to Render's
+      // ephemeral disk (uploads/logos, uploads/upi-qr), which meant every
+      // logo/QR broke on the next redeploy — see businesses.controller.ts.
+      'business-branding': { access: 'public_read' },
     },
   },
 });
