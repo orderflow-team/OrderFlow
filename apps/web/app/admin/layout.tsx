@@ -23,6 +23,7 @@ import {
   Bell,
   Sun,
   Moon,
+  Radio,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
@@ -77,6 +78,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       name: 'Manage User',
       href: '/admin/users',
       icon: Users,
+    },
+    {
+      name: 'Live Users',
+      href: '/admin/live-users',
+      icon: Radio,
     },
     {
       name: 'Stores',

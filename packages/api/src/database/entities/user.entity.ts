@@ -34,6 +34,12 @@ export class User {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
+  // Touched (throttled, at most once/minute) by JwtStrategy on every
+  // authenticated request — powers the admin "live users" view. Null means
+  // never logged in / hasn't made an authenticated request since restart.
+  @Column({ type: 'timestamptz', nullable: true })
+  last_active_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

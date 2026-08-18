@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike, DataSource } from 'typeorm';
+import { Repository, Like, ILike, DataSource, MoreThan } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection } from '../../database/entities';
@@ -719,6 +719,29 @@ export class PlatformAdminService {
         },
       },
     };
+  }
+
+  /**
+   * Users whose last_active_at (touched by JwtStrategy on every authenticated
+   * request, throttled to once/minute) falls within the last 5 minutes —
+   * the "live now" view. Not real logout-aware presence (a closed tab still
+   * shows as active until its last touch ages out), just a recency window.
+   */
+  async getLiveUsers() {
+    const users = await this.userRepo.find({
+      where: { last_active_at: MoreThan(new Date(Date.now() - 5 * 60 * 1000)) },
+      relations: { business: true },
+      order: { last_active_at: 'DESC' },
+    });
+
+    return users.map((u) => ({
+      id: u.id,
+      full_name: u.full_name,
+      email: u.email,
+      role: u.role,
+      business_name: u.business?.name || 'N/A',
+      last_active_at: u.last_active_at,
+    }));
   }
 
   private currentAnnouncement = {

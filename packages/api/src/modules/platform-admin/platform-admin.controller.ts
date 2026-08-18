@@ -157,6 +157,11 @@ export class PlatformAdminController {
     return this.platformAdminService.getSystemHealth();
   }
 
+  @Get('live-users')
+  getLiveUsers() {
+    return this.platformAdminService.getLiveUsers();
+  }
+
   @Get('announcement')
   getAnnouncement() {
     return this.platformAdminService.getAnnouncement();
