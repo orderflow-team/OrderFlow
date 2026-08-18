@@ -1,6 +1,9 @@
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { OrderParserService } from './services/order-parser.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 
+@UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/ai')
 export class AiController {
   constructor(private parserService: OrderParserService) {}
