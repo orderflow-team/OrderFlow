@@ -171,6 +171,16 @@ export class PlatformAdminController {
     return this.platformAdminService.getLiveUsers();
   }
 
+  // Overrides the class-level @Roles(SUPER_ADMIN) with an empty list, which
+  // RolesGuard treats as "any authenticated user" — this specific read is a
+  // platform-wide broadcast banner every regular business user's app-shell
+  // polls on load (apps/web/components/app-shell.tsx), not an admin-only
+  // read. It got swept into the SUPER_ADMIN-only lockdown along with the
+  // rest of this controller and was silently 403ing for every non-admin
+  // user (app-shell's fetch has a bare .catch(() => {}), so the banner just
+  // never appeared — no visible error). Posting a new announcement stays
+  // SUPER_ADMIN-only via the class default.
+  @Roles()
   @Get('announcement')
   getAnnouncement() {
     return this.platformAdminService.getAnnouncement();
