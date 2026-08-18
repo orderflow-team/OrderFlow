@@ -50,7 +50,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       try {
         const u = JSON.parse(userStr);
         setUser(u);
-        if (u.role !== 'super_admin' && u.role !== 'admin' && u.email !== 'admin@orderflow.com') {
+        // Matches the backend's @Roles(SUPER_ADMIN) on platform-admin.controller.ts.
+        // 'admin' is deliberately NOT allowed here — it's the role every
+        // self-signup business owner gets, not a platform-admin role; letting
+        // it through used to route shop owners into a panel where every API
+        // call now 403s instead of just sending them to their own dashboard.
+        if (u.role !== 'super_admin') {
           router.push('/dashboard');
         }
       } catch (e) {}

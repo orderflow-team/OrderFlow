@@ -16,8 +16,17 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { PlatformAdminService } from './platform-admin.service';
 
+// SUPER_ADMIN only. UserRole.ADMIN is NOT a platform-admin role — it's the
+// role every self-signup business owner gets (see AuthService.signup), and
+// this controller has no BusinessScopeGuard on top, so allowing ADMIN here
+// used to mean any shop owner on the platform could call every one of these
+// endpoints: list every user/business across every tenant, read global
+// orders, delete/update any store, change any user's role (including
+// self-promoting to SUPER_ADMIN), export a full system snapshot, and
+// impersonate any business. Not a narrow edge case — every signed-up owner
+// already had this, just hidden by the frontend's nav/route gating.
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN) // SUPER_ADMIN & platform developer ADMIN
+@Roles(UserRole.SUPER_ADMIN)
 @Controller('api/platform-admin')
 export class PlatformAdminController {
   constructor(private readonly platformAdminService: PlatformAdminService) {}
