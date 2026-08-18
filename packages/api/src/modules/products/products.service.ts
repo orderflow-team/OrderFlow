@@ -28,6 +28,11 @@ export class ProductsService {
   ) {}
 
   async create(dto: CreateProductDto) {
+    // MRP is optional — most products (and every existing one, since it was
+    // never actually captured before this) have no mrp on file, and that's
+    // fine: the ceiling only applies once a real MRP is set. See update()
+    // for the same guard on edits.
+    const sellingPrice = dto.mrp ? enforceMrpCeiling(dto.sellingPrice, dto.mrp) : dto.sellingPrice;
     const product = this.productsRepository.create({
       business_id: dto.businessId,
       name: dto.name,
@@ -37,7 +42,7 @@ export class ProductsService {
       category: dto.category,
       unit: dto.unit ?? 'piece',
       purchase_price: dto.purchasePrice,
-      selling_price: dto.sellingPrice,
+      selling_price: sellingPrice,
       mrp: dto.mrp ?? null,
       tax_percentage: dto.taxPercentage ?? 0,
       hsn_code: dto.hsnCode ?? null,
@@ -184,6 +189,12 @@ export class ProductsService {
   async update(id: string, businessId: string, dto: UpdateProductDto) {
     const product = await this.findOne(id, businessId);
     const hadZeroPrice = Number(product.selling_price) === 0;
+    // Same MRP-optional guard as create() — clamp against whichever mrp ends
+    // up in effect (newly submitted, or the product's existing one if this
+    // edit doesn't touch it), and only if one is actually set.
+    const resolvedMrp = dto.mrp !== undefined ? dto.mrp : product.mrp;
+    const resolvedSellingPrice = dto.sellingPrice ?? product.selling_price;
+    const finalSellingPrice = resolvedMrp ? enforceMrpCeiling(resolvedSellingPrice, resolvedMrp) : resolvedSellingPrice;
     Object.assign(product, {
       name: dto.name ?? product.name,
       brand: dto.brand ?? product.brand,
@@ -192,8 +203,8 @@ export class ProductsService {
       category: dto.category ?? product.category,
       unit: dto.unit ?? product.unit,
       purchase_price: dto.purchasePrice ?? product.purchase_price,
-      selling_price: dto.sellingPrice ?? product.selling_price,
-      mrp: dto.mrp !== undefined ? dto.mrp : product.mrp,
+      selling_price: finalSellingPrice,
+      mrp: resolvedMrp,
       tax_percentage: dto.taxPercentage ?? product.tax_percentage,
       hsn_code: dto.hsnCode !== undefined ? dto.hsnCode : product.hsn_code,
       stock_quantity: dto.stockQuantity ?? product.stock_quantity,

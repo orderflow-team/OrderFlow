@@ -24,6 +24,7 @@ interface Product {
   generic_name: string | null;
   unit: string;
   selling_price: string | number;
+  mrp: string | number | null;
   purchase_price: string | number | null;
   tax_percentage: string | number;
   hsn_code: string | null;
@@ -229,6 +230,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     category: '',
     unit: '',
     sellingPrice: '',
+    mrp: '',
     purchasePrice: '',
     taxPercentage: '12',
     hsnCode: '',
@@ -420,6 +422,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       category: form.category || undefined,
       unit: form.unit || undefined,
       sellingPrice: Number(form.sellingPrice),
+      mrp: form.mrp ? Number(form.mrp) : undefined,
       purchasePrice: inventoryEnabled && form.purchasePrice ? Number(form.purchasePrice) : undefined,
       stockQuantity: inventoryEnabled && form.stockQuantity ? Number(form.stockQuantity) : 0,
       reorderPoint: inventoryEnabled && form.reorderPoint ? Number(form.reorderPoint) : undefined,
@@ -484,6 +487,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
       category: p.category || '',
       unit: p.unit || '',
       sellingPrice: String(p.selling_price),
+      mrp: p.mrp != null ? String(p.mrp) : '',
       purchasePrice: p.purchase_price != null ? String(p.purchase_price) : '',
       taxPercentage: String(p.tax_percentage ?? '12'),
       hsnCode: p.hsn_code || '',
@@ -517,7 +521,8 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     { key: 'genericName', label: 'Generic Name', aliases: ['generic', 'composition'], width: 'w-28', example: 'Paracetamol 500mg' },
     { key: 'category', label: 'Category', suggestions: categories.map((c) => c.name), width: 'w-24', example: 'Pain Relief' },
     { key: 'unit', label: 'Pack Size', aliases: ['packsize'], width: 'w-24', example: '10 tablets/strip' },
-    { key: 'sellingPrice', label: 'MRP', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '35' },
+    { key: 'sellingPrice', label: 'Price', aliases: ['price', 'sellingprice', 'rate'], type: 'number', required: true, width: 'w-16', example: '35' },
+    { key: 'mrp', label: 'MRP', aliases: ['mrp', 'maxretailprice'], type: 'number', width: 'w-16', example: '40' },
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '28' },
     { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '12' },
     { key: 'hsnCode', label: 'HSN Code', aliases: ['hsn'], width: 'w-20', example: '3004' },
@@ -644,8 +649,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                 <Input className="h-11" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="e.g. 10 tablets/strip, 100ml bottle" />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">MRP (₹)</label>
+                <label className="text-sm font-medium text-slate-700">Selling Price (₹)</label>
                 <Input className="h-11" type="number" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} required />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">MRP (₹)</label>
+                <Input className="h-11" type="number" placeholder="Optional — the printed max retail price" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} />
+                {form.mrp && form.sellingPrice && Number(form.sellingPrice) > Number(form.mrp) && (
+                  <p className="text-xs text-rose-600">Selling price is above MRP — it'll be capped to ₹{form.mrp} on save.</p>
+                )}
               </div>
               {inventoryEnabled && (
                 <div className="space-y-1.5">

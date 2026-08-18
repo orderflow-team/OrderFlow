@@ -24,6 +24,7 @@ import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/crea
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
 import { findOrCreateProductByName } from '../../common/utils/find-or-create-product.util';
+import { enforceMrpCeiling } from '../products/utils/pricing.util';
 
 /** Internal marker item used to open a table session before real items are added — never a real product. */
 const TABLE_SESSION_PLACEHOLDER_ITEM = 'table session started';
@@ -133,7 +134,14 @@ export class OrdersService {
     }
 
     if (item.unitPrice !== undefined) {
-      return { unitPrice: item.unitPrice, taxPercentage: Number(product?.tax_percentage ?? 0) };
+      // A cashier can freely type a price into the cart at checkout — the
+      // base product.selling_price is already guaranteed <= mrp (enforced in
+      // ProductsService), but this explicit override path bypasses that
+      // entirely, so it's the one place a sale could still land above MRP.
+      // No-op when the product has no mrp on file (most products, and every
+      // one that predates this).
+      const unitPrice = product?.mrp ? enforceMrpCeiling(item.unitPrice, product.mrp) : item.unitPrice;
+      return { unitPrice, taxPercentage: Number(product?.tax_percentage ?? 0) };
     }
 
     const suggested = await this.suggestPrice(businessId, customerId, item);

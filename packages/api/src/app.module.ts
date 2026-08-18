@@ -82,6 +82,24 @@ export class AppModule implements OnApplicationBootstrap {
       );
       console.log(`✅ Negative stock correction complete.`, stockFloorResult);
 
+      // The pharmacy product form used to bind its "MRP" field to
+      // selling_price, so mrp itself was never actually captured — existing
+      // pharmacy products all have mrp = NULL despite having a real MRP the
+      // pharmacist typed in (it just landed in the wrong column). Backfill
+      // mrp = selling_price as a starting ceiling: it can't block anything
+      // immediately (the two are equal right after this runs), but it stops
+      // future price increases from drifting above MRP without anyone
+      // updating it. Idempotent — a no-op once mrp is set. Scoped to
+      // pharmacy-category businesses since that's the only UI that ever had
+      // this mislabeling; other categories' NULL mrp was never populated in
+      // the first place and isn't this bug.
+      const mrpBackfillResult = await this.dataSource.query(
+        `UPDATE products SET mrp = selling_price
+         WHERE mrp IS NULL
+           AND business_id IN (SELECT id FROM businesses WHERE category = 'pharmacy')`
+      );
+      console.log(`✅ Pharmacy MRP backfill complete.`, mrpBackfillResult);
+
       // Seed super_admin user admin@orderflow.com only if it doesn't exist yet.
       // Deliberately does NOT touch password_hash/role/is_active on an existing
       // row on every restart — that used to force this account's password back
