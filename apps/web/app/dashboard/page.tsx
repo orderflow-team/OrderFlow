@@ -14,11 +14,14 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
 import { CollapsibleList } from '@/components/collapsible-list';
+import { AppTour } from '@/components/app-tour';
 import Link from 'next/link';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
-  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound,
+  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, HelpCircle,
 } from 'lucide-react';
+
+const TOUR_SEEN_KEY_PREFIX = 'obix_tour_seen_';
 
 interface DashboardData {
   todaysOrders: number;
@@ -190,6 +193,15 @@ export default function DashboardPage() {
   const [hasInventory, setHasInventory] = useState(false);
   const [isPharmacy, setIsPharmacy] = useState(false);
   const [isSalesman, setIsSalesman] = useState(false);
+  const [showTour, setShowTour] = useState(false);
+  const [tourUserKey, setTourUserKey] = useState<string | null>(null);
+
+  const closeTour = (open: boolean) => {
+    setShowTour(open);
+    if (!open && tourUserKey) {
+      localStorage.setItem(tourUserKey, '1');
+    }
+  };
 
   const handleSeedDemoData = async () => {
     if (!businessId) return;
@@ -258,6 +270,15 @@ export default function DashboardPage() {
     setIsSalesman(hasRole('salesman'));
     loadDashboard(user.businessId);
 
+    // First-ever dashboard visit for this login gets the tour automatically;
+    // after that it's opt-in via the "Take a tour" button. Keyed per-user
+    // (not per-device) since POS terminals are often shared across staff.
+    const tourKey = `${TOUR_SEEN_KEY_PREFIX}${user.id}`;
+    setTourUserKey(tourKey);
+    if (!localStorage.getItem(tourKey)) {
+      setShowTour(true);
+    }
+
     // Setup periodic polling to track order count changes
     const interval = setInterval(() => {
       if (user.businessId) {
@@ -319,18 +340,29 @@ export default function DashboardPage() {
           title="Dashboard"
           description="Here's what's happening with your business today."
           action={
-            !isSalesman && (
+            <div className="flex items-center gap-2">
               <Button
-                onClick={() => setShowSeedConfirm(true)}
-                disabled={seeding}
+                onClick={() => setShowTour(true)}
+                variant="outline"
                 size="sm"
-                className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
+                className="gap-1.5"
               >
-                <Sparkles className="w-4 h-4" />
-                <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
-                <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
+                <HelpCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Take a tour</span>
               </Button>
-            )
+              {!isSalesman && (
+                <Button
+                  onClick={() => setShowSeedConfirm(true)}
+                  disabled={seeding}
+                  size="sm"
+                  className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
+                  <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
+                </Button>
+              )}
+            </div>
           }
         />
 
@@ -478,6 +510,14 @@ export default function DashboardPage() {
         )}
       </div>
     </AppShell>
+
+    <AppTour
+      open={showTour}
+      onOpenChange={closeTour}
+      isPharmacy={isPharmacy}
+      isSalesman={isSalesman}
+      hasInventory={hasInventory}
+    />
 
     <Dialog open={showSeedConfirm} onOpenChange={setShowSeedConfirm}>
       <DialogContent className="sm:max-w-md">
