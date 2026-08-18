@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsGstin } from '../../../common/validators/is-gstin.validator';
 
 export class CreateBusinessDto {
   @IsString()
@@ -10,6 +11,7 @@ export class CreateBusinessDto {
 
   @IsOptional()
   @IsString()
+  @IsGstin()
   gstNumber?: string;
 
   @IsOptional()

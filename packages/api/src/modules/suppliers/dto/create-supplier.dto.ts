@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsUUID, IsNumber, IsBoolean, IsObject, Min, Max } from 'class-validator';
+import { IsGstin } from '../../../common/validators/is-gstin.validator';
 
 export class CreateSupplierDto {
   @IsUUID()
@@ -41,6 +42,7 @@ export class CreateSupplierDto {
 
   @IsOptional()
   @IsString()
+  @IsGstin()
   gstNumber?: string;
 
   @IsOptional()

@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection } from '../../database/entities';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { isValidGstin } from '../../common/utils/gst.util';
 
 @Injectable()
 export class PlatformAdminService {
@@ -380,6 +381,9 @@ export class PlatformAdminService {
     const store = await this.businessRepo.findOne({ where: { id: storeId } });
     if (!store) {
       throw new NotFoundException(`Store with ID ${storeId} not found`);
+    }
+    if (dto.gst_number && !isValidGstin(dto.gst_number)) {
+      throw new BadRequestException('Invalid GSTIN — check the 15-character number and try again');
     }
 
     Object.assign(store, dto);
