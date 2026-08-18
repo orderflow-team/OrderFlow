@@ -82,26 +82,31 @@ export class AppModule implements OnApplicationBootstrap {
       );
       console.log(`✅ Negative stock correction complete.`, stockFloorResult);
 
-      // Seed / Ensure super_admin user admin@orderflow.com exists
-      const bcrypt = await import('bcryptjs');
-      const hash = await bcrypt.hash('admin123', 10);
+      // Seed super_admin user admin@orderflow.com only if it doesn't exist yet.
+      // Deliberately does NOT touch password_hash/role/is_active on an existing
+      // row on every restart — that used to force this account's password back
+      // to a hardcoded value forever, which was a permanent backdoor (any login
+      // attempt with that password silently re-granted super-admin access, no
+      // matter how many times it was changed). A password change now actually
+      // sticks.
       const existingUser = await this.dataSource.query(
         `SELECT id FROM users WHERE email = 'admin@orderflow.com'`
       );
 
-      if (existingUser && existingUser.length > 0) {
+      if (!existingUser || existingUser.length === 0) {
+        const bcrypt = await import('bcryptjs');
+        const crypto = await import('crypto');
+        // No hardcoded default — a random bootstrap password only exists in
+        // this one log line, or the operator can pin their own via env.
+        const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD || crypto.randomBytes(12).toString('base64url');
+        const hash = await bcrypt.hash(bootstrapPassword, 10);
         await this.dataSource.query(
-          `UPDATE users SET role = 'super_admin', is_active = true, password_hash = $1, password_plain = 'admin123' WHERE email = 'admin@orderflow.com'`,
+          `INSERT INTO users (id, email, password_hash, full_name, role, is_active, created_at, updated_at)
+           VALUES (gen_random_uuid(), 'admin@orderflow.com', $1, 'Platform Super Admin', 'super_admin', true, NOW(), NOW())`,
           [hash]
         );
-        console.log('✅ Super Admin account admin@orderflow.com verified & role set to super_admin.');
-      } else {
-        await this.dataSource.query(
-          `INSERT INTO users (id, email, password_hash, password_plain, full_name, role, is_active, created_at, updated_at) 
-           VALUES (gen_random_uuid(), 'admin@orderflow.com', $1, 'admin123', 'Platform Super Admin', 'super_admin', true, NOW(), NOW())`,
-          [hash]
-        );
-        console.log('✅ Created default Super Admin account admin@orderflow.com with password admin123.');
+        console.log('✅ Created default Super Admin account admin@orderflow.com.');
+        console.log(`🔑 Bootstrap password (shown once, change it immediately after logging in): ${bootstrapPassword}`);
       }
 
       // Seed audit activity logs if empty
