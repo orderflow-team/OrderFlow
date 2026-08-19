@@ -250,6 +250,22 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       .catch(() => {});
   }, []);
 
+  // Maintenance mode doesn't sign anyone out of an already-open session —
+  // it only blocks *new* logins (see AuthService.assertNotInMaintenance) —
+  // so an already-logged-in user just gets this heads-up banner instead.
+  const [maintenanceNotice, setMaintenanceNotice] = useState<{ active: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get('/api/platform-admin/maintenance')
+      .then((res) => {
+        if (res.data?.active) {
+          setMaintenanceNotice(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!businessId) return;
     apiClient
@@ -739,6 +755,15 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+        )}
+
+        {maintenanceNotice?.active && (
+          <div className="px-4 py-2.5 text-xs font-semibold flex items-center gap-2 border-b shadow-sm bg-slate-800 text-white border-slate-900">
+            <span className="text-sm">🔧</span>
+            <span className="max-w-5xl mx-auto">
+              <strong>Maintenance mode:</strong> {maintenanceNotice.message || 'New logins are temporarily paused. Your session stays active.'}
+            </span>
           </div>
         )}
 

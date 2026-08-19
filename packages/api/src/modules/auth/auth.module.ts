@@ -9,10 +9,11 @@ import { MailService } from './mail.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../../database/entities/user.entity';
 import { OtpCode } from '../../database/entities/otp-code.entity';
+import { PlatformSetting } from '../../database/entities/platform-setting.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, OtpCode]),
+    TypeOrmModule.forFeature([User, OtpCode, PlatformSetting]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

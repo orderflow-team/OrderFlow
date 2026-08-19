@@ -10,6 +10,7 @@ import {
   CheckCircle,
   ShieldAlert,
   Megaphone,
+  Wrench,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -18,6 +19,11 @@ interface AnnouncementState {
   message: string;
   type: string;
   updated_at?: string;
+}
+
+interface MaintenanceState {
+  active: boolean;
+  message: string;
 }
 
 export default function AdminNotificationsPage() {
@@ -29,6 +35,10 @@ export default function AdminNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+
+  const [maintenance, setMaintenance] = useState<MaintenanceState>({ active: false, message: '' });
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [maintenanceStatusMessage, setMaintenanceStatusMessage] = useState('');
 
   const fetchAnnouncement = async () => {
     setLoading(true);
@@ -42,8 +52,18 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const fetchMaintenance = async () => {
+    try {
+      const res = await apiClient.get('/api/platform-admin/maintenance');
+      setMaintenance(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchAnnouncement();
+    fetchMaintenance();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -61,6 +81,24 @@ export default function AdminNotificationsPage() {
     }
   };
 
+  const handleSaveMaintenance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (maintenance.active && !confirm('Turn maintenance mode ON? This blocks new logins for everyone except super_admin until you turn it back off.')) {
+      return;
+    }
+    setMaintenanceSaving(true);
+    try {
+      const res = await apiClient.post('/api/platform-admin/maintenance', maintenance);
+      setMaintenance(res.data);
+      setMaintenanceStatusMessage(maintenance.active ? 'Maintenance mode is now ON — new logins are blocked.' : 'Maintenance mode turned off.');
+      setTimeout(() => setMaintenanceStatusMessage(''), 4000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update maintenance mode');
+    } finally {
+      setMaintenanceSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header Banner */}
@@ -68,10 +106,10 @@ export default function AdminNotificationsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
             <Megaphone className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-            Platform Broadcast Announcement Manager
+            Broadcast &amp; Maintenance Mode
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Broadcast system-wide notification banners or scheduled maintenance alerts across all active store dashboards.
+            Broadcast a system-wide notification banner, or put the platform into maintenance mode to block new logins during a risky deploy.
           </p>
         </div>
 
@@ -173,6 +211,64 @@ export default function AdminNotificationsPage() {
             >
               <Send className="w-4 h-4" />
               {saving ? 'Publishing...' : 'Publish Announcement'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Maintenance Mode */}
+      {maintenanceStatusMessage && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 rounded-xl text-sm flex items-center gap-2">
+          <Wrench className="w-5 h-5 flex-shrink-0" />
+          {maintenanceStatusMessage}
+        </div>
+      )}
+
+      <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-5">
+        <div className="border-b border-border pb-3">
+          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+            Maintenance Mode
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Blocks new logins for every account except super_admin — already-open sessions keep working. Use this during a risky
+            deploy or incident; super_admin can always still log in to turn it back off.
+          </p>
+        </div>
+
+        <form onSubmit={handleSaveMaintenance} className="space-y-4">
+          <label className="flex items-center justify-between p-4 bg-background rounded-xl border border-border cursor-pointer">
+            <div>
+              <span className="text-sm font-bold text-foreground block">Maintenance Mode Active</span>
+              <span className="text-xs text-muted-foreground">New logins blocked platform-wide (super_admin exempt)</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={maintenance.active}
+              onChange={(e) => setMaintenance({ ...maintenance, active: e.target.checked })}
+              className="w-5 h-5 rounded bg-card border-border text-rose-600 focus:ring-0"
+            />
+          </label>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1">Message shown to blocked/logged-in users</label>
+            <textarea
+              rows={3}
+              placeholder="e.g. We're doing scheduled maintenance — back in about 30 minutes."
+              value={maintenance.message}
+              onChange={(e) => setMaintenance({ ...maintenance, message: e.target.value })}
+              className="w-full bg-background border border-border rounded-xl p-3.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <button
+              type="submit"
+              disabled={maintenanceSaving}
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition shadow-lg shadow-rose-600/30"
+            >
+              <Wrench className="w-4 h-4" />
+              {maintenanceSaving ? 'Saving...' : maintenance.active ? 'Turn Maintenance Mode On' : 'Save (Maintenance Off)'}
             </button>
           </div>
         </form>

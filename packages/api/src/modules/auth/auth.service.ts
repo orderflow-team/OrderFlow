@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../database/entities/user.entity';
 import { OtpCode } from '../../database/entities/otp-code.entity';
+import { PlatformSetting } from '../../database/entities/platform-setting.entity';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -25,10 +26,29 @@ export class AuthService {
   constructor(
     @InjectRepository(User) private usersRepository: Repository<User>,
     @InjectRepository(OtpCode) private otpCodesRepository: Repository<OtpCode>,
+    @InjectRepository(PlatformSetting) private platformSettingRepository: Repository<PlatformSetting>,
     private jwtService: JwtService,
     private mailService: MailService,
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * Blocks a new login while maintenance mode is on — except super_admin,
+   * who must always be able to get in to turn it back off. Doesn't touch
+   * already-issued tokens/sessions; this only stops *new* logins from
+   * starting mid-deploy/incident. Checked before password/OTP verification
+   * so a locked-out user gets the maintenance message immediately rather
+   * than a misleading "invalid credentials."
+   */
+  private async assertNotInMaintenance(role: UserRole) {
+    if (role === UserRole.SUPER_ADMIN) return;
+    const settings = await this.platformSettingRepository.find({ take: 1 });
+    if (settings[0]?.maintenance_mode) {
+      throw new ServiceUnavailableException(
+        settings[0].maintenance_message || 'The platform is temporarily down for maintenance. Please try again shortly.',
+      );
+    }
+  }
 
   async signup(dto: SignupDto) {
     const email = dto.email.toLowerCase();
@@ -69,6 +89,8 @@ export class AuthService {
     if (!user.is_active) {
       throw new UnauthorizedException('Account is disabled');
     }
+
+    await this.assertNotInMaintenance(user.role);
 
     await this.logActivity(user.id, user.business_id, 'USER_LOGIN', 'Auth', { email: user.email });
 
@@ -210,6 +232,8 @@ export class AuthService {
     if (!user.is_active) {
       throw new UnauthorizedException('Account is disabled');
     }
+
+    await this.assertNotInMaintenance(user.role);
 
     return this.issueTokens(user);
   }

@@ -120,7 +120,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       icon: HeartPulse,
     },
     {
-      name: 'Broadcast Alerts',
+      name: 'Broadcast & Maintenance',
       href: '/admin/notifications',
       icon: Bell,
     },

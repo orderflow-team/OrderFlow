@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike, DataSource, MoreThan } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { Business, User, Product, Order, UserActivityLog, BusinessConnection } from '../../database/entities';
+import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { isValidGstin } from '../../common/utils/gst.util';
 
@@ -22,9 +22,18 @@ export class PlatformAdminService {
     private readonly activityLogRepo: Repository<UserActivityLog>,
     @InjectRepository(BusinessConnection)
     private readonly businessConnectionRepo: Repository<BusinessConnection>,
+    @InjectRepository(PlatformSetting)
+    private readonly platformSettingRepo: Repository<PlatformSetting>,
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
   ) {}
+
+  /** Lazily creates the single settings row on first read/write — see PlatformSetting's own comment for why this replaced an in-memory field. */
+  private async getSettingsRow(): Promise<PlatformSetting> {
+    const existing = await this.platformSettingRepo.find({ take: 1 });
+    if (existing.length > 0) return existing[0];
+    return this.platformSettingRepo.save(this.platformSettingRepo.create({}));
+  }
 
   /**
    * Log platform admin or user activity
@@ -748,25 +757,50 @@ export class PlatformAdminService {
     }));
   }
 
-  private currentAnnouncement = {
-    active: false,
-    message: '',
-    type: 'info',
-    updated_at: new Date().toISOString(),
-  };
-
   async getAnnouncement() {
-    return this.currentAnnouncement;
+    const settings = await this.getSettingsRow();
+    return {
+      active: settings.announcement_active,
+      message: settings.announcement_message ?? '',
+      type: settings.announcement_type,
+      updated_at: settings.updated_at,
+    };
   }
 
   async setAnnouncement(dto: { active: boolean; message: string; type?: string }) {
-    this.currentAnnouncement = {
-      active: dto.active,
-      message: dto.message,
-      type: dto.type || 'info',
-      updated_at: new Date().toISOString(),
+    const settings = await this.getSettingsRow();
+    settings.announcement_active = dto.active;
+    settings.announcement_message = dto.message;
+    settings.announcement_type = dto.type || 'info';
+    const saved = await this.platformSettingRepo.save(settings);
+    return {
+      active: saved.announcement_active,
+      message: saved.announcement_message ?? '',
+      type: saved.announcement_type,
+      updated_at: saved.updated_at,
     };
-    return this.currentAnnouncement;
+  }
+
+  /** Read by every logged-in user's app-shell (open to any role, see controller) so the login page / in-app banner can show it. */
+  async getMaintenanceStatus() {
+    const settings = await this.getSettingsRow();
+    return {
+      active: settings.maintenance_mode,
+      message: settings.maintenance_message ?? '',
+    };
+  }
+
+  async setMaintenanceMode(dto: { active: boolean; message?: string }) {
+    const settings = await this.getSettingsRow();
+    settings.maintenance_mode = dto.active;
+    if (dto.message !== undefined) {
+      settings.maintenance_message = dto.message;
+    }
+    const saved = await this.platformSettingRepo.save(settings);
+    return {
+      active: saved.maintenance_mode,
+      message: saved.maintenance_message ?? '',
+    };
   }
 
   /**

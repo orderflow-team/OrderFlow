@@ -191,6 +191,20 @@ export class PlatformAdminController {
     return this.platformAdminService.setAnnouncement(dto);
   }
 
+  // Same open-read override as announcement, above — every user's login
+  // page and app-shell need to know if maintenance is active, not just
+  // super_admins.
+  @Roles()
+  @Get('maintenance')
+  getMaintenanceStatus() {
+    return this.platformAdminService.getMaintenanceStatus();
+  }
+
+  @Post('maintenance')
+  setMaintenanceMode(@Body() dto: { active: boolean; message?: string }) {
+    return this.platformAdminService.setMaintenanceMode(dto);
+  }
+
   @Post('impersonate/:businessId')
   impersonateStore(@Param('businessId') businessId: string) {
     return this.platformAdminService.impersonateStore(businessId);
