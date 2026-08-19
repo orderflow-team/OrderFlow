@@ -24,7 +24,7 @@ const SHARE_TOKEN_TTL_MINUTES = 15;
 // a nested directory that's never created — fs.writeFileSync then threw
 // ENOENT, uncaught, for every single invoice (old and new alike). Swap
 // slashes for a filename-safe separator instead.
-function invoiceFilenameStem(invoiceNumber: string): string {
+export function invoiceFilenameStem(invoiceNumber: string): string {
   return invoiceNumber.replace(/[\\/]/g, '-');
 }
 
