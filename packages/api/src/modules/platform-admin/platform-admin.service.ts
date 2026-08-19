@@ -423,6 +423,24 @@ export class PlatformAdminService {
   }
 
   /**
+   * An admin's own message, to one store or broadcast to every store —
+   * see NotificationsService.sendCustomPush for what "broadcast" covers
+   * (an in-app row for every business plus a push to every registered
+   * device, batched under FCM's per-call cap).
+   */
+  async sendCustomPush(storeId: string | null, title: string, message: string, adminUserId?: string) {
+    if (storeId) {
+      const store = await this.businessRepo.findOne({ where: { id: storeId } });
+      if (!store) {
+        throw new NotFoundException(`Store with ID ${storeId} not found`);
+      }
+    }
+    const result = await this.notificationsService.sendCustomPush(storeId, title, message);
+    await this.logActivity('ADMIN_PUSH', adminUserId, storeId ?? undefined, 'Business', { title, message, ...result });
+    return result;
+  }
+
+  /**
    * Permanently delete a tenant business and everything scoped to it
    * (products, orders, customers, suppliers, staff accounts, etc).
    * Irreversible — used by platform admins to clean up test/dummy stores.

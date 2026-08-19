@@ -37,33 +37,43 @@ export class FcmService {
     return this.app !== null;
   }
 
+  // FCM rejects sendEachForMulticast outright above this many tokens in one
+  // call — fine for a single business's device count, but a platform-wide
+  // broadcast needs to chunk.
+  private static readonly FCM_BATCH_SIZE = 500;
+
   /**
-   * Sends the same title/body to every token. Returns the subset FCM reports
-   * as permanently invalid (app uninstalled, token expired) so the caller can
+   * Sends the same title/body to every token (batched under FCM's 500-token
+   * per-call cap, transparent to callers). Returns the subset FCM reports as
+   * permanently invalid (app uninstalled, token expired) so the caller can
    * prune them from device_tokens — left unpruned, a stale token fails the
    * same way on every future push forever.
    */
   async sendToTokens(tokens: string[], title: string, body: string, data?: Record<string, string>): Promise<string[]> {
     if (!this.app || tokens.length === 0) return [];
 
-    let response: admin.messaging.BatchResponse;
-    try {
-      response = await admin.messaging(this.app).sendEachForMulticast({ tokens, notification: { title, body }, data });
-    } catch (error: any) {
-      this.logger.error(`FCM send failed: ${error.message}`);
-      return [];
-    }
-
     const invalidTokens: string[] = [];
-    response.responses.forEach((result, i) => {
-      if (result.success) return;
-      const code = result.error?.code;
-      if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
-        invalidTokens.push(tokens[i]);
-      } else {
-        this.logger.warn(`Push to a device failed: ${result.error?.message}`);
+    for (let i = 0; i < tokens.length; i += FcmService.FCM_BATCH_SIZE) {
+      const batch = tokens.slice(i, i + FcmService.FCM_BATCH_SIZE);
+
+      let response: admin.messaging.BatchResponse;
+      try {
+        response = await admin.messaging(this.app).sendEachForMulticast({ tokens: batch, notification: { title, body }, data });
+      } catch (error: any) {
+        this.logger.error(`FCM send failed for a batch of ${batch.length}: ${error.message}`);
+        continue;
       }
-    });
+
+      response.responses.forEach((result, j) => {
+        if (result.success) return;
+        const code = result.error?.code;
+        if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
+          invalidTokens.push(batch[j]);
+        } else {
+          this.logger.warn(`Push to a device failed: ${result.error?.message}`);
+        }
+      });
+    }
     return invalidTokens;
   }
 }

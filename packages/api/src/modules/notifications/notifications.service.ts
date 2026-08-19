@@ -105,6 +105,51 @@ export class NotificationsService {
   }
 
   /**
+   * A platform admin's own message — not one of the four automated types
+   * (order/payment reminders, low stock, expiry), so it's never subject to
+   * notification_preferences (that toggle is specifically "mute this
+   * automated check", not "mute the platform"). Always saved as an in-app
+   * notification row too, unlike sendTestPush — an admin reaching out is
+   * worth seeing in the bell even for someone without push enabled, or who
+   * had their phone off when it arrived. businessId omitted broadcasts to
+   * every business in the system.
+   */
+  async sendCustomPush(businessId: string | null, title: string, message: string) {
+    const targetBusinessIds = businessId
+      ? [businessId]
+      : (await this.businessesRepository.find({ select: { id: true } })).map((b) => b.id);
+
+    if (targetBusinessIds.length === 0) {
+      throw new BadRequestException('No business found to notify.');
+    }
+
+    await this.notificationsRepository.save(
+      targetBusinessIds.map((id) => this.notificationsRepository.create({ business_id: id, type: 'admin_message', message })),
+    );
+
+    if (!this.fcmService.isConfigured) {
+      return { businessesReached: targetBusinessIds.length, devicesNotified: 0 };
+    }
+
+    const devices = await this.deviceTokensRepository.find({ where: { business_id: In(targetBusinessIds) } });
+    if (devices.length === 0) {
+      return { businessesReached: targetBusinessIds.length, devicesNotified: 0 };
+    }
+
+    const invalidTokens = await this.fcmService.sendToTokens(
+      devices.map((d) => d.token),
+      title,
+      message,
+      { type: 'admin_message' },
+    );
+    if (invalidTokens.length > 0) {
+      await this.deviceTokensRepository.delete({ token: In(invalidTokens) });
+    }
+
+    return { businessesReached: targetBusinessIds.length, devicesNotified: devices.length - invalidTokens.length };
+  }
+
+  /**
    * Saves the notification row (existing behavior) and, if FCM is
    * configured, also pushes it to every device registered for this business
    * — same business-wide reach the in-app bell already has, just delivered

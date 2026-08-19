@@ -118,6 +118,13 @@ export class PlatformAdminController {
     return this.platformAdminService.sendTestPush(storeId, req.user?.userId);
   }
 
+  // businessId omitted/null broadcasts to every store — not nested under
+  // stores/:id since "no specific store" is a valid, deliberate target here.
+  @Post('broadcast-push')
+  sendCustomPush(@Body() body: { businessId?: string; title: string; message: string }, @Req() req: any) {
+    return this.platformAdminService.sendCustomPush(body.businessId || null, body.title, body.message, req.user?.userId);
+  }
+
   @Delete('stores/:id')
   deleteStore(@Param('id') storeId: string, @Req() req: any) {
     return this.platformAdminService.deleteStore(storeId, req.user?.userId);
