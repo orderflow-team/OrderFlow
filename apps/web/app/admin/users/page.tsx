@@ -127,7 +127,11 @@ export default function AdminUsersPage() {
       await apiClient.patch(`/api/platform-admin/users/${user.id}/status`, {
         is_active: !user.is_active,
       });
-      setSuccessMessage(`User ${user.full_name || user.email} ${!user.is_active ? 'activated' : 'disabled'}`);
+      setSuccessMessage(
+        !user.is_active
+          ? `User ${user.full_name || user.email} activated`
+          : `User ${user.full_name || user.email} disabled — signed out immediately, even on an active session`,
+      );
       fetchUsers();
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
