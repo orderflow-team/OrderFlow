@@ -1,8 +1,10 @@
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { databaseConfig } from './database/database.config';
 import { AuthModule } from './modules/auth/auth.module';
@@ -36,6 +38,12 @@ import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-release
     }),
     TypeOrmModule.forRoot(databaseConfig),
     ScheduleModule.forRoot(),
+    // Generous baseline (this app polls a lot — dashboard/notifications/live-users
+    // refresh every few seconds, and a busy shop's whole LAN can share one public
+    // IP) — this is a general-abuse safety net, not meant to constrain normal use.
+    // Sensitive auth endpoints override it with much tighter per-route limits via
+    // @Throttle() — see auth.controller.ts.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
     AuthModule,
     AiModule,
     BusinessesModule,
@@ -60,7 +68,7 @@ import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-release
     AppApkReleasesModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements OnApplicationBootstrap {
   constructor(private dataSource: DataSource) {}
