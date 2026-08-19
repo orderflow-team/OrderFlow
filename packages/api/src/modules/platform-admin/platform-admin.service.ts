@@ -873,7 +873,13 @@ export class PlatformAdminService {
       sub: ownerUser.id,
       email: ownerUser.email,
       role: ownerUser.role,
-      business_id: business.id,
+      // camelCase — JwtStrategy.validate reads payload.businessId, not
+      // business_id. Signing snake_case here meant every impersonated
+      // session's req.user.businessId was silently undefined, so
+      // BusinessScopeGuard rejected every single business-scoped route with
+      // "Business mismatch" — "Login as Store" never actually worked for
+      // anything beyond routes with no BusinessScopeGuard.
+      businessId: business.id,
     };
 
     const token = this.jwtService.sign(payload);
