@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -17,12 +17,25 @@ import { loadImageDataUri } from '../../common/utils/image-data-uri.util';
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
 
+// invoice_number is "INV/{FY}/{seq}" (e.g. "INV/2026-27/00001") — the GST
+// Rule 46 format requires those slashes. path.join treats an embedded "/" as
+// a directory separator, so using invoice_number as a filename verbatim
+// silently tried to write into "uploads/invoices/INV/2026-27/00001.pdf",
+// a nested directory that's never created — fs.writeFileSync then threw
+// ENOENT, uncaught, for every single invoice (old and new alike). Swap
+// slashes for a filename-safe separator instead.
+function invoiceFilenameStem(invoiceNumber: string): string {
+  return invoiceNumber.replace(/[\\/]/g, '-');
+}
+
 function loadLogoDataUri(business: Business | null): string | null {
   return loadImageDataUri(business?.logo_url);
 }
 
 @Injectable()
 export class PdfService {
+  private readonly logger = new Logger(PdfService.name);
+
   constructor(
     @InjectRepository(Invoice) private invoicesRepository: Repository<Invoice>,
     @InjectRepository(InvoiceItem) private invoiceItemsRepository: Repository<InvoiceItem>,
@@ -64,7 +77,8 @@ export class PdfService {
       throw new NotFoundException('Invoice not found');
     }
 
-    const filePath = path.join(UPLOADS_DIR, `${invoice.invoice_number}.pdf`);
+    const filenameStem = invoiceFilenameStem(invoice.invoice_number);
+    const filePath = path.join(UPLOADS_DIR, `${filenameStem}.pdf`);
     if (invoice.pdf_url && fs.existsSync(filePath)) {
       return filePath;
     }
@@ -77,21 +91,36 @@ export class PdfService {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
     const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>>;
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        timeout: 20_000,
+      });
+    } catch (error: any) {
+      // The one place this previously failed loudest and most often — Chromium
+      // missing/mismatched on the host (see the Dockerfile's Alpine-native
+      // chromium + PUPPETEER_EXECUTABLE_PATH setup). Logged with the real
+      // error so this doesn't need a full investigation to diagnose again.
+      this.logger.error(`Puppeteer failed to launch a browser: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Could not generate the invoice PDF (PDF renderer unavailable).');
+    }
+
     try {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'load' });
-      const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true });
+      await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
+      const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true, timeout: 20_000 });
       fs.writeFileSync(filePath, pdfBuffer);
+    } catch (error: any) {
+      this.logger.error(`PDF render/write failed for invoice ${invoice.invoice_number}: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Could not generate the invoice PDF.');
     } finally {
       await browser.close();
     }
 
-    invoice.pdf_url = `/uploads/invoices/${invoice.invoice_number}.pdf`;
+    invoice.pdf_url = `/uploads/invoices/${filenameStem}.pdf`;
     await this.invoicesRepository.save(invoice);
 
     return filePath;

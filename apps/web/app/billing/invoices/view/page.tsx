@@ -16,6 +16,15 @@ import { ThermalPrint } from '@/lib/thermal-print-plugin';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 
+// Both the WhatsApp and Download buttons wait on the PDF fetch before doing
+// anything — without a timeout, a hung backend request left them looking
+// permanently "stuck" with no error shown and no way to retry short of
+// leaving the page (axios's shared client has no default timeout).
+const PDF_FETCH_TIMEOUT_MS = 25_000;
+
+/** invoice_number is "INV/{FY}/{seq}" — swap the slashes out for a filename-safe separator. */
+const invoiceFilenameStem = (invoiceNumber: string | undefined) => (invoiceNumber || 'invoice').replace(/[\\/]/g, '-');
+
 interface InvoiceItem {
   id: string;
   product_id: string | null;
@@ -70,7 +79,7 @@ function InvoiceDetailPageInner() {
   const [pdfReady, setPdfReady] = useState(false);
   const [loadingPrescription, setLoadingPrescription] = useState(false);
   const pdfBlobRef = useRef<Blob | null>(null);
-  const pdfBlobPromiseRef = useRef<Promise<Blob> | null>(null);
+  const pdfBlobPromiseRef = useRef<Promise<Blob | null> | null>(null);
 
   const handleViewPrescription = async () => {
     if (!invoice?.order_id || !businessId) return;
@@ -100,13 +109,28 @@ function InvoiceDetailPageInner() {
     // increasingly Chrome) revokes the "user activation" a click grants if
     // there's an async gap before share() is called, so calling it right
     // after an awaited fetch silently fails and falls back to a text link.
-    pdfBlobPromiseRef.current = apiClient
-      .get(`/api/billing/invoices/${id}/pdf`, { params: { businessId }, responseType: 'blob' })
+    //
+    // Resolves to null (never rejects) on failure/timeout, and clears the
+    // ref so a later click gets a completely fresh attempt via the
+    // resolvePdfBlob fallback below — previously a hang or a 500 here left
+    // pdfReady stuck at false forever, with the WhatsApp button permanently
+    // disabled and Download silently re-awaiting the same dead promise on
+    // every retry for the rest of the page's lifetime.
+    const prefetch = apiClient
+      .get(`/api/billing/invoices/${id}/pdf`, { params: { businessId }, responseType: 'blob', timeout: PDF_FETCH_TIMEOUT_MS })
       .then((res) => {
         pdfBlobRef.current = res.data;
-        setPdfReady(true);
         return res.data as Blob;
+      })
+      .catch((err) => {
+        console.warn('[invoice] PDF prefetch failed', err);
+        return null;
+      })
+      .finally(() => {
+        setPdfReady(true); // let the buttons become clickable either way — a failure surfaces via their own error handling on click, instead of staying disabled with no feedback at all
+        if (pdfBlobPromiseRef.current === prefetch) pdfBlobPromiseRef.current = null;
       });
+    pdfBlobPromiseRef.current = prefetch;
   }, [ready, businessId, id]);
 
   if (!ready) return null;
@@ -129,17 +153,21 @@ function InvoiceDetailPageInner() {
 
   const resolvePdfBlob = async (): Promise<Blob> => {
     let blob = pdfBlobRef.current;
-    if (!blob) {
-      if (pdfBlobPromiseRef.current) {
-        blob = await pdfBlobPromiseRef.current;
-      } else if (id && businessId) {
-        const res = await apiClient.get(`/api/billing/invoices/${id}/pdf`, {
-          params: { businessId },
-          responseType: 'blob',
-        });
-        blob = res.data;
-        pdfBlobRef.current = blob;
-      }
+    if (!blob && pdfBlobPromiseRef.current) {
+      blob = await pdfBlobPromiseRef.current;
+    }
+    // Falls through here (not an "else") whenever the prefetch resolved to
+    // null (failed/timed out) — a fresh attempt right now, rather than
+    // permanently trusting that one dead attempt for the rest of the page's
+    // lifetime, which is what left the buttons stuck with no way to recover.
+    if (!blob && id && businessId) {
+      const res = await apiClient.get(`/api/billing/invoices/${id}/pdf`, {
+        params: { businessId },
+        responseType: 'blob',
+        timeout: PDF_FETCH_TIMEOUT_MS,
+      });
+      blob = res.data;
+      pdfBlobRef.current = blob;
     }
     if (!blob) {
       throw new Error('Failed to retrieve PDF blob.');
@@ -161,7 +189,7 @@ function InvoiceDetailPageInner() {
   // both of which need the PDF as a real file rather than an in-memory blob.
   const writePdfToCache = async (blob: Blob): Promise<string> => {
     const base64 = await blobToBase64(blob);
-    const fileName = `${invoice?.invoice_number || 'invoice'}.pdf`;
+    const fileName = `${invoiceFilenameStem(invoice?.invoice_number)}.pdf`;
     await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
     const { uri } = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
     return uri;
@@ -186,7 +214,7 @@ function InvoiceDetailPageInner() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${invoice?.invoice_number || 'invoice'}.pdf`);
+      link.setAttribute('download', `${invoiceFilenameStem(invoice?.invoice_number)}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
@@ -287,7 +315,7 @@ function InvoiceDetailPageInner() {
       if (navigator.canShare && pdfBlobRef.current) {
         try {
           const blob = pdfBlobRef.current;
-          const file = new File([blob], `${invoice?.invoice_number || 'invoice'}.pdf`, { type: 'application/pdf' });
+          const file = new File([blob], `${invoiceFilenameStem(invoice?.invoice_number)}.pdf`, { type: 'application/pdf' });
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],

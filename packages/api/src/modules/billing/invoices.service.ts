@@ -77,7 +77,13 @@ export class InvoicesService {
     const fyColumn = series === 'invoice' ? 'invoice_sequence_fy' : 'credit_note_sequence_fy';
     const valueColumn = series === 'invoice' ? 'invoice_sequence_value' : 'credit_note_sequence_value';
     const prefix = series === 'invoice' ? 'INV' : 'CN';
-    const result = await manager.query(
+    // manager.query() on this TypeORM version returns a [rows, rowCount]
+    // tuple for an UPDATE...RETURNING, not the rows array directly — so
+    // result[0] is the rows array (result[0][0] is the actual row). Reading
+    // result[0][valueColumn] used to silently read a named property off that
+    // array (undefined, no throw) instead of off the row, producing invoice
+    // numbers like "INV/2026-27/undefined" rather than a real sequence value.
+    const [rows] = await manager.query(
       `UPDATE businesses
        SET ${valueColumn} = CASE WHEN ${fyColumn} = $2 THEN ${valueColumn} + 1 ELSE 1 END,
            ${fyColumn} = $2
@@ -85,7 +91,7 @@ export class InvoicesService {
        RETURNING ${valueColumn}`,
       [businessId, fy],
     );
-    const seq = result[0][valueColumn];
+    const seq = rows[0][valueColumn];
     return `${prefix}/${fy}/${String(seq).padStart(5, '0')}`;
   }
 
