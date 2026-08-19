@@ -111,8 +111,16 @@ export class NotificationsService {
    * instantly instead of waiting for the next 60s poll or app open. Silently
    * a no-op for push when FIREBASE_SERVICE_ACCOUNT isn't set; the DB row
    * (and in-app bell) are unaffected either way.
+   *
+   * Skips both the row and the push entirely if the business has explicitly
+   * disabled this type (Settings > Notifications) — a missing/unset entry in
+   * notification_preferences means "enabled" (the default before this
+   * feature existed), only an explicit `false` opts out.
    */
   private async createNotification(businessId: string, type: string, message: string) {
+    const business = await this.businessesRepository.findOne({ where: { id: businessId } });
+    if (business?.notification_preferences?.[type] === false) return;
+
     await this.notificationsRepository.save(this.notificationsRepository.create({ business_id: businessId, type, message }));
 
     if (!this.fcmService.isConfigured) return;

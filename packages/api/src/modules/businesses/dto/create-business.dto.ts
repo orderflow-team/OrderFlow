@@ -60,4 +60,7 @@ export class CreateBusinessDto {
 
   @IsOptional()
   customSettings?: Record<string, any>;
+
+  @IsOptional()
+  notificationPreferences?: Record<string, boolean>;
 }

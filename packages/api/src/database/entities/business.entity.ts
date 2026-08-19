@@ -80,6 +80,16 @@ export class Business {
   @Column({ type: 'jsonb', nullable: true })
   custom_settings: Record<string, any>;
 
+  // Per-notification-type opt-out (order_reminder, payment_reminder,
+  // low_stock, expiry_alert — see notifications.service.ts). A type missing
+  // from this map is enabled by default, so existing businesses with no
+  // preference set yet keep getting everything exactly as before; only an
+  // explicit `false` here suppresses that type (both the in-app row and the
+  // push, notifications.service.ts's createNotification checks this before
+  // either).
+  @Column({ type: 'jsonb', nullable: true })
+  notification_preferences: Record<string, boolean>;
+
   @CreateDateColumn()
   created_at: Date;
 

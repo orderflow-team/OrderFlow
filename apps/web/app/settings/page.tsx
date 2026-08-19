@@ -12,9 +12,16 @@ import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
-import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell, ChevronDown } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 import { AppVersionInfo } from '@/components/app-version-info';
+
+const NOTIFICATION_TYPES: { key: string; label: string; description: string }[] = [
+  { key: 'order_reminder', label: 'Order reminders', description: 'An order has sat confirmed/packed/dispatched for over 24h without moving.' },
+  { key: 'payment_reminder', label: 'Payment reminders', description: "A customer's outstanding balance hasn't been chased in over 7 days." },
+  { key: 'low_stock', label: 'Low stock alerts', description: 'A product has dropped to or below its reorder point.' },
+  { key: 'expiry_alert', label: 'Expiry alerts', description: 'A batch is expiring within 30 days.' },
+];
 
 const CATEGORY_LABELS: Record<string, string> = {
   grocery: 'Grocery Store',
@@ -39,6 +46,7 @@ interface BusinessProfile {
   ai_chat_enabled: boolean;
   allow_orders_beyond_stock: boolean;
   custom_settings: Record<string, any> | null;
+  notification_preferences: Record<string, boolean> | null;
 }
 
 export default function SettingsPage() {
@@ -123,6 +131,13 @@ export default function SettingsPage() {
   const [testPushResult, setTestPushResult] = useState('');
   const [testPushError, setTestPushError] = useState('');
 
+  const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>({});
+  const [savingNotificationType, setSavingNotificationType] = useState<string | null>(null);
+  const [notificationPrefsError, setNotificationPrefsError] = useState('');
+  const [notificationTypesExpanded, setNotificationTypesExpanded] = useState(false);
+  const [modulesExpanded, setModulesExpanded] = useState(false);
+  const [profileExpanded, setProfileExpanded] = useState(false);
+
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
@@ -145,7 +160,9 @@ export default function SettingsPage() {
           allowOrdersBeyondStock: res.data.allow_orders_beyond_stock !== false,
         });
         setCustomSettings(res.data.custom_settings || null);
+        setNotificationPrefs(res.data.notification_preferences || {});
         setSupportCategory(res.data.category || 'others');
+        if (!res.data.phone) setProfileExpanded(true); // required field missing — don't make it hunt for the section
       })
       .catch((err: any) => setError(err.response?.data?.message || 'Failed to load business settings'))
       .finally(() => setLoading(false));
@@ -155,6 +172,7 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!businessId) return;
     if (!form.phone.trim()) {
+      setProfileExpanded(true); // the phone field lives in the collapsed section — surface it
       setError('Phone number is required — add it below before saving.');
       return;
     }
@@ -306,6 +324,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleToggleNotificationType = async (type: string, nextEnabled: boolean) => {
+    if (!businessId) return;
+    const previous = notificationPrefs;
+    const next = { ...notificationPrefs, [type]: nextEnabled };
+    setNotificationPrefs(next); // optimistic — reverted below on failure
+    setSavingNotificationType(type);
+    setNotificationPrefsError('');
+    try {
+      await apiClient.patch(`/api/businesses/${businessId}`, { notificationPreferences: next });
+    } catch (err: any) {
+      setNotificationPrefs(previous);
+      setNotificationPrefsError(err.response?.data?.message || 'Failed to save');
+    } finally {
+      setSavingNotificationType(null);
+    }
+  };
+
   const handleSupportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSendingSupport(true);
@@ -411,7 +446,21 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Business profile</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
+                <button
+                  type="button"
+                  onClick={() => setProfileExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 hover:bg-white/45 transition-colors text-sm font-medium text-slate-700"
+                >
+                  <span className="truncate">
+                    {form.name || 'Add your business details'}
+                    {form.category && <span className="text-slate-400 font-normal"> · {CATEGORY_LABELS[form.category]}</span>}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${profileExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {profileExpanded && (
+                <div className="space-y-4 mt-2">
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-1.5 block">Logo</label>
                   <p className="text-xs text-slate-500 mb-2">Shown on invoices and PDFs. PNG, JPG, WEBP or GIF up to 5MB.</p>
@@ -553,6 +602,8 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -560,51 +611,66 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="text-base">Modules</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={form.inventoryEnabled}
-                    onChange={(e) => setForm({ ...form, inventoryEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-sm font-medium text-slate-700">
-                    Enable Inventory module
-                    <span className="block text-xs font-normal text-slate-500">
-                      Track stock, purchase orders, and low-stock alerts. Turning this off hides the Inventory tab and dashboard stock widgets.
-                    </span>
+              <CardContent>
+                <button
+                  type="button"
+                  onClick={() => setModulesExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 hover:bg-white/45 transition-colors text-sm font-medium text-slate-700"
+                >
+                  <span>
+                    {[form.inventoryEnabled, form.allowOrdersBeyondStock, form.aiChatEnabled].filter(Boolean).length} of 3 modules enabled
                   </span>
-                </label>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${modulesExpanded ? 'rotate-180' : ''}`} />
+                </button>
 
-                <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={form.allowOrdersBeyondStock}
-                    onChange={(e) => setForm({ ...form, allowOrdersBeyondStock: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-sm font-medium text-slate-700">
-                    Allow orders beyond stock
-                    <span className="block text-xs font-normal text-slate-500">
-                      Anyone taking an order — owner or staff — can exceed what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand for everyone.
-                    </span>
-                  </span>
-                </label>
+                {modulesExpanded && (
+                  <div className="space-y-2 mt-2">
+                    <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={form.inventoryEnabled}
+                        onChange={(e) => setForm({ ...form, inventoryEnabled: e.target.checked })}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        Enable Inventory module
+                        <span className="block text-xs font-normal text-slate-500">
+                          Track stock, purchase orders, and low-stock alerts. Turning this off hides the Inventory tab and dashboard stock widgets.
+                        </span>
+                      </span>
+                    </label>
 
-                <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={form.aiChatEnabled}
-                    onChange={(e) => setForm({ ...form, aiChatEnabled: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-sm font-medium text-slate-700">
-                    Enable AI Chat Assistant
-                    <span className="block text-xs font-normal text-slate-500">
-                      Show floating AI assistant widget to place orders via speech and chat commands instantly.
-                    </span>
-                  </span>
-                </label>
+                    <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={form.allowOrdersBeyondStock}
+                        onChange={(e) => setForm({ ...form, allowOrdersBeyondStock: e.target.checked })}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        Allow orders beyond stock
+                        <span className="block text-xs font-normal text-slate-500">
+                          Anyone taking an order — owner or staff — can exceed what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand for everyone.
+                        </span>
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={form.aiChatEnabled}
+                        onChange={(e) => setForm({ ...form, aiChatEnabled: e.target.checked })}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        Enable AI Chat Assistant
+                        <span className="block text-xs font-normal text-slate-500">
+                          Show floating AI assistant widget to place orders via speech and chat commands instantly.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -687,14 +753,58 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-slate-600">
-                Order reminders, payment follow-ups, low-stock and expiry alerts push straight to the native app.
-                Send a test to confirm your device is receiving them.
+                Order/payment reminders, low-stock and expiry alerts push straight to the native app.
               </p>
-              {testPushError && <p className="text-sm text-rose-600">{testPushError}</p>}
-              {testPushResult && <p className="text-sm text-emerald-600">{testPushResult}</p>}
-              <Button type="button" variant="outline" onClick={handleTestPush} disabled={sendingTestPush} className="w-full sm:w-auto">
-                {sendingTestPush ? 'Sending...' : 'Send test push'}
-              </Button>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setNotificationTypesExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 hover:bg-white/45 transition-colors text-sm font-medium text-slate-700"
+                >
+                  <span>
+                    {NOTIFICATION_TYPES.filter(({ key }) => notificationPrefs[key] !== false).length} of {NOTIFICATION_TYPES.length}{' '}
+                    alert types enabled
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${notificationTypesExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {notificationTypesExpanded && (
+                  <div className="space-y-2 mt-2">
+                    {NOTIFICATION_TYPES.map(({ key, label, description }) => {
+                      const enabled = notificationPrefs[key] !== false;
+                      return (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            disabled={savingNotificationType === key}
+                            onChange={(e) => handleToggleNotificationType(key, e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="text-sm font-medium text-slate-700">
+                            {label}
+                            <span className="block text-xs font-normal text-slate-500">{description}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {notificationPrefsError && <p className="text-sm text-rose-600">{notificationPrefsError}</p>}
+
+              <div className="pt-1 border-t border-white/50">
+                <p className="text-sm text-slate-600 pt-3 mb-2">Send a test to confirm your device is receiving pushes.</p>
+                {testPushError && <p className="text-sm text-rose-600 mb-2">{testPushError}</p>}
+                {testPushResult && <p className="text-sm text-emerald-600 mb-2">{testPushResult}</p>}
+                <Button type="button" variant="outline" onClick={handleTestPush} disabled={sendingTestPush} className="w-full sm:w-auto">
+                  {sendingTestPush ? 'Sending...' : 'Send test push'}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

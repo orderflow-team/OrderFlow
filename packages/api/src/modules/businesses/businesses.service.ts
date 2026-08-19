@@ -129,6 +129,7 @@ export class BusinessesService {
       allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? business.allow_orders_beyond_stock,
       b2b_sync_enabled: dto.b2bSyncEnabled ?? business.b2b_sync_enabled,
       custom_settings: dto.customSettings ?? business.custom_settings,
+      notification_preferences: dto.notificationPreferences ?? business.notification_preferences,
     });
     return this.businessesRepository.save(business);
   }
