@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformAdminController } from './platform-admin.controller';
 
@@ -12,6 +13,7 @@ import { PlatformAdminController } from './platform-admin.controller';
       secret: process.env.JWT_SECRET || 'orderflow-secret-key-change-in-production',
       signOptions: { expiresIn: '7d' },
     }),
+    NotificationsModule,
   ],
   controllers: [PlatformAdminController],
   providers: [PlatformAdminService],

@@ -113,6 +113,11 @@ export class PlatformAdminController {
     return this.platformAdminService.updateStore(storeId, dto, req.user?.userId);
   }
 
+  @Post('stores/:id/test-push')
+  sendTestPush(@Param('id') storeId: string, @Req() req: any) {
+    return this.platformAdminService.sendTestPush(storeId, req.user?.userId);
+  }
+
   @Delete('stores/:id')
   deleteStore(@Param('id') storeId: string, @Req() req: any) {
     return this.platformAdminService.deleteStore(storeId, req.user?.userId);

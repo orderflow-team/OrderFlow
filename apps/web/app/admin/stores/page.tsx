@@ -24,6 +24,7 @@ import {
   Key,
   Trash2,
   AlertTriangle,
+  Bell,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -184,6 +185,19 @@ export default function AdminStoresPage() {
       window.open('/', '_blank');
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to impersonate store');
+    }
+  };
+
+  const handleTestPush = async (store: StoreData) => {
+    try {
+      const res = await apiClient.post<{ devicesNotified: number; invalidTokensRemoved: number }>(`/api/platform-admin/stores/${store.id}/test-push`);
+      alert(
+        res.data.devicesNotified > 0
+          ? `Sent to ${res.data.devicesNotified} device(s) on "${store.name}".`
+          : `Sent, but every device registered for "${store.name}" rejected it (likely uninstalled) — they've been removed.`,
+      );
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to send test push');
     }
   };
 
@@ -475,6 +489,13 @@ export default function AdminStoresPage() {
                             className="p-2 bg-secondary hover:bg-accent text-foreground rounded-lg border border-border transition"
                           >
                             <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleTestPush(store)}
+                            title="Send test push notification"
+                            className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-500/30 transition"
+                          >
+                            <Bell className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => openDeleteModal(store)}

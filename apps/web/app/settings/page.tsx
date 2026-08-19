@@ -127,10 +127,6 @@ export default function SettingsPage() {
   const [supportError, setSupportError] = useState('');
   const [supportSent, setSupportSent] = useState(false);
 
-  const [sendingTestPush, setSendingTestPush] = useState(false);
-  const [testPushResult, setTestPushResult] = useState('');
-  const [testPushError, setTestPushError] = useState('');
-
   const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>({});
   const [savingNotificationType, setSavingNotificationType] = useState<string | null>(null);
   const [notificationPrefsError, setNotificationPrefsError] = useState('');
@@ -302,25 +298,6 @@ export default function SettingsPage() {
       setPasswordError(err.response?.data?.message || 'Failed to change password');
     } finally {
       setChangingPassword(false);
-    }
-  };
-
-  const handleTestPush = async () => {
-    if (!businessId) return;
-    setSendingTestPush(true);
-    setTestPushError('');
-    setTestPushResult('');
-    try {
-      const res = await apiClient.post<{ devicesNotified: number; invalidTokensRemoved: number }>('/api/notifications/test-push', { businessId });
-      setTestPushResult(
-        res.data.devicesNotified > 0
-          ? `Sent to ${res.data.devicesNotified} device${res.data.devicesNotified === 1 ? '' : 's'} — check your phone's notification tray.`
-          : "Sent, but every registered device rejected it (likely uninstalled) — they've been removed. Log in on the app again and retry.",
-      );
-    } catch (err: any) {
-      setTestPushError(err.response?.data?.message || 'Failed to send test push');
-    } finally {
-      setSendingTestPush(false);
     }
   };
 
@@ -796,15 +773,6 @@ export default function SettingsPage() {
                 )}
               </div>
               {notificationPrefsError && <p className="text-sm text-rose-600">{notificationPrefsError}</p>}
-
-              <div className="pt-1 border-t border-white/50">
-                <p className="text-sm text-slate-600 pt-3 mb-2">Send a test to confirm your device is receiving pushes.</p>
-                {testPushError && <p className="text-sm text-rose-600 mb-2">{testPushError}</p>}
-                {testPushResult && <p className="text-sm text-emerald-600 mb-2">{testPushResult}</p>}
-                <Button type="button" variant="outline" onClick={handleTestPush} disabled={sendingTestPush} className="w-full sm:w-auto">
-                  {sendingTestPush ? 'Sending...' : 'Send test push'}
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}

@@ -6,10 +6,12 @@ import * as bcrypt from 'bcryptjs';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { isValidGstin } from '../../common/utils/gst.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PlatformAdminService {
   constructor(
+    private readonly notificationsService: NotificationsService,
     @InjectRepository(Business)
     private readonly businessRepo: Repository<Business>,
     @InjectRepository(User)
@@ -401,6 +403,23 @@ export class PlatformAdminService {
     await this.logActivity('UPDATE_STORE', adminUserId, storeId, 'Business', { dto });
 
     return updated;
+  }
+
+  /**
+   * Support/debug tool: fires a real push at a specific store's registered
+   * devices on demand. Deliberately not exposed on the store owner's own
+   * Settings page — a "does push actually work" check belongs with whoever
+   * is diagnosing a delivery problem (platform admin), not in front of every
+   * business owner as a button they have no reason to press day to day.
+   */
+  async sendTestPush(storeId: string, adminUserId?: string) {
+    const store = await this.businessRepo.findOne({ where: { id: storeId } });
+    if (!store) {
+      throw new NotFoundException(`Store with ID ${storeId} not found`);
+    }
+    const result = await this.notificationsService.sendTestPush(storeId);
+    await this.logActivity('TEST_PUSH', adminUserId, storeId, 'Business', result);
+    return result;
   }
 
   /**
