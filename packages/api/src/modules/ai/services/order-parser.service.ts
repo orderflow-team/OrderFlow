@@ -141,7 +141,9 @@ export class OrderParserService {
       tableName?: string | null;
       customerName?: string | null;
       phone?: string | null;
-    } | null = existingOrder ? null : this.tryDeterministicParse(itemMessage, available, tables);
+    } | null = existingOrder
+      ? this.tryDeterministicEditParse(message, existingOrder, available)
+      : this.tryDeterministicParse(itemMessage, available, tables);
 
     if (!parsed) {
       if (!this.geminiKeyPool.isConfigured) {
@@ -383,6 +385,25 @@ export class OrderParserService {
     'this', 'that', 'my', 'quick', 'table', 'kindly', 'hi', 'hello', 'hey',
   ]);
 
+  // Matched via matchLeadingVerb (exact word, or a close typo/Hinglish match)
+  // against just the FIRST word of a segment, so a product name that happens
+  // to contain one of these words mid-string (e.g. "7up plus") isn't mistaken
+  // for an edit command. Canonical English forms plus a few common Hinglish
+  // equivalents — typos of any of these (e.g. "remve", "cancle", "ad") are
+  // caught by matchLeadingVerb's fuzzy check, not spelled out here.
+  private static readonly ADD_VERB_WORDS = ['add', 'plus', 'extra', 'another', 'dalo', 'daalo'];
+  private static readonly REMOVE_VERB_WORDS = ['remove', 'delete', 'cancel', 'hatao', 'nikalo'];
+  private static readonly SET_VERB_WORDS = ['change', 'set', 'update', 'badlo'];
+
+  // Cardinal number words a customer might type instead of a digit (typo-prone
+  // chat input, or just casual phrasing like "two rice" / "a dozen eggs").
+  // Deliberately excludes "a"/"an"/"single" — those double as ordinary
+  // articles elsewhere and would misfire on unrelated phrasing.
+  private static readonly WORD_NUMBERS: Record<string, number> = {
+    half: 0.5, couple: 2, one: 1, two: 2, three: 3, four: 4, five: 5,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, dozen: 12,
+  };
+
   /**
    * Pulls a customer name and/or 10-digit phone number out of a brand-new chat
    * order message, e.g. "Neel order 2kg rice 4liter milk" or "make a order for
@@ -517,34 +538,10 @@ export class OrderParserService {
       if (!item) return null; // not a clean/simple enough segment — bail to Gemini
 
       const normalized = item.name.toLowerCase();
-      const exact = available.find((p) => p.name.trim().toLowerCase() === normalized);
-      if (exact) {
-        matched.push({ menuName: exact.name, quantity: item.quantity, unit: item.unit });
-        continue;
-      }
-
-      // "e2e test snack" should still find "E2E Test Snack 100g" — same substring
-      // tier invoice-scan.service.ts's fuzzy matcher uses, kept independent here
-      // rather than shared so this feature can't regress that already-verified one.
-      const substringMatches = available.filter((p) => {
-        const pname = p.name.trim().toLowerCase();
-        if (Math.min(pname.length, normalized.length) < 4) return false;
-        return normalized.includes(pname) || pname.includes(normalized);
-      });
-      if (substringMatches.length > 1) return null; // ambiguous — let Gemini sort it out
-      if (substringMatches.length === 1) {
-        matched.push({ menuName: substringMatches[0].name, quantity: item.quantity, unit: item.unit });
-        continue;
-      }
-
-      const fuzzyMatches = available.filter((p) => {
-        const pname = p.name.trim().toLowerCase();
-        if (Math.max(pname.length, normalized.length) < 6) return false;
-        return this.levenshteinDistance(pname, normalized) <= 2;
-      });
-      if (fuzzyMatches.length > 1) return null; // ambiguous fuzzy match — let Gemini sort it out
-      if (fuzzyMatches.length === 1) {
-        matched.push({ menuName: fuzzyMatches[0].name, quantity: item.quantity, unit: item.unit });
+      const catalogMatch = this.matchCatalogProduct(normalized, available);
+      if (catalogMatch === 'ambiguous') return null; // ambiguous — let Gemini sort it out
+      if (catalogMatch) {
+        matched.push({ menuName: catalogMatch, quantity: item.quantity, unit: item.unit });
         continue;
       }
 
@@ -552,6 +549,322 @@ export class OrderParserService {
     }
 
     return { matched, unmatched, orderType, tableName };
+  }
+
+  /**
+   * Matches a normalized item name against the product catalog using the same
+   * exact -> substring -> fuzzy tiers tryDeterministicParse and
+   * tryDeterministicEditParse both rely on. Returns the catalog's exact
+   * (correctly-cased) product name, 'ambiguous' if more than one product is a
+   * plausible match at some tier, or null if nothing matches at all.
+   */
+  private matchCatalogProduct(normalizedName: string, available: any[]): string | 'ambiguous' | null {
+    const exact = available.find((p) => p.name.trim().toLowerCase() === normalizedName);
+    if (exact) return exact.name;
+
+    // "e2e test snack" should still find "E2E Test Snack 100g" — same substring
+    // tier invoice-scan.service.ts's fuzzy matcher uses, kept independent here
+    // rather than shared so this feature can't regress that already-verified one.
+    const substringMatches = available.filter((p) => {
+      const pname = p.name.trim().toLowerCase();
+      if (Math.min(pname.length, normalizedName.length) < 4) return false;
+      return normalizedName.includes(pname) || pname.includes(normalizedName);
+    });
+    if (substringMatches.length > 1) return 'ambiguous';
+    if (substringMatches.length === 1) return substringMatches[0].name;
+
+    const fuzzyMatches = available.filter((p) => {
+      const pname = p.name.trim().toLowerCase();
+      if (Math.max(pname.length, normalizedName.length) < 6) return false;
+      return this.levenshteinDistance(pname, normalizedName) <= 2;
+    });
+    if (fuzzyMatches.length > 1) return 'ambiguous';
+    if (fuzzyMatches.length === 1) return fuzzyMatches[0].name;
+
+    return null;
+  }
+
+  /**
+   * Same exact -> substring -> fuzzy matching tiers as matchCatalogProduct, but
+   * against the item names already sitting in an edit-in-progress order (both
+   * menu-linked and custom items) instead of the product catalog — used to
+   * resolve which line a "remove X" / "set X to N" edit command refers to.
+   */
+  private resolveExistingItemKey(
+    normalizedName: string,
+    matchedMap: Map<string, { menuName: string; quantity: number; unit?: string | null }>,
+    unmatchedMap: Map<string, { name: string; quantity: number; unit?: string | null; price: number }>,
+  ): { store: 'matched' | 'unmatched'; key: string } | 'ambiguous' | null {
+    const inMatched = matchedMap.has(normalizedName);
+    const inUnmatched = unmatchedMap.has(normalizedName);
+    if (inMatched && inUnmatched) return 'ambiguous';
+    if (inMatched) return { store: 'matched', key: normalizedName };
+    if (inUnmatched) return { store: 'unmatched', key: normalizedName };
+
+    const allKeys = [
+      ...Array.from(matchedMap.keys()).map((key) => ({ store: 'matched' as const, key })),
+      ...Array.from(unmatchedMap.keys()).map((key) => ({ store: 'unmatched' as const, key })),
+    ];
+
+    const substringHits = allKeys.filter(({ key }) => {
+      if (Math.min(key.length, normalizedName.length) < 4) return false;
+      return normalizedName.includes(key) || key.includes(normalizedName);
+    });
+    if (substringHits.length > 1) return 'ambiguous';
+    if (substringHits.length === 1) return substringHits[0];
+
+    const fuzzyHits = allKeys.filter(({ key }) => {
+      if (Math.max(key.length, normalizedName.length) < 6) return false;
+      return this.levenshteinDistance(key, normalizedName) <= 2;
+    });
+    if (fuzzyHits.length > 1) return 'ambiguous';
+    if (fuzzyHits.length === 1) return fuzzyHits[0];
+
+    return null;
+  }
+
+  /**
+   * Checks whether a segment opens with one of the given edit-command verbs
+   * (e.g. ADD_VERB_WORDS) — either spelled exactly, or a typo/casual misspelling
+   * close enough that it's clearly meant to be one of them ("remve", "ad",
+   * "cancle", "chnge"). Tolerance scales with word length so short words still
+   * need a near-exact match: 1 edit for a 4-5 letter word, 2 edits from six
+   * letters up — the same distance the catalog fuzzy-matcher uses for longer
+   * strings. Only the leading word is ever tested, so a product name that
+   * merely contains a verb-like word mid-string never triggers this.
+   */
+  private matchLeadingVerb(segment: string, verbWords: string[]): { rest: string } | null {
+    const wordMatch = segment.match(/^([a-zA-Z]+)\s+(.+)$/);
+    if (!wordMatch) return null;
+
+    const firstWord = wordMatch[1].toLowerCase();
+    const rest = wordMatch[2];
+    if (verbWords.includes(firstWord)) return { rest };
+
+    if (firstWord.length < 4) return null;
+    const threshold = firstWord.length >= 6 ? 2 : 1;
+    const isCloseMatch = verbWords.some((verb) => {
+      if (Math.abs(verb.length - firstWord.length) > threshold) return false;
+      return this.levenshteinDistance(firstWord, verb) <= threshold;
+    });
+
+    return isCloseMatch ? { rest } : null;
+  }
+
+  /**
+   * Deterministic local parser for editing an existing chat order — same
+   * "don't guess, bail to the whole message returning null" philosophy as
+   * tryDeterministicParse, applied to add/remove/set-quantity edit commands
+   * layered on top of the order's current item list instead of a from-scratch
+   * order. Only three unambiguous per-segment shapes are recognized: "add 2
+   * rice" / "plus ..." / "extra ..." / a bare "2 rice" (add), "remove milk" /
+   * "delete ..." / "cancel ..." (delete the item entirely, regardless of any
+   * quantity mentioned — same contract as the Gemini prompt this replaces),
+   * and "set/change rice to 5" (overwrite quantity, or delete if set to 0).
+   * Each verb also tolerates a close typo ("remve", "cancle", "chnge") or a
+   * common Hinglish equivalent ("dalo", "hatao", "badlo") via matchLeadingVerb,
+   * and quantities may be spelled out ("two rice", "a dozen eggs") as well as
+   * digits. Anything else — replace-style instructions, ambiguous item references,
+   * bare item names with no leading quantity — returns null for the WHOLE
+   * message so parseChatOrder falls through to Gemini exactly as before. A
+   * customer-change request ("for Priya now", "change customer to Neel", "set
+   * customer 9876543210") is only honored on those exact unambiguous shapes;
+   * any other mention of "customer" bails to Gemini rather than guessing.
+   */
+  private tryDeterministicEditParse(
+    message: string,
+    existingOrder: any,
+    available: any[],
+  ): {
+    matched: { menuName: string; quantity: number; unit?: string | null }[];
+    unmatched: { name: string; quantity: number; unit?: string | null; price: number | null }[];
+    customerName: string | null;
+    phone: string | null;
+  } | null {
+    const lowerMsg = message.toLowerCase();
+    const trimmed = message.trim();
+    const hasClearIntent =
+      lowerMsg.includes('remove all') ||
+      lowerMsg.includes('clear') ||
+      lowerMsg.includes('delete all') ||
+      lowerMsg.includes('empty') ||
+      /^cancel(\s+the)?(\s+order)?$/i.test(trimmed);
+    if (hasClearIntent) {
+      return { matched: [], unmatched: [], customerName: null, phone: null };
+    }
+
+    let text = trimmed;
+    let customerName: string | null = null;
+    let phone: string | null = null;
+
+    const titleCase = (raw: string) =>
+      raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+    const changeCustomerMatch = text.match(/\b(?:change|set)\s+customer\s+to\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\b/i);
+    const forNowMatch = text.match(/\bfor\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\s+now\b/i);
+    const customerPhoneMatch = text.match(/\b(?:change|set)\s+customer\s+(?:to\s+)?(\d{10})\b/i);
+
+    if (changeCustomerMatch && changeCustomerMatch.index !== undefined) {
+      customerName = titleCase(changeCustomerMatch[1]);
+      text = (text.slice(0, changeCustomerMatch.index) + ' ' + text.slice(changeCustomerMatch.index + changeCustomerMatch[0].length)).trim();
+    } else if (customerPhoneMatch && customerPhoneMatch.index !== undefined) {
+      phone = customerPhoneMatch[1];
+      text = (text.slice(0, customerPhoneMatch.index) + ' ' + text.slice(customerPhoneMatch.index + customerPhoneMatch[0].length)).trim();
+    } else if (forNowMatch && forNowMatch.index !== undefined) {
+      customerName = titleCase(forNowMatch[1]);
+      text = (text.slice(0, forNowMatch.index) + ' ' + text.slice(forNowMatch.index + forNowMatch[0].length)).trim();
+    } else if (/\bcustomer\b/i.test(text)) {
+      return null; // ambiguous customer instruction — let Gemini sort it out
+    }
+
+    text = text.replace(/\s+/g, ' ').trim();
+
+    const matchedMap = new Map<string, { menuName: string; quantity: number; unit?: string | null }>();
+    const unmatchedMap = new Map<string, { name: string; quantity: number; unit?: string | null; price: number }>();
+
+    for (const item of existingOrder.items || []) {
+      const quantity = Number(item.quantity) || 0;
+      const unit = item.unit || null;
+      if (item.product) {
+        const key = item.product.name.trim().toLowerCase();
+        const entry = matchedMap.get(key);
+        if (entry) entry.quantity += quantity;
+        else matchedMap.set(key, { menuName: item.product.name, quantity, unit });
+      } else {
+        const name = item.custom_product_name || 'Unknown Item';
+        const key = name.trim().toLowerCase();
+        const total = Number(item.unit_price || 0) * quantity;
+        const entry = unmatchedMap.get(key);
+        if (entry) {
+          entry.quantity += quantity;
+          entry.price += total;
+        } else {
+          unmatchedMap.set(key, { name, quantity, unit, price: total });
+        }
+      }
+    }
+
+    if (text) {
+      const segments = /[,&]|\band\b/i.test(text)
+        ? text.split(/\s*(?:,|\band\b|&)\s*/i).map((s) => s.trim()).filter(Boolean)
+        : [text];
+      if (segments.length === 0) return null;
+
+      const wordNumPattern = Object.keys(OrderParserService.WORD_NUMBERS).join('|');
+
+      for (const segment of segments) {
+        const setVerbMatch = this.matchLeadingVerb(segment, OrderParserService.SET_VERB_WORDS);
+        if (setVerbMatch) {
+          const setBodyMatch = setVerbMatch.rest.match(
+            new RegExp(
+              `^(?:the\\s+)?(?:quantity\\s+of\\s+)?(.+?)\\s+to\\s+(\\d+(?:\\.\\d+)?|${wordNumPattern})\\s*(${OrderParserService.UNIT_WORDS})?\\.?\\s*$`,
+              'i',
+            ),
+          );
+          if (!setBodyMatch) return null; // recognized "change/set ..." but not the "X to N" shape — bail
+
+          const rawName = setBodyMatch[1].trim();
+          const itemKey = rawName.toLowerCase();
+          const qtyToken = setBodyMatch[2].toLowerCase();
+          const newQty = /^\d/.test(qtyToken) ? Number(qtyToken) : OrderParserService.WORD_NUMBERS[qtyToken];
+          const newUnit = setBodyMatch[3] ? setBodyMatch[3].toLowerCase() : undefined;
+
+          const resolved = this.resolveExistingItemKey(itemKey, matchedMap, unmatchedMap);
+          if (resolved === 'ambiguous') return null;
+
+          if (resolved) {
+            if (newQty === 0) {
+              if (resolved.store === 'matched') matchedMap.delete(resolved.key);
+              else unmatchedMap.delete(resolved.key);
+            } else if (resolved.store === 'matched') {
+              const entry = matchedMap.get(resolved.key)!;
+              entry.quantity = newQty;
+              if (newUnit) entry.unit = newUnit;
+            } else {
+              const entry = unmatchedMap.get(resolved.key)!;
+              const prevUnitPrice = entry.quantity > 0 ? entry.price / entry.quantity : 0;
+              entry.quantity = newQty;
+              entry.price = prevUnitPrice * newQty;
+              if (newUnit) entry.unit = newUnit;
+            }
+          } else if (newQty > 0) {
+            // Not currently in the order — treat as a fresh add of that quantity.
+            const catalogMatch = this.matchCatalogProduct(itemKey, available);
+            if (catalogMatch === 'ambiguous') return null;
+            if (catalogMatch) {
+              matchedMap.set(catalogMatch.toLowerCase(), { menuName: catalogMatch, quantity: newQty, unit: newUnit || null });
+            } else {
+              unmatchedMap.set(itemKey, { name: rawName, quantity: newQty, unit: newUnit || null, price: 0 });
+            }
+          }
+          continue;
+        }
+
+        const removeVerbMatch = this.matchLeadingVerb(segment, OrderParserService.REMOVE_VERB_WORDS);
+        if (removeVerbMatch) {
+          const body = removeVerbMatch.rest;
+          const parsedSeg = this.parseSegment(body);
+          const itemName = (parsedSeg ? parsedSeg.name : body).trim().toLowerCase();
+          if (!itemName) return null;
+
+          const resolved = this.resolveExistingItemKey(itemName, matchedMap, unmatchedMap);
+          if (resolved === 'ambiguous' || !resolved) return null; // unknown/ambiguous item — let Gemini sort it out
+          if (resolved.store === 'matched') matchedMap.delete(resolved.key);
+          else unmatchedMap.delete(resolved.key);
+          continue;
+        }
+
+        const addVerbMatch = this.matchLeadingVerb(segment, OrderParserService.ADD_VERB_WORDS);
+        let body: string;
+        if (addVerbMatch) {
+          body = addVerbMatch.rest;
+        } else if (/^\d/.test(segment) || new RegExp(`^(?:${wordNumPattern})\\b`, 'i').test(segment)) {
+          // Bare segment with no verb — only accepted as an implicit add when it
+          // leads with a quantity (digit or spelled-out, e.g. "2 more rice" /
+          // "two more rice"); anything else is too ambiguous between
+          // add/remove/set to guess safely.
+          body = segment;
+        } else {
+          return null;
+        }
+
+        const parsedSeg = this.parseSegment(body);
+        if (!parsedSeg) return null;
+
+        const normalized = parsedSeg.name.toLowerCase();
+        const catalogMatch = this.matchCatalogProduct(normalized, available);
+        if (catalogMatch === 'ambiguous') return null;
+
+        if (catalogMatch) {
+          const key = catalogMatch.toLowerCase();
+          const entry = matchedMap.get(key);
+          if (entry) entry.quantity += parsedSeg.quantity;
+          else matchedMap.set(key, { menuName: catalogMatch, quantity: parsedSeg.quantity, unit: parsedSeg.unit || null });
+        } else {
+          const entry = unmatchedMap.get(normalized);
+          if (entry) {
+            const prevUnitPrice = entry.quantity > 0 ? entry.price / entry.quantity : 0;
+            const addedTotal = parsedSeg.price != null ? parsedSeg.price : prevUnitPrice * parsedSeg.quantity;
+            entry.quantity += parsedSeg.quantity;
+            entry.price += addedTotal;
+          } else {
+            unmatchedMap.set(normalized, {
+              name: parsedSeg.name,
+              quantity: parsedSeg.quantity,
+              unit: parsedSeg.unit || null,
+              price: parsedSeg.price ?? 0,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      matched: Array.from(matchedMap.values()),
+      unmatched: Array.from(unmatchedMap.values()),
+      customerName,
+      phone,
+    };
   }
 
   /** One "[qty][unit]? name [price]?" segment, e.g. "10kg mango 1000rs" or "2 rice". */
@@ -570,13 +883,34 @@ export class OrderParserService {
 
     let quantity = 1;
     let unit: string | undefined;
+    // The lookahead after the optional unit requires whatever follows the
+    // digits to be whitespace, end-of-string, or a recognized unit word —
+    // never an arbitrary letter run. Without it, a product name that starts
+    // with a digit (e.g. "7up") would have its leading digit stolen as a
+    // quantity ("7up" -> qty 7, name "up").
     const qtyMatch = text.match(
-      new RegExp(`^(\\d+(?:\\.\\d+)?)\\s*(${OrderParserService.UNIT_WORDS})?\\.?\\s*(?:of\\s+)?`, 'i'),
+      new RegExp(`^(\\d+(?:\\.\\d+)?)(?:\\s*(${OrderParserService.UNIT_WORDS})\\b)?(?=\\s|$)\\.?\\s*(?:of\\s+)?`, 'i'),
     );
     if (qtyMatch) {
       quantity = Number(qtyMatch[1]);
       unit = qtyMatch[2] ? qtyMatch[2].toLowerCase() : undefined;
       text = text.slice(qtyMatch[0].length).trim();
+    } else {
+      // No digit — try a spelled-out cardinal ("two rice", "a dozen eggs"),
+      // which needs a following space rather than glueing straight to a unit
+      // the way "2kg" does. "a"/"an" aren't in WORD_NUMBERS generally (too
+      // easy to misfire on ordinary article usage), but "a dozen"/"a couple"
+      // are common enough idioms to strip explicitly here.
+      const wordNumPattern = Object.keys(OrderParserService.WORD_NUMBERS).join('|');
+      const articleStripped = text.replace(/^(?:a|an)\s+(?=(?:dozen|couple)\b)/i, '');
+      const wordQtyMatch = articleStripped.match(
+        new RegExp(`^(${wordNumPattern})\\s+(${OrderParserService.UNIT_WORDS})?\\.?\\s*(?:of\\s+)?`, 'i'),
+      );
+      if (wordQtyMatch) {
+        quantity = OrderParserService.WORD_NUMBERS[wordQtyMatch[1].toLowerCase()];
+        unit = wordQtyMatch[2] ? wordQtyMatch[2].toLowerCase() : undefined;
+        text = articleStripped.slice(wordQtyMatch[0].length).trim();
+      }
     }
 
     const name = text.trim();
@@ -586,9 +920,15 @@ export class OrderParserService {
     // number+unit token like "2kg" left in it — that's a quantity we failed to
     // pull out (e.g. a trailing "rice 2kg" our qty regex is leading-only and
     // doesn't catch), not part of the product name. Product names WITH digits in
-    // them (e2e, 7up, v8) are fine and shouldn't be rejected just for that.
+    // them (e2e, 7up, v8) are fine and shouldn't be rejected just for that. Same
+    // goes for a stray spelled-out number ("rice three milk" with no connector,
+    // where the digit-boundary segment splitter can't tell the items apart) —
+    // bail rather than fold a quantity word into the product name.
     const strayQtyToken = new RegExp(`^\\d+(?:\\.\\d+)?(?:${OrderParserService.UNIT_WORDS})?$`, 'i');
-    if (name.split(/\s+/).some((word) => strayQtyToken.test(word))) return null;
+    const strayWordNumbers = new Set(Object.keys(OrderParserService.WORD_NUMBERS));
+    if (name.split(/\s+/).some((word) => strayQtyToken.test(word) || strayWordNumbers.has(word.toLowerCase()))) {
+      return null;
+    }
 
     return { name, quantity, unit, price };
   }
