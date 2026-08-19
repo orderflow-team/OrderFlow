@@ -91,7 +91,14 @@ export class InvoicesService {
        RETURNING ${valueColumn}`,
       [businessId, fy],
     );
-    const seq = rows[0][valueColumn];
+    const seq = rows?.[0]?.[valueColumn];
+    // Fail loudly instead of minting a document number like
+    // "INV/2026-27/undefined" — a GST-relevant sequence silently going
+    // wrong is worse than the request failing outright, and it's exactly
+    // how the previous bug went unnoticed for as long as it did.
+    if (typeof seq !== 'number' || !Number.isInteger(seq) || seq < 1) {
+      throw new Error(`nextDocumentNumber: expected a positive integer sequence value, got ${JSON.stringify(seq)} (raw row: ${JSON.stringify(rows?.[0])})`);
+    }
     return `${prefix}/${fy}/${String(seq).padStart(5, '0')}`;
   }
 
