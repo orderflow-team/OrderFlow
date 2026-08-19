@@ -19,6 +19,17 @@ import { UserRole } from '../../common/enums/user-role.enum';
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
+
+// Fail-closed by design: this used to gate on `NODE_ENV !== 'production'`,
+// which leaks the real OTP/reset code into the API response (and from there,
+// straight onto the login screen — see login/page.tsx) whenever NODE_ENV
+// isn't exactly the string 'production'. Render doesn't set NODE_ENV
+// automatically, and nothing in this repo's start scripts or Render config
+// sets it either — the only place it's ever assigned is `development` in the
+// gitignored, local-only .env.local — so this was plausibly wide open in the
+// deployed API the whole time, not just in local dev. An explicit opt-in
+// that defaults to "off" can't have that failure mode.
+const ALLOW_OTP_DEV_BYPASS = process.env.ALLOW_OTP_DEV_BYPASS === 'true';
 const OTP_MAX_ATTEMPTS = 5;
 
 @Injectable()
@@ -190,7 +201,7 @@ export class AuthService {
 
     // Only surface the code in the response when it wasn't actually emailed,
     // so the frontend's "no email provider configured" banner is accurate.
-    const devOnly = !emailSent && process.env.NODE_ENV !== 'production' ? { devCode: code } : {};
+    const devOnly = !emailSent && ALLOW_OTP_DEV_BYPASS ? { devCode: code } : {};
     return { message: 'OTP sent', expiresInMinutes: OTP_EXPIRY_MINUTES, ...devOnly };
   }
 
@@ -271,7 +282,7 @@ export class AuthService {
 
     const emailSent = await this.mailService.sendPasswordResetEmail(email, code);
 
-    const devOnly = !emailSent && process.env.NODE_ENV !== 'production' ? { devCode: code } : {};
+    const devOnly = !emailSent && ALLOW_OTP_DEV_BYPASS ? { devCode: code } : {};
     return { ...genericResponse, ...devOnly };
   }
 
