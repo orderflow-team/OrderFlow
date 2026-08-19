@@ -12,7 +12,7 @@ import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
-import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 import { AppVersionInfo } from '@/components/app-version-info';
 
@@ -118,6 +118,10 @@ export default function SettingsPage() {
   const [sendingSupport, setSendingSupport] = useState(false);
   const [supportError, setSupportError] = useState('');
   const [supportSent, setSupportSent] = useState(false);
+
+  const [sendingTestPush, setSendingTestPush] = useState(false);
+  const [testPushResult, setTestPushResult] = useState('');
+  const [testPushError, setTestPushError] = useState('');
 
   useEffect(() => {
     if (!ready || !businessId) return;
@@ -280,6 +284,25 @@ export default function SettingsPage() {
       setPasswordError(err.response?.data?.message || 'Failed to change password');
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    if (!businessId) return;
+    setSendingTestPush(true);
+    setTestPushError('');
+    setTestPushResult('');
+    try {
+      const res = await apiClient.post<{ devicesNotified: number; invalidTokensRemoved: number }>('/api/notifications/test-push', { businessId });
+      setTestPushResult(
+        res.data.devicesNotified > 0
+          ? `Sent to ${res.data.devicesNotified} device${res.data.devicesNotified === 1 ? '' : 's'} — check your phone's notification tray.`
+          : "Sent, but every registered device rejected it (likely uninstalled) — they've been removed. Log in on the app again and retry.",
+      );
+    } catch (err: any) {
+      setTestPushError(err.response?.data?.message || 'Failed to send test push');
+    } finally {
+      setSendingTestPush(false);
     }
   };
 
@@ -651,6 +674,27 @@ export default function SettingsPage() {
                   {changingPassword ? 'Updating...' : 'Update Password'}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && (
+          <Card className="ring-white/50 glass-sheen-sm">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="w-4 h-4 text-emerald-600" /> Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Order reminders, payment follow-ups, low-stock and expiry alerts push straight to the native app.
+                Send a test to confirm your device is receiving them.
+              </p>
+              {testPushError && <p className="text-sm text-rose-600">{testPushError}</p>}
+              {testPushResult && <p className="text-sm text-emerald-600">{testPushResult}</p>}
+              <Button type="button" variant="outline" onClick={handleTestPush} disabled={sendingTestPush} className="w-full sm:w-auto">
+                {sendingTestPush ? 'Sending...' : 'Send test push'}
+              </Button>
             </CardContent>
           </Card>
         )}

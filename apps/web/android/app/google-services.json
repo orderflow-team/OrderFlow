@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1051218004284",
+    "project_id": "obix-8bf07",
+    "storage_bucket": "obix-8bf07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1051218004284:android:1a1713cd4658ab4e51b639",
+        "android_client_info": {
+          "package_name": "com.obix.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb9NpJf1vPWQo5UJm_YC7F22ELt4PXgJY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

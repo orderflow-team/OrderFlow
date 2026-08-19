@@ -1,13 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Notification } from '../../database/entities/notification.entity';
 import { Order } from '../../database/entities/order.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Business } from '../../database/entities/business.entity';
 import { Product } from '../../database/entities/product.entity';
 import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { DeviceToken } from '../../database/entities/device-token.entity';
+import { FcmService } from '../../common/services/fcm.service';
 
 const STALE_ORDER_STATUSES = ['confirmed', 'packed', 'dispatched'];
 const ORDER_REMINDER_AFTER_HOURS = 24;
@@ -15,6 +17,13 @@ const PAYMENT_REMINDER_AFTER_DAYS = 7;
 const DEFAULT_REORDER_THRESHOLD = 10;
 const EXPIRY_ALERT_WITHIN_DAYS = 30;
 const INVENTORY_NOTIFICATION_TYPES = ['low_stock', 'expiry_alert'];
+
+const PUSH_TITLES: Record<string, string> = {
+  order_reminder: 'Order reminder',
+  payment_reminder: 'Payment reminder',
+  low_stock: 'Low stock alert',
+  expiry_alert: 'Expiry alert',
+};
 
 @Injectable()
 export class NotificationsService {
@@ -27,7 +36,99 @@ export class NotificationsService {
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     @InjectRepository(ProductBatch) private productBatchesRepository: Repository<ProductBatch>,
+    @InjectRepository(DeviceToken) private deviceTokensRepository: Repository<DeviceToken>,
+    private fcmService: FcmService,
   ) {}
+
+  /**
+   * Registers (or refreshes) a native device's FCM token for push. Upserts on
+   * the token itself — a reinstall or token-refresh sends the same call again
+   * rather than a distinct "first registration", and the token can only ever
+   * belong to one business/user at a time (whoever is signed in on that
+   * device right now).
+   */
+  async registerDeviceToken(businessId: string, userId: string | null, token: string, platform: string) {
+    const existing = await this.deviceTokensRepository.findOne({ where: { token } });
+    if (existing) {
+      existing.business_id = businessId;
+      existing.user_id = userId;
+      existing.platform = platform;
+      await this.deviceTokensRepository.save(existing);
+    } else {
+      await this.deviceTokensRepository.save(
+        this.deviceTokensRepository.create({ business_id: businessId, user_id: userId, token, platform }),
+      );
+    }
+    return { success: true };
+  }
+
+  /**
+   * Stops push to this device — called on logout so a signed-out device
+   * doesn't keep receiving another user's alerts. Scoped to businessId (not
+   * just the token) so one business can't unregister another's device by
+   * guessing/replaying a token value.
+   */
+  async unregisterDeviceToken(businessId: string, token: string) {
+    await this.deviceTokensRepository.delete({ business_id: businessId, token });
+    return { success: true };
+  }
+
+  /**
+   * Sends a real push immediately to every device registered for this
+   * business, bypassing the notification-row/dedup machinery entirely — a
+   * pure connectivity check ("did my phone actually receive this") for
+   * confirming the Firebase setup end-to-end, rather than waiting on the
+   * next 9am cron sweep or a real stale-order/low-stock condition to occur.
+   * Throws a plain, UI-displayable message for the two ways this can't work:
+   * FCM not configured server-side, or no device has registered yet.
+   */
+  async sendTestPush(businessId: string) {
+    if (!this.fcmService.isConfigured) {
+      throw new BadRequestException("Push notifications aren't configured on the server (FIREBASE_SERVICE_ACCOUNT is missing).");
+    }
+    const devices = await this.deviceTokensRepository.find({ where: { business_id: businessId } });
+    if (devices.length === 0) {
+      throw new BadRequestException('No device is registered for push yet — open the native app and log in on it first.');
+    }
+
+    const invalidTokens = await this.fcmService.sendToTokens(
+      devices.map((d) => d.token),
+      'Test notification',
+      'Push notifications are working! 🎉',
+      { type: 'test' },
+    );
+    if (invalidTokens.length > 0) {
+      await this.deviceTokensRepository.delete({ token: In(invalidTokens) });
+    }
+
+    return { devicesNotified: devices.length - invalidTokens.length, invalidTokensRemoved: invalidTokens.length };
+  }
+
+  /**
+   * Saves the notification row (existing behavior) and, if FCM is
+   * configured, also pushes it to every device registered for this business
+   * — same business-wide reach the in-app bell already has, just delivered
+   * instantly instead of waiting for the next 60s poll or app open. Silently
+   * a no-op for push when FIREBASE_SERVICE_ACCOUNT isn't set; the DB row
+   * (and in-app bell) are unaffected either way.
+   */
+  private async createNotification(businessId: string, type: string, message: string) {
+    await this.notificationsRepository.save(this.notificationsRepository.create({ business_id: businessId, type, message }));
+
+    if (!this.fcmService.isConfigured) return;
+    const devices = await this.deviceTokensRepository.find({ where: { business_id: businessId } });
+    if (devices.length === 0) return;
+
+    const invalidTokens = await this.fcmService.sendToTokens(
+      devices.map((d) => d.token),
+      PUSH_TITLES[type] || 'OrderFlow',
+      message,
+      { type },
+    );
+    if (invalidTokens.length > 0) {
+      await this.deviceTokensRepository.delete({ token: In(invalidTokens) });
+    }
+  }
 
   async findAll(businessId: string, unreadOnly?: boolean) {
     const where: Record<string, any> = { business_id: businessId };
@@ -89,13 +190,7 @@ export class NotificationsService {
         .getOne();
       if (alreadyNotified) continue;
 
-      await this.notificationsRepository.save(
-        this.notificationsRepository.create({
-          business_id: order.business_id,
-          type: 'order_reminder',
-          message: this.orderReminderMessage(order),
-        }),
-      );
+      await this.createNotification(order.business_id, 'order_reminder', this.orderReminderMessage(order));
     }
 
     this.logger.log(`Order reminder sweep: ${staleOrders.length} stale order(s) checked`);
@@ -128,13 +223,7 @@ export class NotificationsService {
         .getOne();
       if (alreadyNotified) continue;
 
-      await this.notificationsRepository.save(
-        this.notificationsRepository.create({
-          business_id: customer.business_id,
-          type: 'payment_reminder',
-          message,
-        }),
-      );
+      await this.createNotification(customer.business_id, 'payment_reminder', message);
     }
 
     this.logger.log(`Payment reminder sweep: ${overdueCustomers.length} overdue customer(s) checked`);
@@ -166,13 +255,7 @@ export class NotificationsService {
         .getOne();
       if (alreadyNotified) continue;
 
-      await this.notificationsRepository.save(
-        this.notificationsRepository.create({
-          business_id: product.business_id,
-          type: 'low_stock',
-          message,
-        }),
-      );
+      await this.createNotification(product.business_id, 'low_stock', message);
     }
 
     this.logger.log(`Low stock sweep: ${lowStockProducts.length} product(s) checked`);
@@ -214,13 +297,7 @@ export class NotificationsService {
         .getOne();
       if (alreadyNotified) continue;
 
-      await this.notificationsRepository.save(
-        this.notificationsRepository.create({
-          business_id: batch.batch_business_id,
-          type: 'expiry_alert',
-          message,
-        }),
-      );
+      await this.createNotification(batch.batch_business_id, 'expiry_alert', message);
     }
 
     this.logger.log(`Expiry alert sweep: ${expiringBatches.length} batch(es) checked`);

@@ -30,6 +30,7 @@ import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
 import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
+import { usePushNotifications } from '@/lib/use-push-notifications';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, getCachedChatEnabled, setCachedChatEnabled, hasRole } from '@/lib/auth';
 import { getOptionalModulesForCategory, getBusinessTerminology, CustomBusinessSettings, OptionalModule } from '@/lib/business-modules';
 import { ChatOrderWidget } from '@/components/chat-order-widget';
@@ -152,6 +153,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   // means the first client render still matches the server (null), and the
   // real value arrives as a normal post-mount update instead.
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const { unregister: unregisterPushToken } = usePushNotifications(businessId);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isSalesmanRole, setIsSalesmanRole] = useState(false);
   const [isCookRole, setIsCookRole] = useState(false);
@@ -494,7 +496,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     }
   }, [canManageStaff, pathname, router]);
 
-  const logout = () => {
+  const logout = async () => {
+    // Awaited (not fire-and-forget) — apiClient's auth header comes from
+    // localStorage read inside an axios interceptor, which runs as a
+    // microtask after this function's synchronous portion. Clearing
+    // access_token first would race it: the DELETE would go out with no
+    // Authorization header and 401 silently, leaving the device token behind
+    // to keep receiving this business's pushes after logout.
+    await unregisterPushToken();
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');

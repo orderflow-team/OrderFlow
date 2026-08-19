@@ -2,6 +2,7 @@ export * from './business.entity';
 export * from './business-connection.entity';
 export * from './category.entity';
 export * from './customer.entity';
+export * from './device-token.entity';
 export * from './expense.entity';
 export * from './invoice-item.entity';
 export * from './invoice.entity';
