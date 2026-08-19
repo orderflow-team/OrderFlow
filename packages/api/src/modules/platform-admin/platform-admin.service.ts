@@ -423,6 +423,49 @@ export class PlatformAdminService {
   }
 
   /**
+   * One-off repair for the invoice-numbering bug (nextDocumentNumber in
+   * invoices.service.ts misread a TypeORM RETURNING result, so every
+   * invoice/credit-note minted under the GST-format numbering scheme got
+   * "INV/{fy}/undefined" instead of a real sequence number — see the fix
+   * commit for the full story). Reconstructs the correct sequence purely
+   * from creation order: for each business+series+FY group of rows already
+   * matching the "{PREFIX}/{fy}/..." pattern (this never touches the older
+   * legacy "INV-<timestamp>" rows from before this numbering scheme
+   * existed), the Nth row created is renumbered to position N. Only rows
+   * whose current value doesn't already match get written — remove this
+   * method (and its controller route) once it's been run in production;
+   * it's a repair, not a feature.
+   */
+  async fixInvoiceNumbering(dryRun: boolean) {
+    const changes: { id: string; business_id: string; created_at: string; old: string; new: string }[] = [];
+
+    for (const prefix of ['INV', 'CN']) {
+      const rows: { id: string; business_id: string; invoice_number: string; created_at: string; position: string }[] =
+        await this.dataSource.query(
+          `SELECT id, business_id, invoice_number, created_at,
+                  ROW_NUMBER() OVER (PARTITION BY business_id, split_part(invoice_number, '/', 2) ORDER BY created_at) AS position
+           FROM invoices
+           WHERE invoice_number LIKE $1
+           ORDER BY business_id, created_at`,
+          [`${prefix}/%`],
+        );
+
+      for (const row of rows) {
+        const fy = row.invoice_number.split('/')[1];
+        const correct = `${prefix}/${fy}/${String(row.position).padStart(5, '0')}`;
+        if (row.invoice_number === correct) continue;
+
+        changes.push({ id: row.id, business_id: row.business_id, created_at: row.created_at, old: row.invoice_number, new: correct });
+        if (!dryRun) {
+          await this.dataSource.query(`UPDATE invoices SET invoice_number = $1 WHERE id = $2`, [correct, row.id]);
+        }
+      }
+    }
+
+    return { dryRun, changeCount: changes.length, changes };
+  }
+
+  /**
    * An admin's own message, to one store or broadcast to every store —
    * see NotificationsService.sendCustomPush for what "broadcast" covers
    * (an in-app row for every business plus a push to every registered

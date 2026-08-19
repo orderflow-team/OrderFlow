@@ -125,6 +125,15 @@ export class PlatformAdminController {
     return this.platformAdminService.sendCustomPush(body.businessId || null, body.title, body.message, req.user?.userId);
   }
 
+  // One-off repair for the invoice-numbering bug — see
+  // PlatformAdminService.fixInvoiceNumbering. Defaults to a dry run
+  // (?apply=true is required to actually write anything). Remove this route
+  // once it's been run in production.
+  @Post('fix-invoice-numbering')
+  fixInvoiceNumbering(@Query('apply') apply?: string) {
+    return this.platformAdminService.fixInvoiceNumbering(apply !== 'true');
+  }
+
   @Delete('stores/:id')
   deleteStore(@Param('id') storeId: string, @Req() req: any) {
     return this.platformAdminService.deleteStore(storeId, req.user?.userId);
