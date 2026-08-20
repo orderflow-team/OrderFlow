@@ -1,0 +1,23 @@
+name: Keep API warm
+
+# Pings the production health endpoint every 10 minutes so the Render
+# free-tier instance (15-min idle spin-down) and Neon's free-tier compute
+# (5-min autosuspend) never go cold. /health does a real `SELECT 1` against
+# the DB, so this keeps both warm, not just the API process.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://orderflow-1.onrender.com/health)
+          echo "Health check returned: $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::Health check failed with status $status"
+            exit 1
+          fi
