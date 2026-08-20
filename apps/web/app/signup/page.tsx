@@ -154,9 +154,9 @@ export default function SignupPage() {
           </form>
           <p className="text-center text-sm text-slate-600 mt-6">
             Already have an account?{' '}
-            <a href="/login" className="font-semibold text-sky-600 hover:text-sky-700">
+            <button type="button" onClick={() => router.push('/login')} className="font-semibold text-sky-600 hover:text-sky-700">
               Sign in
-            </a>
+            </button>
           </p>
         </div>
       </div>

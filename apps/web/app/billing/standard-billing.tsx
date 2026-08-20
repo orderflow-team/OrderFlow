@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ interface Payment {
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Credit'];
 
 export function StandardBilling() {
+  const router = useRouter();
   const { businessId, ready } = useBusiness();
   const [orders, setOrders] = useState<Order[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -324,13 +326,16 @@ export function StandardBilling() {
                       {isLocal ? (
                         <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
                       ) : invoiceByOrderId.has(o.id) ? (
-                        <a
-                          href={`/billing/invoices/view?id=${invoiceByOrderId.get(o.id)}`}
-                          onClick={(e) => e.stopPropagation()}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/billing/invoices/view?id=${invoiceByOrderId.get(o.id)}`);
+                          }}
                           className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
                         >
                           View Invoice
-                        </a>
+                        </button>
                       ) : (
                         <button onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(o.id); }} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
                           + Invoice

@@ -86,9 +86,9 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-slate-600 mt-6">
             Don't have an account?{' '}
-            <a href="/signup" className="font-semibold text-orange-600 hover:text-orange-700">
+            <button type="button" onClick={() => router.push('/signup')} className="font-semibold text-orange-600 hover:text-orange-700">
               Sign up
-            </a>
+            </button>
           </p>
         </div>
       </div>
@@ -165,9 +165,9 @@ function PasswordLoginForm() {
       </div>
 
       <div className="flex justify-end -mt-1">
-        <a href="/forgot-password" className="text-sm font-semibold text-sky-700 hover:text-sky-800">
+        <button type="button" onClick={() => router.push('/forgot-password')} className="text-sm font-semibold text-sky-700 hover:text-sky-800">
           Forgot password?
-        </a>
+        </button>
       </div>
 
       {error && (
