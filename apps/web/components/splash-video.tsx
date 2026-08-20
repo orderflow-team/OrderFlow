@@ -22,6 +22,13 @@ export function SplashVideo() {
   const [visible, setVisible] = useState(
     () => typeof window !== 'undefined' && Capacitor.isNativePlatform(),
   );
+  // Real frames are being decoded and shown, as opposed to merely "not
+  // paused" — there's a real gap between calling play() and the WebView
+  // actually rendering a frame, and during that gap it draws its own
+  // default video chrome (the circled play icon). Keeping the element
+  // invisible until this fires means that chrome never has anything to
+  // paint onto — just the plain white backdrop — instead of flashing it.
+  const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hiddenNativeSplash = useRef(false);
 
@@ -63,11 +70,13 @@ export function SplashVideo() {
         autoPlay
         muted
         playsInline
+        preload="auto"
         disablePictureInPicture
         controlsList="nodownload nofullscreen noremoteplayback"
+        onPlaying={() => setPlaying(true)}
         onEnded={() => setVisible(false)}
         onError={() => setVisible(false)}
-        className="w-full h-full object-cover"
+        className={`w-full h-full object-cover ${playing ? 'opacity-100' : 'opacity-0'}`}
       >
         <source src="/Loading_animation_of_letter_X_202608201719.mp4" type="video/mp4" />
       </video>
