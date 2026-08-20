@@ -6,15 +6,23 @@
 //   npm run build:capacitor
 //   ADMIN_TOKEN=<jwt for a super_admin/admin user> node scripts/release-ota.mjs <version> [minNativeVersion]
 //
-// API_BASE_URL and ADMIN_TOKEN come from the environment; version is required.
+// ADMIN_TOKEN comes from the environment and is required. NEXT_PUBLIC_API_URL
+// is optional — defaults to the production API, so it only needs setting to
+// target a different backend (e.g. local dev).
 
 import { ZipArchive } from 'archiver';
-import { createWriteStream, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const [, , version, minNativeVersion] = process.argv;
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Defaults to the real production API, not localhost — an OTA release always
+// ships to installed apps in the field, which only ever poll the production
+// backend, so a "local" release target isn't a real use case. Forgetting to
+// set NEXT_PUBLIC_API_URL used to mean the upload silently went to
+// localhost:4000 (usually nothing listening there) instead of failing loudly
+// or doing the right thing by default.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 if (!version) {
@@ -30,6 +38,27 @@ const appExportDir = path.resolve(process.cwd(), 'app-export');
 if (!existsSync(appExportDir)) {
   console.error(`${appExportDir} not found — run "npm run build:capacitor" first.`);
   process.exit(1);
+}
+
+// Next.js inlines NEXT_PUBLIC_* vars into the compiled JS at build time — if
+// app-export was built without NEXT_PUBLIC_API_URL explicitly set to prod,
+// it silently falls back to .env.local's http://localhost:3000 (meant for
+// local dev only), baking a URL that doesn't exist on any installed device
+// into every request the shipped bundle ever makes. This shipped exactly
+// that as release 1.0.5 and broke signup/login/OTP for every native user who
+// picked up the update. Refuse to upload a bundle with that baked in.
+const chunksDir = path.join(appExportDir, '_next', 'static', 'chunks');
+if (existsSync(chunksDir)) {
+  const offenders = readdirSync(chunksDir)
+    .filter((f) => f.endsWith('.js'))
+    .filter((f) => readFileSync(path.join(chunksDir, f), 'utf8').includes('localhost:3000'));
+  if (offenders.length > 0) {
+    console.error(
+      `Refusing to publish: ${offenders.length} bundle file(s) reference localhost:3000 — this build was made without NEXT_PUBLIC_API_URL set to prod.\n` +
+      `Rebuild with: NEXT_PUBLIC_API_URL=${API_BASE_URL} npm run build:capacitor`,
+    );
+    process.exit(1);
+  }
 }
 
 const tempDir = mkdtempSync(path.join(tmpdir(), 'ota-release-'));
