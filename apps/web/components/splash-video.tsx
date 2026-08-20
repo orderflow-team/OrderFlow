@@ -22,6 +22,7 @@ export function SplashVideo() {
   const [visible, setVisible] = useState(
     () => typeof window !== 'undefined' && Capacitor.isNativePlatform(),
   );
+  const videoRef = useRef<HTMLVideoElement>(null);
   const hiddenNativeSplash = useRef(false);
 
   useEffect(() => {
@@ -30,6 +31,25 @@ export function SplashVideo() {
       hiddenNativeSplash.current = true;
       SplashScreen.hide().catch(() => {});
     }
+
+    // React's `muted` JSX prop only sets the muted *property*, not the HTML
+    // attribute — on a static export, the WebView evaluates autoplay
+    // eligibility against the pre-hydration HTML, which lacks that
+    // attribute, and silently falls back to a "tap to play" native player UI
+    // instead of just... playing. Setting it imperatively (and calling
+    // play() ourselves) is the reliable cross-WebView way to get real
+    // autoplay instead of that fallback UI.
+    const video = videoRef.current;
+    if (video) {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.play().catch(() => {
+        // Autoplay genuinely blocked on this device — showing a static
+        // "tap to play" splash is worse than no splash, so just skip it.
+        setVisible(false);
+      });
+    }
+
     const timeout = setTimeout(() => setVisible(false), MAX_DISPLAY_MS);
     return () => clearTimeout(timeout);
   }, [visible]);
@@ -37,16 +57,19 @@ export function SplashVideo() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+    <div className="fixed inset-0 z-[9999] bg-white">
       <video
+        ref={videoRef}
         autoPlay
         muted
         playsInline
+        disablePictureInPicture
+        controlsList="nodownload nofullscreen noremoteplayback"
         onEnded={() => setVisible(false)}
         onError={() => setVisible(false)}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-cover"
       >
-        <source src="/Loading_animation_of_letter_X_202608201629.mp4" type="video/mp4" />
+        <source src="/Loading_animation_of_letter_X_202608201719.mp4" type="video/mp4" />
       </video>
     </div>
   );
