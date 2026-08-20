@@ -25,6 +25,8 @@ import {
   UserCog,
   CloudOff,
   RefreshCw,
+  AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
@@ -69,6 +71,18 @@ const OPTIONAL_NAV: Record<OptionalModule, { href: string; label: string; icon: 
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** One-line label for a queued outbox item, so the sync panel reads as "Order — Ramesh, 3 items" rather than a raw payload dump. */
+function describeOutboxItem(item: { type: string; payload: Record<string, unknown> }): string {
+  if (item.type === 'order') {
+    const items = (item.payload.items as Array<unknown> | undefined) ?? [];
+    const customerName = (item.payload.customerName as string | undefined) || 'Walk-in';
+    return `Order — ${customerName}, ${items.length} item${items.length === 1 ? '' : 's'}`;
+  }
+  const amount = item.payload.amount as number | string | undefined;
+  const method = (item.payload.paymentMethod as string | undefined) || 'payment';
+  return `Payment — ${method}${amount !== undefined ? ` ₹${amount}` : ''}`;
 }
 
 /** Human-readable badge for whichever login is active — lets anyone glance at the header and tell which staff account is signed in. */
@@ -137,6 +151,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [optionalModules, setOptionalModules] = useState<OptionalModule[] | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [outboxOpen, setOutboxOpen] = useState(false);
   const [businessName, setBusinessName] = useState<string>('');
   const [businessCategory, setBusinessCategory] = useState<string>('');
   const [businessLogoUrl, setBusinessLogoUrl] = useState<string | null>(null);
@@ -191,6 +206,9 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const pendingCount = useOfflineStore((s) => s.pendingCount);
   const syncing = useOfflineStore((s) => s.syncing);
   const syncNow = useOfflineStore((s) => s.syncNow);
+  const outboxItems = useOfflineStore((s) => s.items);
+  const discardOutboxItem = useOfflineStore((s) => s.discardItem);
+  const retryOutboxItem = useOfflineStore((s) => s.retryItem);
 
   useEffect(() => {
     if (!businessId) {
@@ -635,13 +653,12 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           {businessId && (isOnline === false || pendingCount > 0) && (
             <button
               type="button"
-              onClick={() => isOnline && pendingCount > 0 && !syncing && syncNow(businessId)}
-              disabled={!isOnline || pendingCount === 0 || syncing}
-              title={isOnline && pendingCount > 0 ? 'Click to sync now' : undefined}
-              className={`w-full flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-bold ring-1 transition-colors disabled:cursor-default ${
+              onClick={() => setOutboxOpen((v) => !v)}
+              title="View queued sales and payments"
+              className={`w-full flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-bold ring-1 transition-colors cursor-pointer ${
                 !isOnline
                   ? 'bg-slate-500/10 text-slate-600 ring-slate-400/30'
-                  : 'bg-amber-500/10 text-amber-700 ring-amber-500/30 hover:bg-amber-500/20 cursor-pointer'
+                  : 'bg-amber-500/10 text-amber-700 ring-amber-500/30 hover:bg-amber-500/20'
               }`}
             >
               {!isOnline ? (
@@ -652,7 +669,63 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               <span className="truncate">
                 {!isOnline ? 'Offline — sales are queued locally' : `${pendingCount} pending sync`}
               </span>
+              <ChevronDown className={`w-3 h-3 shrink-0 ml-auto transition-transform ${outboxOpen ? 'rotate-180' : ''}`} />
             </button>
+          )}
+          {businessId && outboxOpen && (isOnline === false || pendingCount > 0 || outboxItems.some((i) => i.status !== 'synced')) && (
+            <div className="mx-1 mt-1.5 bg-white shadow-lg ring-1 ring-slate-200/50 rounded-2xl p-2 max-h-72 overflow-y-auto space-y-1.5">
+              {outboxItems.filter((i) => i.status !== 'synced').length === 0 ? (
+                <p className="text-xs text-slate-400 px-2 py-1">Nothing queued.</p>
+              ) : (
+                outboxItems
+                  .filter((i) => i.status !== 'synced')
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl px-2.5 py-2 ring-1 ${
+                        item.status === 'failed' ? 'bg-rose-500/5 ring-rose-500/20' : 'bg-slate-50 ring-slate-200/60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-semibold text-slate-700 truncate">{describeOutboxItem(item)}</p>
+                        {item.status === 'failed' && <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />}
+                      </div>
+                      {item.status === 'failed' && item.error && (
+                        <p className="text-[11px] text-rose-600 mt-0.5">{item.error}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {item.status === 'failed' && (
+                          <button
+                            type="button"
+                            onClick={() => isOnline && retryOutboxItem(businessId, item.id)}
+                            disabled={!isOnline}
+                            className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:text-sky-800 disabled:opacity-40 disabled:cursor-default"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Retry
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => discardOutboxItem(businessId, item.id)}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+                        >
+                          <Trash2 className="w-3 h-3" /> Discard
+                        </button>
+                      </div>
+                    </div>
+                  ))
+              )}
+              {isOnline && pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => !syncing && syncNow(businessId)}
+                  disabled={syncing}
+                  className="w-full text-center text-[11px] font-bold text-amber-700 hover:text-amber-800 py-1 disabled:opacity-50"
+                >
+                  {syncing ? 'Syncing…' : 'Sync all now'}
+                </button>
+              )}
+            </div>
           )}
         </div>
         {notifOpen && (

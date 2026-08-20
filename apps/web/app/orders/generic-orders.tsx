@@ -135,6 +135,10 @@ export function GenericOrders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'NEW' | 'UNPAID' | 'PAID'>('ALL');
   const enqueueOrder = useOfflineStore((s) => s.enqueueOrder);
+  const outboxItems = useOfflineStore((s) => s.items);
+  const retryOutboxItem = useOfflineStore((s) => s.retryItem);
+  const discardOutboxItem = useOfflineStore((s) => s.discardItem);
+  const isOnline = useOfflineStore((s) => s.isOnline);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setShowForm(true);
@@ -754,6 +758,7 @@ export function GenericOrders() {
   // outbox uuid, not a real order id, so payment/edit/invoice/delete/return
   // actions (which PATCH/DELETE by id) would just 404 against the server.
   const isUnsyncedOrder = drawerOrder?.status === 'queued' || drawerOrder?.status === 'sync_failed';
+  const drawerOutboxItem = isUnsyncedOrder ? outboxItems.find((i) => i.id === drawerOrder!.id) : undefined;
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'ALL' && orderBucket(o.status) !== statusFilter) return false;
@@ -1277,11 +1282,37 @@ export function GenericOrders() {
             {/* Footer actions */}
             <div className="shrink-0 px-5 py-4 border-t border-white/40 space-y-2 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {isUnsyncedOrder ? (
-                <p className="text-xs text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-2xl px-4 py-3 text-center font-medium">
-                  {drawerOrder.status === 'sync_failed'
-                    ? "Sync failed — check the sidebar's sync status for details, or try again once you're back online."
-                    : "This sale hasn't synced yet — payment, editing, invoicing, and returns unlock once it syncs automatically."}
-                </p>
+                <div className="rounded-2xl px-4 py-3 bg-amber-500/10 ring-1 ring-amber-500/20 space-y-2">
+                  <p className="text-xs text-amber-700 text-center font-medium">
+                    {drawerOrder.status === 'sync_failed'
+                      ? "Sync failed — payment, editing, invoicing, and returns unlock once it syncs."
+                      : "This sale hasn't synced yet — payment, editing, invoicing, and returns unlock once it syncs automatically."}
+                  </p>
+                  {drawerOrder.status === 'sync_failed' && drawerOutboxItem?.error && (
+                    <p className="text-xs text-rose-600 text-center">{drawerOutboxItem.error}</p>
+                  )}
+                  <div className="flex items-center justify-center gap-2">
+                    {drawerOrder.status === 'sync_failed' && (
+                      <Button
+                        onClick={() => businessId && retryOutboxItem(businessId, drawerOrder.id)}
+                        disabled={!isOnline}
+                        className="h-9 px-4 bg-sky-600 hover:bg-sky-700 text-white text-xs"
+                      >
+                        Retry sync
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => {
+                        if (!businessId) return;
+                        discardOutboxItem(businessId, drawerOrder.id);
+                        setDrawerOrder(null);
+                      }}
+                      className="h-9 px-4 bg-white/60 hover:bg-white/80 text-rose-600 text-xs ring-1 ring-rose-200"
+                    >
+                      Discard this sale
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
               {/* Mark as Paid */}

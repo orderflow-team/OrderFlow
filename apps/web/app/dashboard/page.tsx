@@ -187,6 +187,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [stale, setStale] = useState(false);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [showSeedConfirm, setShowSeedConfirm] = useState(false);
@@ -224,6 +225,7 @@ export default function DashboardPage() {
         params: { businessId: bizId },
       });
       setData(response.data);
+      setStale(false);
       setCached(bizId, 'dashboard', response.data);
     } catch (err: any) {
       // Offline/flaky-network fallback, same pattern as the New Order screen —
@@ -234,6 +236,7 @@ export default function DashboardPage() {
       const cached = await getCached<DashboardData>(bizId, 'dashboard');
       if (cached) {
         setData(cached);
+        setStale(true);
       } else {
         router.push('/');
       }
@@ -248,6 +251,7 @@ export default function DashboardPage() {
         params: { businessId: bizId },
       });
       setData(response.data);
+      setStale(false);
     } catch (err) {
       console.error('Silent dashboard refresh failed', err);
     }
@@ -336,6 +340,12 @@ export default function DashboardPage() {
     <>
     <AppShell>
       <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
+        {stale && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl px-3 py-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            You&apos;re offline — showing the last data loaded. Numbers may be out of date.
+          </p>
+        )}
         <PageHeader
           title="Dashboard"
           description="Here's what's happening with your business today."

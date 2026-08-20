@@ -5,6 +5,7 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { isNetworkError } from '@/lib/offline-store';
 import { getCachedBusinessCategory, getCachedInventoryEnabled } from '@/lib/auth';
 import { ReportTabBar } from './report-tab-bar';
 import { PeriodSelector } from './period-selector';
@@ -34,6 +35,7 @@ export default function ReportsPage() {
   const [outstanding, setOutstanding] = useState<OutstandingCustomer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [days, setDays] = useState(30);
 
@@ -46,8 +48,18 @@ export default function ReportsPage() {
       .then(([analyticsRes, outstandingRes]) => {
         setAnalytics(analyticsRes.data);
         setOutstanding(outstandingRes.data);
+        setError('');
+        setOffline(false);
       })
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load reports'))
+      .catch((err) => {
+        if (isNetworkError(err)) {
+          setOffline(true);
+          setError("You're offline — analytics need a connection to load.");
+        } else {
+          setOffline(false);
+          setError(err.response?.data?.message || 'Failed to load reports');
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -78,7 +90,9 @@ export default function ReportsPage() {
           <PeriodSelector days={days} onChange={setDays} />
         </div>
 
-        {error && <p className="text-sm text-rose-600">{error}</p>}
+        {error && (
+          <p className={`text-sm ${offline ? 'text-amber-700' : 'text-rose-600'}`}>{error}</p>
+        )}
         {loading ? (
           <p className="text-sm text-slate-400">Loading...</p>
         ) : (

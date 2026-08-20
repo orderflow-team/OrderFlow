@@ -5,11 +5,12 @@ import {
   enqueueOutboxItem,
   listOutbox,
   updateOutboxItem,
+  deleteOutboxItem,
   type OutboxItem,
 } from '@/lib/offline-db';
 
 /** True when an axios error has no `response` — i.e. the request never reached the server (offline, DNS, timeout). */
-function isNetworkError(err: any): boolean {
+export function isNetworkError(err: any): boolean {
   return !err?.response;
 }
 
@@ -27,6 +28,10 @@ interface OfflineState {
     localOrderId?: string,
   ) => Promise<OutboxItem>;
   syncNow: (businessId: string) => Promise<void>;
+  /** Removes a queued/failed item permanently — e.g. a sale the user has given up on retrying. Also drops any queued payment that depended on a discarded order, since it can never resolve. */
+  discardItem: (businessId: string, id: string) => Promise<void>;
+  /** Clears a failed item's error and re-runs the sync pass, which will pick it back up. */
+  retryItem: (businessId: string, id: string) => Promise<void>;
 }
 
 export const useOfflineStore = create<OfflineState>((set, get) => ({
@@ -126,6 +131,22 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
       set({ syncing: false });
       await get().refresh(businessId);
     }
+  },
+
+  discardItem: async (businessId: string, id: string) => {
+    const items = await listOutbox(businessId);
+    const dependents = items.filter((i) => i.type === 'payment' && i.dependsOnLocalOrderId === id);
+    await Promise.all([id, ...dependents.map((d) => d.id)].map((itemId) => deleteOutboxItem(itemId)));
+    await get().refresh(businessId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('order-updated'));
+    }
+  },
+
+  retryItem: async (businessId: string, id: string) => {
+    await updateOutboxItem(id, { status: 'pending', error: undefined });
+    await get().refresh(businessId);
+    await get().syncNow(businessId);
   },
 }));
 

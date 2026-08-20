@@ -128,6 +128,11 @@ export async function updateOutboxItem(id: string, patch: Partial<OutboxItem>): 
   await db.put(OUTBOX_STORE, { ...existing, ...patch });
 }
 
+export async function deleteOutboxItem(id: string): Promise<void> {
+  const db = await getDb();
+  await db.delete(OUTBOX_STORE, id);
+}
+
 export async function pendingOutboxCount(businessId?: string): Promise<number> {
   const items = await listOutbox(businessId);
   return items.filter((i) => i.status === 'pending' || i.status === 'failed').length;
