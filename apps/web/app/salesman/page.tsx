@@ -361,7 +361,7 @@ export default function SalesmanPage() {
           action={
             !isSalesmanRole && (
               <div className="flex gap-2">
-                {businessId && <ClearModuleButton module="salesman" businessId={businessId} />}
+                {businessId && <ClearModuleButton module="salesman" businessId={businessId} onCleared={() => load(businessId)} />}
                 <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
                   {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                   {showForm ? 'Cancel' : 'Add Salesman'}

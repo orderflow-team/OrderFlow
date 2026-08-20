@@ -433,7 +433,7 @@ function CustomersPageContent() {
               className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-sky-fg/40"
             />
           </div>
-          {businessId && <ClearModuleButton module="customers" businessId={businessId} />}
+          {businessId && <ClearModuleButton module="customers" businessId={businessId} onCleared={() => load(businessId)} />}
         </div>
 
         {businessId && <BusinessConnectionsPanel businessId={businessId} role="wholesaler" />}

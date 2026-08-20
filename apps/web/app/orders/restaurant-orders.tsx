@@ -700,7 +700,7 @@ function RestaurantPageContent() {
               >
                 <History className="w-4 h-4" /> History
               </Button>
-              {businessId && <ClearModuleButton module="restaurant" businessId={businessId} />}
+              {businessId && <ClearModuleButton module="restaurant" businessId={businessId} onCleared={() => loadTables(businessId)} />}
             </div>
           </div>
 

@@ -823,7 +823,7 @@ export function GenericOrders() {
               {f}
             </button>
           ))}
-          {businessId && <ClearModuleButton module="orders" businessId={businessId} />}
+          {businessId && <ClearModuleButton module="orders" businessId={businessId} onCleared={() => load(businessId)} />}
         </div>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}

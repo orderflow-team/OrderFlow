@@ -118,7 +118,7 @@ export default function InventoryPage() {
         <PageHeader
           title="Inventory"
           description="Suppliers, purchase orders, and stock levels."
-          action={businessId && <ClearModuleButton module="inventory" businessId={businessId} />}
+          action={businessId && <ClearModuleButton module="inventory" businessId={businessId} onCleared={() => load(businessId)} />}
         />
 
         {error && <p className="text-sm text-rose-600">{error}</p>}

@@ -215,7 +215,7 @@ export function StandardBilling() {
         <PageHeader
           title="Billing"
           description="Generate invoices from orders and record payments."
-          action={businessId && <ClearModuleButton module="billing" businessId={businessId} />}
+          action={businessId && <ClearModuleButton module="billing" businessId={businessId} onCleared={() => load(businessId)} />}
         />
 
         {error && <p className="text-sm text-rose-600">{error}</p>}

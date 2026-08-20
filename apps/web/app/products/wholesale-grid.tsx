@@ -388,7 +388,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
           <Button type="button" variant="outline" className="h-11 gap-1.5 shrink-0" onClick={() => setShowCategoryForm(true)}>
             <FolderPlus className="h-4 w-4" /> Add Category
           </Button>
-          {businessId && <ClearModuleButton module="products" businessId={businessId} />}
+          {businessId && <ClearModuleButton module="products" businessId={businessId} onCleared={loadData} />}
         </div>
 
         {/* Category Pills */}
