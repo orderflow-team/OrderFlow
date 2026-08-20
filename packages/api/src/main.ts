@@ -11,6 +11,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Needed for PdfService's onModuleDestroy to actually run on SIGTERM
+  // (Render sends this on every redeploy/restart) — without this, Nest
+  // doesn't call lifecycle destroy hooks on process signals, and the shared
+  // Puppeteer browser (see pdf.service.ts) would leak as an orphaned process.
+  app.enableShutdownHooks();
 
   app.enableCors({
     origin: true,

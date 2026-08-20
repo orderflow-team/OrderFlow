@@ -1,4 +1,5 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
+import type { Browser } from 'puppeteer';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
@@ -33,8 +34,49 @@ function loadLogoDataUri(business: Business | null): string | null {
 }
 
 @Injectable()
-export class PdfService {
+export class PdfService implements OnModuleDestroy {
   private readonly logger = new Logger(PdfService.name);
+  // Launching headless Chromium is the expensive part of PDF generation
+  // (multiple seconds on a resource-constrained host) — opening a page in an
+  // already-running browser is cheap. Previously every single invoice PDF
+  // paid the full launch cost because the browser was created and closed per
+  // request; now one browser is kept alive for the process's lifetime and
+  // reused across requests.
+  private browserPromise: Promise<Browser> | null = null;
+
+  private async getBrowser(): Promise<Browser> {
+    if (!this.browserPromise) {
+      const puppeteer = await import('puppeteer');
+      this.browserPromise = puppeteer
+        .launch({
+          headless: true,
+          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+          timeout: 20_000,
+        })
+        .then((browser) => {
+          // If Chromium crashes (e.g. OOM on a constrained host), drop the
+          // cached instance so the next request launches a fresh one instead
+          // of retrying against a dead browser forever.
+          browser.on('disconnected', () => {
+            this.browserPromise = null;
+          });
+          return browser;
+        })
+        .catch((error) => {
+          this.browserPromise = null;
+          throw error;
+        });
+    }
+    return this.browserPromise;
+  }
+
+  async onModuleDestroy() {
+    if (this.browserPromise) {
+      const browser = await this.browserPromise.catch(() => null);
+      await browser?.close();
+    }
+  }
 
   constructor(
     @InjectRepository(Invoice) private invoicesRepository: Repository<Invoice>,
@@ -90,15 +132,9 @@ export class PdfService {
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-    const puppeteer = await import('puppeteer');
-    let browser: Awaited<ReturnType<typeof puppeteer.launch>>;
+    let browser: Browser;
     try {
-      browser = await puppeteer.launch({
-        headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        timeout: 20_000,
-      });
+      browser = await this.getBrowser();
     } catch (error: any) {
       // The one place this previously failed loudest and most often — Chromium
       // missing/mismatched on the host (see the Dockerfile's Alpine-native
@@ -108,8 +144,8 @@ export class PdfService {
       throw new InternalServerErrorException('Could not generate the invoice PDF (PDF renderer unavailable).');
     }
 
+    const page = await browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
       const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true, timeout: 20_000 });
       fs.writeFileSync(filePath, pdfBuffer);
@@ -117,7 +153,9 @@ export class PdfService {
       this.logger.error(`PDF render/write failed for invoice ${invoice.invoice_number}: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Could not generate the invoice PDF.');
     } finally {
-      await browser.close();
+      // Only the page, not the browser — the browser is shared and stays
+      // alive for the next request (see getBrowser()).
+      await page.close();
     }
 
     invoice.pdf_url = `/uploads/invoices/${filenameStem}.pdf`;
