@@ -22,6 +22,10 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type,Accept,Authorization,X-Requested-With',
+    // Browsers hide all response headers from JS by default except a small
+    // "safe" set — X-Total-Count (see orders.controller.ts's paginated
+    // findAll) needs to be explicitly opted in or it's just invisible.
+    exposedHeaders: 'X-Total-Count',
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('');

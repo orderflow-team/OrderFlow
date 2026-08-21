@@ -851,7 +851,29 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(businessId: string, status?: string, customerId?: string) {
+  /**
+   * limit/offset are optional — most callers (customer order history,
+   * restaurant floor view, salesman lookups) omit them and get the old
+   * unbounded behavior, since those lists are naturally small. Only the main
+   * Orders page paginates, because that's the one whose result set actually
+   * grows unbounded over the life of a business (one account hit 199 orders
+   * and counting).
+   *
+   * Deliberately two queries instead of one `find()` with `relations: {
+   * items: true }` and `take`/`skip` — TypeORM's LIMIT applies to the joined
+   * row count, not the order count, when a one-to-many relation (items) is
+   * eagerly joined, so pagination silently corrupts (an order can get split
+   * across pages, or fewer orders than `limit` come back). Paginating on
+   * orders alone (only to-one relations joined) and batch-fetching items
+   * for just that page's order IDs afterward avoids that entirely.
+   */
+  async findAll(
+    businessId: string,
+    status?: string,
+    customerId?: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<{ orders: any[]; total: number }> {
     const where: Record<string, any> = { business_id: businessId };
     if (status) {
       where.status = status;
@@ -859,12 +881,31 @@ export class OrdersService {
     if (customerId) {
       where.customer_id = customerId;
     }
-    const orders = await this.ordersRepository.find({
+    const [orders, total] = await this.ordersRepository.findAndCount({
       where,
-      relations: { table: true, items: { product: true }, created_by: true },
-      order: { created_at: 'DESC' }
+      relations: { table: true, created_by: true },
+      order: { created_at: 'DESC' },
+      take: limit,
+      skip: offset,
     });
-    return orders.map((o) => this.sanitizeCreatedBy(o));
+
+    if (orders.length > 0) {
+      const items = await this.orderItemsRepository.find({
+        where: { order_id: In(orders.map((o) => o.id)) },
+        relations: { product: true },
+      });
+      const itemsByOrderId = new Map<string, typeof items>();
+      for (const item of items) {
+        const list = itemsByOrderId.get(item.order_id);
+        if (list) list.push(item);
+        else itemsByOrderId.set(item.order_id, [item]);
+      }
+      for (const order of orders) {
+        (order as any).items = itemsByOrderId.get(order.id) ?? [];
+      }
+    }
+
+    return { orders: orders.map((o) => this.sanitizeCreatedBy(o)), total };
   }
 
   async findOne(id: string, businessId: string) {

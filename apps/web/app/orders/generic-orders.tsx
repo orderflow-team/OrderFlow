@@ -56,6 +56,11 @@ interface Order {
 }
 
 const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'paid', 'returned', 'cancelled'];
+// A business's order history grows unbounded over time (one account has
+// 199+ orders and counting) — fetching and rendering all of it up front was
+// the actual cause of "Orders page loading feels slow," especially over a
+// weak connection. Load a page at a time instead.
+const ORDERS_PAGE_SIZE = 50;
 
 const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   draft:      { color: 'bg-orange-500/10 text-orange-700 ring-1 ring-orange-500/20',  icon: Clock },
@@ -126,6 +131,15 @@ export function GenericOrders() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
+  // Only the synced (server) portion of `orders` is paginated — queued
+  // offline orders are always prepended on top regardless (see
+  // withQueuedOrders) and aren't counted here.
+  const [totalOrders, setTotalOrders] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Tracks the offset for "Load more" — the count of *synced* orders fetched
+  // so far, separate from orders.length since that also includes queued
+  // offline orders prepended on top (see withQueuedOrders).
+  const [syncedOrdersLoaded, setSyncedOrdersLoaded] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,7 +214,7 @@ export function GenericOrders() {
     if (!silent) setLoading(true);
     try {
       const [ordersRes, customersRes, productsRes] = await Promise.all([
-        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
+        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId, limit: ORDERS_PAGE_SIZE, offset: 0 } }),
         apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/products', { params: { businessId: bizId } }),
       ]);
@@ -209,6 +223,9 @@ export function GenericOrders() {
       setOrders(await withQueuedOrders(bizId, ordersRes.data));
       setCustomers(customersRes.data);
       setProducts(productsRes.data);
+      const totalHeader = ordersRes.headers['x-total-count'];
+      setTotalOrders(totalHeader ? Number(totalHeader) : ordersRes.data.length);
+      setSyncedOrdersLoaded(ordersRes.data.length);
 
       setDrawerOrder((currentDrawer) => {
         if (!currentDrawer) return null;
@@ -230,12 +247,32 @@ export function GenericOrders() {
         if (cachedOrders || cachedCustomers) {
           setOrders(await withQueuedOrders(bizId, cachedOrders || []));
           setCustomers(cachedCustomers || []);
+          // Cached from a previous paginated fetch — no way to know the real
+          // total offline, so just hide "Load more" rather than show a
+          // count that can't actually be paged through right now.
+          setTotalOrders(cachedOrders?.length ?? 0);
           return;
         }
       }
       setError(err.response?.data?.message || 'Failed to load orders');
     } finally {
       if (!silent) setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!businessId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Order[]>('/api/orders', {
+        params: { businessId, limit: ORDERS_PAGE_SIZE, offset: syncedOrdersLoaded },
+      });
+      setOrders((prev) => [...prev, ...res.data]);
+      setSyncedOrdersLoaded((prev) => prev + res.data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load more orders');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -925,6 +962,15 @@ export function GenericOrders() {
                 </div>
               );
             })}
+            {totalOrders !== null && syncedOrdersLoaded < totalOrders && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : `Load more (${totalOrders - syncedOrdersLoaded} older)`}
+              </button>
+            )}
           </div>
         )}
       </div>

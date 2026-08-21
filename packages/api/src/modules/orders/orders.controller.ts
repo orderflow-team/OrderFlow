@@ -85,12 +85,26 @@ export class OrdersController {
   }
 
   @Get()
-  findAll(
+  async findAll(
     @Query('businessId') businessId: string,
     @Query('status') status?: string,
     @Query('customerId') customerId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
-    return this.ordersService.findAll(businessId, status, customerId);
+    const { orders, total } = await this.ordersService.findAll(
+      businessId,
+      status,
+      customerId,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
+    // Total goes in a header, not the body — the body stays a plain array so
+    // every existing caller that doesn't pass limit/offset (most of them;
+    // see orders.service.ts's findAll) keeps working unchanged.
+    res?.setHeader('X-Total-Count', String(total));
+    return orders;
   }
 
   // Static routes MUST come before @Get(':id') or NestJS will match them as the id param
