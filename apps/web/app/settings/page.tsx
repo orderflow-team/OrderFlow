@@ -84,6 +84,15 @@ export default function SettingsPage() {
   // (showLogoOnReceipt, paperSize, etc.) — businesses.service.ts replaces
   // custom_settings wholesale, not a deep merge.
   const [customSettings, setCustomSettings] = useState<Record<string, any> | null>(null);
+  // Which line-item columns each invoice/receipt format prints. Item name and
+  // Amount aren't included — every format's totals row is laid out assuming
+  // those two always appear, so they're not optional. Defaults to everything
+  // on, matching current behavior for any business that hasn't touched this.
+  const [invoiceColumns, setInvoiceColumns] = useState({
+    gstInvoice: { hsn: true, qty: true, mrp: true, price: true, gst: true },
+    cashMemo: { qty: true, batch: true, expiry: true },
+    a4Receipt: { hsn: true, unit: true, price: true },
+  });
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState('');
   const [upiQrUploading, setUpiQrUploading] = useState(false);
@@ -156,6 +165,12 @@ export default function SettingsPage() {
           allowOrdersBeyondStock: res.data.allow_orders_beyond_stock !== false,
         });
         setCustomSettings(res.data.custom_settings || null);
+        const savedCols = res.data.custom_settings?.invoiceColumns;
+        setInvoiceColumns({
+          gstInvoice: { hsn: true, qty: true, mrp: true, price: true, gst: true, ...savedCols?.gstInvoice },
+          cashMemo: { qty: true, batch: true, expiry: true, ...savedCols?.cashMemo },
+          a4Receipt: { hsn: true, unit: true, price: true, ...savedCols?.a4Receipt },
+        });
         setNotificationPrefs(res.data.notification_preferences || {});
         setSupportCategory(res.data.category || 'others');
         if (!res.data.phone) setProfileExpanded(true); // required field missing — don't make it hunt for the section
@@ -194,6 +209,7 @@ export default function SettingsPage() {
             termsAndConditions: form.termsAndConditions || undefined,
             paperSize: form.paperSize,
           },
+          invoiceColumns,
         },
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
@@ -566,6 +582,64 @@ export default function SettingsPage() {
                     className="w-full rounded-2xl border border-transparent bg-white/35 backdrop-blur-md px-4 py-2.5 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/70 resize-y"
                     placeholder="e.g. Goods once sold will not be taken back or exchanged."
                   />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Invoice Columns</label>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Choose which columns print on each format. Item name and Amount always show — every format's totals row is laid out around those two. Removing HSN or GST columns from the GST Invoice may affect its GST compliance.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-600 mb-1.5">GST Invoice</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        {([['hsn', 'HSN'], ['qty', 'Qty'], ['mrp', 'MRP'], ['price', 'Price'], ['gst', 'GST']] as const).map(([key, label]) => (
+                          <label key={key} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={invoiceColumns.gstInvoice[key]}
+                              onChange={(e) => setInvoiceColumns({ ...invoiceColumns, gstInvoice: { ...invoiceColumns.gstInvoice, [key]: e.target.checked } })}
+                              className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {form.category === 'pharmacy' && (
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-600 mb-1.5">Pharmacy Cash Memo</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                          {([['qty', 'Qty'], ['batch', 'Batch'], ['expiry', 'Exp. Date']] as const).map(([key, label]) => (
+                            <label key={key} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={invoiceColumns.cashMemo[key]}
+                                onChange={(e) => setInvoiceColumns({ ...invoiceColumns, cashMemo: { ...invoiceColumns.cashMemo, [key]: e.target.checked } })}
+                                className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              {label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-600 mb-1.5">A4 Receipt</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        {([['hsn', 'HSN'], ['unit', 'Unit'], ['price', 'Price/unit']] as const).map(([key, label]) => (
+                          <label key={key} className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={invoiceColumns.a4Receipt[key]}
+                              onChange={(e) => setInvoiceColumns({ ...invoiceColumns, a4Receipt: { ...invoiceColumns.a4Receipt, [key]: e.target.checked } })}
+                              className="w-3.5 h-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 {form.category === 'pharmacy' && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

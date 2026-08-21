@@ -9,6 +9,37 @@ function money(n: number | string) {
 }
 
 /**
+ * Per-template column visibility, set from Settings and stored at
+ * business.custom_settings.invoiceColumns. Item name and Amount are never
+ * included here — every template's totals row (colspan tricks in the cash
+ * memo, the <tfoot> in the A4 receipt) is built assuming those two are
+ * always present, so making them optional would mean rebuilding the totals
+ * layout around whichever columns happen to be left, not just hiding a
+ * <th>. Everything else a business might reasonably not need (HSN, MRP,
+ * per-unit price, the GST breakdown, batch/expiry) is toggleable. Every key
+ * defaults to visible so an existing business with no saved preference here
+ * sees no change at all.
+ */
+export interface GstInvoiceColumns {
+  hsn?: boolean;
+  qty?: boolean;
+  mrp?: boolean;
+  price?: boolean;
+  gst?: boolean;
+}
+export interface CashMemoColumns {
+  qty?: boolean;
+  batch?: boolean;
+  expiry?: boolean;
+}
+export interface A4ReceiptColumns {
+  hsn?: boolean;
+  unit?: boolean;
+  price?: boolean;
+}
+const shown = (v: boolean | undefined) => v !== false;
+
+/**
  * Product/customer/business names are free text entered by staff — escape
  * before interpolating into HTML. These templates are rendered both via
  * Puppeteer (PDF) and, for the thermal receipt, directly in the cashier's
@@ -93,12 +124,20 @@ export function renderInvoiceHtml(
   logoDataUri: string | null = null,
   previousBalanceDue = 0,
   referenceInvoiceNumber: string | null = null,
+  columns?: GstInvoiceColumns,
 ) {
   const isCreditNote = invoice.type === 'credit_note';
   const timeZone = tz(business);
-  const hasMrp = items.some((item) => item.product?.mrp != null);
+  const showHsn = shown(columns?.hsn);
+  const showQty = shown(columns?.qty);
+  const showPrice = shown(columns?.price);
+  const showGst = shown(columns?.gst);
+  // MRP still only appears when there's actually MRP data to show, same as
+  // before — the setting can additionally hide it, but can't force it to
+  // appear for items that don't have one.
+  const showMrp = shown(columns?.mrp) && items.some((item) => item.product?.mrp != null);
   const interState = isInterStateSale(business, customer);
-  const gstHeaderCells = interState
+  const gstHeaderCells = !showGst ? '' : interState
     ? '<th class="num">IGST</th>'
     : '<th class="num">CGST</th><th class="num">SGST</th>';
   const rows = items
@@ -107,18 +146,21 @@ export function renderInvoiceHtml(
       const detailsHtml = details.length
         ? `<div class="muted" style="font-size:11px;margin-top:2px;">${details.join('&nbsp;&nbsp;•&nbsp;&nbsp;')}</div>`
         : '';
-      const mrpCell = hasMrp ? `<td class="num">${item.product?.mrp != null ? `₹${money(item.product.mrp)}` : '-'}</td>` : '';
+      const hsnCell = showHsn ? `<td>${escapeHtml(item.product?.hsn_code ?? '')}</td>` : '';
+      const qtyCell = showQty ? `<td class="num">${money(item.quantity)}</td>` : '';
+      const mrpCell = showMrp ? `<td class="num">${item.product?.mrp != null ? `₹${money(item.product.mrp)}` : '-'}</td>` : '';
+      const priceCell = showPrice ? `<td class="num">₹${money(item.unit_price)}</td>` : '';
       const itemGst = splitGst(Number(item.tax_amount), interState);
-      const gstCells = interState
+      const gstCells = !showGst ? '' : interState
         ? `<td class="num">${money(item.tax_percentage)}%<br/>₹${money(itemGst.igst)}</td>`
         : `<td class="num">${money(Number(item.tax_percentage) / 2)}%<br/>₹${money(itemGst.cgst)}</td><td class="num">${money(Number(item.tax_percentage) / 2)}%<br/>₹${money(itemGst.sgst)}</td>`;
       return `
         <tr>
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}${detailsHtml}</td>
-          <td>${escapeHtml(item.product?.hsn_code ?? '')}</td>
-          <td class="num">${money(item.quantity)}</td>
+          ${hsnCell}
+          ${qtyCell}
           ${mrpCell}
-          <td class="num">₹${money(item.unit_price)}</td>
+          ${priceCell}
           ${gstCells}
           <td class="num">₹${money(item.subtotal)}</td>
         </tr>`;
@@ -173,13 +215,13 @@ export function renderInvoiceHtml(
 
   <table>
     <thead>
-      <tr><th>Item</th><th>HSN</th><th class="num">Qty</th>${hasMrp ? '<th class="num">MRP</th>' : ''}<th class="num">Price</th>${gstHeaderCells}<th class="num">Amount</th></tr>
+      <tr><th>Item</th>${showHsn ? '<th>HSN</th>' : ''}${showQty ? '<th class="num">Qty</th>' : ''}${showMrp ? '<th class="num">MRP</th>' : ''}${showPrice ? '<th class="num">Price</th>' : ''}${gstHeaderCells}<th class="num">Amount</th></tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
 
   <div class="totals">
-    ${(() => {
+    ${!showGst ? '' : (() => {
       const totalGst = splitGst(Number(invoice.tax_amount), interState);
       return interState
         ? `<div><span>IGST</span><span>₹${money(totalGst.igst)}</span></div>`
@@ -216,9 +258,18 @@ export function renderPharmacyCashMemoHtml(
   logoDataUri: string | null = null,
   previousBalanceDue = 0,
   referenceInvoiceNumber: string | null = null,
+  columns?: CashMemoColumns,
 ) {
   const isCreditNote = invoice.type === 'credit_note';
   const timeZone = tz(business);
+  const showQty = shown(columns?.qty);
+  const showBatch = shown(columns?.batch);
+  const showExpiry = shown(columns?.expiry);
+  // Particulars (item name) is always one of these; the amount split (Rs./P.)
+  // is separate and always shown. This count is how many leading columns the
+  // summary/total rows below need to span, since those rows don't have their
+  // own Qty/Particulars/Batch/Exp. Dt cells — see colspan={leadingColSpan}.
+  const leadingColSpan = 1 + (showQty ? 1 : 0) + (showBatch ? 1 : 0) + (showExpiry ? 1 : 0);
   const rows = items
     .map((item) => {
       const p = item.product;
@@ -228,10 +279,10 @@ export function renderPharmacyCashMemoHtml(
       const { rupees, paise } = splitRupeesPaise(item.subtotal);
       return `
         <tr>
-          <td class="num">${money(item.quantity)}</td>
+          ${showQty ? `<td class="num">${money(item.quantity)}</td>` : ''}
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}</td>
-          <td>${escapeHtml(p?.batch_number ?? '')}</td>
-          <td>${expiry}</td>
+          ${showBatch ? `<td>${escapeHtml(p?.batch_number ?? '')}</td>` : ''}
+          ${showExpiry ? `<td>${expiry}</td>` : ''}
           <td class="num rs">${rupees}</td>
           <td class="num ps">${paise}</td>
         </tr>`;
@@ -341,14 +392,14 @@ export function renderPharmacyCashMemoHtml(
     <table>
       <thead>
         <tr>
-          <th class="num">Qty</th>
+          ${showQty ? '<th class="num">Qty</th>' : ''}
           <th>Particulars</th>
-          <th>Batch</th>
-          <th>Exp. Dt</th>
+          ${showBatch ? '<th>Batch</th>' : ''}
+          ${showExpiry ? '<th>Exp. Dt</th>' : ''}
           <th class="num" colspan="2">Amount</th>
         </tr>
         <tr>
-          <th colspan="4"></th>
+          <th colspan="${leadingColSpan}"></th>
           <th class="num rs">Rs.</th>
           <th class="ps">P.</th>
         </tr>
@@ -356,28 +407,28 @@ export function renderPharmacyCashMemoHtml(
       <tbody>
         ${rows}
         <tr class="summary-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">Subtotal ₹${subtotalRupees}</td>
           <td class="ps">${subtotalPaise}</td>
         </tr>
         ${interState ? `
         <tr class="summary-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">IGST ₹${igstRupees}</td>
           <td class="ps">${igstPaise}</td>
         </tr>` : `
         <tr class="summary-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">CGST ₹${cgstRupees}</td>
           <td class="ps">${cgstPaise}</td>
         </tr>
         <tr class="summary-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">SGST ₹${sgstRupees}</td>
           <td class="ps">${sgstPaise}</td>
         </tr>`}
         <tr class="${!isCreditNote && previousBalanceDue > 0.01 ? 'summary-row' : 'total-row'}">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">${isCreditNote ? 'Amount Credited' : previousBalanceDue > 0.01 ? 'This Memo' : 'Total'} ₹${totalRupees}</td>
           <td class="ps">${totalPaise}</td>
         </tr>
@@ -386,12 +437,12 @@ export function renderPharmacyCashMemoHtml(
           const { rupees: dueRupees, paise: duePaise } = splitRupeesPaise(Number(invoice.total_amount) + previousBalanceDue);
           return `
         <tr class="summary-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">Previous Balance ₹${prevRupees}</td>
           <td class="ps">${prevPaise}</td>
         </tr>
         <tr class="total-row">
-          <td colspan="4"></td>
+          <td colspan="${leadingColSpan}"></td>
           <td class="num rs">Total Due ₹${dueRupees}</td>
           <td class="ps">${duePaise}</td>
         </tr>`;
@@ -427,20 +478,24 @@ export function renderA4ReceiptHtml(
   receivedAmount = 0,
   logoDataUri: string | null = null,
   upiQrDataUri: string | null = null,
+  columns?: A4ReceiptColumns,
 ) {
   const timeZone = tz(business);
   const showUpiQr = !!upiQrDataUri && business?.custom_settings?.receipt?.showUpiQrCode !== false;
   const termsAndConditions = business?.custom_settings?.receipt?.termsAndConditions as string | undefined;
+  const showHsn = shown(columns?.hsn);
+  const showUnit = shown(columns?.unit);
+  const showPrice = shown(columns?.price);
 
   const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity), 0);
   const rows = items
     .map((item) => `
         <tr>
           <td>${escapeHtml(item.product?.name ?? item.custom_product_name ?? '-')}</td>
-          <td>${escapeHtml(item.product?.hsn_code ?? '')}</td>
+          ${showHsn ? `<td>${escapeHtml(item.product?.hsn_code ?? '')}</td>` : ''}
           <td class="num">${money(item.quantity)}</td>
-          <td>${escapeHtml((item as any).unit ?? item.product?.unit ?? '-')}</td>
-          <td class="num">₹${money(item.unit_price)}</td>
+          ${showUnit ? `<td>${escapeHtml((item as any).unit ?? item.product?.unit ?? '-')}</td>` : ''}
+          ${showPrice ? `<td class="num">₹${money(item.unit_price)}</td>` : ''}
           <td class="num">₹${money(item.subtotal)}</td>
         </tr>`)
     .join('');
@@ -530,14 +585,14 @@ export function renderA4ReceiptHtml(
 
   <table class="items">
     <colgroup>
-      <col style="width:24%"><col style="width:18%"><col style="width:12%"><col style="width:10%"><col style="width:16%"><col style="width:20%">
+      <col style="width:24%">${showHsn ? '<col style="width:18%">' : ''}<col style="width:12%">${showUnit ? '<col style="width:10%">' : ''}${showPrice ? '<col style="width:16%">' : ''}<col style="width:20%">
     </colgroup>
     <thead>
-      <tr><th>Item name</th><th>HSN/SAC</th><th class="num">Quantity</th><th>Unit</th><th class="num">Price/unit</th><th class="num">Amount</th></tr>
+      <tr><th>Item name</th>${showHsn ? '<th>HSN/SAC</th>' : ''}<th class="num">Quantity</th>${showUnit ? '<th>Unit</th>' : ''}${showPrice ? '<th class="num">Price/unit</th>' : ''}<th class="num">Amount</th></tr>
     </thead>
     <tbody>${rows}</tbody>
     <tfoot>
-      <tr><td>Total</td><td></td><td class="num">${money(totalQuantity)}</td><td></td><td></td><td class="num">₹${money(totalAmount)}</td></tr>
+      <tr><td>Total</td>${showHsn ? '<td></td>' : ''}<td class="num">${money(totalQuantity)}</td>${showUnit ? '<td></td>' : ''}${showPrice ? '<td></td>' : ''}<td class="num">₹${money(totalAmount)}</td></tr>
     </tfoot>
   </table>
 

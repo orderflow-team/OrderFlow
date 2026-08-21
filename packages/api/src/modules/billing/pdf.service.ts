@@ -12,7 +12,14 @@ import { Customer } from '../../database/entities/customer.entity';
 import { Order } from '../../database/entities/order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { InvoicesService } from './invoices.service';
-import { renderInvoiceHtml, renderPharmacyCashMemoHtml, renderA4ReceiptHtml } from './templates/invoice.template';
+import {
+  renderInvoiceHtml,
+  renderPharmacyCashMemoHtml,
+  renderA4ReceiptHtml,
+  type GstInvoiceColumns,
+  type CashMemoColumns,
+  type A4ReceiptColumns,
+} from './templates/invoice.template';
 import { loadImageDataUri } from '../../common/utils/image-data-uri.util';
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
@@ -126,9 +133,12 @@ export class PdfService implements OnModuleDestroy {
     }
 
     const { items, business, customer, order, previousBalanceDue, referenceInvoiceNumber } = await this.loadInvoiceContext(invoiceId, businessId);
+    const invoiceColumns = business?.custom_settings?.invoiceColumns as
+      | { gstInvoice?: GstInvoiceColumns; cashMemo?: CashMemoColumns; a4Receipt?: A4ReceiptColumns }
+      | undefined;
     const html = business?.category === 'pharmacy'
-      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber)
-      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber);
+      ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber, invoiceColumns?.cashMemo)
+      : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber, invoiceColumns?.gstInvoice);
 
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -171,7 +181,8 @@ export class PdfService implements OnModuleDestroy {
     const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const logoDataUri = loadImageDataUri(business?.logo_url);
     const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
-    return renderA4ReceiptHtml(invoice, items, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
+    const a4Columns = (business?.custom_settings?.invoiceColumns as { a4Receipt?: A4ReceiptColumns } | undefined)?.a4Receipt;
+    return renderA4ReceiptHtml(invoice, items, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri, a4Columns);
   }
 
   /**

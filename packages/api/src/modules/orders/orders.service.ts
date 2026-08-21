@@ -1676,6 +1676,7 @@ export class OrdersService {
     const receivedAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const logoDataUri = loadImageDataUri(business?.logo_url);
     const upiQrDataUri = loadImageDataUri(business?.upi_qr_url);
-    return renderA4ReceiptHtml(dummyInvoice, mappedItems, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri);
+    const a4Columns = business?.custom_settings?.invoiceColumns?.a4Receipt;
+    return renderA4ReceiptHtml(dummyInvoice, mappedItems, business, customer, order, receivedAmount, logoDataUri, upiQrDataUri, a4Columns);
   }
 }
