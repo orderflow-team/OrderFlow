@@ -134,6 +134,22 @@ export class OrderParserService {
     const contactInfo = existingOrder ? null : this.extractContactInfo(message);
     const itemMessage = contactInfo ? contactInfo.cleanMessage : message;
 
+    // A message that's nothing BUT customer info ("order for Neel 9876543210",
+    // no items at all) leaves nothing for the item parser to work with — handle
+    // it here directly rather than spending a Gemini call (or, if Gemini isn't
+    // configured, failing outright) parsing an empty item message.
+    if (!existingOrder && contactInfo?.customerName && !itemMessage) {
+      await this.ordersService.resolveOrCreateCustomerByContact(businessId, {
+        customerName: contactInfo.customerName,
+        phone: contactInfo.phone || undefined,
+      });
+      const phoneNote = contactInfo.phone ? ` (${contactInfo.phone})` : '';
+      return {
+        reply: `Got it — saved ${contactInfo.customerName}${phoneNote} as the customer. What would you like to order?`,
+        order: null,
+      };
+    }
+
     let parsed: {
       matched: { menuName: string; quantity: number; unit?: string | null }[];
       unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
@@ -318,6 +334,24 @@ export class OrderParserService {
     ];
 
     if (allItems.length === 0) {
+      // A message like "order for Neel 9876543210" with no items mentioned yet
+      // still identifies a customer — save/update that record now (same dedup
+      // logic a real order would use) rather than losing the info because
+      // there's nothing to order. A bare phone with no name is skipped: without
+      // a name, resolveOrCreateCustomerByContact can't create anything new to
+      // report as "saved" (it can only enrich an EXISTING customer's phone).
+      if (contactInfo?.customerName) {
+        await this.ordersService.resolveOrCreateCustomerByContact(businessId, {
+          customerName: contactInfo.customerName,
+          phone: contactInfo.phone || undefined,
+        });
+        const phoneNote = contactInfo.phone ? ` (${contactInfo.phone})` : '';
+        return {
+          reply: `Got it — saved ${contactInfo.customerName}${phoneNote} as the customer. What would you like to order?`,
+          order: null,
+        };
+      }
+
       return {
         reply: `I couldn't match that to anything on the menu. Could you try naming an item directly? Available: ${available.map((p) => p.name).join(', ')}`,
         order: null,
@@ -374,8 +408,30 @@ export class OrderParserService {
   // (e.g. "liters?" before "l") — regex alternation takes the first branch that
   // matches, so "l" alone would otherwise win against "4liter" and strand "iter"
   // in the item name.
+  //
+  // Deliberately excludes "mg"/"milligram" even though every other weight unit is
+  // covered: in this shop's catalog "500mg" almost always denotes a medicine's
+  // dosage baked into the PRODUCT NAME itself (e.g. "Paracetamol 500mg"), not a
+  // bulk quantity someone is ordering. Recognizing it as a unit would strip it out
+  // of the name and break exact catalog matches like "2 paracetamol 500mg" (which
+  // already fast-paths correctly today via a plain name match). Leaving it
+  // unrecognized means that phrase's "500mg" simply stays part of the name, same
+  // as it always has.
   private static readonly UNIT_WORDS =
-    'kilograms?|kg|litres?|liters?|ltrs?|l|grams?|g|ml|pieces?|pcs?|packets?|pkts?|tins?|boxe?s?|bags?|dozens?';
+    // Weight
+    'kilograms?|kilos?|kgs?|grams?|gms?|g|quintals?|qtl|' +
+    // Volume
+    'millilitres?|milliliters?|mls?|litres?|liters?|ltrs?|l|' +
+    // Count / packaging
+    'pieces?|pcs?|pc|packets?|pkts?|packs?|pack|boxe?s?|cartons?|cases?|dozens?|pairs?|sets?|bundles?|bunche?s?|units?|' +
+    // Containers
+    'bags?|sacks?|tins?|cans?|bottles?|jars?|pouche?s?|sachets?|rolls?|tubes?|vials?|strips?|pallets?|' +
+    // Pharmacy
+    'tablets?|tabs?|capsules?|caps?|' +
+    // Restaurant
+    'plates?|' +
+    // Length
+    'metres?|meters?|m|inche?s?|in';
 
   // Words that could otherwise get swept into the leading "<name> order ..."
   // capture below via greedy backtracking — e.g. "Make Neel order 2 rice" should
@@ -383,6 +439,18 @@ export class OrderParserService {
   private static readonly NAME_STOPWORDS = new Set([
     'make', 'create', 'place', 'please', 'order', 'new', 'the', 'a', 'an',
     'this', 'that', 'my', 'quick', 'table', 'kindly', 'hi', 'hello', 'hey',
+  ]);
+
+  // Words that describe HOW/WHEN an order is fulfilled rather than WHO it's
+  // for — only checked by extractContactInfo's relaxed end-of-string name
+  // retry (see allowEndOfString there), where a phone number was found
+  // elsewhere in the message but nothing else anchors the name, e.g.
+  // "9876543210 for pickup" must not save "Pickup" as the customer name.
+  // Not needed by the normal digit-anchored match: "for pickup 2kg rice"
+  // already reads oddly enough as real input that this doesn't try to guard
+  // it too.
+  private static readonly ORDER_CONTEXT_WORDS = new Set([
+    'pickup', 'pick', 'delivery', 'takeaway', 'later', 'now', 'today', 'tomorrow', 'here',
   ]);
 
   // Matched via matchLeadingVerb (exact word, or a close typo/Hinglish match)
@@ -404,50 +472,133 @@ export class OrderParserService {
     six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, dozen: 12,
   };
 
+  // Matches a phone number in any of the forms a customer might type it: a
+  // plain 10-digit run, optionally preceded by a "+91"/"91" country code or a
+  // leading trunk "0", with the 10 digits themselves optionally split 5+5 by
+  // a single space or dash (the way Indian mobile numbers are usually
+  // displayed) — e.g. "9876543210", "+91 98765 43210", "91-9876543210",
+  // "098765-43210". The leading-zero/country-code branches deliberately don't
+  // support a SECOND split (e.g. "0-98765-43210" fails to match the "0"
+  // branch's core cleanly since core is right below) — kept simple since that
+  // combination is not how anyone actually writes a number. Wrap this in
+  // `(?<!\d)...(?!\d)` when matching standalone (see extractPhoneCandidate)
+  // so it can't grab the tail end of an unrelated longer digit run (an order
+  // ID, a barcode); the embedded use inside "change customer to <phone>"
+  // below doesn't need that guard since the command prefix already anchors it.
+  private static readonly PHONE_CORE = '(?:\\+?91[-\\s]?|0[-\\s]?)?\\d{5}[-\\s]?\\d{5}';
+
   /**
-   * Pulls a customer name and/or 10-digit phone number out of a brand-new chat
-   * order message, e.g. "Neel order 2kg rice 4liter milk" or "make a order for
-   * the neel 3kg rice 9876543210" — deterministically, so this works whether the
-   * item list itself ends up going through the fast path below or falls through
-   * to Gemini. Only fires on two unambiguous shapes ("<name> order ..." leading,
-   * or "for [the] <name> ..." trailing), each immediately followed by a quantity
-   * digit, and a standalone 10-digit run for the phone; anything less clear-cut
-   * is simply left alone (no name/phone captured) rather than guessed — a miss
-   * here just costs a defaulted "Chat Order" name, never a misplaced item.
+   * Strips everything but digits from a PHONE_CORE match and reduces it to
+   * the bare 10-digit form the rest of the app expects (create-customer.dto.ts's
+   * `^\d{10}$` validator, business-connections.service.ts's last-10-digits
+   * match) — un-prefixing a "91" country code or a leading "0" trunk digit.
+   * Returns null if what's left over isn't a clean 10-digit number (should
+   * only happen if PHONE_CORE's own shape is ever loosened without updating
+   * this in lockstep).
+   */
+  private normalizePhoneDigits(raw: string): string | null {
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length === 10) return digits;
+    if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+    if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+    return null;
+  }
+
+  /**
+   * Finds a standalone phone number anywhere in text (not tied to any
+   * particular surrounding command phrase) and normalizes it — used by
+   * extractContactInfo for a brand-new order's "for Neel 9876543210" /
+   * "+91 98765 43210" style contact info. Returns null if nothing phone-shaped
+   * is present.
+   */
+  private extractPhoneCandidate(text: string): { phone: string; index: number; length: number } | null {
+    const match = text.match(new RegExp(`(?<!\\d)(${OrderParserService.PHONE_CORE})(?!\\d)`));
+    if (!match || match.index === undefined) return null;
+    const phone = this.normalizePhoneDigits(match[0]);
+    if (!phone) return null;
+    return { phone, index: match.index, length: match[0].length };
+  }
+
+  /**
+   * Pulls a customer name and/or phone number out of a brand-new chat order
+   * message, e.g. "Neel order 2kg rice 4liter milk", "make a order for the
+   * neel 3kg rice 9876543210", or "9876543210 for Neel" (phone BEFORE the
+   * name) — deterministically, so this works whether the item list itself
+   * ends up going through the fast path below or falls through to Gemini.
+   *
+   * The phone can appear ANYWHERE in the message (extractPhoneCandidate scans
+   * the whole string, not just a fixed position) and is always extracted
+   * first. Name extraction then runs on whatever's left, trying two
+   * unambiguous shapes ("<name> order ..." leading, or "for [the] <name> ..."
+   * trailing): first anchored on a trailing quantity/phone digit as before
+   * (handles the name coming BEFORE the phone or an item), and — only if that
+   * finds nothing AND a phone number was independently found elsewhere in the
+   * message — a second, relaxed pass that also accepts the name simply being
+   * the last thing left in the message (handles the phone coming BEFORE the
+   * name, e.g. "9876543210 for Neel", where there's no digit left after the
+   * name to anchor on once the phone's already been pulled out). That second
+   * pass is deliberately gated on a phone already being confirmed present —
+   * without a phone as independent evidence this names a real customer, an
+   * ordinary phone-less sentence ending in "for <word>" ("cancel my order for
+   * the weekend") would risk misreading the trailing word as a name; see
+   * ORDER_CONTEXT_WORDS for the same concern the other way around ("for
+   * pickup"). Anything less clear-cut than these shapes is simply left alone
+   * (no name/phone captured) rather than guessed — a miss here just costs a
+   * defaulted "Chat Order" name, never a misplaced item.
    */
   private extractContactInfo(message: string): { customerName: string | null; phone: string | null; cleanMessage: string } {
     let text = message.trim();
 
     text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
 
-    let phone: string | null = null;
-    const phoneMatch = text.match(/\b(\d{10})\b/);
-    if (phoneMatch && phoneMatch.index !== undefined) {
-      phone = phoneMatch[1];
-      text = (text.slice(0, phoneMatch.index) + ' ' + text.slice(phoneMatch.index + phoneMatch[0].length)).trim();
-    }
-
     const titleCase = (raw: string) =>
       raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
+    let phone: string | null = null;
+    const phoneMatch = this.extractPhoneCandidate(text);
+    if (phoneMatch) {
+      phone = phoneMatch.phone;
+      text = (text.slice(0, phoneMatch.index) + ' ' + text.slice(phoneMatch.index + phoneMatch.length)).trim();
+    }
+
     let customerName: string | null = null;
 
-    // "Neel order 2kg rice..." / "Neel's order for 3kg rice..." — name leads,
-    // immediately followed by the word "order" itself.
-    const leadingMatch = text.match(/^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?:'s)?\s+order\b(?:\s+for)?[\s,]*(?=\d)/i);
-    const leadingWords = leadingMatch ? leadingMatch[1].trim().split(/\s+/) : [];
-    if (leadingMatch && !leadingWords.some((w) => OrderParserService.NAME_STOPWORDS.has(w.toLowerCase()))) {
-      customerName = titleCase(leadingMatch[1]);
-      text = text.slice(leadingMatch[0].length).trim();
-    } else {
+    const tryMatchName = (allowEndOfString: boolean): boolean => {
+      const anchor = allowEndOfString ? '(?:\\+?\\d|$)' : '\\+?\\d';
+
+      // "Neel order 2kg rice..." / "Neel's order for 3kg rice..." — name leads,
+      // immediately followed by the word "order" itself.
+      const leadingMatch = text.match(
+        new RegExp(`^([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?:'s)?\\s+order\\b(?:\\s+for)?[\\s,]*(?=${anchor})`, 'i'),
+      );
+      const leadingWords = leadingMatch ? leadingMatch[1].trim().split(/\s+/) : [];
+      if (leadingMatch && !leadingWords.some((w) => OrderParserService.NAME_STOPWORDS.has(w.toLowerCase()))) {
+        customerName = titleCase(leadingMatch[1]);
+        text = text.slice(leadingMatch[0].length).trim();
+        return true;
+      }
+
       // "order for [the] Neel..." — name trails "for". "table" is excluded so
       // "for table 3..." isn't mistaken for a customer named Table — that phrase
       // is handled separately by the dine-in table detection.
-      const nameMatch = text.match(/\b(?:order\s+)?for\s+(?:the\s+)?(?!table\b)([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?=[\s,]*\d)/i);
+      const nameMatch = text.match(
+        new RegExp(`\\b(?:order\\s+)?for\\s+(?:the\\s+)?(?!table\\b)([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?=[\\s,]*${anchor})`, 'i'),
+      );
       if (nameMatch && nameMatch.index !== undefined) {
+        const words = nameMatch[1].trim().split(/\s+/);
+        if (allowEndOfString && words.some((w) => OrderParserService.ORDER_CONTEXT_WORDS.has(w.toLowerCase()))) {
+          return false; // e.g. "... for pickup" — not a customer name
+        }
         customerName = titleCase(nameMatch[1]);
         text = (text.slice(0, nameMatch.index) + ' ' + text.slice(nameMatch.index + nameMatch[0].length)).trim();
+        return true;
       }
+
+      return false;
+    };
+
+    if (!tryMatchName(false) && phone) {
+      tryMatchName(true);
     }
 
     return { customerName, phone, cleanMessage: text.replace(/\s+/g, ' ').trim() };
@@ -702,13 +853,16 @@ export class OrderParserService {
 
     const changeCustomerMatch = text.match(/\b(?:change|set)\s+customer\s+to\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\b/i);
     const forNowMatch = text.match(/\bfor\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\s+now\b/i);
-    const customerPhoneMatch = text.match(/\b(?:change|set)\s+customer\s+(?:to\s+)?(\d{10})\b/i);
+    const customerPhoneMatch = text.match(
+      new RegExp(`\\b(?:change|set)\\s+customer\\s+(?:to\\s+)?(${OrderParserService.PHONE_CORE})\\b`, 'i'),
+    );
+    const normalizedCustomerPhone = customerPhoneMatch ? this.normalizePhoneDigits(customerPhoneMatch[1]) : null;
 
     if (changeCustomerMatch && changeCustomerMatch.index !== undefined) {
       customerName = titleCase(changeCustomerMatch[1]);
       text = (text.slice(0, changeCustomerMatch.index) + ' ' + text.slice(changeCustomerMatch.index + changeCustomerMatch[0].length)).trim();
-    } else if (customerPhoneMatch && customerPhoneMatch.index !== undefined) {
-      phone = customerPhoneMatch[1];
+    } else if (customerPhoneMatch && normalizedCustomerPhone && customerPhoneMatch.index !== undefined) {
+      phone = normalizedCustomerPhone;
       text = (text.slice(0, customerPhoneMatch.index) + ' ' + text.slice(customerPhoneMatch.index + customerPhoneMatch[0].length)).trim();
     } else if (forNowMatch && forNowMatch.index !== undefined) {
       customerName = titleCase(forNowMatch[1]);

@@ -501,6 +501,22 @@ export class OrdersService {
   }
 
   /**
+   * Public entry point for saving/updating a customer's name and/or phone
+   * outside the context of placing an order — e.g. the chat assistant
+   * capturing "order for Neel 9876543210" when no items were mentioned yet.
+   * Delegates to the same resolveCustomer dedup logic (match by phone, then
+   * exact name, else create) that a real order placement uses, so a customer
+   * captured this way is the same record a later order for them resolves to.
+   */
+  async resolveOrCreateCustomerByContact(
+    businessId: string,
+    params: { customerName?: string; phone?: string },
+  ): Promise<string | undefined> {
+    if (!params.customerName && !params.phone) return undefined;
+    return this.dataSource.transaction((manager) => this.resolveCustomer(manager, businessId, params));
+  }
+
+  /**
    * Decrements stock for a catalog product the caller explicitly selected
    * (never for a Quick-Parchi free-text item auto-linked to a fresh
    * zero-stock draft product — that would break the "sell without inventory
