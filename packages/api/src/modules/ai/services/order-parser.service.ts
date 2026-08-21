@@ -532,15 +532,20 @@ export class OrderParserService {
    * unambiguous shapes ("<name> order ..." leading, or "for [the] <name> ..."
    * trailing): first anchored on a trailing quantity/phone digit as before
    * (handles the name coming BEFORE the phone or an item), and — only if that
-   * finds nothing AND a phone number was independently found elsewhere in the
-   * message — a second, relaxed pass that also accepts the name simply being
-   * the last thing left in the message (handles the phone coming BEFORE the
-   * name, e.g. "9876543210 for Neel", where there's no digit left after the
-   * name to anchor on once the phone's already been pulled out). That second
-   * pass is deliberately gated on a phone already being confirmed present —
-   * without a phone as independent evidence this names a real customer, an
-   * ordinary phone-less sentence ending in "for <word>" ("cancel my order for
-   * the weekend") would risk misreading the trailing word as a name; see
+   * finds nothing AND hasPhoneAttempt sees independent evidence a phone was
+   * attempted somewhere in the message (a clean 10-digit match, OR just a 5+
+   * digit run that didn't validate, e.g. a typo like "906598042") — a second,
+   * relaxed pass that also accepts the name simply being the last thing left
+   * in the message. This covers two cases at once: the phone coming BEFORE
+   * the name with nothing left to anchor on ("9876543210 for Neel"), and a
+   * phone-shaped number that failed to validate sitting where the phone would
+   * be ("Het 906598042 order" — leadingMatch's optional numeric span absorbs
+   * the bad number so "order" still reads as immediately following the
+   * name). Gating on hasPhoneAttempt rather than a validated phone matters
+   * because a customer's name shouldn't be lost just because they mistyped
+   * their number — without SOME digit-based evidence though, an ordinary
+   * phone-less sentence ending in "for <word>" ("cancel my order for the
+   * weekend") would risk misreading the trailing word as a name; see
    * ORDER_CONTEXT_WORDS for the same concern the other way around ("for
    * pickup"). Anything less clear-cut than these shapes is simply left alone
    * (no name/phone captured) rather than guessed — a miss here just costs a
@@ -561,15 +566,29 @@ export class OrderParserService {
       text = (text.slice(0, phoneMatch.index) + ' ' + text.slice(phoneMatch.index + phoneMatch.length)).trim();
     }
 
+    // A number that DOESN'T reduce to a clean phone (a typo, a missing/extra
+    // digit — e.g. "Het 906598042 order", 9 digits instead of 10) never got
+    // stripped above, but it's still clear evidence someone tried to give a
+    // phone number here. That's enough to justify the relaxed end-of-string
+    // name retry below even though `phone` itself stayed null — otherwise the
+    // name would be lost for no reason beyond the number being wrong, which
+    // is a worse outcome than just leaving phone unset. 5+ digits is the
+    // threshold since ordinary item quantities in this parser are practically
+    // never that long.
+    const hasPhoneAttempt = phone !== null || /\d{5,}/.test(text);
+
     let customerName: string | null = null;
 
     const tryMatchName = (allowEndOfString: boolean): boolean => {
       const anchor = allowEndOfString ? '(?:\\+?\\d|$)' : '\\+?\\d';
 
       // "Neel order 2kg rice..." / "Neel's order for 3kg rice..." — name leads,
-      // immediately followed by the word "order" itself.
+      // immediately followed by the word "order" itself. The optional numeric
+      // span before "order" absorbs a phone number that failed to extract
+      // above (see hasPhoneAttempt) — e.g. "Het 906598042 order" — so it
+      // doesn't block "order" from being recognized right after the name.
       const leadingMatch = text.match(
-        new RegExp(`^([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?:'s)?\\s+order\\b(?:\\s+for)?[\\s,]*(?=${anchor})`, 'i'),
+        new RegExp(`^([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?:'s)?\\s+(?:\\d[\\d\\s-]*\\s+)?order\\b(?:\\s+for)?[\\s,]*(?=${anchor})`, 'i'),
       );
       const leadingWords = leadingMatch ? leadingMatch[1].trim().split(/\s+/) : [];
       if (leadingMatch && !leadingWords.some((w) => OrderParserService.NAME_STOPWORDS.has(w.toLowerCase()))) {
@@ -597,7 +616,7 @@ export class OrderParserService {
       return false;
     };
 
-    if (!tryMatchName(false) && phone) {
+    if (!tryMatchName(false) && hasPhoneAttempt) {
       tryMatchName(true);
     }
 
