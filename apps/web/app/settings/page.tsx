@@ -142,6 +142,7 @@ export default function SettingsPage() {
   const [notificationTypesExpanded, setNotificationTypesExpanded] = useState(false);
   const [modulesExpanded, setModulesExpanded] = useState(false);
   const [profileExpanded, setProfileExpanded] = useState(false);
+  const [invoiceColumnsExpanded, setInvoiceColumnsExpanded] = useState(false);
 
   useEffect(() => {
     if (!ready || !businessId) return;
@@ -583,12 +584,42 @@ export default function SettingsPage() {
                     placeholder="e.g. Goods once sold will not be taken back or exchanged."
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">Invoice Columns</label>
-                  <p className="text-xs text-slate-500 mb-2">
-                    Choose which columns print on each format. Item name and Amount always show — every format's totals row is laid out around those two. Removing HSN or GST columns from the GST Invoice may affect its GST compliance.
-                  </p>
-                  <div className="space-y-3">
+                {form.category === 'pharmacy' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 1</label>
+                      <Input value={form.drugLicenseNumber1} onChange={(e) => setForm({ ...form, drugLicenseNumber1: e.target.value })} placeholder="e.g. Retail" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 2</label>
+                      <Input value={form.drugLicenseNumber2} onChange={(e) => setForm({ ...form, drugLicenseNumber2: e.target.value })} placeholder="e.g. Wholesale" />
+                    </div>
+                  </div>
+                )}
+                </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="ring-white/50 glass-sheen-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Invoice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceColumnsExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 hover:bg-white/45 transition-colors text-sm font-medium text-slate-700"
+                >
+                  <span>Invoice &amp; receipt columns</span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${invoiceColumnsExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {invoiceColumnsExpanded && (
+                  <div className="space-y-3 mt-2">
+                    <p className="text-xs text-slate-500">
+                      Choose which columns print on each format. Item name and Amount always show — every format's totals row is laid out around those two. Removing HSN or GST columns from the GST Invoice may affect its GST compliance.
+                    </p>
                     <div>
                       <p className="text-[11px] font-semibold text-slate-600 mb-1.5">GST Invoice</p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
@@ -640,20 +671,6 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
-                {form.category === 'pharmacy' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 1</label>
-                      <Input value={form.drugLicenseNumber1} onChange={(e) => setForm({ ...form, drugLicenseNumber1: e.target.value })} placeholder="e.g. Retail" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-500 mb-1.5 block">Drug License No. 2</label>
-                      <Input value={form.drugLicenseNumber2} onChange={(e) => setForm({ ...form, drugLicenseNumber2: e.target.value })} placeholder="e.g. Wholesale" />
-                    </div>
-                  </div>
-                )}
-                </div>
                 )}
               </CardContent>
             </Card>
