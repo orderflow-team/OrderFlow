@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { OrdersService } from '../../orders/orders.service';
 import { ProductsService } from '../../products/products.service';
 import { RestaurantService } from '../../restaurant/restaurant.service';
+import { CustomersService } from '../../customers/customers.service';
 import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class OrderParserService {
     private ordersService: OrdersService,
     private productsService: ProductsService,
     private restaurantService: RestaurantService,
+    private customersService: CustomersService,
   ) {}
 
   /**
@@ -46,6 +48,17 @@ export class OrderParserService {
 
     const catalog = available.map((p) => `${p.name} (₹${Number(p.selling_price)})`).join(', ');
     const tableNames = tables.map((t) => t.name);
+
+    // Handles a handful of common non-order questions (greeting/help, "what's
+    // on the menu", an order's status, a customer's balance) entirely locally
+    // before any order-parsing machinery runs — see tryLocalQuery. Only for a
+    // fresh top-level message, never mid-edit (orderId set means we're either
+    // continuing an explicit edit session, or this is the recursive call after
+    // resolving a table/token edit target below).
+    if (!orderId) {
+      const localReply = await this.tryLocalQuery(businessId, message, available, tables);
+      if (localReply) return localReply;
+    }
 
     let existingOrder: any = null;
     let currentItemsDesc = '';
@@ -519,6 +532,146 @@ export class OrderParserService {
     return { phone, index: match.index, length: match[0].length };
   }
 
+  // Exact-match only (the whole trimmed message, punctuation stripped) — a
+  // substring match would risk firing mid-sentence on unrelated chat.
+  private static readonly GREETING_MESSAGES = new Set(['hi', 'hello', 'hey', 'hii', 'helo', 'yo', 'hola', 'namaste']);
+  private static readonly HELP_MESSAGES = new Set(['help', 'what can you do', 'how does this work', 'commands']);
+
+  // Whole-message shapes only, same reasoning as GREETING/HELP above — "menu"
+  // as a bare word is safe to treat as an intent since it's not a plausible
+  // item name, but only when it's the ENTIRE message, not a fragment of one.
+  private static readonly MENU_PATTERNS = [
+    /^(?:show\s+(?:me\s+)?)?(?:the\s+)?menu\??$/i,
+    /^what(?:'s|\s+is)\s+on\s+the\s+menu\??$/i,
+    /^what\s+do\s+you\s+have\??$/i,
+    /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:products|items|catalog)\??$/i,
+  ];
+
+  // Deliberately English-only ("status") rather than also matching Hinglish
+  // "kaha hai"/"kahan hai" ("where is") — those are too easily a genuine
+  // question about something else entirely ("where is the shop", "where is
+  // my sugar") to safely redirect into an order-status lookup.
+  private static readonly STATUS_KEYWORD = /\bstatus\b/i;
+  private static readonly BALANCE_KEYWORD = /\b(?:balance|owe|owes|dues|outstanding|udhaar|baki)\b/i;
+
+  /**
+   * Handles a handful of common non-order chat questions entirely locally —
+   * no catalog matching, no Gemini call: a bare greeting/help request,
+   * "what's on the menu", an order's status by table/token, and a customer's
+   * outstanding balance by name or phone. Each is deliberately narrow (an
+   * exact whole-message match, or a keyword that isn't a plausible item name)
+   * so it can't misfire on a genuine order — "status"/"balance"/"menu" would
+   * otherwise just become a nonsense ₹0 quick-add product if left to fall
+   * into item parsing, which is strictly worse. Returns null (no local intent
+   * recognized) for everything else, so parseChatOrder falls through to its
+   * normal order-parsing flow exactly as before.
+   */
+  private async tryLocalQuery(
+    businessId: string,
+    message: string,
+    available: any[],
+    tables: any[],
+  ): Promise<{ reply: string; order: null } | null> {
+    const trimmed = message.trim();
+    const lower = trimmed.toLowerCase().replace(/[!.?]+$/, '');
+
+    if (OrderParserService.GREETING_MESSAGES.has(lower)) {
+      return {
+        reply: `Hi! Tell me what you'd like to order (e.g. "2kg rice, 1 dozen eggs"), or ask for the "menu", an order's "status" (e.g. "status of table 3"), or a customer's "balance" (e.g. "balance for Neel").`,
+        order: null,
+      };
+    }
+    if (OrderParserService.HELP_MESSAGES.has(lower)) {
+      return {
+        reply: `I can place an order ("2kg rice, 1 dozen eggs" or "for Neel 9876543210 2kg rice"), edit one ("add 2 cokes to table 3"), show the "menu", check an order's "status" (by table or token), or look up a customer's "balance".`,
+        order: null,
+      };
+    }
+
+    if (OrderParserService.MENU_PATTERNS.some((re) => re.test(trimmed))) {
+      const list = available.map((p) => `${p.name} (₹${Number(p.selling_price)})`).join(', ');
+      return { reply: `Here's what we have: ${list}.`, order: null };
+    }
+
+    if (OrderParserService.STATUS_KEYWORD.test(trimmed)) {
+      const tokenMatch = trimmed.match(/\b(?:token|tk|tok)\s*(\d+)\b/i);
+      const tableMatch = trimmed.match(/\b(?:for\s+)?(?:table|t)\s*([a-zA-Z0-9]+)\b/i);
+
+      let order: any = null;
+      if (tokenMatch) {
+        order = await this.ordersService.findActiveOrderByToken(Number(tokenMatch[1]), businessId);
+        if (!order) {
+          return { reply: `There's no active order for Takeaway Token #${tokenMatch[1]} right now.`, order: null };
+        }
+      } else if (tableMatch) {
+        const raw = tableMatch[1].trim().toLowerCase();
+        const table = tables.find((t) => {
+          const name = t.name.toLowerCase();
+          return name === raw || name === `t${raw}` || `t${name}` === raw;
+        });
+        if (!table) {
+          return {
+            reply: `I couldn't find table "${tableMatch[1]}". Available tables: ${tables.map((t) => t.name).join(', ') || 'none'}.`,
+            order: null,
+          };
+        }
+        order = await this.ordersService.findActiveOrderByTable(table.id, businessId);
+        if (!order) {
+          return { reply: `There is no active order for Table ${table.name} right now.`, order: null };
+        }
+      } else {
+        return {
+          reply: `Which order? Tell me a table (e.g. "status of table 3") or a takeaway token (e.g. "status of token 5").`,
+          order: null,
+        };
+      }
+
+      const itemsSummary = (order.items || [])
+        .map((i: any) => `${Number(i.quantity)}x ${i.product?.name || i.custom_product_name || 'item'}`)
+        .join(', ');
+      const statusLabel = String(order.status || 'draft').replace(/_/g, ' ');
+      return {
+        reply: `Order #${order.order_number} is ${statusLabel}. Items: ${itemsSummary || 'none'}. Total: ₹${Number(order.total_amount).toFixed(2)}.`,
+        order: null,
+      };
+    }
+
+    if (OrderParserService.BALANCE_KEYWORD.test(trimmed)) {
+      const phoneMatch = this.extractPhoneCandidate(trimmed);
+      const nameMatch =
+        trimmed.match(/\b(?:for|of)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\b/i) ||
+        trimmed.match(/^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})(?:'s)?\s+(?:balance|dues|outstanding)\b/i);
+
+      if (!phoneMatch && !nameMatch) {
+        return { reply: `Whose balance would you like to check? e.g. "balance for Neel" or a phone number.`, order: null };
+      }
+
+      const customers = await this.customersService.findAll(businessId);
+      let customer = phoneMatch ? customers.find((c) => c.phone === phoneMatch.phone) : undefined;
+      if (!customer && nameMatch) {
+        const rawName = nameMatch[1].trim().toLowerCase();
+        customer =
+          customers.find((c) => c.name.trim().toLowerCase() === rawName) ||
+          customers.find((c) => c.name.trim().toLowerCase().includes(rawName));
+      }
+
+      if (!customer) {
+        const who = nameMatch ? nameMatch[1].trim() : phoneMatch!.phone;
+        return { reply: `I couldn't find a customer matching "${who}".`, order: null };
+      }
+
+      const owed = Number(customer.outstanding_amount || 0);
+      const credit = Number(customer.advance_balance || 0);
+      const parts: string[] = [];
+      if (owed > 0) parts.push(`owes ₹${owed.toFixed(2)}`);
+      if (credit > 0) parts.push(`has ₹${credit.toFixed(2)} in advance credit`);
+      const summary = parts.length > 0 ? parts.join(' and ') : 'has no outstanding balance';
+      return { reply: `${customer.name} ${summary}.`, order: null };
+    }
+
+    return null;
+  }
+
   /**
    * Pulls a customer name and/or phone number out of a brand-new chat order
    * message, e.g. "Neel order 2kg rice 4liter milk", "make a order for the
@@ -743,10 +896,22 @@ export class OrderParserService {
     if (substringMatches.length > 1) return 'ambiguous';
     if (substringMatches.length === 1) return substringMatches[0].name;
 
+    // Length-scaled tolerance — same scaling matchLeadingVerb already uses for
+    // edit-command verb typos: 1 edit for a 4-5 letter name, 2 from six
+    // letters up, nothing at all below 4 (a typo that short is too likely to
+    // coincidentally land on a different, unrelated short product name — e.g.
+    // "dal" vs "gal" — for a fuzzy guess to be worth the risk). This used to
+    // bail out of fuzzy matching entirely for anything under 6 characters
+    // combined length, which meant exactly the short, common grocery names
+    // most likely to get casually mistyped ("rice" -> "ricee", "sugar" ->
+    // "suger") got NO typo tolerance at all.
     const fuzzyMatches = available.filter((p) => {
       const pname = p.name.trim().toLowerCase();
-      if (Math.max(pname.length, normalizedName.length) < 6) return false;
-      return this.levenshteinDistance(pname, normalizedName) <= 2;
+      const shorter = Math.min(pname.length, normalizedName.length);
+      if (shorter < 4) return false;
+      const threshold = shorter >= 6 ? 2 : 1;
+      if (Math.abs(pname.length - normalizedName.length) > threshold) return false;
+      return this.levenshteinDistance(pname, normalizedName) <= threshold;
     });
     if (fuzzyMatches.length > 1) return 'ambiguous';
     if (fuzzyMatches.length === 1) return fuzzyMatches[0].name;
@@ -783,9 +948,14 @@ export class OrderParserService {
     if (substringHits.length > 1) return 'ambiguous';
     if (substringHits.length === 1) return substringHits[0];
 
+    // Same length-scaled tolerance as matchCatalogProduct — see its fuzzyMatches
+    // for the reasoning.
     const fuzzyHits = allKeys.filter(({ key }) => {
-      if (Math.max(key.length, normalizedName.length) < 6) return false;
-      return this.levenshteinDistance(key, normalizedName) <= 2;
+      const shorter = Math.min(key.length, normalizedName.length);
+      if (shorter < 4) return false;
+      const threshold = shorter >= 6 ? 2 : 1;
+      if (Math.abs(key.length - normalizedName.length) > threshold) return false;
+      return this.levenshteinDistance(key, normalizedName) <= threshold;
     });
     if (fuzzyHits.length > 1) return 'ambiguous';
     if (fuzzyHits.length === 1) return fuzzyHits[0];
