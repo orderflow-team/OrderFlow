@@ -504,11 +504,17 @@ export class OrderParserService {
   // inside a single number ("1,000rs") look identical to a naive [,;&\n]
   // separator match — without this distinction, "10kg mango 1,000rs" gets
   // sliced in half AT the comma before the price regex ever sees the whole
-  // number. The lookaround excludes a comma that's flanked by a digit on
-  // BOTH sides (which a list-separating comma essentially never is — a list
-  // item boundary always has a space, unit word, or letter next to the
-  // comma) while still treating every other comma as a normal separator.
-  private static readonly LIST_SEPARATOR = '(?<!\\d),(?!\\d)|;|&|\\n|\\band\\b';
+  // number. Only a comma flanked by a digit on BOTH sides is a thousands
+  // grouping ("1,000") — everything else (including a comma glued straight
+  // to the NEXT item's leading quantity digit with no space, e.g. "rice
+  // ,500gm wheat", which real chat input does constantly) is a genuine list
+  // separator. Matching requires only ONE side to be non-digit (the
+  // alternation below), not both — an earlier version required non-digit on
+  // BOTH sides, which meant "rice ,500gm wheat ,5liter oil" never split at
+  // all: every comma here has a digit immediately after it, so the whole
+  // stricter match failed at every single comma and the entire message fell
+  // through as one unsplit blob.
+  private static readonly LIST_SEPARATOR = '(?:(?<!\\d),|,(?!\\d))|;|&|\\n|\\band\\b';
 
   private static readonly UNIT_WORDS =
     // Weight
