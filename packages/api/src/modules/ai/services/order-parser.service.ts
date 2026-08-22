@@ -359,12 +359,7 @@ export class OrderParserService {
 
     if (existingOrder) {
       const originalCount = existingOrder.items?.length || 0;
-      const lowerMsg = message.toLowerCase();
-      const hasClearIntent = lowerMsg.includes('remove all') ||
-                             lowerMsg.includes('clear') ||
-                             lowerMsg.includes('delete all') ||
-                             lowerMsg.includes('empty') ||
-                             lowerMsg.includes('cancel');
+      const hasClearIntent = this.isWholeOrderClearIntent(message);
 
       if (matchedItems.length === 0 && newItems.length === 0 && originalCount > 0 && !hasClearIntent) {
         return {
@@ -567,6 +562,20 @@ export class OrderParserService {
   private static readonly ADD_VERB_WORDS = ['add', 'plus', 'extra', 'another', 'dalo', 'daalo'];
   private static readonly REMOVE_VERB_WORDS = ['remove', 'delete', 'cancel', 'hatao', 'nikalo'];
   private static readonly SET_VERB_WORDS = ['change', 'set', 'update', 'badlo'];
+
+  // Whole-message shapes only — "remove all"/"clear"/"delete all"/"empty"/"cancel"
+  // as a bare command (optionally with harmless filler like "the order"/"cart"/
+  // "items"/"everything") mean wipe the WHOLE order. These must NOT match when a
+  // specific item follows ("remove all sugar", "clear the rice") — that's an
+  // ordinary per-item removal already handled correctly by REMOVE_VERB_WORDS
+  // further down, and used to get swallowed by a naive `.includes('remove all')`
+  // substring check that fired on "remove all sugar" too, silently wiping the
+  // entire order instead of just the one item asked about.
+  private static readonly WHOLE_ORDER_CLEAR_PATTERNS = [
+    /^(?:please\s+)?(?:clear|empty)(?:\s+(?:the\s+)?(?:order|cart|everything))?\.?$/i,
+    /^(?:please\s+)?(?:remove|delete)\s+(?:all|everything)(?:\s+(?:the\s+)?items?)?\.?$/i,
+    /^cancel(?:\s+the)?(?:\s+order)?\.?$/i,
+  ];
 
   // Cardinal number words a customer might type instead of a digit (typo-prone
   // chat input, or just casual phrasing like "two rice" / "a dozen eggs").
@@ -1150,6 +1159,18 @@ export class OrderParserService {
    * strings. Only the leading word is ever tested, so a product name that
    * merely contains a verb-like word mid-string never triggers this.
    */
+  /**
+   * True only when the ENTIRE (trimmed) message is one of WHOLE_ORDER_CLEAR_PATTERNS
+   * — a bare "clear"/"remove all"/"delete all"/"empty"/"cancel" command, optionally
+   * with filler words referring to the order itself. A message that names a specific
+   * item ("remove all sugar") is deliberately NOT a match here — see that constant's
+   * comment for why.
+   */
+  private isWholeOrderClearIntent(message: string): boolean {
+    const trimmed = message.trim();
+    return OrderParserService.WHOLE_ORDER_CLEAR_PATTERNS.some((re) => re.test(trimmed));
+  }
+
   private matchLeadingVerb(segment: string, verbWords: string[]): { rest: string } | null {
     const wordMatch = segment.match(/^([a-zA-Z]+)\s+(.+)$/);
     if (!wordMatch) return null;
@@ -1198,15 +1219,8 @@ export class OrderParserService {
     customerName: string | null;
     phone: string | null;
   } | null {
-    const lowerMsg = message.toLowerCase();
     const trimmed = message.trim();
-    const hasClearIntent =
-      lowerMsg.includes('remove all') ||
-      lowerMsg.includes('clear') ||
-      lowerMsg.includes('delete all') ||
-      lowerMsg.includes('empty') ||
-      /^cancel(\s+the)?(\s+order)?$/i.test(trimmed);
-    if (hasClearIntent) {
+    if (this.isWholeOrderClearIntent(message)) {
       return { matched: [], unmatched: [], customerName: null, phone: null };
     }
 
