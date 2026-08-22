@@ -191,7 +191,7 @@ export class OrderParserService {
     }
 
     let parsed: {
-      matched: { menuName: string; quantity: number; unit?: string | null }[];
+      matched: { menuName: string; rawName?: string | null; quantity: number; unit?: string | null }[];
       unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
       orderType?: string;
       tableName?: string | null;
@@ -241,7 +241,7 @@ export class OrderParserService {
 
           Return ONLY JSON in this exact shape, no other text:
           {
-            "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+            "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
             "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
             "customerName": "string or null",
             "phone": "10-digit string or null"
@@ -277,7 +277,7 @@ export class OrderParserService {
 
           Return ONLY JSON in this exact shape, no other text:
           {
-            "matched": [{ "menuName": "exact name from the menu list above", "quantity": number, "unit": "string or null" }],
+            "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
             "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
             "orderType": "dine_in" | "take_away",
             "tableName": "exact table name from the list above, or null"
@@ -301,14 +301,20 @@ export class OrderParserService {
     // density, which this app doesn't track, so there's no safe price to
     // charge against the EXISTING product's own rate. Rather than silently
     // treating "2" as if it meant 2 liters (a real charge, just a wrong
-    // one), redirect it into a unit-qualified new product ("Fortune Oil
-    // (kg)") — same ₹0/"set its price" treatment newItems below already
-    // gives any brand-new item, so the merchant sees it as its own line
-    // needing a real price rather than a silently mispriced charge against
-    // the wrong unit. The qualifying suffix keeps it from colliding with
-    // the original product's name (findOrCreateProductFromCustomName in
-    // orders.service.ts reuses any EXISTING product with the exact same
-    // name, which would just resolve straight back to the original here).
+    // one), redirect it into a unit-qualified new product ("fortune oil
+    // (kg)", using the CUSTOMER'S OWN wording via rawName — not the
+    // existing catalog product's canonical name — so it reads as their own
+    // item, not a rebrand of the one already on the menu) — same ₹0/"set
+    // its price" treatment newItems below already gives any brand-new item,
+    // so the merchant sees it as its own line needing a real price rather
+    // than a silently mispriced charge against the wrong unit. The
+    // qualifying suffix keeps it from colliding with the original product's
+    // name (findOrCreateProductFromCustomName in orders.service.ts reuses
+    // any EXISTING product with the exact same name, which would just
+    // resolve straight back to the original here) — rawName alone,
+    // unsuffixed, risks the very same collision whenever the customer's own
+    // wording happens to match the catalog name closely enough to have
+    // matched it in the first place.
     const redirectedItems: { customProductName: string; quantity: number; unitPrice: number; unit: string | undefined }[] = [];
 
     for (const m of parsed.matched || []) {
@@ -318,7 +324,8 @@ export class OrderParserService {
       const unit = m.unit || undefined;
 
       if (unit && unitFamilyMismatch(product.unit, unit)) {
-        redirectedItems.push({ customProductName: `${product.name} (${unit})`, quantity, unitPrice: 0, unit });
+        const customerWording = (m.rawName || product.name).trim();
+        redirectedItems.push({ customProductName: `${customerWording} (${unit})`, quantity, unitPrice: 0, unit });
         continue;
       }
 
@@ -967,7 +974,12 @@ export class OrderParserService {
       : this.splitImplicitSegments(text).map((s) => s.trim()).filter(Boolean);
     if (segments.length === 0) return null;
 
-    const matched: { menuName: string; quantity: number; unit?: string | null }[] = [];
+    // rawName carries the customer's OWN wording for a matched item (before
+    // it got resolved to the catalog's canonical name) — needed so that if
+    // this item later turns out to need a unit-mismatch redirect to a new
+    // product (see parseChatOrder), that new product is named after what
+    // the customer actually typed, not the existing catalog product's name.
+    const matched: { menuName: string; rawName: string; quantity: number; unit?: string | null }[] = [];
     const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
 
     for (const segment of segments) {
@@ -1012,7 +1024,7 @@ export class OrderParserService {
       }
 
       if (catalogMatch) {
-        matched.push({ menuName: catalogMatch, quantity: item.quantity, unit: item.unit });
+        matched.push({ menuName: catalogMatch, rawName: item.name, quantity: item.quantity, unit: item.unit });
         continue;
       }
 
@@ -1088,7 +1100,7 @@ export class OrderParserService {
    */
   private resolveExistingItemKey(
     normalizedName: string,
-    matchedMap: Map<string, { menuName: string; quantity: number; unit?: string | null }>,
+    matchedMap: Map<string, { menuName: string; rawName: string; quantity: number; unit?: string | null }>,
     unmatchedMap: Map<string, { name: string; quantity: number; unit?: string | null; price: number }>,
   ): { store: 'matched' | 'unmatched'; key: string } | 'ambiguous' | null {
     const inMatched = matchedMap.has(normalizedName);
@@ -1181,7 +1193,7 @@ export class OrderParserService {
     existingOrder: any,
     available: any[],
   ): {
-    matched: { menuName: string; quantity: number; unit?: string | null }[];
+    matched: { menuName: string; rawName: string; quantity: number; unit?: string | null }[];
     unmatched: { name: string; quantity: number; unit?: string | null; price: number | null }[];
     customerName: string | null;
     phone: string | null;
@@ -1227,7 +1239,13 @@ export class OrderParserService {
 
     text = text.replace(/\s+/g, ' ').trim();
 
-    const matchedMap = new Map<string, { menuName: string; quantity: number; unit?: string | null }>();
+    // rawName carries the customer's OWN wording for a matched item (see
+    // tryDeterministicParse's identical field for the full rationale) — for
+    // an item loaded from the order's EXISTING rows below there's no chat
+    // text to recover, so it just mirrors menuName; for an item newly
+    // matched further down by this edit command, it's the customer's actual
+    // typed text for that item.
+    const matchedMap = new Map<string, { menuName: string; rawName: string; quantity: number; unit?: string | null }>();
     const unmatchedMap = new Map<string, { name: string; quantity: number; unit?: string | null; price: number }>();
 
     for (const item of existingOrder.items || []) {
@@ -1237,7 +1255,7 @@ export class OrderParserService {
         const key = item.product.name.trim().toLowerCase();
         const entry = matchedMap.get(key);
         if (entry) entry.quantity += quantity;
-        else matchedMap.set(key, { menuName: item.product.name, quantity, unit });
+        else matchedMap.set(key, { menuName: item.product.name, rawName: item.product.name, quantity, unit });
       } else {
         const name = item.custom_product_name || 'Unknown Item';
         const key = name.trim().toLowerCase();
@@ -1300,7 +1318,7 @@ export class OrderParserService {
             const catalogMatch = this.matchCatalogProduct(itemKey, available);
             if (catalogMatch === 'ambiguous') return null;
             if (catalogMatch) {
-              matchedMap.set(catalogMatch.toLowerCase(), { menuName: catalogMatch, quantity: newQty, unit: newUnit || null });
+              matchedMap.set(catalogMatch.toLowerCase(), { menuName: catalogMatch, rawName, quantity: newQty, unit: newUnit || null });
             } else {
               unmatchedMap.set(itemKey, { name: rawName, quantity: newQty, unit: newUnit || null, price: 0 });
             }
@@ -1347,7 +1365,7 @@ export class OrderParserService {
           const key = catalogMatch.toLowerCase();
           const entry = matchedMap.get(key);
           if (entry) entry.quantity += parsedSeg.quantity;
-          else matchedMap.set(key, { menuName: catalogMatch, quantity: parsedSeg.quantity, unit: parsedSeg.unit || null });
+          else matchedMap.set(key, { menuName: catalogMatch, rawName: parsedSeg.name, quantity: parsedSeg.quantity, unit: parsedSeg.unit || null });
         } else {
           const entry = unmatchedMap.get(normalized);
           if (entry) {
