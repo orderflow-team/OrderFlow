@@ -486,6 +486,28 @@ export class OrderParserService {
   // already fast-paths correctly today via a plain name match). Leaving it
   // unrecognized means that phrase's "500mg" simply stays part of the name, same
   // as it always has.
+
+  // A digit run that allows comma grouping ("1,000", "1,00,000") and an
+  // optional decimal part — used everywhere a price or quantity number gets
+  // matched, in place of a bare \d+(?:\.\d+)?. Deliberately lenient about
+  // WHERE the commas fall (doesn't enforce strict 3-digit Western or
+  // 2-digit Indian grouping) since this is casual chat input, not a
+  // validated numeric field — a stray or unconventionally-placed comma
+  // should still parse rather than reject the whole segment. Every caller
+  // that pulls a number out of a match against this MUST strip commas
+  // before calling Number(...) on it (e.g. `raw.replace(/,/g, '')`).
+  private static readonly NUMBER_PATTERN = '\\d[\\d,]*(?:\\.\\d+)?';
+
+  // List-separator commas ("rice, sugar") vs a thousands-grouping comma
+  // inside a single number ("1,000rs") look identical to a naive [,;&\n]
+  // separator match — without this distinction, "10kg mango 1,000rs" gets
+  // sliced in half AT the comma before the price regex ever sees the whole
+  // number. The lookaround excludes a comma that's flanked by a digit on
+  // BOTH sides (which a list-separating comma essentially never is — a list
+  // item boundary always has a space, unit word, or letter next to the
+  // comma) while still treating every other comma as a normal separator.
+  private static readonly LIST_SEPARATOR = '(?<!\\d),(?!\\d)|;|&|\\n|\\band\\b';
+
   private static readonly UNIT_WORDS =
     // Weight
     'kilograms?|kilos?|kgs?|grams?|gms?|g|quintals?|qtl|' +
@@ -875,15 +897,16 @@ export class OrderParserService {
   private splitImplicitSegments(text: string): string[] {
     let trailingPrice = '';
     let body = text;
+    const NUM = OrderParserService.NUMBER_PATTERN;
     const priceMatch = text.match(
-      /(?:₹\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:rs\.?|rupees?)|rs\.?\s*\d+(?:\.\d+)?)\s*$/i,
+      new RegExp(`(?:₹\\s*${NUM}|${NUM}\\s*(?:rs\\.?|rupees?)|rs\\.?\\s*${NUM})\\s*$`, 'i'),
     );
     if (priceMatch && priceMatch.index !== undefined) {
       trailingPrice = priceMatch[0].trim();
       body = text.slice(0, priceMatch.index).trim();
     }
 
-    const chunks = body.match(/\d+(?:\.\d+)?[^\d]*/g);
+    const chunks = body.match(new RegExp(`${NUM}[^\\d]*`, 'g'));
     if (!chunks || chunks.length <= 1) return [text];
 
     const lastIndex = chunks.length - 1;
@@ -934,10 +957,11 @@ export class OrderParserService {
     }
 
     // ";" and newlines are just as valid a list separator as "," — a pasted
-    // shopping list is often one item per line, or semicolon-separated.
-    const segments = /[,;&\n]|\band\b/i.test(text)
+    // shopping list is often one item per line, or semicolon-separated. See
+    // LIST_SEPARATOR's own comment for why a comma isn't always a separator.
+    const segments = new RegExp(OrderParserService.LIST_SEPARATOR, 'i').test(text)
       ? text
-          .split(/\s*(?:[,;&\n]|\band\b)\s*/i)
+          .split(new RegExp(`\\s*(?:${OrderParserService.LIST_SEPARATOR})\\s*`, 'i'))
           .map((s) => s.trim())
           .filter(Boolean)
       : this.splitImplicitSegments(text).map((s) => s.trim()).filter(Boolean);
@@ -1229,8 +1253,8 @@ export class OrderParserService {
     }
 
     if (text) {
-      const segments = /[,;&\n]|\band\b/i.test(text)
-        ? text.split(/\s*(?:[,;&\n]|\band\b)\s*/i).map((s) => s.trim()).filter(Boolean)
+      const segments = new RegExp(OrderParserService.LIST_SEPARATOR, 'i').test(text)
+        ? text.split(new RegExp(`\\s*(?:${OrderParserService.LIST_SEPARATOR})\\s*`, 'i')).map((s) => s.trim()).filter(Boolean)
         : [text];
       if (segments.length === 0) return null;
 
@@ -1241,7 +1265,7 @@ export class OrderParserService {
         if (setVerbMatch) {
           const setBodyMatch = setVerbMatch.rest.match(
             new RegExp(
-              `^(?:the\\s+)?(?:quantity\\s+of\\s+)?(.+?)\\s+to\\s+(\\d+(?:\\.\\d+)?|${wordNumPattern})\\s*(${OrderParserService.UNIT_WORDS})?\\.?\\s*$`,
+              `^(?:the\\s+)?(?:quantity\\s+of\\s+)?(.+?)\\s+to\\s+(${OrderParserService.NUMBER_PATTERN}|${wordNumPattern})\\s*(${OrderParserService.UNIT_WORDS})?\\.?\\s*$`,
               'i',
             ),
           );
@@ -1250,7 +1274,7 @@ export class OrderParserService {
           const rawName = setBodyMatch[1].trim();
           const itemKey = rawName.toLowerCase();
           const qtyToken = setBodyMatch[2].toLowerCase();
-          const newQty = /^\d/.test(qtyToken) ? Number(qtyToken) : OrderParserService.WORD_NUMBERS[qtyToken];
+          const newQty = /^\d/.test(qtyToken) ? Number(qtyToken.replace(/,/g, '')) : OrderParserService.WORD_NUMBERS[qtyToken];
           const newUnit = setBodyMatch[3] ? setBodyMatch[3].toLowerCase() : undefined;
 
           const resolved = this.resolveExistingItemKey(itemKey, matchedMap, unmatchedMap);
@@ -1352,6 +1376,22 @@ export class OrderParserService {
   }
 
   /**
+   * Strips a trailing stated price ("1000rs", "rs 1000", "₹1000", with
+   * optional comma grouping like "1,000rs") from the end of text, if
+   * present. Shared by parseSegment, parseWholeSegmentAsName, and
+   * parseTrailingQuantitySegment, which all need the exact same rule.
+   */
+  private stripTrailingPrice(text: string): { price: number | null; text: string } {
+    const NUM = OrderParserService.NUMBER_PATTERN;
+    const priceMatch = text.match(
+      new RegExp(`(?:₹\\s*(${NUM})|(${NUM})\\s*(?:rs\\.?|rupees?)|rs\\.?\\s*(${NUM}))\\s*$`, 'i'),
+    );
+    if (!priceMatch) return { price: null, text };
+    const raw = priceMatch[1] ?? priceMatch[2] ?? priceMatch[3];
+    return { price: Number(raw.replace(/,/g, '')), text: text.slice(0, priceMatch.index).trim() };
+  }
+
+  /**
    * Strips a trailing stated price (same rule as parseSegment) and treats
    * whatever's left as the WHOLE item name at quantity 1 — no quantity
    * extraction, no confidence guard. Used only to check "does this segment's
@@ -1360,19 +1400,8 @@ export class OrderParserService {
    * quantity (see parseTrailingQuantitySegment below).
    */
   private parseWholeSegmentAsName(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
-    let text = segment.trim();
-    if (!text) return null;
-
-    let price: number | null = null;
-    const priceMatch = text.match(
-      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
-    );
-    if (priceMatch) {
-      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
-      text = text.slice(0, priceMatch.index).trim();
-    }
-
-    const name = text.trim();
+    const { price, text: withoutPrice } = this.stripTrailingPrice(segment.trim());
+    const name = withoutPrice.trim();
     if (!name) return null;
     return { name, quantity: 1, unit: undefined, price };
   }
@@ -1386,20 +1415,11 @@ export class OrderParserService {
    * to end in a number.
    */
   private parseTrailingQuantitySegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
-    let text = segment.trim();
+    const { price, text } = this.stripTrailingPrice(segment.trim());
     if (!text) return null;
 
-    let price: number | null = null;
-    const priceMatch = text.match(
-      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
-    );
-    if (priceMatch) {
-      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
-      text = text.slice(0, priceMatch.index).trim();
-    }
-
     const trailingQtyMatch = text.match(
-      new RegExp(`^(.+?)\\s+(\\d+(?:\\.\\d+)?)\\s*(${OrderParserService.UNIT_WORDS})?\\b\\.?$`, 'i'),
+      new RegExp(`^(.+?)\\s+(${OrderParserService.NUMBER_PATTERN})\\s*(${OrderParserService.UNIT_WORDS})?\\b\\.?$`, 'i'),
     );
     if (!trailingQtyMatch) return null;
 
@@ -1408,7 +1428,7 @@ export class OrderParserService {
 
     return {
       name,
-      quantity: Number(trailingQtyMatch[2]),
+      quantity: Number(trailingQtyMatch[2].replace(/,/g, '')),
       unit: trailingQtyMatch[3] ? trailingQtyMatch[3].toLowerCase() : undefined,
       price,
     };
@@ -1416,17 +1436,10 @@ export class OrderParserService {
 
   /** One "[qty][unit]? name [price]?" segment, e.g. "10kg mango 1000rs" or "2 rice". */
   private parseSegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
-    let text = segment.trim();
+    const stripped = this.stripTrailingPrice(segment.trim());
+    const price = stripped.price;
+    let text = stripped.text;
     if (!text) return null;
-
-    let price: number | null = null;
-    const priceMatch = text.match(
-      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
-    );
-    if (priceMatch) {
-      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
-      text = text.slice(0, priceMatch.index).trim();
-    }
 
     let quantity = 1;
     let unit: string | undefined;
@@ -1436,7 +1449,7 @@ export class OrderParserService {
     // with a digit (e.g. "7up") would have its leading digit stolen as a
     // quantity ("7up" -> qty 7, name "up").
     const qtyMatch = text.match(
-      new RegExp(`^(\\d+(?:\\.\\d+)?)(?:\\s*(${OrderParserService.UNIT_WORDS})\\b)?(?=\\s|$)\\.?\\s*(?:of\\s+)?`, 'i'),
+      new RegExp(`^(${OrderParserService.NUMBER_PATTERN})(?:\\s*(${OrderParserService.UNIT_WORDS})\\b)?(?=\\s|$)\\.?\\s*(?:of\\s+)?`, 'i'),
     );
     // "a bottle of oil" / "a kg of sugar" / "an inch of ribbon" — quantity 1
     // with an explicit unit, distinct from the WORD_NUMBERS check below
@@ -1451,7 +1464,7 @@ export class OrderParserService {
     );
 
     if (qtyMatch) {
-      quantity = Number(qtyMatch[1]);
+      quantity = Number(qtyMatch[1].replace(/,/g, ''));
       unit = qtyMatch[2] ? qtyMatch[2].toLowerCase() : undefined;
       text = text.slice(qtyMatch[0].length).trim();
     } else if (articleUnitMatch) {
@@ -1491,7 +1504,7 @@ export class OrderParserService {
     // goes for a stray spelled-out number ("rice three milk" with no connector,
     // where the digit-boundary segment splitter can't tell the items apart) —
     // bail rather than fold a quantity word into the product name.
-    const strayQtyToken = new RegExp(`^\\d+(?:\\.\\d+)?(?:${OrderParserService.UNIT_WORDS})?$`, 'i');
+    const strayQtyToken = new RegExp(`^${OrderParserService.NUMBER_PATTERN}(?:${OrderParserService.UNIT_WORDS})?$`, 'i');
     const strayWordNumbers = new Set(Object.keys(OrderParserService.WORD_NUMBERS));
     if (name.split(/\s+/).some((word) => strayQtyToken.test(word) || strayWordNumbers.has(word.toLowerCase()))) {
       return null;
