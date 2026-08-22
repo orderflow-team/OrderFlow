@@ -51,6 +51,19 @@ async function refreshAccessToken(): Promise<string | null> {
     const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
     localStorage.setItem('access_token', res.data.access_token);
     localStorage.setItem('refresh_token', res.data.refresh_token);
+    // The refreshed token's businessId is re-derived server-side from the
+    // user's CURRENT business_id — which can differ from what's cached here
+    // if it changed since this device last did a full login/select (e.g.
+    // switching workspaces on another device, or any other reassignment).
+    // issueTokens() (auth.service.ts) always returns this fresh `user`
+    // alongside the tokens specifically so a refresh can re-sync it; leaving
+    // it un-synced meant every subsequent request kept sending the stale
+    // cached businessId while the new token carried a different one —
+    // BusinessScopeGuard then rejects every business-scoped request with
+    // "Business mismatch" until the user logs out and back in.
+    if (res.data.user) {
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+    }
     return res.data.access_token;
   } catch {
     return null;
@@ -106,6 +119,38 @@ apiClient.interceptors.response.use(
         window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       }
     }
+
+    // A session already stuck with a stale cached businessId (see
+    // refreshAccessToken above for how that happens) hits this on every
+    // business-scoped request until something re-syncs it. One-shot recovery:
+    // force a refresh (which now re-syncs `user`, including businessId) and
+    // reload so every page re-reads the corrected value from scratch, rather
+    // than leaving the user stuck until their access_token happens to expire
+    // naturally (up to 24h) or they think to log out and back in themselves.
+    // The sessionStorage flag caps this to one attempt per browser session so
+    // a mismatch that turns out NOT to be fixable by a refresh (e.g. account
+    // actually removed from the business) can't reload-loop.
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.message === 'Business mismatch' &&
+      typeof window !== 'undefined' &&
+      !sessionStorage.getItem('business_mismatch_recovery_attempted')
+    ) {
+      sessionStorage.setItem('business_mismatch_recovery_attempted', '1');
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
+      }
+      const newToken = await refreshPromise;
+      if (newToken) {
+        window.location.reload();
+        // The reload is already in flight — never resolve/reject further so
+        // nothing downstream renders a flash of this error first.
+        return new Promise(() => {});
+      }
+    }
+
     return Promise.reject(error);
   },
 );

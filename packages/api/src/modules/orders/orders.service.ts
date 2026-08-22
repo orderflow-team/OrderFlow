@@ -24,7 +24,7 @@ import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto } from './dto/crea
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { InvoicesService } from '../billing/invoices.service';
 import { findOrCreateProductByName } from '../../common/utils/find-or-create-product.util';
-import { enforceMrpCeiling } from '../products/utils/pricing.util';
+import { enforceMrpCeiling, convertUnitPrice } from '../products/utils/pricing.util';
 
 /** Internal marker item used to open a table session before real items are added — never a real product. */
 const TABLE_SESSION_PLACEHOLDER_ITEM = 'table session started';
@@ -150,6 +150,22 @@ export class OrdersService {
     }
 
     if (product) {
+      // A stated unit that differs from the product's own (e.g. a chat order
+      // for "500ml" of a product priced per "liter") needs its price
+      // converted BEFORE anything else runs — item.quantity here means 500
+      // (milliliters), not 500 of the product's own unit, so falling through
+      // to plain selling_price * quantity would overcharge by ~1000x, and
+      // volume_tiers' minQty thresholds (defined in the product's own unit)
+      // would compare against the wrong scale entirely if reached with a
+      // converted quantity. See convertUnitPrice's own doc comment for what
+      // it can and can't convert (only within the same mass/volume family;
+      // an unconvertible mismatch — e.g. asking for "kg" of a liter-priced
+      // product — falls through below exactly as before this existed).
+      const convertedUnitPrice = convertUnitPrice(Number(item.quantity), item.unit, product);
+      if (convertedUnitPrice !== null) {
+        return { unitPrice: convertedUnitPrice, taxPercentage: Number(product.tax_percentage) };
+      }
+
       let unitPrice = Number(product.selling_price);
       if (Array.isArray(product.volume_tiers) && product.volume_tiers.length > 0) {
         const sortedTiers = [...product.volume_tiers].sort((a, b) => Number(b.minQty) - Number(a.minQty));

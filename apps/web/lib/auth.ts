@@ -38,6 +38,14 @@ export function isTokenExpired(token: string | null | undefined): boolean {
 
 export function setCurrentUser(user: CurrentUser) {
   localStorage.setItem('user', JSON.stringify(user));
+  // A freshly-established identity (login, signup, business switch) starts
+  // with a clean slate for api-client.ts's one-shot "Business mismatch"
+  // recovery — that flag exists to stop a reload loop within the SAME stale
+  // session, not to permanently cap recovery attempts across genuinely new
+  // sessions.
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('business_mismatch_recovery_attempted');
+  }
 }
 
 export function hasRole(...roles: string[]): boolean {

@@ -14,6 +14,26 @@ export function isNetworkError(err: any): boolean {
   return !err?.response;
 }
 
+/**
+ * Quick reachability probe against the API's public health endpoint — the
+ * real signal for whether we can actually talk to the server.
+ * `navigator.onLine` (used for the initial/event-driven state below) only
+ * reflects whether SOME network interface has link, which is notoriously
+ * unreliable in Android WebViews: it can read false with a perfectly
+ * working connection (the reported "offline while network is connected"
+ * bug), or true on a Wi-Fi network with no real internet. Short timeout so
+ * a genuinely dead connection still resolves quickly rather than hanging
+ * the offline banner in a stuck "checking" state.
+ */
+export async function probeApiReachable(): Promise<boolean> {
+  try {
+    await apiClient.get('/health', { timeout: 6000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 interface OfflineState {
   isOnline: boolean;
   syncing: boolean;
@@ -164,7 +184,16 @@ export function useOfflineSync(businessId: string | null) {
       setOnline(true);
       syncNow(businessId);
     };
-    const handleOffline = () => setOnline(false);
+    // The browser's 'offline' event (and navigator.onLine generally) is
+    // unreliable in Android WebViews — it can fire even with a perfectly
+    // working connection. Verify with a real request before trusting it and
+    // showing the offline banner, rather than believing it outright.
+    const handleOffline = () => {
+      probeApiReachable().then((reachable) => {
+        setOnline(reachable);
+        if (reachable) syncNow(businessId);
+      });
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -179,7 +208,17 @@ export function useOfflineSync(businessId: string | null) {
         .catch(() => {});
     }
 
-    if (navigator.onLine) syncNow(businessId);
+    if (navigator.onLine) {
+      syncNow(businessId);
+    } else {
+      // navigator.onLine can read false right from mount even when the
+      // connection is actually fine — same unreliability as handleOffline
+      // above, so verify before showing "offline" here too.
+      probeApiReachable().then((reachable) => {
+        setOnline(reachable);
+        if (reachable) syncNow(businessId);
+      });
+    }
 
     return () => {
       window.removeEventListener('online', handleOnline);

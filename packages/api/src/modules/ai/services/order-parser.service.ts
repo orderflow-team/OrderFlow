@@ -477,6 +477,13 @@ export class OrderParserService {
     // Length
     'metres?|meters?|m|inche?s?|in';
 
+  // Same list, minus "dozens?" — used by parseSegment's "a/an <unit>" check
+  // (e.g. "a bottle of oil", "a packet of chips") so it doesn't collide with
+  // "a dozen X" already being handled as quantity 12 via WORD_NUMBERS below;
+  // matching "dozen" here too would instead read it as quantity 1, unit
+  // "dozen".
+  private static readonly UNIT_WORDS_NO_DOZEN = OrderParserService.UNIT_WORDS.replace('dozens?|', '');
+
   // Words that could otherwise get swept into the leading "<name> order ..."
   // capture below via greedy backtracking — e.g. "Make Neel order 2 rice" should
   // yield the name "Neel", not "Make Neel".
@@ -751,6 +758,20 @@ export class OrderParserService {
     text = text.replace(/^(?:please\s+)?(?:(?:make|create|place|start)\s+(?:a|an)\s+)?new\s+order\s*/i, '').trim();
     text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
 
+    // A conversational opener ("give me", "I want", "can I get") isn't part
+    // of the order — left in place it becomes the leading word of whatever
+    // segment follows, which then fails parseSegment's confidence guard (its
+    // quantity digit reads as a stray token stuck inside a longer "name") and
+    // bails the whole deterministic parse to Gemini even for an otherwise
+    // trivial single-item order.
+    text = text
+      .replace(/^(?:please\s+)?give\s+me\s+/i, '')
+      .replace(/^(?:please\s+)?i(?:'d|\s+would)\s+like\s+(?:to\s+(?:order|get|have)\s+)?/i, '')
+      .replace(/^(?:please\s+)?i\s+(?:want|need)\s+(?:to\s+(?:order|get|have)\s+)?/i, '')
+      .replace(/^(?:please\s+)?can\s+i\s+(?:get|have)\s+/i, '')
+      .replace(/^(?:please\s+)?i'?ll\s+(?:have|take)\s+/i, '')
+      .trim();
+
     const titleCase = (raw: string) =>
       raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
@@ -887,9 +908,11 @@ export class OrderParserService {
       }
     }
 
-    const segments = /[,&]|\band\b/i.test(text)
+    // ";" and newlines are just as valid a list separator as "," — a pasted
+    // shopping list is often one item per line, or semicolon-separated.
+    const segments = /[,;&\n]|\band\b/i.test(text)
       ? text
-          .split(/\s*(?:,|\band\b|&)\s*/i)
+          .split(/\s*(?:[,;&\n]|\band\b)\s*/i)
           .map((s) => s.trim())
           .filter(Boolean)
       : this.splitImplicitSegments(text).map((s) => s.trim()).filter(Boolean);
@@ -899,12 +922,46 @@ export class OrderParserService {
     const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
 
     for (const segment of segments) {
-      const item = this.parseSegment(segment);
-      if (!item) return null; // not a clean/simple enough segment — bail to Gemini
+      let item = this.parseSegment(segment);
+      let catalogMatch: string | 'ambiguous' | null = null;
 
-      const normalized = item.name.toLowerCase();
-      const catalogMatch = this.matchCatalogProduct(normalized, available);
-      if (catalogMatch === 'ambiguous') return null; // ambiguous — let Gemini sort it out
+      if (item) {
+        catalogMatch = this.matchCatalogProduct(item.name.toLowerCase(), available);
+        if (catalogMatch === 'ambiguous') return null; // ambiguous — let Gemini sort it out
+      } else {
+        // parseSegment rejected this segment — its confidence guard treats a
+        // trailing digit(+unit) token left in the name as a quantity it
+        // failed to extract, which is exactly "oil 4kg" (name FIRST, then
+        // quantity+unit — parseSegment only looks for a LEADING quantity).
+        // But a catalog product can also legitimately have a quantity baked
+        // into its own name ("E2E Test Snack 100g"), so check whether the
+        // segment's own untouched text already names a real product BEFORE
+        // assuming it's "name + quantity" and splitting it — otherwise
+        // typing that product's exact name would get needlessly and
+        // wrongly split into quantity 100, unit "g", name "e2e test snack".
+        // Deliberately an EXACT match only — matchCatalogProduct's substring
+        // tier would wrongly protect "rice 5" too (since "rice" is a
+        // substring of "rice 5"), swallowing "5" into the name instead of
+        // reading it as a trailing quantity. Exact-only means this can only
+        // ever fire for a product whose own name is a full, character-for-
+        // character match, which is precisely the "E2E Test Snack 100g"
+        // case it exists to protect.
+        const wholeTextItem = this.parseWholeSegmentAsName(segment);
+        const wholeTextMatch = wholeTextItem
+          ? available.find((p) => p.name.trim().toLowerCase() === wholeTextItem!.name.toLowerCase())?.name ?? null
+          : null;
+
+        if (wholeTextItem && wholeTextMatch) {
+          item = wholeTextItem;
+          catalogMatch = wholeTextMatch;
+        } else {
+          item = this.parseTrailingQuantitySegment(segment);
+          if (!item) return null; // not a clean/simple enough segment — bail to Gemini
+          catalogMatch = this.matchCatalogProduct(item.name.toLowerCase(), available);
+          if (catalogMatch === 'ambiguous') return null;
+        }
+      }
+
       if (catalogMatch) {
         matched.push({ menuName: catalogMatch, quantity: item.quantity, unit: item.unit });
         continue;
@@ -930,10 +987,23 @@ export class OrderParserService {
     // "e2e test snack" should still find "E2E Test Snack 100g" — same substring
     // tier invoice-scan.service.ts's fuzzy matcher uses, kept independent here
     // rather than shared so this feature can't regress that already-verified one.
+    //
+    // The catalog-name-is-longer direction is deliberately a PREFIX match
+    // (pname.startsWith(...)), not "found anywhere in" — a bare generic word
+    // like "oil" would otherwise match ANY product whose name happens to
+    // contain it, most commonly one specific BRANDED item ("Fortune Oil")
+    // the customer never named. Catalog naming conventions put the generic
+    // product name first and append size/variant qualifiers after it (which
+    // startsWith still catches, e.g. "E2E Test Snack 100g"), while a brand
+    // is conventionally PREPENDED before the generic term — so requiring a
+    // prefix match captures "name + suffix" while excluding "brand + name".
+    // A plain "oil" should create its own generic product rather than
+    // silently attaching to whichever specific brand happens to be in
+    // stock; typing the brand name itself still matches it directly.
     const substringMatches = available.filter((p) => {
       const pname = p.name.trim().toLowerCase();
       if (Math.min(pname.length, normalizedName.length) < 4) return false;
-      return normalizedName.includes(pname) || pname.includes(normalizedName);
+      return normalizedName.includes(pname) || pname.startsWith(normalizedName);
     });
     if (substringMatches.length > 1) return 'ambiguous';
     if (substringMatches.length === 1) return substringMatches[0].name;
@@ -983,9 +1053,13 @@ export class OrderParserService {
       ...Array.from(unmatchedMap.keys()).map((key) => ({ store: 'unmatched' as const, key })),
     ];
 
+    // Same prefix-only rule as matchCatalogProduct's substringMatches — see
+    // its comment for why (avoids a bare "oil" hitting a branded "Fortune
+    // Oil" already sitting in the order, while "e2e test snack" still hits
+    // "e2e test snack 100g").
     const substringHits = allKeys.filter(({ key }) => {
       if (Math.min(key.length, normalizedName.length) < 4) return false;
-      return normalizedName.includes(key) || key.includes(normalizedName);
+      return normalizedName.includes(key) || key.startsWith(normalizedName);
     });
     if (substringHits.length > 1) return 'ambiguous';
     if (substringHits.length === 1) return substringHits[0];
@@ -1130,8 +1204,8 @@ export class OrderParserService {
     }
 
     if (text) {
-      const segments = /[,&]|\band\b/i.test(text)
-        ? text.split(/\s*(?:,|\band\b|&)\s*/i).map((s) => s.trim()).filter(Boolean)
+      const segments = /[,;&\n]|\band\b/i.test(text)
+        ? text.split(/\s*(?:[,;&\n]|\band\b)\s*/i).map((s) => s.trim()).filter(Boolean)
         : [text];
       if (segments.length === 0) return null;
 
@@ -1252,6 +1326,69 @@ export class OrderParserService {
     };
   }
 
+  /**
+   * Strips a trailing stated price (same rule as parseSegment) and treats
+   * whatever's left as the WHOLE item name at quantity 1 — no quantity
+   * extraction, no confidence guard. Used only to check "does this segment's
+   * own untouched text already name a real catalog product" before deciding
+   * whether a trailing digit(+unit) is part of that name or an actual
+   * quantity (see parseTrailingQuantitySegment below).
+   */
+  private parseWholeSegmentAsName(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
+    let text = segment.trim();
+    if (!text) return null;
+
+    let price: number | null = null;
+    const priceMatch = text.match(
+      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
+    );
+    if (priceMatch) {
+      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
+      text = text.slice(0, priceMatch.index).trim();
+    }
+
+    const name = text.trim();
+    if (!name) return null;
+    return { name, quantity: 1, unit: undefined, price };
+  }
+
+  /**
+   * Fallback for "oil 4kg" / "sugar 2 packets" / "rice 5" — name FIRST,
+   * quantity(+unit) trailing — only ever tried by tryDeterministicParse
+   * after BOTH parseSegment's leading-quantity parse AND a whole-segment
+   * catalog-name check have already failed, so it can't compete with the
+   * normal "2kg rice" shape or misfire on a product whose own name happens
+   * to end in a number.
+   */
+  private parseTrailingQuantitySegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
+    let text = segment.trim();
+    if (!text) return null;
+
+    let price: number | null = null;
+    const priceMatch = text.match(
+      /(?:₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs\.?|rupees?)|rs\.?\s*(\d+(?:\.\d+)?))\s*$/i,
+    );
+    if (priceMatch) {
+      price = Number(priceMatch[1] ?? priceMatch[2] ?? priceMatch[3]);
+      text = text.slice(0, priceMatch.index).trim();
+    }
+
+    const trailingQtyMatch = text.match(
+      new RegExp(`^(.+?)\\s+(\\d+(?:\\.\\d+)?)\\s*(${OrderParserService.UNIT_WORDS})?\\b\\.?$`, 'i'),
+    );
+    if (!trailingQtyMatch) return null;
+
+    const name = trailingQtyMatch[1].trim().replace(/[,;:.!?]+$/, '').trim();
+    if (!name) return null;
+
+    return {
+      name,
+      quantity: Number(trailingQtyMatch[2]),
+      unit: trailingQtyMatch[3] ? trailingQtyMatch[3].toLowerCase() : undefined,
+      price,
+    };
+  }
+
   /** One "[qty][unit]? name [price]?" segment, e.g. "10kg mango 1000rs" or "2 rice". */
   private parseSegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
     let text = segment.trim();
@@ -1276,10 +1413,26 @@ export class OrderParserService {
     const qtyMatch = text.match(
       new RegExp(`^(\\d+(?:\\.\\d+)?)(?:\\s*(${OrderParserService.UNIT_WORDS})\\b)?(?=\\s|$)\\.?\\s*(?:of\\s+)?`, 'i'),
     );
+    // "a bottle of oil" / "a kg of sugar" / "an inch of ribbon" — quantity 1
+    // with an explicit unit, distinct from the WORD_NUMBERS check below
+    // (that handles NUMBER words like "two" or "a dozen"; this is "a"/"an"
+    // directly followed by a unit word, with nothing numeric being said at
+    // all). Checked before the digit path can't apply anyway (no digit here)
+    // but after it in code order for readability; checked with UNIT_WORDS_NO_DOZEN
+    // so "a dozen eggs" keeps going through the WORD_NUMBERS path below
+    // (quantity 12) instead of being read as quantity 1, unit "dozen".
+    const articleUnitMatch = text.match(
+      new RegExp(`^(?:a|an)\\s+(${OrderParserService.UNIT_WORDS_NO_DOZEN})\\b\\.?\\s*(?:of\\s+)?`, 'i'),
+    );
+
     if (qtyMatch) {
       quantity = Number(qtyMatch[1]);
       unit = qtyMatch[2] ? qtyMatch[2].toLowerCase() : undefined;
       text = text.slice(qtyMatch[0].length).trim();
+    } else if (articleUnitMatch) {
+      quantity = 1;
+      unit = articleUnitMatch[1].toLowerCase();
+      text = text.slice(articleUnitMatch[0].length).trim();
     } else {
       // No digit — try a spelled-out cardinal ("two rice", "a dozen eggs"),
       // which needs a following space rather than glueing straight to a unit
@@ -1298,7 +1451,11 @@ export class OrderParserService {
       }
     }
 
-    const name = text.trim();
+    // Stray leftover punctuation — a trailing "," or ";" that survived
+    // because this segment's own separator wasn't perfectly consumed, or a
+    // period/colon from casual typing ("2kg rice.") — isn't part of the
+    // product name and would otherwise block an exact catalog match.
+    const name = text.trim().replace(/[,;:.!?]+$/, '').trim();
     if (!name) return null;
 
     // Confidence guard: a clean name shouldn't have a standalone number or a
