@@ -324,34 +324,66 @@ export class OrderParserService {
       const unit = m.unit || undefined;
 
       if (unit && unitFamilyMismatch(product.unit, unit)) {
+        // Fold the stated quantity into the new product's own unit ("10kg"
+        // as one pack, at order quantity 1) rather than quantity 10 + unit
+        // "kg" — same convention newItems below uses, see its comment for
+        // why: there's no existing rate to charge a bare per-kg price
+        // against, so the merchant should just type the one total they'd
+        // actually charge for this whole pack.
         const customerWording = (m.rawName || product.name).trim();
-        redirectedItems.push({ customProductName: `${customerWording} (${unit})`, quantity, unitPrice: 0, unit });
+        const combinedUnit = `${quantity}${unit}`;
+        redirectedItems.push({ customProductName: `${customerWording} (${combinedUnit})`, quantity: 1, unitPrice: 0, unit: combinedUnit });
         continue;
       }
 
       matchedItems.push({ productId: product.id, quantity, unit });
     }
 
-    const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity} ${unit}` : `${quantity}x`);
+    // A quantity already folded into a compound unit ("10kg", "500gm" — see
+    // newItems/redirectedItems below) reads naturally alone; only a PLAIN
+    // count needs the "Nx"/"N unit" treatment.
+    const fmtQty = (quantity: number, unit?: string) => {
+      if (!unit) return `${quantity}x`;
+      return quantity === 1 && /^\d/.test(unit) ? unit : `${quantity} ${unit}`;
+    };
 
     // Anything not on the menu still gets ordered — same seamless quick-add the
     // New Order screen's free-text flow already does, whether this is a brand-new
-    // order or an edit. If the customer stated a price for it (a TOTAL for the
-    // whole quantity, e.g. "10kg mango 1000rs"), use price/quantity as the unit
-    // price; otherwise ₹0 for the merchant to set afterward.
-    // findOrCreateProductFromCustomName (orders.service.ts) creates the Product
-    // row the first time each name is used.
+    // order or an edit. findOrCreateProductFromCustomName (orders.service.ts)
+    // creates the Product row the first time each name is used.
+    //
+    // When a unit was stated ("10kg mango"), there's no existing per-unit rate
+    // to charge against — this is a BRAND NEW product — so, same as the New
+    // Order screen's free-text quick-add (search.trim() + parseQuantityUnit
+    // there: an "Add '10kg mango'" tap creates it at quantity 1, unit "10kg"),
+    // fold the stated quantity into the unit itself rather than splitting it
+    // into quantity 10 + unit "kg". That way the ONE price the merchant enters
+    // (or the customer's own stated total, e.g. "10kg mango 1000rs") is simply
+    // the total for that whole pack — no mental division into a per-kg rate —
+    // while still leaving the compound unit ("10kg") in place for
+    // pricing.util.ts's convertUnitPrice/canonicalUnitKey to scale correctly
+    // if a later order asks for a different quantity of this same product.
+    // A bare count with no unit ("2 rice") is unaffected — that's not a new
+    // pack size, just a plain quantity.
     const newItems = [
       ...(parsed.unmatched || [])
         .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
         .map((u) => {
-          const quantity = Number(u.quantity) || 1;
+          const statedQuantity = Number(u.quantity) || 1;
           const statedTotal = u.price != null && !isNaN(Number(u.price)) ? Number(u.price) : null;
+          if (u.unit) {
+            return {
+              customProductName: u.name.trim(),
+              quantity: 1,
+              unitPrice: statedTotal ?? 0,
+              unit: `${statedQuantity}${u.unit}`,
+            };
+          }
           return {
             customProductName: u.name.trim(),
-            quantity,
-            unitPrice: statedTotal !== null ? statedTotal / quantity : 0,
-            unit: u.unit || undefined,
+            quantity: statedQuantity,
+            unitPrice: statedTotal !== null ? statedTotal / statedQuantity : 0,
+            unit: undefined,
           };
         }),
       ...redirectedItems,
