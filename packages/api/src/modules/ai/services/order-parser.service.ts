@@ -4,6 +4,7 @@ import { ProductsService } from '../../products/products.service';
 import { RestaurantService } from '../../restaurant/restaurant.service';
 import { CustomersService } from '../../customers/customers.service';
 import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
+import { unitFamilyMismatch } from '../../products/utils/pricing.util';
 
 @Injectable()
 export class OrderParserService {
@@ -294,14 +295,35 @@ export class OrderParserService {
       }
     }
 
-    const matchedItems = (parsed.matched || [])
-      .map((m) => {
-        const product = available.find((p) => p.name.toLowerCase() === m.menuName?.toLowerCase());
-        return product
-          ? { productId: product.id, quantity: Number(m.quantity) || 1, unit: m.unit || undefined }
-          : null;
-      })
-      .filter((i): i is { productId: string; quantity: number; unit: string | undefined } => i !== null);
+    const matchedItems: { productId: string; quantity: number; unit: string | undefined }[] = [];
+    // "2kg" of a product priced per "liter" — mass can't be converted to
+    // volume (or vice versa) without knowing the specific product's
+    // density, which this app doesn't track, so there's no safe price to
+    // charge against the EXISTING product's own rate. Rather than silently
+    // treating "2" as if it meant 2 liters (a real charge, just a wrong
+    // one), redirect it into a unit-qualified new product ("Fortune Oil
+    // (kg)") — same ₹0/"set its price" treatment newItems below already
+    // gives any brand-new item, so the merchant sees it as its own line
+    // needing a real price rather than a silently mispriced charge against
+    // the wrong unit. The qualifying suffix keeps it from colliding with
+    // the original product's name (findOrCreateProductFromCustomName in
+    // orders.service.ts reuses any EXISTING product with the exact same
+    // name, which would just resolve straight back to the original here).
+    const redirectedItems: { customProductName: string; quantity: number; unitPrice: number; unit: string | undefined }[] = [];
+
+    for (const m of parsed.matched || []) {
+      const product = available.find((p) => p.name.toLowerCase() === m.menuName?.toLowerCase());
+      if (!product) continue;
+      const quantity = Number(m.quantity) || 1;
+      const unit = m.unit || undefined;
+
+      if (unit && unitFamilyMismatch(product.unit, unit)) {
+        redirectedItems.push({ customProductName: `${product.name} (${unit})`, quantity, unitPrice: 0, unit });
+        continue;
+      }
+
+      matchedItems.push({ productId: product.id, quantity, unit });
+    }
 
     const fmtQty = (quantity: number, unit?: string) => (unit ? `${quantity} ${unit}` : `${quantity}x`);
 
@@ -312,18 +334,21 @@ export class OrderParserService {
     // price; otherwise ₹0 for the merchant to set afterward.
     // findOrCreateProductFromCustomName (orders.service.ts) creates the Product
     // row the first time each name is used.
-    const newItems = (parsed.unmatched || [])
-      .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
-      .map((u) => {
-        const quantity = Number(u.quantity) || 1;
-        const statedTotal = u.price != null && !isNaN(Number(u.price)) ? Number(u.price) : null;
-        return {
-          customProductName: u.name.trim(),
-          quantity,
-          unitPrice: statedTotal !== null ? statedTotal / quantity : 0,
-          unit: u.unit || undefined,
-        };
-      });
+    const newItems = [
+      ...(parsed.unmatched || [])
+        .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
+        .map((u) => {
+          const quantity = Number(u.quantity) || 1;
+          const statedTotal = u.price != null && !isNaN(Number(u.price)) ? Number(u.price) : null;
+          return {
+            customProductName: u.name.trim(),
+            quantity,
+            unitPrice: statedTotal !== null ? statedTotal / quantity : 0,
+            unit: u.unit || undefined,
+          };
+        }),
+      ...redirectedItems,
+    ];
 
     if (existingOrder) {
       const originalCount = existingOrder.items?.length || 0;

@@ -64,6 +64,34 @@ function normalizeUnitFamily(unit: string): 'g' | 'kg' | 'ml' | 'L' | null {
   return null;
 }
 
+const isMassFamily = (u: string | null) => u === 'kg' || u === 'g';
+const isVolFamily = (u: string | null) => u === 'L' || u === 'ml';
+
+/**
+ * True when requestedUnit is a recognized mass/volume unit that CANNOT be
+ * reconciled with productUnit — either productUnit is itself outside the
+ * mass/volume system entirely (e.g. "piece", "packet", "box" — asking for
+ * "2kg" of a per-piece product), or it's the OTHER family (asking for "kg"
+ * of a liter-priced product). There's no safe conversion between mass and
+ * volume without knowing the specific product's density, which this app
+ * doesn't track, so this is a genuine, unresolvable mismatch rather than
+ * something convertUnitPrice below just hasn't learned to convert yet.
+ * False for a requestedUnit outside the mass/volume system too (piece,
+ * dozen, box, ...) — that's a different, pre-existing matching concern this
+ * check isn't meant to touch.
+ */
+export function unitFamilyMismatch(productUnit: string | null | undefined, requestedUnit: string | null | undefined): boolean {
+  if (!requestedUnit) return false;
+  const requestedFamily = normalizeUnitFamily(requestedUnit);
+  if (!requestedFamily) return false;
+
+  const parsedProductUnit = productUnit ? parseQuantityUnitAlias(productUnit) : null;
+  const productFamily = normalizeUnitFamily(parsedProductUnit ? parsedProductUnit.unit : productUnit || '');
+  if (!productFamily) return true;
+
+  return !((isMassFamily(productFamily) && isMassFamily(requestedFamily)) || (isVolFamily(productFamily) && isVolFamily(requestedFamily)));
+}
+
 /**
  * Converts a stated quantity+unit (e.g. 500 "ml") into a PER-UNIT price
  * appropriate for a product stored/priced in a DIFFERENT unit (e.g. sold at
@@ -80,12 +108,12 @@ function normalizeUnitFamily(unit: string): 'g' | 'kg' | 'ml' | 'L' | null {
  * Returns null (no conversion needed/possible) when:
  * - no unit was stated, the stated quantity is invalid, or the stated unit
  *   already matches the product's own unit (nothing to convert)
- * - the stated unit and the product's own unit aren't in the same family
- *   (both mass, or both volume) — e.g. asking for "kg" of a liter-priced
- *   product isn't something this can safely guess a conversion for, same
- *   limitation the New Order screen's own conversion has today.
- * Callers should fall back to the product's plain selling_price in either
- * case, exactly as before this existed.
+ * - unitFamilyMismatch(product.unit, requestedUnit) is true — mass can't
+ *   convert to volume or vice versa without knowing the product's density.
+ *   Callers shouldn't fall through to the plain selling_price for THIS
+ *   case the way they should for the others above — see unitFamilyMismatch
+ *   and its callers in order-parser.service.ts, which redirect a mismatched
+ *   item to a new, separately-priced product instead of guessing.
  */
 export function convertUnitPrice(
   requestedQuantity: number,
@@ -95,6 +123,7 @@ export function convertUnitPrice(
   if (!requestedUnit || !Number.isFinite(requestedQuantity) || requestedQuantity <= 0) return null;
   const productUnit = (product.unit || '').trim();
   if (!productUnit || requestedUnit.trim().toLowerCase() === productUnit.toLowerCase()) return null;
+  if (unitFamilyMismatch(productUnit, requestedUnit)) return null;
 
   const requestedCombined = `${requestedQuantity}${requestedUnit}`;
   const savedOverride = product.unit_prices?.[canonicalUnitKey(requestedCombined)];
@@ -105,11 +134,7 @@ export function convertUnitPrice(
   const parsedOriginal = parseQuantityUnitAlias(productUnit) || { quantity: 1, unit: productUnit };
   const normOriginal = normalizeUnitFamily(parsedOriginal.unit);
   const normNew = normalizeUnitFamily(requestedUnit);
-  const isMass = (u: string | null) => u === 'kg' || u === 'g';
-  const isVol = (u: string | null) => u === 'L' || u === 'ml';
-  if (!normOriginal || !normNew || !((isMass(normOriginal) && isMass(normNew)) || (isVol(normOriginal) && isVol(normNew)))) {
-    return null;
-  }
+  if (!normOriginal || !normNew) return null;
 
   // Price per 1 basic unit (gram or ml) of the product's own pricing.
   let pricePerBasicUnit = Number(product.selling_price) / parsedOriginal.quantity;
