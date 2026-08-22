@@ -32,7 +32,15 @@ export class AiController {
   }
 
   @Post('chat-order')
-  async chatOrder(@Body() body: { businessId: string; message: string; orderId?: string }) {
-    return this.parserService.parseChatOrder(body.businessId, body.message, body.orderId);
+  async chatOrder(
+    @Body()
+    body: {
+      businessId: string;
+      message: string;
+      orderId?: string;
+      pendingCustomer?: { customerName?: string | null; phone?: string | null };
+    },
+  ) {
+    return this.parserService.parseChatOrder(body.businessId, body.message, body.orderId, body.pendingCustomer);
   }
 }

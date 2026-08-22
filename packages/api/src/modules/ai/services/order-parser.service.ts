@@ -31,7 +31,12 @@ export class OrderParserService {
    * by name and/or phone, when the customer explicitly asks — orders.service.ts's
    * replaceItems() reconciles the outstanding-balance ledger for the swap.
    */
-  async parseChatOrder(businessId: string, message: string, orderId?: string) {
+  async parseChatOrder(
+    businessId: string,
+    message: string,
+    orderId?: string,
+    pendingContact?: { customerName?: string | null; phone?: string | null },
+  ) {
     if (!message || message.trim().length === 0) {
       throw new BadRequestException('Message cannot be empty');
     }
@@ -145,6 +150,26 @@ export class OrderParserService {
     // itself ends up going through the fast path or Gemini below. Editing an existing
     // order never touches the customer on record, so this is skipped there.
     const contactInfo = existingOrder ? null : this.extractContactInfo(message);
+
+    // Each chat message is parsed statelessly — parseChatOrder has no memory of
+    // anything sent before it. So when a PRIOR message named a customer but had
+    // no items yet ("order for Neel 9876543210"), that captured contact never
+    // resulted in an order to attach to, and this message (just the items) has
+    // no way to know "Neel" was already established. pendingContact is how the
+    // caller (chat-order.controller.ts, fed by the frontend echoing back the
+    // pendingCustomer field from that earlier reply — see parseChatOrder's
+    // return shape below) threads that forward. Only fills in whatever THIS
+    // message's own extraction didn't already find — a name/phone mentioned
+    // right here always wins over a stale pending one.
+    if (contactInfo && pendingContact) {
+      if (!contactInfo.customerName && pendingContact.customerName) {
+        contactInfo.customerName = pendingContact.customerName;
+      }
+      if (!contactInfo.phone && pendingContact.phone) {
+        contactInfo.phone = pendingContact.phone;
+      }
+    }
+
     const itemMessage = contactInfo ? contactInfo.cleanMessage : message;
 
     // A message that's nothing BUT customer info ("order for Neel 9876543210",
@@ -160,6 +185,7 @@ export class OrderParserService {
       return {
         reply: `Got it — saved ${contactInfo.customerName}${phoneNote} as the customer. What would you like to order?`,
         order: null,
+        pendingCustomer: { customerName: contactInfo.customerName, phone: contactInfo.phone },
       };
     }
 
@@ -362,6 +388,7 @@ export class OrderParserService {
         return {
           reply: `Got it — saved ${contactInfo.customerName}${phoneNote} as the customer. What would you like to order?`,
           order: null,
+          pendingCustomer: { customerName: contactInfo.customerName, phone: contactInfo.phone },
         };
       }
 
@@ -414,6 +441,10 @@ export class OrderParserService {
     return {
       reply: `Order placed${namePart}! ${summary} ${placementNote}.`,
       order,
+      // The order itself now carries the customer — nothing left pending, so
+      // the caller should drop whatever pendingContact it was holding for the
+      // next message (see the pendingContact param above).
+      pendingCustomer: null,
     };
   }
 
@@ -707,6 +738,17 @@ export class OrderParserService {
   private extractContactInfo(message: string): { customerName: string | null; phone: string | null; cleanMessage: string } {
     let text = message.trim();
 
+    // Strip a leading "new order" (bare, or with a make/place/create/start
+    // verb in front) BEFORE phone/name extraction runs — otherwise "new" has
+    // nowhere to go: it isn't part of the name (NAME_STOPWORDS already
+    // rejects it there), isn't a phone digit, and isn't consumed by the
+    // "(?:order\s+)?for" name-match pattern below (that only swallows a
+    // literal "order" immediately before "for", not an extra word ahead of
+    // it). Left unstripped, "new" survives into cleanMessage as a stray
+    // one-word "item" — which then either fails Gemini strangely or, worse,
+    // becomes a real ₹0 "New" quick-add product on the order, silently
+    // completing it before the actual items ever get typed.
+    text = text.replace(/^(?:please\s+)?(?:(?:make|create|place|start)\s+(?:a|an)\s+)?new\s+order\s*/i, '').trim();
     text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
 
     const titleCase = (raw: string) =>

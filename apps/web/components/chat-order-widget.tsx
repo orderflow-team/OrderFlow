@@ -28,6 +28,11 @@ interface EditingOrderInfo {
   orderNumber: string;
 }
 
+interface PendingCustomer {
+  customerName: string | null;
+  phone: string | null;
+}
+
 export function ChatOrderWidget({ businessId, businessCategory }: { businessId: string | null; businessCategory?: string | null }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -36,6 +41,15 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [editingOrder, setEditingOrder] = useState<EditingOrderInfo | null>(null);
+  // Each chat message is parsed statelessly by the backend — it has no memory
+  // of anything sent before it. So when a message names a customer but has no
+  // items yet ("order for Neel 9876543210"), that name never makes it onto an
+  // order and would otherwise be forgotten the moment the next message (just
+  // the items) comes in, silently falling back to "Chat Order". This holds
+  // onto that captured name/phone across messages and echoes it back on the
+  // next send until an order actually gets placed with it (see pendingCustomer
+  // in the response — parseChatOrder always says what it should become next).
+  const [pendingCustomer, setPendingCustomer] = useState<PendingCustomer | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -105,8 +119,16 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
         businessId,
         message: text,
         orderId: editingOrder?.id || undefined,
+        pendingCustomer: pendingCustomer || undefined,
       });
       setMessages((prev) => [...prev, { role: 'assistant', text: res.data.reply }]);
+      // Only update when the backend actually said something about it — most
+      // replies (couldn't match an item, local menu/status lookups, etc.)
+      // don't touch this at all, and a still-pending name/phone should
+      // survive those untouched rather than getting silently dropped.
+      if ('pendingCustomer' in res.data) {
+        setPendingCustomer(res.data.pendingCustomer);
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
@@ -179,6 +201,27 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
               className="text-[10px] text-amber-600 hover:text-amber-700 bg-amber-500/20 hover:bg-amber-500/30 px-2 py-0.5 rounded-full transition-colors font-bold shrink-0 ml-2"
             >
               Start New
+            </button>
+          </div>
+        )}
+
+        {/* Pending Customer Banner — a name/phone was captured but no order
+            exists yet to attach it to; it'll be applied to the next order
+            placed in this chat. */}
+        {!editingOrder && pendingCustomer?.customerName && (
+          <div className="shrink-0 bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-2 flex items-center justify-between text-xs text-emerald-800 font-medium">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="truncate">
+                Next order for: <strong className="font-bold">{pendingCustomer.customerName}</strong>
+                {pendingCustomer.phone ? ` (${pendingCustomer.phone})` : ''}
+              </span>
+            </div>
+            <button
+              onClick={() => setPendingCustomer(null)}
+              className="text-[10px] text-emerald-600 hover:text-emerald-700 bg-emerald-500/20 hover:bg-emerald-500/30 px-2 py-0.5 rounded-full transition-colors font-bold shrink-0 ml-2"
+            >
+              Clear
             </button>
           </div>
         )}
