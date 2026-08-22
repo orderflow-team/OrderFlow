@@ -144,9 +144,26 @@ export class OrdersService {
       return { unitPrice, taxPercentage: Number(product?.tax_percentage ?? 0) };
     }
 
-    const suggested = await this.suggestPrice(businessId, customerId, item);
-    if (suggested !== null) {
-      return { unitPrice: suggested, taxPercentage: Number(product?.tax_percentage ?? 0) };
+    // A stated unit that doesn't match the product's own base unit means any
+    // price sitting in price_history for this customer+product can't be
+    // trusted — that table has no unit column at all (see savePriceHistory
+    // below), so a historical entry might have been saved from a PAST order
+    // in a completely different unit (e.g. a converted per-ml rate from a
+    // "500ml" chat order) and would otherwise get silently reapplied to
+    // THIS request's quantity regardless of what unit is actually being
+    // asked for now. Skipping suggestPrice here routes straight to
+    // convertUnitPrice below instead, which computes a fresh, correctly-
+    // scaled price for the unit actually stated. A custom/unmatched item
+    // (no linked product) with any stated unit is treated the same way —
+    // there's no product.unit to compare against, so there's equally no way
+    // to know whether a historical price used the same unit wording.
+    const unitMatchesProduct = !item.unit || (!!product && item.unit.trim().toLowerCase() === (product.unit || '').trim().toLowerCase());
+
+    if (unitMatchesProduct) {
+      const suggested = await this.suggestPrice(businessId, customerId, item);
+      if (suggested !== null) {
+        return { unitPrice: suggested, taxPercentage: Number(product?.tax_percentage ?? 0) };
+      }
     }
 
     if (product) {

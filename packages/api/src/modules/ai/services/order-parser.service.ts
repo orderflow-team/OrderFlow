@@ -1305,7 +1305,15 @@ export class OrderParserService {
             } else if (resolved.store === 'matched') {
               const entry = matchedMap.get(resolved.key)!;
               entry.quantity = newQty;
-              if (newUnit) entry.unit = newUnit;
+              // Keep rawName current with THIS command's own wording — if this
+              // unit change ends up triggering a redirect to a new product
+              // (see parseChatOrder's unitFamilyMismatch handling), it should
+              // be named after what the customer just typed here, not stale
+              // text from whenever this item first entered the order.
+              if (newUnit) {
+                entry.unit = newUnit;
+                entry.rawName = rawName;
+              }
             } else {
               const entry = unmatchedMap.get(resolved.key)!;
               const prevUnitPrice = entry.quantity > 0 ? entry.price / entry.quantity : 0;
