@@ -35,8 +35,21 @@ interface Category {
   name: string;
 }
 
+interface ProductStats {
+  total: number;
+  categories: { name: string; count: number }[];
+}
+
+// Same pattern as the generic Products list / Orders / Customers pages —
+// load a page at a time instead of the whole menu up front.
+const MENU_PAGE_SIZE = 50;
+
 export function MenuGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<ProductStats | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -101,12 +114,26 @@ export function MenuGrid({ businessId }: { businessId: string }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId, search } }),
+      const [prodRes, catRes, statsRes] = await Promise.all([
+        apiClient.get<Product[]>('/api/products', {
+          params: { businessId, search, category: selectedCategory || undefined, limit: MENU_PAGE_SIZE, offset: 0 },
+        }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
+        // Deliberately NOT scoped to selectedCategory — see the generic
+        // Products page's identical comment for why.
+        apiClient.get<ProductStats>('/api/products/stats', { params: { businessId, search } }),
       ]);
       const fetchedProducts = prodRes.data.filter(p => p.name !== 'Table Session Started');
       setProducts(fetchedProducts);
+      const totalHeader = prodRes.headers['x-total-count'];
+      // "Table Session Started" is filtered out client-side above but not by
+      // the backend, so totals here can be off by the number of session
+      // placeholders on the current page — same pre-existing imprecision
+      // this already had before pagination (it was just filtered from a
+      // full unpaginated list then too), not something new.
+      setTotalProducts(totalHeader ? Number(totalHeader) : fetchedProducts.length);
+      setLoadedCount(prodRes.data.length);
+      setStats(statsRes.data);
 
       const extractCategories = (data: Category[]) => {
         const seen = new Set<string>();
@@ -147,9 +174,26 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Product[]>('/api/products', {
+        params: { businessId, search, category: selectedCategory || undefined, limit: MENU_PAGE_SIZE, offset: loadedCount },
+      });
+      const fetched = res.data.filter(p => p.name !== 'Table Session Started');
+      setProducts((prev) => [...prev, ...fetched]);
+      setLoadedCount((prev) => prev + res.data.length);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     if (businessId) loadData();
-  }, [businessId, search]);
+  }, [businessId, search, selectedCategory]);
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,9 +358,9 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     return () => window.removeEventListener('open-new-form', handleOpen);
   }, []);
 
-  const filteredProducts = selectedCategory
-    ? products.filter(p => p.category === selectedCategory)
-    : products;
+  // products is already server-filtered by search AND category (see
+  // loadData/loadMore) — no client-side re-filtering, since products only
+  // holds however much has been paginated in so far.
 
   const bulkFields: BulkField[] = [
     { key: 'name', label: 'Name', aliases: ['itemname', 'dishname', 'productname'], required: true, width: 'w-32', example: 'Paneer Butter Masala' },
@@ -514,15 +558,15 @@ export function MenuGrid({ businessId }: { businessId: string }) {
           categories={categories}
           selectedCategory={selectedCategory}
           onSelect={setSelectedCategory}
-          totalCount={products.length}
-          countFor={(name) => products.filter((p) => p.category === name).length}
+          totalCount={stats?.total ?? 0}
+          countFor={(name) => stats?.categories.find((c) => c.name === name)?.count ?? 0}
           onDeleteCategory={deleteCategory}
           onRenameCategory={renameCategory}
         />
 
         {/* Product Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {filteredProducts.map(p => (
+          {products.map(p => (
             <Card key={p.id} className="relative overflow-hidden group flex flex-col justify-end p-0 py-0 gap-0 rounded-3xl min-h-[340px] ring-1 ring-white/40 hover:ring-emerald-300/60 shadow-md hover:shadow-xl transition-all duration-300">
               {/* Full-bleed photo background */}
               {p.image_url ? (
@@ -601,12 +645,21 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               </div>
             </Card>
           ))}
-          {filteredProducts.length === 0 && !loading && (
+          {products.length === 0 && !loading && (
             <div className="col-span-full py-12 text-center text-slate-400">
               No menu items found.
             </div>
           )}
         </div>
+        {totalProducts !== null && loadedCount < totalProducts && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+          >
+            {loadingMore ? 'Loading…' : `Load more (${totalProducts - loadedCount} older)`}
+          </button>
+        )}
       </div>
     </AppShell>
   );
