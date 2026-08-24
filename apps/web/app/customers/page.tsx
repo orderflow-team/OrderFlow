@@ -38,7 +38,7 @@ const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', 
 // A business's client list grows unbounded over time — fetching and
 // rendering all of it up front doesn't scale. Load a page at a time
 // instead, same pattern as the Orders page (generic-orders.tsx).
-const CUSTOMERS_PAGE_SIZE = 50;
+const CUSTOMERS_PAGE_SIZE = 20;
 
 interface CustomerStats {
   totalOutstanding: number;

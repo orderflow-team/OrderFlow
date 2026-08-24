@@ -48,7 +48,7 @@ const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice
 // A business's catalog grows unbounded over time — fetching and rendering
 // all of it up front doesn't scale. Load a page at a time instead, same
 // pattern as Orders (generic-orders.tsx) and Customers.
-const PRODUCTS_PAGE_SIZE = 50;
+const PRODUCTS_PAGE_SIZE = 20;
 
 interface ProductStats {
   total: number;

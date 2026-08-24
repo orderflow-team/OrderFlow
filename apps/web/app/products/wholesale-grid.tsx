@@ -60,7 +60,7 @@ interface ProductStats {
 // Same pattern as the generic Products list / MenuGrid / PharmacyGrid /
 // Orders / Customers pages — load a page at a time instead of the whole
 // catalog.
-const WHOLESALE_PAGE_SIZE = 50;
+const WHOLESALE_PAGE_SIZE = 20;
 
 const emptyForm = {
   name: '',

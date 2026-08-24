@@ -42,7 +42,7 @@ interface ProductStats {
 
 // Same pattern as the generic Products list / Orders / Customers pages —
 // load a page at a time instead of the whole menu up front.
-const MENU_PAGE_SIZE = 50;
+const MENU_PAGE_SIZE = 20;
 
 export function MenuGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);

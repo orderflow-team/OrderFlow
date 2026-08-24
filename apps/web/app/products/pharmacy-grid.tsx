@@ -74,7 +74,7 @@ interface ProductStats {
 
 // Same pattern as the generic Products list / MenuGrid / Orders /
 // Customers pages — load a page at a time instead of the whole catalog.
-const PHARMACY_PAGE_SIZE = 50;
+const PHARMACY_PAGE_SIZE = 20;
 
 export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);

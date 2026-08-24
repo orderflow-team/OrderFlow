@@ -60,7 +60,7 @@ const STATUSES = ['draft', 'confirmed', 'packed', 'dispatched', 'delivered', 'pa
 // 199+ orders and counting) — fetching and rendering all of it up front was
 // the actual cause of "Orders page loading feels slow," especially over a
 // weak connection. Load a page at a time instead.
-const ORDERS_PAGE_SIZE = 50;
+const ORDERS_PAGE_SIZE = 20;
 
 const STATUS_META: Record<string, { color: string; icon: typeof Clock }> = {
   draft:      { color: 'bg-orange-500/10 text-orange-700 ring-1 ring-orange-500/20',  icon: Clock },
