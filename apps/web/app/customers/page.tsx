@@ -35,10 +35,29 @@ interface Customer {
 
 const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', creditLimit: '', paymentTerms: 'due_on_receipt', tradeDiscountPercentage: '0' };
 
+// A business's client list grows unbounded over time — fetching and
+// rendering all of it up front doesn't scale. Load a page at a time
+// instead, same pattern as the Orders page (generic-orders.tsx).
+const CUSTOMERS_PAGE_SIZE = 50;
+
+interface CustomerStats {
+  totalOutstanding: number;
+  totalClients: number;
+  clientsWithDues: number;
+  topOutstanding: Customer[];
+}
+
 function CustomersPageContent() {
   const searchParams = useSearchParams();
   const { businessId, ready } = useBusiness();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  // The real total (from X-Total-Count), distinct from customers.length once
+  // pagination means customers only holds however much has been loaded so
+  // far. null until the first successful load.
+  const [totalCustomers, setTotalCustomers] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<CustomerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -252,11 +271,20 @@ function CustomersPageContent() {
     return () => window.removeEventListener('open-new-form', handleOpen);
   }, []);
 
-  const load = async (bizId: string) => {
-    setLoading(true);
+  const load = async (bizId: string, q?: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const res = await apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } });
+      const [res, statsRes] = await Promise.all([
+        apiClient.get<Customer[]>('/api/customers', {
+          params: { businessId: bizId, search: q || undefined, limit: CUSTOMERS_PAGE_SIZE, offset: 0 },
+        }),
+        apiClient.get<CustomerStats>('/api/customers/stats', { params: { businessId: bizId } }),
+      ]);
       setCustomers(res.data);
+      const totalHeader = res.headers['x-total-count'];
+      setTotalCustomers(totalHeader ? Number(totalHeader) : res.data.length);
+      setLoadedCount(res.data.length);
+      setStats(statsRes.data);
       setHistoryCustomer((current) => {
         if (!current) return current;
         const updated = res.data.find((c) => c.id === current.id);
@@ -265,22 +293,42 @@ function CustomersPageContent() {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load customers');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (ready && businessId) {
-      load(businessId);
-      const handleUpdate = () => {
-        load(businessId);
-      };
-      window.addEventListener('order-updated', handleUpdate);
-      return () => {
-        window.removeEventListener('order-updated', handleUpdate);
-      };
+  const loadMore = async () => {
+    if (!businessId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Customer[]>('/api/customers', {
+        params: { businessId, search: search.trim() || undefined, limit: CUSTOMERS_PAGE_SIZE, offset: loadedCount },
+      });
+      setCustomers((prev) => [...prev, ...res.data]);
+      setLoadedCount((prev) => prev + res.data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load more customers');
+    } finally {
+      setLoadingMore(false);
     }
-  }, [ready, businessId]);
+  };
+
+  // One debounced effect covers both the initial load AND every search
+  // change — search moved server-side (previously a client-side .filter()
+  // over the full array, which would stop finding anyone outside whatever
+  // page happened to be loaded once this list paginates).
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    const t = setTimeout(() => load(businessId, search), 250);
+    return () => clearTimeout(t);
+  }, [search, ready, businessId]);
+
+  useEffect(() => {
+    if (!ready || !businessId) return;
+    const handleUpdate = () => load(businessId, search, true); // Silent reload on background order/payment updates
+    window.addEventListener('order-updated', handleUpdate);
+    return () => window.removeEventListener('order-updated', handleUpdate);
+  }, [ready, businessId, search]);
 
   const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
@@ -395,19 +443,22 @@ function CustomersPageContent() {
 
   if (!ready) return null;
 
-  const filteredCustomers = search.trim()
-    ? customers.filter((c) => {
-        const q = search.trim().toLowerCase();
-        return c.name.toLowerCase().includes(q) || (c.phone || '').includes(q) || (c.address || '').toLowerCase().includes(q);
-      })
-    : customers;
-  const totalOutstanding = customers.reduce((sum, c) => sum + Number(c.outstanding_amount || 0), 0);
-
-  // Rail stats (desktop-only side panel)
-  const customersWithDues = customers.filter((c) => Number(c.outstanding_amount) > 0.01);
-  const topOutstanding = [...customersWithDues]
-    .sort((a, b) => Number(b.outstanding_amount) - Number(a.outstanding_amount))
-    .slice(0, 5);
+  // customers is already server-filtered by `search` (see load/loadMore) —
+  // no client-side re-filtering needed, and importantly none SHOULD happen,
+  // since customers only holds however much has been paginated in so far.
+  //
+  // Stats (total outstanding, clients-with-dues, total client count, top 5)
+  // come from the dedicated /stats endpoint, which is deliberately NOT
+  // scoped to the current search — this is a true whole-business snapshot,
+  // same as before pagination existed (the old client-side
+  // customers.length/customersWithDues.length were computed from the full
+  // array regardless of the search box). totalCustomers (from
+  // X-Total-Count) is a DIFFERENT number on purpose — how many rows match
+  // the CURRENT search, used only to drive "Load more (N older)" below.
+  const totalOutstanding = stats?.totalOutstanding ?? 0;
+  const totalClients = stats?.totalClients ?? 0;
+  const clientsWithDues = stats?.clientsWithDues ?? 0;
+  const topOutstanding = stats?.topOutstanding ?? [];
 
   return (
     <AppShell>
@@ -433,14 +484,14 @@ function CustomersPageContent() {
               className="w-full h-11 pl-10 pr-4 rounded-full bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm text-sm placeholder:text-slate-400 outline-none focus:ring-tile-sky-fg/40"
             />
           </div>
-          {businessId && <ClearModuleButton module="customers" businessId={businessId} onCleared={() => load(businessId)} />}
+          {businessId && <ClearModuleButton module="customers" businessId={businessId} onCleared={() => load(businessId, search)} />}
         </div>
 
         {businessId && <BusinessConnectionsPanel businessId={businessId} role="wholesaler" />}
 
         <div className="flex items-center justify-between">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">
-            <Users className="w-3.5 h-3.5" /> {`${customers.length} client${customers.length === 1 ? '' : 's'} • Recent`}
+            <Users className="w-3.5 h-3.5" /> {`${totalClients} client${totalClients === 1 ? '' : 's'} • Recent`}
           </p>
           {totalOutstanding > 0 && (
             <span className="flex items-center gap-1 text-xs font-bold text-rose-600 bg-rose-500/10 backdrop-blur-sm ring-1 ring-rose-500/20 px-2.5 py-1 rounded-full">
@@ -590,7 +641,7 @@ function CustomersPageContent() {
 
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-        ) : customers.length === 0 ? (
+        ) : customers.length === 0 && !search.trim() ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
             <div className="w-24 h-24 bg-tile-sky rounded-full flex items-center justify-center mb-6">
               <Users className="w-10 h-10 text-tile-sky-fg" />
@@ -601,11 +652,11 @@ function CustomersPageContent() {
               <Plus className="w-4 h-4" /> New Customer
             </Button>
           </div>
-        ) : filteredCustomers.length === 0 ? (
+        ) : customers.length === 0 ? (
           <p className="p-10 text-center text-slate-400 text-sm">No clients match &quot;{search}&quot;.</p>
         ) : (
           <div className="space-y-3">
-            {filteredCustomers.map((c) => (
+            {customers.map((c) => (
               <div key={c.id} className="flex flex-col bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 transition-all">
                 <div className="flex items-center gap-3 w-full">
                   <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
@@ -752,6 +803,15 @@ function CustomersPageContent() {
                 )}
               </div>
             ))}
+            {totalCustomers !== null && loadedCount < totalCustomers && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : `Load more (${totalCustomers - loadedCount} older)`}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -762,11 +822,11 @@ function CustomersPageContent() {
           <h3 className="text-sm font-bold text-slate-800">Quick stats</h3>
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Total clients</span>
-            <span className="text-sm font-bold text-slate-800">{customers.length}</span>
+            <span className="text-sm font-bold text-slate-800">{totalClients}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Clients with dues</span>
-            <span className="text-sm font-bold text-slate-800">{customersWithDues.length}</span>
+            <span className="text-sm font-bold text-slate-800">{clientsWithDues}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Total outstanding</span>

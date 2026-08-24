@@ -64,26 +64,34 @@ export class CustomersService {
     return { customers, total };
   }
 
-  // Cheap aggregate for the customers list page's "total outstanding" figure
-  // and "top 5 by dues" side panel — both used to be computed client-side
-  // from the full customers array, which goes wrong the moment that list is
-  // paginated instead of loading everyone.
+  // Cheap aggregate for the customers list page's "total clients"/"clients
+  // with dues"/"total outstanding" quick-stats panel and "top 5 by dues"
+  // side panel — all used to be computed client-side from the full
+  // customers array, which goes wrong the moment that list is paginated
+  // instead of loading everyone.
   async getStats(businessId: string) {
-    const { sum } = await this.customersRepository
-      .createQueryBuilder('customer')
-      .select('COALESCE(SUM(customer.outstanding_amount), 0)', 'sum')
-      .where('customer.business_id = :businessId', { businessId })
-      .getRawOne<{ sum: string }>();
+    const [{ sum }, totalClients, clientsWithDues, topOutstanding] = await Promise.all([
+      this.customersRepository
+        .createQueryBuilder('customer')
+        .select('COALESCE(SUM(customer.outstanding_amount), 0)', 'sum')
+        .where('customer.business_id = :businessId', { businessId })
+        .getRawOne<{ sum: string }>(),
+      this.customersRepository.count({ where: { business_id: businessId } }),
+      this.customersRepository
+        .createQueryBuilder('customer')
+        .where('customer.business_id = :businessId', { businessId })
+        .andWhere('customer.outstanding_amount > 0.01')
+        .getCount(),
+      this.customersRepository
+        .createQueryBuilder('customer')
+        .where('customer.business_id = :businessId', { businessId })
+        .andWhere('customer.outstanding_amount > 0.01')
+        .orderBy('customer.outstanding_amount', 'DESC')
+        .take(5)
+        .getMany(),
+    ]);
 
-    const topOutstanding = await this.customersRepository
-      .createQueryBuilder('customer')
-      .where('customer.business_id = :businessId', { businessId })
-      .andWhere('customer.outstanding_amount > 0.01')
-      .orderBy('customer.outstanding_amount', 'DESC')
-      .take(5)
-      .getMany();
-
-    return { totalOutstanding: Number(sum), topOutstanding };
+    return { totalOutstanding: Number(sum), totalClients, clientsWithDues, topOutstanding };
   }
 
   async findOne(id: string, businessId: string) {
