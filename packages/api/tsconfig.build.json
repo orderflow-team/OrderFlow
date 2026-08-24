@@ -1,4 +1,14 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "neon.ts"]
+  // rootDir pinned explicitly: without it, TS infers the build root as the
+  // longest common path of every compiled file — fine as long as everything
+  // lives under src/, but adding scripts/ (a sibling of src/, meant to be run
+  // standalone via ts-node, never part of the deployed app) widened that
+  // inferred root up to the package root and silently shifted every output
+  // path down a level (dist/main.js -> dist/src/main.js), breaking
+  // package.json's start:prod ("node dist/main.js") in production. Excluding
+  // scripts/ here fixes this specific break; rootDir guards against the same
+  // thing happening again from any future non-src file.
+  "compilerOptions": { "rootDir": "src" },
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "neon.ts", "scripts"]
 }
