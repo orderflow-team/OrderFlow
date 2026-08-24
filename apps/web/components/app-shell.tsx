@@ -228,32 +228,47 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     setOptionalModules(getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined));
     setChatEnabled(cachedChatEnabled ?? true);
 
-    apiClient
-      .get<{ name: string; category: string | null; logo_url: string | null; upi_qr_url?: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; phone?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
-      .then((res) => {
-        setBusinessName(res.data.name || '');
-        setBusinessCategory(res.data.category || '');
-        setBusinessLogoUrl(res.data.logo_url || null);
-        setCustomSettings(res.data.custom_settings || null);
-        const isChatEnabled = res.data.ai_chat_enabled !== false && res.data.custom_settings?.modules?.ai_assistant !== false;
-        setCachedChatEnabled(businessId, isChatEnabled);
-        setChatEnabled(isChatEnabled);
-        setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings));
-        // Cached so the client-side receipt renderer can print a business
-        // header (name/address/GSTIN/logo/UPI QR) even with zero network.
-        setCached(businessId, 'business-profile', {
-          name: res.data.name,
-          address: res.data.address,
-          phone: res.data.phone,
-          gst_number: res.data.gst_number,
-          logo_url: res.data.logo_url,
-          upi_qr_url: res.data.upi_qr_url,
-          custom_settings: res.data.custom_settings,
+    // Named so it can be re-run from the event listener below, not just on
+    // mount — settings/page.tsx used to force this by calling
+    // window.location.reload() after any business-profile change (name,
+    // logo, modules), since this fetch result is what's stale. That's a
+    // full app reload just to refresh one cached value, and it has a real
+    // side effect: it remounts SplashGif in the root layout, replaying
+    // the launch animation every time someone saves a settings change or
+    // uploads a logo. Dispatching this event instead re-fetches the same
+    // data in place, with no reload and no splash replay.
+    const fetchBusinessProfile = () => {
+      apiClient
+        .get<{ name: string; category: string | null; logo_url: string | null; upi_qr_url?: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; phone?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
+        .then((res) => {
+          setBusinessName(res.data.name || '');
+          setBusinessCategory(res.data.category || '');
+          setBusinessLogoUrl(res.data.logo_url || null);
+          setCustomSettings(res.data.custom_settings || null);
+          const isChatEnabled = res.data.ai_chat_enabled !== false && res.data.custom_settings?.modules?.ai_assistant !== false;
+          setCachedChatEnabled(businessId, isChatEnabled);
+          setChatEnabled(isChatEnabled);
+          setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings));
+          // Cached so the client-side receipt renderer can print a business
+          // header (name/address/GSTIN/logo/UPI QR) even with zero network.
+          setCached(businessId, 'business-profile', {
+            name: res.data.name,
+            address: res.data.address,
+            phone: res.data.phone,
+            gst_number: res.data.gst_number,
+            logo_url: res.data.logo_url,
+            upi_qr_url: res.data.upi_qr_url,
+            custom_settings: res.data.custom_settings,
+          });
+        })
+        .catch(() => {
+          // Keep whatever we had (cached or "show everything") if the lookup fails.
         });
-      })
-      .catch(() => {
-        // Keep whatever we had (cached or "show everything") if the lookup fails.
-      });
+    };
+
+    fetchBusinessProfile();
+    window.addEventListener('business-profile-updated', fetchBusinessProfile);
+    return () => window.removeEventListener('business-profile-updated', fetchBusinessProfile);
   }, [businessId]);
 
   const [broadcastAnnouncement, setBroadcastAnnouncement] = useState<any>(null);
