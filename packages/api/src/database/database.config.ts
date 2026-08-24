@@ -13,8 +13,11 @@ export function getConnectionOptions() {
         url: process.env.DATABASE_URL,
         // DATABASE_URL is only ever set for managed Postgres (Render etc.), which requires SSL
         // for external connections regardless of NODE_ENV — the local docker-compose DB uses
-        // the DB_HOST branch below instead and never hits this.
-        ssl: { rejectUnauthorized: false },
+        // the DB_HOST branch below instead and never hits this. rejectUnauthorized: true
+        // verified working against the real production Neon endpoint before this change —
+        // Neon uses a publicly-trusted CA-signed cert, so there's nothing to add (no custom CA
+        // bundle needed); false accepted ANY certificate, including a MITM'd one.
+        ssl: { rejectUnauthorized: true },
       }
     : {
         host: process.env.DB_HOST || 'localhost',
