@@ -67,8 +67,21 @@ interface TraceOrder {
   quantity_from_batch: string | number;
 }
 
+interface ProductStats {
+  total: number;
+  categories: { name: string; count: number }[];
+}
+
+// Same pattern as the generic Products list / MenuGrid / Orders /
+// Customers pages — load a page at a time instead of the whole catalog.
+const PHARMACY_PAGE_SIZE = 50;
+
 export function PharmacyGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<ProductStats | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -334,12 +347,28 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId, search, isDraft: 'all' } }),
+      const [prodRes, catRes, statsRes] = await Promise.all([
+        apiClient.get<Product[]>('/api/products', {
+          params: {
+            businessId,
+            search,
+            isDraft: 'all',
+            category: selectedCategory || undefined,
+            limit: PHARMACY_PAGE_SIZE,
+            offset: 0,
+          },
+        }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
+        // Deliberately NOT scoped to selectedCategory — see the generic
+        // Products page's identical comment for why.
+        apiClient.get<ProductStats>('/api/products/stats', { params: { businessId, search, isDraft: 'all' } }),
       ]);
       const fetchedProducts = prodRes.data;
       setProducts(fetchedProducts);
+      const totalHeader = prodRes.headers['x-total-count'];
+      setTotalProducts(totalHeader ? Number(totalHeader) : fetchedProducts.length);
+      setLoadedCount(fetchedProducts.length);
+      setStats(statsRes.data);
       const extractCategories = (data: Category[]) => {
         const seen = new Set<string>();
         const result: Category[] = [];
@@ -378,9 +407,32 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Product[]>('/api/products', {
+        params: {
+          businessId,
+          search,
+          isDraft: 'all',
+          category: selectedCategory || undefined,
+          limit: PHARMACY_PAGE_SIZE,
+          offset: loadedCount,
+        },
+      });
+      setProducts((prev) => [...prev, ...res.data]);
+      setLoadedCount((prev) => prev + res.data.length);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
     if (businessId) loadData();
-  }, [businessId, search]);
+  }, [businessId, search, selectedCategory]);
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -513,7 +565,9 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     setShowItemForm(true);
   };
 
-  const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products;
+  // products is already server-filtered by search AND category (see
+  // loadData/loadMore) — no client-side re-filtering, since products only
+  // holds however much has been paginated in so far.
 
   const bulkFields: BulkField[] = [
     { key: 'name', label: 'Medicine Name', aliases: ['medicinename', 'itemname', 'productname'], required: true, width: 'w-32', example: 'Crocin Advance' },
@@ -748,15 +802,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           categories={categories}
           selectedCategory={selectedCategory}
           onSelect={setSelectedCategory}
-          totalCount={products.length}
-          countFor={(name) => products.filter((p) => p.category === name).length}
+          totalCount={stats?.total ?? 0}
+          countFor={(name) => stats?.categories.find((c) => c.name === name)?.count ?? 0}
           onDeleteCategory={deleteCategory}
           onRenameCategory={renameCategory}
         />
 
         {/* Medicine Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProducts.map((p) => {
+          {products.map((p) => {
             const expiry = expiryStatus(p.expiry_date);
             return (
               <Card
@@ -1039,12 +1093,21 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
               </Card>
             );
           })}
-          {filteredProducts.length === 0 && !loading && (
+          {products.length === 0 && !loading && (
             <div className="col-span-full py-12 text-center text-slate-400">
               No medicines found.
             </div>
           )}
         </div>
+        {totalProducts !== null && loadedCount < totalProducts && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+          >
+            {loadingMore ? 'Loading…' : `Load more (${totalProducts - loadedCount} older)`}
+          </button>
+        )}
 
         {/* Barcode scan feedback (fixed overlay — no layout impact) */}
         {scanToast && (
