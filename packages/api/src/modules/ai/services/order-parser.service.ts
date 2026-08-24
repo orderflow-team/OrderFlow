@@ -330,9 +330,16 @@ export class OrderParserService {
         // why: there's no existing rate to charge a bare per-kg price
         // against, so the merchant should just type the one total they'd
         // actually charge for this whole pack.
+        //
+        // The NAME suffix stays unit-family-only ("(kg)"), NOT quantity-
+        // specific ("(10kg)") — findOrCreateProductFromCustomName
+        // (orders.service.ts) resolves by exact name, so baking the
+        // quantity in here would make every distinct quantity ("10kg" vs
+        // "20kg" of the same redirected item) spawn its own separate draft
+        // product instead of reusing one, unlike the plain unmatched-item
+        // path below (whose name never encodes quantity at all).
         const customerWording = (m.rawName || product.name).trim();
-        const combinedUnit = `${quantity}${unit}`;
-        redirectedItems.push({ customProductName: `${customerWording} (${combinedUnit})`, quantity: 1, unitPrice: 0, unit: combinedUnit });
+        redirectedItems.push({ customProductName: `${customerWording} (${unit})`, quantity: 1, unitPrice: 0, unit: `${quantity}${unit}` });
         continue;
       }
 
