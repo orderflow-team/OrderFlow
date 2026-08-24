@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { isValidGstin } from '../../common/utils/gst.util';
+import { encryptPassword } from '../../common/utils/credential-crypto.util';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -272,7 +273,11 @@ export class PlatformAdminService {
 
     if (dto.password) {
       user.password_hash = await bcrypt.hash(dto.password, 10);
-      user.password_plain = dto.password;
+      // AES-256-GCM, same as staff/kitchen/salesman account resets
+      // (credential-crypto.util.ts) — this used to store dto.password
+      // completely unencrypted, unlike every other path that populates
+      // password_plain.
+      user.password_plain = encryptPassword(dto.password);
       changes.password_reset = true;
     }
 
@@ -929,7 +934,11 @@ export class PlatformAdminService {
       data: {
         stores,
         users: users.map((u) => {
-          const { password_hash, password_reset_token, ...safeUser } = u as any;
+          // password_plain (encrypted, but still credential material — and
+          // was flat-out unencrypted before the fix above) was the one
+          // secret field this redaction missed alongside password_hash and
+          // password_reset_token.
+          const { password_hash, password_reset_token, password_plain, ...safeUser } = u as any;
           return safeUser;
         }),
         products,
