@@ -52,6 +52,16 @@ interface Category {
   name: string;
 }
 
+interface ProductStats {
+  total: number;
+  categories: { name: string; count: number }[];
+}
+
+// Same pattern as the generic Products list / MenuGrid / PharmacyGrid /
+// Orders / Customers pages — load a page at a time instead of the whole
+// catalog.
+const WHOLESALE_PAGE_SIZE = 50;
+
 const emptyForm = {
   name: '',
   brand: '',
@@ -75,6 +85,10 @@ const emptyForm = {
 
 export function WholesaleGrid({ businessId }: { businessId: string }) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<ProductStats | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -114,12 +128,28 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     if (!businessId) return;
     setLoading(true);
     try {
-      const [prodRes, catRes] = await Promise.all([
-        apiClient.get<Product[]>('/api/products', { params: { businessId, isDraft: 'all' } }),
+      const [prodRes, catRes, statsRes] = await Promise.all([
+        apiClient.get<Product[]>('/api/products', {
+          params: {
+            businessId,
+            search: search || undefined,
+            isDraft: 'all',
+            category: selectedCategory || undefined,
+            limit: WHOLESALE_PAGE_SIZE,
+            offset: 0,
+          },
+        }),
         apiClient.get<Category[]>('/api/categories', { params: { businessId } }),
+        // Deliberately NOT scoped to selectedCategory — see the generic
+        // Products page's identical comment for why.
+        apiClient.get<ProductStats>('/api/products/stats', { params: { businessId, search: search || undefined, isDraft: 'all' } }),
       ]);
 
       setProducts(prodRes.data);
+      const totalHeader = prodRes.headers['x-total-count'];
+      setTotalProducts(totalHeader ? Number(totalHeader) : prodRes.data.length);
+      setLoadedCount(prodRes.data.length);
+      setStats(statsRes.data);
 
       let cats = catRes.data;
       if (cats.length === 0 && !isSeeding.current) {
@@ -139,9 +169,37 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  const loadMore = async () => {
+    if (!businessId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Product[]>('/api/products', {
+        params: {
+          businessId,
+          search: search || undefined,
+          isDraft: 'all',
+          category: selectedCategory || undefined,
+          limit: WHOLESALE_PAGE_SIZE,
+          offset: loadedCount,
+        },
+      });
+      setProducts((prev) => [...prev, ...res.data]);
+      setLoadedCount((prev) => prev + res.data.length);
+    } catch (err) {
+      console.error('Failed to load more wholesale products', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Debounced — search now hits the server (previously 100% client-side
+  // over the full loaded array, which would have stopped finding anything
+  // outside whatever page happened to be loaded once this list paginates).
+  // Category selection shares the same debounced effect.
   useEffect(() => {
-    loadData();
-  }, [businessId]);
+    const t = setTimeout(() => loadData(), 250);
+    return () => clearTimeout(t);
+  }, [businessId, search, selectedCategory]);
 
   const openCreateForm = () => {
     setScanMode(false);
@@ -317,15 +375,9 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     }
   };
 
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku && p.sku.toLowerCase().includes(search.toLowerCase())) ||
-      (p.brand && p.brand.toLowerCase().includes(search.toLowerCase())) ||
-      (p.batch_number && p.batch_number.toLowerCase().includes(search.toLowerCase()));
-    const matchesCat = !selectedCategory || p.category === selectedCategory;
-    return matchesSearch && matchesCat;
-  });
+  // products is already server-filtered by search AND category (see
+  // loadData/loadMore) — no client-side re-filtering, since products only
+  // holds however much has been paginated in so far.
 
   const bulkFields: BulkField[] = [
     { key: 'name', label: 'Product Name', aliases: ['itemname', 'productname'], required: true, width: 'w-32', example: 'Grade A White Sugar (50kg Sack)' },
@@ -396,8 +448,8 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
           categories={categories}
           selectedCategory={selectedCategory}
           onSelect={setSelectedCategory}
-          totalCount={products.length}
-          countFor={(catName) => products.filter((p) => p.category === catName).length}
+          totalCount={stats?.total ?? 0}
+          countFor={(catName) => stats?.categories.find((c) => c.name === catName)?.count ?? 0}
           onDeleteCategory={deleteCategory}
           onRenameCategory={renameCategory}
         />
@@ -581,7 +633,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
         {/* Products Grid */}
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading wholesale catalog...</p>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 && !search.trim() && !selectedCategory ? (
           <Card className="p-12 text-center bg-white/60 backdrop-blur-md border-dashed border-amber-300">
             <Box className="w-12 h-12 text-amber-500 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-slate-800">No Wholesale Products Found</h3>
@@ -590,9 +642,11 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
               <Plus className="w-4 h-4" /> Add Bulk Product
             </Button>
           </Card>
+        ) : products.length === 0 ? (
+          <p className="p-10 text-center text-slate-400 text-sm">No products match this search/category.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {filteredProducts.map((p) => (
+            {products.map((p) => (
               <Card
                 key={p.id}
                 className={`relative overflow-hidden ring-1 hover:shadow-lg transition-all border-l-4 ${
@@ -716,6 +770,15 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
               </Card>
             ))}
           </div>
+        )}
+        {totalProducts !== null && loadedCount < totalProducts && (
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+          >
+            {loadingMore ? 'Loading…' : `Load more (${totalProducts - loadedCount} older)`}
+          </button>
         )}
       </div>
     </AppShell>
