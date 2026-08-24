@@ -39,8 +39,13 @@ async function main() {
   await AppDataSource.initialize();
   const userRepo = AppDataSource.getRepository(User);
 
+  // password_plain has `select: false` on the entity (deliberately excluded
+  // from default queries) — MUST be added back explicitly, or every row
+  // comes back with password_plain === undefined despite the WHERE clause
+  // (which still runs correctly against the real column) matching real rows.
   const candidates = await userRepo
     .createQueryBuilder('user')
+    .select(['user.id', 'user.email', 'user.password_plain'])
     .where('user.password_plain IS NOT NULL')
     .getMany();
 
@@ -57,8 +62,12 @@ async function main() {
     if (!isGenuineCiphertext) {
       affected.push({ id: user.id, email: user.email });
       if (apply) {
-        user.password_plain = encryptPassword(user.password_plain);
-        await userRepo.save(user);
+        // A targeted UPDATE, not userRepo.save(user) — this entity only has
+        // id/email/password_plain loaded (see the explicit .select() above),
+        // and .save() on a partially-loaded entity would attempt to write
+        // every other column as undefined/null too. .update() only ever
+        // touches the field named here.
+        await userRepo.update(user.id, { password_plain: encryptPassword(user.password_plain) });
       }
     }
   }
