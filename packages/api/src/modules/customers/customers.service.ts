@@ -28,11 +28,26 @@ export class CustomersService {
     return this.customersRepository.save(customer);
   }
 
+  // Unpaginated — returns every matching row. Kept as-is (same signature,
+  // same full-array return) because chat-order's balance lookup
+  // (order-parser.service.ts) needs the whole customer list to search
+  // by name/phone, not a page of it. findAllPaginated below is the opt-in
+  // alternative for the customers list page itself.
   findAll(businessId: string) {
     return this.customersRepository.find({
       where: { business_id: businessId },
       order: { created_at: 'DESC' },
     });
+  }
+
+  async findAllPaginated(businessId: string, limit?: number, offset?: number) {
+    const [customers, total] = await this.customersRepository.findAndCount({
+      where: { business_id: businessId },
+      order: { created_at: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+    return { customers, total };
   }
 
   async findOne(id: string, businessId: string) {

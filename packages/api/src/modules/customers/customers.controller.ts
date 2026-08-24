@@ -7,8 +7,10 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { CustomersService } from './customers.service';
@@ -25,9 +27,28 @@ export class CustomersController {
     return this.customersService.create(dto);
   }
 
+  // limit/offset are optional and unbounded when omitted — see
+  // findAllPaginated's comment in customers.service.ts for why this forks
+  // into a separate method rather than changing findAll's own contract
+  // (chat-order's balance lookup calls CustomersService.findAll directly
+  // and needs the full, unbounded list).
   @Get()
-  findAll(@Query('businessId') businessId: string) {
-    return this.customersService.findAll(businessId);
+  async findAll(
+    @Query('businessId') businessId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    if (limit === undefined && offset === undefined) {
+      return this.customersService.findAll(businessId);
+    }
+    const { customers, total } = await this.customersService.findAllPaginated(
+      businessId,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
+    res?.setHeader('X-Total-Count', String(total));
+    return customers;
   }
 
   @Get(':id')

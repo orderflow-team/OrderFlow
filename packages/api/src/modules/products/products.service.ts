@@ -153,7 +153,7 @@ export class ProductsService {
     });
   }
 
-  findAll(businessId: string, search?: string, isDraft?: string) {
+  private buildFindAllQuery(businessId: string, search?: string, isDraft?: string) {
     const query = this.productsRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.last_supplier', 'last_supplier')
@@ -173,7 +173,26 @@ export class ProductsService {
       );
     }
 
-    return query.orderBy('product.created_at', 'DESC').getMany();
+    return query.orderBy('product.created_at', 'DESC');
+  }
+
+  // Unpaginated — returns every matching row. Kept as-is (same signature,
+  // same full-array return) because callers besides the products list page
+  // rely on getting the WHOLE catalog back: chat-order's catalog matching
+  // (order-parser.service.ts fetches this once per message and matches
+  // free-text items against all of it) and the balance/status lookups both
+  // need every product, not a page of it. findAllPaginated below is the
+  // opt-in alternative for the list page itself.
+  findAll(businessId: string, search?: string, isDraft?: string) {
+    return this.buildFindAllQuery(businessId, search, isDraft).getMany();
+  }
+
+  async findAllPaginated(businessId: string, search?: string, isDraft?: string, limit?: number, offset?: number) {
+    const [products, total] = await this.buildFindAllQuery(businessId, search, isDraft)
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
+    return { products, total };
   }
 
   async findOne(id: string, businessId: string) {

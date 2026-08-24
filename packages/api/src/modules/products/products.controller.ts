@@ -7,11 +7,13 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -77,13 +79,35 @@ export class ProductsController {
     return this.productsService.create(dto);
   }
 
+  // limit/offset are optional and unbounded when omitted — same
+  // opt-in-only contract as orders.controller.ts's pagination, but here the
+  // service call underneath actually forks based on whether they're present
+  // (see findAllPaginated's comment in products.service.ts) rather than
+  // orders' single method, since other callers (chat-order's catalog
+  // matching, in particular) call ProductsService.findAll directly and need
+  // the full, unbounded array — changing findAll's own contract would have
+  // broken them.
   @Get()
-  findAll(
+  async findAll(
     @Query('businessId') businessId: string,
     @Query('search') search?: string,
-    @Query('isDraft') isDraft?: string
+    @Query('isDraft') isDraft?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
-    return this.productsService.findAll(businessId, search, isDraft);
+    if (limit === undefined && offset === undefined) {
+      return this.productsService.findAll(businessId, search, isDraft);
+    }
+    const { products, total } = await this.productsService.findAllPaginated(
+      businessId,
+      search,
+      isDraft,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
+    res?.setHeader('X-Total-Count', String(total));
+    return products;
   }
 
   // Must be registered before the `:id` route below, or "barcode-lookup"
