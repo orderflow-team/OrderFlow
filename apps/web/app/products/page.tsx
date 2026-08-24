@@ -45,10 +45,27 @@ interface Category {
 
 const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', reorderPoint: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
 
+// A business's catalog grows unbounded over time — fetching and rendering
+// all of it up front doesn't scale. Load a page at a time instead, same
+// pattern as Orders (generic-orders.tsx) and Customers.
+const PRODUCTS_PAGE_SIZE = 50;
+
+interface ProductStats {
+  total: number;
+  categories: { name: string; count: number }[];
+}
+
 function ProductsPageContent() {
   const searchParams = useSearchParams();
   const { businessId, ready } = useBusiness();
   const [products, setProducts] = useState<Product[]>([]);
+  // The real count matching the current search (from X-Total-Count),
+  // distinct from products.length once pagination means products only
+  // holds however much has been loaded so far.
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [stats, setStats] = useState<ProductStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -111,8 +128,28 @@ function ProductsPageContent() {
   const load = async (bizId: string, q?: string) => {
     setLoading(true);
     try {
-      const res = await apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, search: q, isDraft: 'all' } });
+      const [res, statsRes] = await Promise.all([
+        apiClient.get<Product[]>('/api/products', {
+          params: {
+            businessId: bizId,
+            search: q,
+            isDraft: 'all',
+            category: selectedCategory || undefined,
+            limit: PRODUCTS_PAGE_SIZE,
+            offset: 0,
+          },
+        }),
+        // Deliberately NOT scoped to selectedCategory — the category tabs
+        // need every category's count for the CURRENT search, regardless of
+        // which one happens to be selected right now, so switching tabs
+        // shows accurate counts for the others too.
+        apiClient.get<ProductStats>('/api/products/stats', { params: { businessId: bizId, search: q, isDraft: 'all' } }),
+      ]);
       setProducts(res.data);
+      const totalHeader = res.headers['x-total-count'];
+      setTotalProducts(totalHeader ? Number(totalHeader) : res.data.length);
+      setLoadedCount(res.data.length);
+      setStats(statsRes.data);
     } catch (err: any) {
       setError(err.response?.data?.message || `Failed to load ${entityNamePlural.toLowerCase()}`);
     } finally {
@@ -120,11 +157,39 @@ function ProductsPageContent() {
     }
   };
 
+  const loadMore = async () => {
+    if (!businessId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiClient.get<Product[]>('/api/products', {
+        params: {
+          businessId,
+          search: search || undefined,
+          isDraft: 'all',
+          category: selectedCategory || undefined,
+          limit: PRODUCTS_PAGE_SIZE,
+          offset: loadedCount,
+        },
+      });
+      setProducts((prev) => [...prev, ...res.data]);
+      setLoadedCount((prev) => prev + res.data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || `Failed to load more ${entityNamePlural.toLowerCase()}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // One debounced effect covers the initial load, every search keystroke,
+  // AND every category tab click — category filtering used to be a
+  // client-side .filter() over the full loaded array (see the old
+  // filteredProducts below), which silently missed matches once the list
+  // itself is paginated instead of loading everything.
   useEffect(() => {
     if (isRestaurant || isPharmacy || !ready || !businessId) return;
     const t = setTimeout(() => load(businessId, search), 250);
     return () => clearTimeout(t);
-  }, [search, ready, businessId, isRestaurant, isPharmacy]);
+  }, [search, selectedCategory, ready, businessId, isRestaurant, isPharmacy]);
 
   const loadCategories = async (bizId: string, currentProducts: Product[]) => {
     try {
@@ -304,7 +369,7 @@ function ProductsPageContent() {
       setForm(emptyForm);
       setEditingId(null);
       setShowForm(false);
-      load(businessId);
+      load(businessId, search);
     } catch (err: any) {
       setError(err.response?.data?.message || `Failed to save ${entityName.toLowerCase()}`);
     } finally {
@@ -316,7 +381,7 @@ function ProductsPageContent() {
     if (!businessId) return;
     if (!confirm(`Delete this ${entityName.toLowerCase()}? This can't be undone.`)) return;
     await apiClient.delete(`/api/products/${id}`, { params: { businessId } });
-    load(businessId);
+    load(businessId, search);
   };
 
   if (!ready) return null;
@@ -324,7 +389,10 @@ function ProductsPageContent() {
   const commonUnits = ['kg', 'gram', 'litre', 'ml', 'piece', 'packet', 'box', 'dozen', 'carton', 'pallet', 'strip', 'bottle', 'vial', 'tube', 'roll', 'bundle', 'pair', 'set', 'meter', 'inch'];
   const existingUnits = products.map((p) => p.unit).filter(Boolean);
   const availableUnits = Array.from(new Set([...commonUnits, ...existingUnits]));
-  const filteredProducts = selectedCategory ? products.filter((p) => p.category === selectedCategory) : products;
+  // products is already server-filtered by search AND category (see
+  // load/loadMore) — no client-side re-filtering, and importantly none
+  // SHOULD happen, since products only holds however much has been
+  // paginated in so far.
 
   const bulkFields: BulkField[] = [
     { key: 'name', label: 'Name', aliases: ['productname', 'itemname'], required: true, width: 'w-28', example: 'Fresh Toned Milk 1L' },
@@ -383,7 +451,7 @@ function ProductsPageContent() {
           <Button type="button" variant="outline" className="h-11 gap-1.5 shrink-0" onClick={() => setShowCategoryForm(true)}>
             <FolderPlus className="h-4 w-4" /> Category
           </Button>
-          {businessId && <ClearModuleButton module="products" businessId={businessId} onCleared={() => load(businessId)} />}
+          {businessId && <ClearModuleButton module="products" businessId={businessId} onCleared={() => load(businessId, search)} />}
         </div>
 
         <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
@@ -410,11 +478,11 @@ function ProductsPageContent() {
           businessId={businessId || ''}
           entityLabelPlural={entityNamePlural}
           fields={bulkFields}
-          onUploaded={() => { load(businessId!); loadCategories(businessId!, products); }}
+          onUploaded={() => { load(businessId!, search); loadCategories(businessId!, products); }}
         />
 
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-          {`Total: ${products.length} • Recent`}
+          {`Total: ${stats?.total ?? totalProducts ?? 0} • Recent`}
         </p>
 
         <Dialog
@@ -623,7 +691,7 @@ function ProductsPageContent() {
 
         {loading ? (
           <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-        ) : products.length === 0 ? (
+        ) : products.length === 0 && !search.trim() && !selectedCategory ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm">
             <div className="w-24 h-24 bg-tile-lavender rounded-full flex items-center justify-center mb-6">
               <Package className="w-10 h-10 text-tile-lavender-fg" />
@@ -640,12 +708,12 @@ function ProductsPageContent() {
               categories={categories}
               selectedCategory={selectedCategory}
               onSelect={setSelectedCategory}
-              totalCount={products.length}
-              countFor={(name) => products.filter((p) => p.category === name).length}
+              totalCount={stats?.total ?? 0}
+              countFor={(name) => stats?.categories.find((c) => c.name === name)?.count ?? 0}
               onDeleteCategory={deleteCategory}
               onRenameCategory={renameCategory}
             />
-            {filteredProducts.map((p) => {
+            {products.map((p) => {
               const stockTone =
                 p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= (p.reorder_point ?? 10) ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
               return (
@@ -676,8 +744,17 @@ function ProductsPageContent() {
                 </div>
               );
             })}
-            {filteredProducts.length === 0 && (
-              <p className="py-12 text-center text-slate-400 text-sm">No {entityNamePlural.toLowerCase()} in this category.</p>
+            {products.length === 0 && (
+              <p className="py-12 text-center text-slate-400 text-sm">No {entityNamePlural.toLowerCase()} match this search/category.</p>
+            )}
+            {totalProducts !== null && loadedCount < totalProducts && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+              >
+                {loadingMore ? 'Loading…' : `Load more (${totalProducts - loadedCount} older)`}
+              </button>
             )}
           </div>
         )}
