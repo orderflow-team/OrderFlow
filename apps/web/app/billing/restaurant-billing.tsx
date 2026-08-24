@@ -251,8 +251,13 @@ export function RestaurantBilling() {
                   Awaiting Payment ({filteredAwaiting.length})
                 </h3>
                 <div className="space-y-3">
+                  {/* No backdrop-blur on these order cards (here and the other 2
+                      lists below) — stacking a backdrop-filter blur per repeated
+                      card is a well-known cause of scroll jank, especially on
+                      Android WebViews. bg-white/70 (higher opacity, no blur)
+                      keeps a similar frosted look. */}
                   {filteredAwaiting.map(order => (
-                    <div key={order.id} className="p-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-amber-300/50 transition-colors">
+                    <div key={order.id} className="p-4 rounded-2xl bg-white/70 ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-amber-300/50 transition-colors">
                       <div>
                         <h4 className="font-bold text-slate-800 text-lg">{order.table?.name || 'Take Away'}</h4>
                         <p className="text-xs font-medium text-slate-500 mt-0.5">Customer: {order.customer_name} {order.guest_count ? `- ${order.guest_count} guests` : ''}</p>
@@ -293,7 +298,7 @@ export function RestaurantBilling() {
                 </h3>
                 <div className="space-y-3">
                   {filteredActive.map(order => (
-                    <div key={order.id} className="p-4 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-blue-300/50 transition-colors">
+                    <div key={order.id} className="p-4 rounded-2xl bg-white/70 ring-1 ring-white/50 glass-sheen-sm flex items-center justify-between hover:ring-blue-300/50 transition-colors">
                       <div>
                         <h4 className="font-bold text-slate-800 text-lg">{order.table?.name || 'Take Away'}</h4>
                         <p className="text-xs font-medium text-slate-500 mt-0.5">Customer: {order.customer_name} {order.guest_count ? `- ${order.guest_count} guests` : ''}</p>
@@ -338,7 +343,7 @@ export function RestaurantBilling() {
             </div>
             <div className="p-5 space-y-3 overflow-y-auto flex-1">
               {settleLog.map(log => (
-                <div key={log.id} className="p-3 rounded-xl bg-white/25 backdrop-blur-sm ring-1 ring-white/40 flex justify-between items-center transition-colors hover:bg-white/40">
+                <div key={log.id} className="p-3 rounded-xl bg-white/60 ring-1 ring-white/40 flex justify-between items-center transition-colors hover:bg-white/70">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-emerald-400 rounded-full"></div>
                     <div>

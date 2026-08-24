@@ -364,7 +364,12 @@ function TableDetailsPageInner() {
                   {previousSessions.map(session => {
                     const isExpanded = !!expandedSessions[session.id];
                     return (
-                      <div key={session.id} className="flex flex-col rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
+                      // No backdrop-blur — renders once per previous session, and
+                      // stacking that many backdrop-filter blurs in a scrolling list
+                      // is a well-known cause of scroll jank, especially on Android
+                      // WebViews. bg-white/70 (higher opacity, no blur) keeps a
+                      // similar frosted look without the per-frame cost.
+                      <div key={session.id} className="flex flex-col rounded-2xl bg-white/70 ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
                         <div
                           onClick={() => setExpandedSessions(prev => ({ ...prev, [session.id]: !prev[session.id] }))}
                           className="flex justify-between items-center py-3 px-4 cursor-pointer hover:bg-white/10 transition-colors"

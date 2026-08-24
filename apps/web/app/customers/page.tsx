@@ -661,7 +661,12 @@ function CustomersPageContent() {
         ) : (
           <div className="space-y-3">
             {customers.map((c) => (
-              <div key={c.id} className="flex flex-col bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 transition-all">
+              // No backdrop-blur here — this renders once per customer (up to 50),
+              // and backdrop-filter is expensive enough per-instance that stacking
+              // many of them in a scrolling list is a well-known cause of scroll
+              // jank, especially on Android WebViews. bg-white/70 (higher opacity,
+              // no blur) keeps a similar frosted look without the per-frame cost.
+              <div key={c.id} className="flex flex-col bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 transition-all">
                 <div className="flex items-center gap-3 w-full">
                   <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
                     <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">

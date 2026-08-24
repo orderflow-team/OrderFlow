@@ -571,7 +571,11 @@ export function MenuGrid({ businessId }: { businessId: string }) {
         {/* Product Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {products.map(p => (
-            <Card key={p.id} className="relative overflow-hidden group flex flex-col justify-end p-0 py-0 gap-0 rounded-3xl min-h-[340px] ring-1 ring-white/40 hover:ring-emerald-300/60 shadow-md hover:shadow-xl transition-all duration-300">
+            // backdrop-blur-none overrides Card's own default blur — this card is
+            // fully covered by a full-bleed photo/gradient (below), so that blur
+            // was never visible, just wasted GPU cost repeated for every card
+            // (up to 50) in a scrolling grid.
+            <Card key={p.id} className="relative overflow-hidden group flex flex-col justify-end p-0 py-0 gap-0 rounded-3xl min-h-[340px] ring-1 ring-white/40 hover:ring-emerald-300/60 shadow-md hover:shadow-xl transition-all duration-300 backdrop-blur-none">
               {/* Full-bleed photo background */}
               {p.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -603,8 +607,13 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                 </span>
               </div>
 
-              {/* Frosted glass info panel */}
-              <div className="relative z-10 m-2 md:m-3 rounded-2xl bg-white/70 backdrop-blur-xl backdrop-saturate-150 ring-1 ring-white/60 shadow-lg p-3 md:p-4 space-y-1.5 md:space-y-2">
+              {/* Info panel — no backdrop-blur (dropped along with backdrop-saturate,
+                  which only mattered paired with the blur): the same
+                  scroll-jank-from-many-stacked-blurs reasoning as the outer Card
+                  above applies here too, since this panel repeats per card. The
+                  scrim gradient behind it (above) already keeps text legible
+                  against the photo without needing to blur it as well. */}
+              <div className="relative z-10 m-2 md:m-3 rounded-2xl bg-white/70 ring-1 ring-white/60 shadow-lg p-3 md:p-4 space-y-1.5 md:space-y-2">
                 <div className="flex flex-col gap-0.5 md:flex-row md:items-start md:justify-between md:gap-2">
                   <h3 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight truncate">{p.name}</h3>
                   <div className="text-base md:text-lg font-black text-emerald-700 whitespace-nowrap shrink-0">

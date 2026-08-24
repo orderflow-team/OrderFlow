@@ -650,12 +650,17 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {products.map((p) => (
+              // No backdrop-blur — this renders once per product (up to 50+ in a
+              // large catalog), and stacking that many backdrop-filter blurs in a
+              // scrolling grid is a well-known cause of scroll jank, especially on
+              // Android WebViews. The bg opacity here (80%/70%) already keeps a
+              // frosted-enough look without it.
               <Card
                 key={p.id}
-                className={`relative overflow-hidden ring-1 hover:shadow-lg transition-all border-l-4 ${
+                className={`relative overflow-hidden ring-1 hover:shadow-lg transition-all border-l-4 backdrop-blur-none ${
                   p.is_available
-                    ? 'ring-slate-200/80 bg-white/80 backdrop-blur-md border-l-amber-500'
-                    : 'ring-slate-200/60 bg-slate-50/70 backdrop-blur-md border-l-slate-300 grayscale-[0.4] opacity-70'
+                    ? 'ring-slate-200/80 bg-white/80 border-l-amber-500'
+                    : 'ring-slate-200/60 bg-slate-50/70 border-l-slate-300 grayscale-[0.4] opacity-70'
                 }`}
               >
                 <CardContent className="p-3 md:p-5 space-y-2.5 md:space-y-3">

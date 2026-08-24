@@ -341,8 +341,14 @@ export default function KitchenDisplayPage() {
               <span className="bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600 px-2 py-0.5 rounded-full text-sm font-bold">{pendingKots.length}</span>
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
+              {/* No backdrop-blur on these KOT cards (here and the other 2 kitchen
+                  columns below) — this is a live kitchen display, actively scrolled
+                  and refreshed by kitchen staff during service, so stacking a
+                  backdrop-filter blur per ticket is exactly the kind of thing that
+                  causes scroll jank, especially on Android WebViews. bg-white/70
+                  (higher opacity, no blur) keeps a similar frosted look. */}
               {pendingKots.map(kot => (
-                <Card key={kot.id} className="ring-1 ring-amber-300/40 overflow-hidden bg-white/40 backdrop-blur-md glass-sheen-sm hover:ring-amber-400/50 transition-colors">
+                <Card key={kot.id} className="ring-1 ring-amber-300/40 overflow-hidden bg-white/70 backdrop-blur-none glass-sheen-sm hover:ring-amber-400/50 transition-colors">
                   <CardContent className="p-0">
                     <div className="p-4 border-b border-white/40 bg-amber-500/10 backdrop-blur-sm">
                       <div className="flex justify-between items-start">
@@ -389,7 +395,7 @@ export default function KitchenDisplayPage() {
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
               {preparingKots.map(kot => (
-                <Card key={kot.id} className="ring-1 ring-blue-300/40 overflow-hidden bg-white/40 backdrop-blur-md glass-sheen-sm hover:ring-blue-400/50 transition-colors">
+                <Card key={kot.id} className="ring-1 ring-blue-300/40 overflow-hidden bg-white/70 backdrop-blur-none glass-sheen-sm hover:ring-blue-400/50 transition-colors">
                   <CardContent className="p-0">
                     <div className="p-4 border-b border-white/40 bg-blue-500/10 backdrop-blur-sm">
                       <div className="flex justify-between items-start">
@@ -436,7 +442,7 @@ export default function KitchenDisplayPage() {
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-4">
               {readyKots.map(kot => (
-                <Card key={kot.id} className="ring-1 ring-emerald-300/40 overflow-hidden bg-white/40 backdrop-blur-md glass-sheen-sm hover:ring-emerald-400/50 transition-colors">
+                <Card key={kot.id} className="ring-1 ring-emerald-300/40 overflow-hidden bg-white/70 backdrop-blur-none glass-sheen-sm hover:ring-emerald-400/50 transition-colors">
                   <CardContent className="p-0">
                     <div className="p-4 border-b border-white/40 bg-emerald-500/10 backdrop-blur-sm">
                       <div className="flex justify-between items-start">

@@ -720,7 +720,12 @@ function ProductsPageContent() {
               const stockTone =
                 p.stock_quantity === 0 ? 'bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20' : p.stock_quantity <= (p.reorder_point ?? 10) ? 'bg-amber-500/10 text-amber-600 ring-1 ring-amber-500/20' : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20';
               return (
-                <div key={p.id} className="flex items-center gap-3 bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
+                // No backdrop-blur here — renders once per product (up to 50), and
+                // stacking many backdrop-filter blurs in a scrolling list is a
+                // well-known cause of scroll jank, especially on Android WebViews.
+                // bg-white/70 (higher opacity, no blur) keeps a similar frosted
+                // look without the per-frame cost.
+                <div key={p.id} className="flex items-center gap-3 bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5">
                   <button onClick={() => openEditForm(p)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
                     <div className="w-11 h-11 rounded-xl bg-tile-lavender-fg text-white flex items-center justify-center shrink-0">
                       <Package className="w-5 h-5" />

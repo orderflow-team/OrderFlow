@@ -817,9 +817,15 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
           {products.map((p) => {
             const expiry = expiryStatus(p.expiry_date);
             return (
+              // backdrop-blur-none + bg-white/70 override Card's own defaults
+              // (bg-white/40 + backdrop-blur-xl) — this renders once per medicine
+              // (up to 50+ in this catalog), and stacking that many backdrop-filter
+              // blurs in a scrolling grid is a well-known cause of scroll jank,
+              // especially on Android WebViews. Higher opacity, no blur, keeps a
+              // similar frosted look without the per-frame cost.
               <Card
                 key={p.id}
-                className={`overflow-hidden transition-all flex flex-col group border-l-4 ${
+                className={`overflow-hidden transition-all flex flex-col group border-l-4 backdrop-blur-none bg-white/70 ${
                   p.is_available
                     ? 'hover:ring-emerald-300/50 border-l-emerald-500'
                     : 'border-l-slate-300 grayscale-[0.4] opacity-70'

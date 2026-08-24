@@ -896,7 +896,12 @@ export function GenericOrders() {
             {filteredOrders.map((o) => {
               const bucket = orderBucket(o.status);
               return (
-                <div key={o.id} className={`bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-all hover:bg-white/50 active:scale-[0.99] cursor-pointer ${o.status === 'returned' ? 'opacity-40 hover:opacity-60' : ''}`}>
+                // No backdrop-blur — renders once per order (up to 50 loaded), and
+                // stacking that many backdrop-filter blurs in a scrolling list is a
+                // well-known cause of scroll jank, especially on Android WebViews.
+                // bg-white/70 (higher opacity, no blur) keeps a similar frosted
+                // look without the per-frame cost.
+                <div key={o.id} className={`bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-all hover:bg-white/80 active:scale-[0.99] cursor-pointer ${o.status === 'returned' ? 'opacity-40 hover:opacity-60' : ''}`}>
                   <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left cursor-pointer">
                     <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
                       {o.customer_name.charAt(0).toUpperCase()}

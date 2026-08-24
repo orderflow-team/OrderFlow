@@ -362,7 +362,12 @@ function RestaurantPageContent() {
               {previousTakeaways.map(order => {
                 const isExpanded = !!expandedTakeaways[order.id];
                 return (
-                  <div key={order.id} className="flex flex-col rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
+                  // No backdrop-blur — renders once per takeaway order, and stacking
+                  // many backdrop-filter blurs in a scrolling list is a well-known
+                  // cause of scroll jank, especially on Android WebViews. bg-white/70
+                  // (higher opacity, no blur) keeps a similar frosted look without
+                  // the per-frame cost.
+                  <div key={order.id} className="flex flex-col rounded-2xl bg-white/70 ring-1 ring-white/50 glass-sheen-sm overflow-hidden transition-all duration-200">
                     <div
                       onClick={() => setExpandedTakeaways(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
                       className="flex justify-between items-center py-4 px-5 cursor-pointer hover:bg-white/10 transition-colors"
@@ -636,7 +641,12 @@ function RestaurantPageContent() {
               {filteredHistory.map((o) => (
                 <div
                   key={o.id}
-                  className="bg-white/40 backdrop-blur-md rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 flex items-center gap-3"
+                  // No backdrop-blur — renders once per order (up to 50 loaded), and
+                  // stacking that many backdrop-filter blurs in a scrolling list is a
+                  // well-known cause of scroll jank, especially on Android WebViews.
+                  // bg-white/70 (higher opacity, no blur) keeps a similar frosted
+                  // look without the per-frame cost.
+                  className="bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 flex items-center gap-3"
                 >
                   <div className="w-11 h-11 rounded-xl bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0">
                     {o.order_type === 'take_away' ? <ShoppingBag className="w-5 h-5" /> : <UtensilsCrossed className="w-5 h-5" />}
@@ -736,7 +746,11 @@ function RestaurantPageContent() {
               
               return (
                 <Link key={t.id} href={`/orders/table/view?id=${t.id}`}>
-                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
+                  {/* backdrop-blur-none + bg-white/70 override Card's own defaults —
+                      this renders once per table, and a restaurant with many tables
+                      stacking that many backdrop-filter blurs is a well-known cause
+                      of scroll jank, especially on Android WebViews. */}
+                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 backdrop-blur-none bg-white/70 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
                     <button
                       onClick={(e) => handleDeleteTable(e, t.id)}
                       className="absolute top-2 right-2 z-10 p-1.5 rounded-full text-slate-300 hover:text-rose-600 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
