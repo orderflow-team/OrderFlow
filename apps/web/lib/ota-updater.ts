@@ -58,7 +58,14 @@ export async function checkForOtaUpdate() {
     }
 
     console.log(`${LOG_PREFIX} downloading ${latest.version} from ${latest.url}`);
-    const downloaded = await CapacitorUpdater.download({ url: latest.url, version: latest.version });
+    // The backend computes this as a plain sha256 hex digest of the uploaded
+    // zip (app-updates.service.ts) — no encryption/sessionKey involved, since
+    // this app self-hosts releases rather than using Capgo's own signing
+    // flow. The native plugin still verifies a bare checksum like this
+    // against the downloaded file (CapgoUpdater.java's finishDownload) and
+    // throws on mismatch, so this is enough to catch a corrupted download or
+    // a tampered/MITM'd bundle URL without needing the full encryption setup.
+    const downloaded = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
     await CapacitorUpdater.next({ id: downloaded.id });
     console.log(`${LOG_PREFIX} staged ${latest.version} — will apply on next background/restart`);
   } catch (err) {
