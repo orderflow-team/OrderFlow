@@ -125,8 +125,8 @@ function ProductsPageContent() {
   const entityName = 'Product';
   const entityNamePlural = 'Products';
 
-  const load = async (bizId: string, q?: string) => {
-    setLoading(true);
+  const load = async (bizId: string, q?: string, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [res, statsRes] = await Promise.all([
         apiClient.get<Product[]>('/api/products', {
@@ -153,7 +153,7 @@ function ProductsPageContent() {
     } catch (err: any) {
       setError(err.response?.data?.message || `Failed to load ${entityNamePlural.toLowerCase()}`);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -184,10 +184,13 @@ function ProductsPageContent() {
   // AND every category tab click — category filtering used to be a
   // client-side .filter() over the full loaded array (see the old
   // filteredProducts below), which silently missed matches once the list
-  // itself is paginated instead of loading everything.
+  // itself is paginated instead of loading everything. Silent once
+  // there's already a loaded list (totalProducts !== null) — otherwise
+  // every keystroke/tab click would blank the whole list to "Loading..."
+  // and pop it back a moment later, which reads as a glitch, not a filter.
   useEffect(() => {
     if (isRestaurant || isPharmacy || !ready || !businessId) return;
-    const t = setTimeout(() => load(businessId, search), 250);
+    const t = setTimeout(() => load(businessId, search, totalProducts !== null), 250);
     return () => clearTimeout(t);
   }, [search, selectedCategory, ready, businessId, isRestaurant, isPharmacy]);
 

@@ -316,10 +316,14 @@ function CustomersPageContent() {
   // One debounced effect covers both the initial load AND every search
   // change — search moved server-side (previously a client-side .filter()
   // over the full array, which would stop finding anyone outside whatever
-  // page happened to be loaded once this list paginates).
+  // page happened to be loaded once this list paginates). Silent once
+  // there's already a loaded list (totalCustomers !== null) — otherwise
+  // every keystroke would blank the whole list to "Loading..." and pop it
+  // back a moment later, which reads as a glitch, not a search. Only the
+  // genuine first load for this business shows the full loading state.
   useEffect(() => {
     if (!ready || !businessId) return;
-    const t = setTimeout(() => load(businessId, search), 250);
+    const t = setTimeout(() => load(businessId, search, totalCustomers !== null), 250);
     return () => clearTimeout(t);
   }, [search, ready, businessId]);
 

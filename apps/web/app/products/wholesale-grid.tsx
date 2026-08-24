@@ -124,9 +124,9 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       .catch(() => {});
   }, [businessId]);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (!businessId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [prodRes, catRes, statsRes] = await Promise.all([
         apiClient.get<Product[]>('/api/products', {
@@ -165,7 +165,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     } catch (err) {
       console.error('Failed to load wholesale products', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -195,9 +195,12 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
   // Debounced — search now hits the server (previously 100% client-side
   // over the full loaded array, which would have stopped finding anything
   // outside whatever page happened to be loaded once this list paginates).
-  // Category selection shares the same debounced effect.
+  // Category selection shares the same debounced effect. Silent once
+  // there's already a loaded list (totalProducts !== null) — otherwise
+  // every keystroke/tab click would blank the whole grid to "Loading..."
+  // and pop it back a moment later, which reads as a glitch, not a filter.
   useEffect(() => {
-    const t = setTimeout(() => loadData(), 250);
+    const t = setTimeout(() => loadData(totalProducts !== null), 250);
     return () => clearTimeout(t);
   }, [businessId, search, selectedCategory]);
 

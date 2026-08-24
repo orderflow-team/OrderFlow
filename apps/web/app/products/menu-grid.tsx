@@ -111,8 +111,8 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     }
   };
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [prodRes, catRes, statsRes] = await Promise.all([
         apiClient.get<Product[]>('/api/products', {
@@ -170,7 +170,7 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -191,8 +191,12 @@ export function MenuGrid({ businessId }: { businessId: string }) {
     }
   };
 
+  // Silent once there's already a loaded menu (totalProducts !== null) —
+  // otherwise every keystroke/tab click would blank the whole grid to
+  // "Loading..." and pop it back a moment later, which reads as a glitch,
+  // not a filter. Only the genuine first load shows the full loading state.
   useEffect(() => {
-    if (businessId) loadData();
+    if (businessId) loadData(totalProducts !== null);
   }, [businessId, search, selectedCategory]);
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
