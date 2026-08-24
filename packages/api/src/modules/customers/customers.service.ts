@@ -40,14 +40,50 @@ export class CustomersService {
     });
   }
 
-  async findAllPaginated(businessId: string, limit?: number, offset?: number) {
-    const [customers, total] = await this.customersRepository.findAndCount({
-      where: { business_id: businessId },
-      order: { created_at: 'DESC' },
-      take: limit,
-      skip: offset,
-    });
+  // Mirrors the client-side filter the customers list page used to run over
+  // its full loaded array (name/phone/address, case-insensitive substring) —
+  // moved server-side so it still searches every customer once the list
+  // itself is paginated, not just whatever page happens to be loaded.
+  async findAllPaginated(businessId: string, search?: string, limit?: number, offset?: number) {
+    const query = this.customersRepository
+      .createQueryBuilder('customer')
+      .where('customer.business_id = :businessId', { businessId });
+
+    if (search) {
+      query.andWhere(
+        '(customer.name ILIKE :search OR customer.phone ILIKE :search OR customer.address ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const [customers, total] = await query
+      .orderBy('customer.created_at', 'DESC')
+      .take(limit)
+      .skip(offset)
+      .getManyAndCount();
     return { customers, total };
+  }
+
+  // Cheap aggregate for the customers list page's "total outstanding" figure
+  // and "top 5 by dues" side panel — both used to be computed client-side
+  // from the full customers array, which goes wrong the moment that list is
+  // paginated instead of loading everyone.
+  async getStats(businessId: string) {
+    const { sum } = await this.customersRepository
+      .createQueryBuilder('customer')
+      .select('COALESCE(SUM(customer.outstanding_amount), 0)', 'sum')
+      .where('customer.business_id = :businessId', { businessId })
+      .getRawOne<{ sum: string }>();
+
+    const topOutstanding = await this.customersRepository
+      .createQueryBuilder('customer')
+      .where('customer.business_id = :businessId', { businessId })
+      .andWhere('customer.outstanding_amount > 0.01')
+      .orderBy('customer.outstanding_amount', 'DESC')
+      .take(5)
+      .getMany();
+
+    return { totalOutstanding: Number(sum), topOutstanding };
   }
 
   async findOne(id: string, businessId: string) {

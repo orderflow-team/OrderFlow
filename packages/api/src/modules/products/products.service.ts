@@ -153,7 +153,7 @@ export class ProductsService {
     });
   }
 
-  private buildFindAllQuery(businessId: string, search?: string, isDraft?: string) {
+  private buildFindAllQuery(businessId: string, search?: string, isDraft?: string, category?: string) {
     const query = this.productsRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.last_supplier', 'last_supplier')
@@ -173,6 +173,12 @@ export class ProductsService {
       );
     }
 
+    // Optional — every existing caller (chat-order, dropdowns) omits this
+    // and keeps getting every category back, exactly as before.
+    if (category) {
+      query.andWhere('product.category = :category', { category });
+    }
+
     return query.orderBy('product.created_at', 'DESC');
   }
 
@@ -187,12 +193,46 @@ export class ProductsService {
     return this.buildFindAllQuery(businessId, search, isDraft).getMany();
   }
 
-  async findAllPaginated(businessId: string, search?: string, isDraft?: string, limit?: number, offset?: number) {
-    const [products, total] = await this.buildFindAllQuery(businessId, search, isDraft)
+  async findAllPaginated(
+    businessId: string,
+    search?: string,
+    isDraft?: string,
+    limit?: number,
+    offset?: number,
+    category?: string,
+  ) {
+    const [products, total] = await this.buildFindAllQuery(businessId, search, isDraft, category)
       .take(limit)
       .skip(offset)
       .getManyAndCount();
     return { products, total };
+  }
+
+  // Cheap aggregate counts for the products list pages' "Total: N" / per-
+  // category tab counts — these used to be computed client-side from the
+  // full products array, which silently went wrong the moment the list
+  // itself became paginated (a count of "however much happens to be
+  // loaded" isn't the real total). GROUP BY here never needs to transfer
+  // full product rows just to count them.
+  async getStats(businessId: string, search?: string, isDraft?: string) {
+    const total = await this.buildFindAllQuery(businessId, search, isDraft).getCount();
+
+    const categoryRows = await this.buildFindAllQuery(businessId, search, isDraft)
+      .select('product.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('product.category')
+      // Overrides buildFindAllQuery's own `orderBy('product.created_at', ...)`
+      // — created_at isn't in the GROUP BY above, so leaving it would fail
+      // in Postgres ("column must appear in GROUP BY clause"). Ordering by
+      // the grouped column itself is valid.
+      .orderBy('product.category', 'ASC')
+      .getRawMany<{ category: string | null; count: string }>();
+
+    const categories = categoryRows
+      .filter((row) => row.category)
+      .map((row) => ({ name: row.category as string, count: Number(row.count) }));
+
+    return { total, categories };
   }
 
   async findOne(id: string, businessId: string) {

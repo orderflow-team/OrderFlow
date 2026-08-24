@@ -94,6 +94,7 @@ export class ProductsController {
     @Query('isDraft') isDraft?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('category') category?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
     if (limit === undefined && offset === undefined) {
@@ -105,6 +106,7 @@ export class ProductsController {
       isDraft,
       limit ? Number(limit) : undefined,
       offset ? Number(offset) : undefined,
+      category,
     );
     res?.setHeader('X-Total-Count', String(total));
     return products;
@@ -116,6 +118,20 @@ export class ProductsController {
   @Get('barcode-lookup')
   getBarcodeSuggestion(@Query('barcode') barcode: string) {
     return this.productsService.getBarcodeSuggestion(barcode);
+  }
+
+  // Same "must come before :id" reasoning as barcode-lookup above.
+  // Cheap aggregate total + per-category counts — the products list pages'
+  // "Total: N" and category tab counts used to be computed client-side from
+  // the full loaded array, which goes wrong the moment that list is
+  // paginated instead of loading everything.
+  @Get('stats')
+  getStats(
+    @Query('businessId') businessId: string,
+    @Query('search') search?: string,
+    @Query('isDraft') isDraft?: string,
+  ) {
+    return this.productsService.getStats(businessId, search, isDraft);
   }
 
   @Get(':id')
