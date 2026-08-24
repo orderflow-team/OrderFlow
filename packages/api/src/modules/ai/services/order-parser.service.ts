@@ -1375,6 +1375,18 @@ export class OrderParserService {
               }
             } else {
               const entry = unmatchedMap.get(resolved.key)!;
+              // entry.unit already being compound ("10kg" — one fixed pack,
+              // from newItems' convention below) and this command NOT
+              // restating a fresh unit means there's no sane new pack size
+              // to compute: overwriting just the quantity would leave the
+              // stale "10kg" in place and get double-folded into a garbage
+              // unit string ("5" + "10kg") once this flows back through
+              // parseChatOrder. Bail to Gemini instead, which has the full
+              // order context to redecide the item's total quantity/price.
+              // A command that DOES restate a unit ("set rice to 15 kg")
+              // is fine — it replaces entry.unit with a plain "kg" below,
+              // which newItems then folds correctly on its own.
+              if (entry.unit && /^\d/.test(entry.unit) && !newUnit) return null;
               const prevUnitPrice = entry.quantity > 0 ? entry.price / entry.quantity : 0;
               entry.quantity = newQty;
               entry.price = prevUnitPrice * newQty;
@@ -1425,29 +1437,55 @@ export class OrderParserService {
         if (!parsedSeg) return null;
 
         const normalized = parsedSeg.name.toLowerCase();
-        const catalogMatch = this.matchCatalogProduct(normalized, available);
-        if (catalogMatch === 'ambiguous') return null;
 
-        if (catalogMatch) {
-          const key = catalogMatch.toLowerCase();
-          const entry = matchedMap.get(key);
-          if (entry) entry.quantity += parsedSeg.quantity;
-          else matchedMap.set(key, { menuName: catalogMatch, rawName: parsedSeg.name, quantity: parsedSeg.quantity, unit: parsedSeg.unit || null });
-        } else {
-          const entry = unmatchedMap.get(normalized);
-          if (entry) {
+        // Does this name already resolve to something sitting in the order —
+        // same substring/fuzzy tiers "remove"/"set" above already use via
+        // resolveExistingItemKey? Checked BEFORE matchCatalogProduct (which
+        // only ever looks at the CATALOG) since an existing non-catalog
+        // item can only ever be found this way. Matters for phrasing like
+        // "add 5kg more rice" against an order that already has "rice" —
+        // parsedSeg.name comes out as "more rice" (nothing strips the filler
+        // "more"), which resolveExistingItemKey's substring tier still
+        // matches to the existing "rice" key; without this check it fell
+        // through to matchCatalogProduct (catalog-only, so no match) and
+        // silently created a bogus SEPARATE "more rice" item instead.
+        const existingResolved = this.resolveExistingItemKey(normalized, matchedMap, unmatchedMap);
+        if (existingResolved === 'ambiguous') return null;
+
+        if (existingResolved) {
+          if (existingResolved.store === 'matched') {
+            matchedMap.get(existingResolved.key)!.quantity += parsedSeg.quantity;
+          } else {
+            const entry = unmatchedMap.get(existingResolved.key)!;
+            // entry.unit already being compound ("10kg" — one fixed pack,
+            // from newItems' convention below) means quantity is frozen at
+            // "how many packs", not a raw amount — adding parsedSeg.quantity
+            // on top (treating prevUnitPrice as if it were a per-single-unit
+            // rate) produces a nonsensical total, and the stale unit string
+            // would double-fold into garbage downstream regardless. Bail to
+            // Gemini, which has the full order context to redecide the
+            // item's quantity/price properly.
+            if (entry.unit && /^\d/.test(entry.unit)) return null;
             const prevUnitPrice = entry.quantity > 0 ? entry.price / entry.quantity : 0;
             const addedTotal = parsedSeg.price != null ? parsedSeg.price : prevUnitPrice * parsedSeg.quantity;
             entry.quantity += parsedSeg.quantity;
             entry.price += addedTotal;
-          } else {
-            unmatchedMap.set(normalized, {
-              name: parsedSeg.name,
-              quantity: parsedSeg.quantity,
-              unit: parsedSeg.unit || null,
-              price: parsedSeg.price ?? 0,
-            });
           }
+          continue;
+        }
+
+        const catalogMatch = this.matchCatalogProduct(normalized, available);
+        if (catalogMatch === 'ambiguous') return null;
+
+        if (catalogMatch) {
+          matchedMap.set(catalogMatch.toLowerCase(), { menuName: catalogMatch, rawName: parsedSeg.name, quantity: parsedSeg.quantity, unit: parsedSeg.unit || null });
+        } else {
+          unmatchedMap.set(normalized, {
+            name: parsedSeg.name,
+            quantity: parsedSeg.quantity,
+            unit: parsedSeg.unit || null,
+            price: parsedSeg.price ?? 0,
+          });
         }
       }
     }
