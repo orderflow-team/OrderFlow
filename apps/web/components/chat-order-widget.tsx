@@ -9,18 +9,21 @@ interface ChatMessage {
   text: string;
 }
 
-const EXAMPLE_BY_CATEGORY: Record<string, string> = {
-  restaurant: '2 masala chai and a gulab jamun for table 3 — or say "takeaway"',
-  grocery: '1kg rice, 2 packets atta and a bottle of oil',
-  retail: '2 t-shirts and a pair of socks',
-  pharmacy: '2 paracetamol tablets and a bottle of cough syrup',
-  wholesale: '5 boxes of soap and 10 packets of biscuits',
-  salesman: '3 cartons of detergent',
+// `named` is a shorter, distinct example for the "who it's for" sentence —
+// reusing the full `item` example there read as an odd, wordy repeat (and
+// for restaurant, would double up with its own "for table 3" clause).
+const EXAMPLE_BY_CATEGORY: Record<string, { item: string; named: string }> = {
+  restaurant: { item: '2 masala chai and a gulab jamun for table 3 — or say "takeaway"', named: '2 masala chai and a gulab jamun' },
+  grocery: { item: '1kg rice, 2 packets atta and a bottle of oil', named: '1kg rice and a bottle of oil' },
+  retail: { item: '2 t-shirts and a pair of socks', named: '2 t-shirts' },
+  pharmacy: { item: '2 paracetamol tablets and a bottle of cough syrup', named: '2 paracetamol tablets' },
+  wholesale: { item: '5 boxes of soap and 10 packets of biscuits', named: '5 boxes of soap' },
+  salesman: { item: '3 cartons of detergent', named: '3 cartons of detergent' },
 };
 
 function greetingFor(category: string | null) {
-  const example = (category && EXAMPLE_BY_CATEGORY[category]) || 'rice, sugar and a packet of tea';
-  return `Tell me what to order, e.g. "${example}". You can also name who it's for, e.g. "order for Neel, ${example}".`;
+  const { item, named } = (category && EXAMPLE_BY_CATEGORY[category]) || { item: 'rice, sugar and a packet of tea', named: 'rice and sugar' };
+  return `Tell me what to order, e.g. "${item}". You can also name who it's for, e.g. "order for Neel, ${named}".`;
 }
 
 interface EditingOrderInfo {
