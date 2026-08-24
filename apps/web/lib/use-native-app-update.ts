@@ -46,6 +46,24 @@ const MAX_DOWNLOAD_TIMEOUT_MS = 10 * 60_000; // sanity ceiling regardless of siz
 // per attempt sidesteps that entirely.
 const PROGRESS_POLL_MS = 400;
 
+// The backend computes this as a plain sha256 hex digest of the uploaded APK
+// (app-apk-releases.service.ts) — verifying it here before handing the file
+// to Android's installer is the only thing standing between a
+// corrupted/truncated download (or a tampered/MITM'd release URL) and
+// installing arbitrary native code. @capacitor/filesystem has no built-in
+// checksum option (unlike @capgo/capacitor-updater's OTA bundle download),
+// so this reads the file back and hashes it with the standard Web Crypto API,
+// which every Android WebView already provides.
+async function sha256Hex(base64Data: string): Promise<string> {
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export function useNativeAppUpdate() {
   const [latest, setLatest] = useState<LatestApkRelease | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -136,6 +154,13 @@ export function useNativeAppUpdate() {
         }),
         timeout,
       ]);
+      const { data } = await Filesystem.readFile({ path, directory: Directory.Cache });
+      const actualChecksum = await sha256Hex(data as string);
+      if (actualChecksum.toLowerCase() !== latest.checksum.toLowerCase()) {
+        await Filesystem.deleteFile({ path, directory: Directory.Cache }).catch(() => {});
+        throw new Error('checksum_mismatch');
+      }
+
       const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
       await FileOpener.open({ filePath: uri, contentType: 'application/vnd.android.package-archive' });
     } catch (err: any) {
@@ -143,6 +168,8 @@ export function useNativeAppUpdate() {
       setError(
         err?.message === 'timeout'
           ? "Download is too slow to finish — try switching networks (WiFi/mobile data) and try again."
+          : err?.message === 'checksum_mismatch'
+          ? "The downloaded update doesn't match what was published — not installing it. Please try again."
           : "Couldn't download the update. Check your connection and try again.",
       );
     } finally {
