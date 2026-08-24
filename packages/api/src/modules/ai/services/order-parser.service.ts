@@ -863,8 +863,29 @@ export class OrderParserService {
     // one-word "item" — which then either fails Gemini strangely or, worse,
     // becomes a real ₹0 "New" quick-add product on the order, silently
     // completing it before the actual items ever get typed.
+    const beforeNewOrderStrip = text;
     text = text.replace(/^(?:please\s+)?(?:(?:make|create|place|start)\s+(?:a|an)\s+)?new\s+order\s*/i, '').trim();
     text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
+    const strippedExplicitNewOrder = text !== beforeNewOrderStrip;
+
+    const titleCase = (raw: string) =>
+      raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+
+    // "new order neel," — an explicit new-order command immediately followed
+    // by ONLY a bare name and a trailing comma, nothing else. The comma is
+    // what makes this unambiguous versus a genuine one-word item order like
+    // "new order rice" (no comma, left untouched below): it's the shape
+    // someone produces typing a customer's name first, meaning to follow with
+    // items as a comma-separated list or as separate messages afterward, and
+    // hitting send before any item made it in. Without this, "neel" falls
+    // through as cleanMessage and becomes a real ₹0 "Neel" quick-add product
+    // on the order instead of being saved as the customer.
+    if (strippedExplicitNewOrder) {
+      const bareNameMatch = text.match(/^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\s*,\s*$/);
+      if (bareNameMatch) {
+        return { customerName: titleCase(bareNameMatch[1]), phone: null, cleanMessage: '' };
+      }
+    }
 
     // A conversational opener ("give me", "I want", "can I get") isn't part
     // of the order — left in place it becomes the leading word of whatever
@@ -879,9 +900,6 @@ export class OrderParserService {
       .replace(/^(?:please\s+)?can\s+i\s+(?:get|have)\s+/i, '')
       .replace(/^(?:please\s+)?i'?ll\s+(?:have|take)\s+/i, '')
       .trim();
-
-    const titleCase = (raw: string) =>
-      raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
     let phone: string | null = null;
     const phoneMatch = this.extractPhoneCandidate(text);
