@@ -214,12 +214,19 @@ export default function StaffPage() {
     setCredFormFor(member.id);
     setCredError('');
     setCredShowPassword(false);
+    // Name/email/role are already in hand from the roster — prefill immediately
+    // so a MANAGER (who can edit these + set a new password, but isn't allowed
+    // to see a staff member's *current* plaintext password — that's ADMIN-only,
+    // see StaffController.getCredentials) isn't blocked from editing just
+    // because the credentials fetch below 403s for them.
+    setCredForm({ name: member.fullName || '', email: member.email, role: member.role, currentPassword: '', newPassword: '' });
     setCredLoading(true);
     try {
       const res = await apiClient.get<{ email: string; password: string | null }>(`/api/staff/${member.id}/credentials`, { params: { businessId } });
-      setCredForm({ name: member.fullName || '', email: res.data.email, role: member.role, currentPassword: res.data.password || '', newPassword: '' });
-    } catch (err: any) {
-      setCredError(err.response?.data?.message || 'Failed to load login details');
+      setCredForm((prev) => ({ ...prev, email: res.data.email, currentPassword: res.data.password || '' }));
+    } catch {
+      // Not permitted to view the current password (e.g. a MANAGER) — leave
+      // the prefilled fields as-is; editing/setting a new password still works.
     } finally {
       setCredLoading(false);
     }

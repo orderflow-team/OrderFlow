@@ -35,6 +35,11 @@ export class StaffController {
     return this.staffService.findAll(businessId);
   }
 
+  // Overrides the class-level @Roles to ADMIN only — the service method this
+  // calls is documented "Owner-only," but without this override the class
+  // guard's MANAGER allowance would let one staff member read every other
+  // staff member's plaintext login password.
+  @Roles(UserRole.ADMIN)
   @Get(':id/credentials')
   getCredentials(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.staffService.getCredentials(id, businessId);

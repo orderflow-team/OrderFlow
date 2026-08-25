@@ -10,7 +10,21 @@ export default defineConfig({
       // public_read matches current behavior: both were served unauthenticated
       // via Express static /uploads, just on Render's disk instead of a bucket.
       'product-images': { access: 'public_read' },
+      // Deprecated 2026-08-25 — this bucket was public_read, which exposed
+      // supplier invoice scans (business-sensitive pricing/GST data) to
+      // anyone who could guess a key. Neon's config tool can only CREATE
+      // buckets, not change an existing one's access level, so it could never
+      // be flipped to private in place — replaced by `invoice-scans-private`
+      // below instead. InvoiceScanService.migrateLegacyBucket() copies any
+      // remaining objects over on boot and deletes them from here; once that
+      // drains to zero this entry can be deleted (bucket deletion isn't
+      // supported by this config tool either — needs the Neon Console).
       'invoice-scans': { access: 'public_read' },
+      // Private (default) — supplier invoice scans contain business-sensitive
+      // pricing/GST/supplier data; every read goes through a short-lived
+      // presigned URL (see InvoiceScanService.presignFileUrl), never a bare
+      // public link.
+      'invoice-scans-private': {},
       // OTA web-bundle zips for the Capacitor app (see app-updates module) — a
       // separate bucket from app-releases (APK binaries) despite both backing
       // "app releases," since they're unrelated artifact types.

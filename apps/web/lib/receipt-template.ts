@@ -50,12 +50,21 @@ export interface ReceiptData {
 
 const money = (n: number) => n.toFixed(2);
 
-// Item/customer/business names are free text a cashier can type — escape
-// before interpolating into HTML so a name like "<script>..." can't execute
-// in the print window (which, as a same-origin popup, can reach back into
-// window.opener otherwise).
+// Item/customer/business names are free text a cashier (or a business owner,
+// for the business name/address) can type — escape before interpolating into
+// HTML so a name like "<script>..." or a quote-breakout like
+// `X" onload="fetch(...)` can't execute in the print window (which, as a
+// same-origin popup, can reach back into window.opener otherwise, including
+// its localStorage-held auth token).
 const escapeHtml = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Logo/QR URLs come from business settings (attacker-settable) and are
+// interpolated into `src="..."` — only allow genuine http(s) URLs through so
+// a value like `javascript:...` or a quote-breakout can't run as script.
+const safeImageUrl = (url: string | null): string | null =>
+  url && /^https?:\/\//i.test(url) ? escapeHtml(url) : null;
 
 const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
   'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -166,8 +175,8 @@ export function buildA4ReceiptHtml(data: ReceiptData): string {
   const previousBalance = 0;
   const currentBalance = previousBalance + balance;
 
-  const logoUrl = toAbsoluteFileUrl(data.business?.logo_url);
-  const upiQrUrl = toAbsoluteFileUrl(data.business?.upi_qr_url);
+  const logoUrl = safeImageUrl(toAbsoluteFileUrl(data.business?.logo_url));
+  const upiQrUrl = safeImageUrl(toAbsoluteFileUrl(data.business?.upi_qr_url));
   const showUpiQr = !!upiQrUrl && data.business?.custom_settings?.receipt?.showUpiQrCode !== false;
   const termsAndConditions = data.business?.custom_settings?.receipt?.termsAndConditions;
 

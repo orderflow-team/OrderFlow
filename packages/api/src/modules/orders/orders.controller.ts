@@ -28,6 +28,7 @@ import { CreateOrderDto, CreateOrderItemDto, AddOrderItemsDto, ReturnOrderDto } 
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 const PRESCRIPTIONS_BUCKET = 'prescriptions';
+const ALLOWED_PRESCRIPTION_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 @UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/orders')
@@ -41,7 +42,14 @@ export class OrdersController {
   // (checkout builds the cart first) — the returned key gets passed into
   // CreateOrderDto.prescriptionImageKey once the order is actually submitted.
   @Post('prescription-upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (req, file, cb) => {
+        cb(null, ALLOWED_PRESCRIPTION_MIME_TYPES.has(file.mimetype));
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
   async uploadPrescription(@UploadedFile() file: any) {
     if (!file) {
       throw new BadRequestException('No file uploaded');

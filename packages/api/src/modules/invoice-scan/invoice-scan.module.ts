@@ -14,5 +14,7 @@ import { GeminiKeyPoolService } from '../../common/services/gemini-key-pool.serv
   imports: [TypeOrmModule.forFeature([InvoiceScan, InvoiceScanItem, InvoiceScanFile, Product]), InventoryModule],
   controllers: [InvoiceScanController],
   providers: [InvoiceScanService, InvoiceVisionParserService, GeminiKeyPoolService],
+  // Exported so AppModule can call migrateLegacyBucket() once at boot.
+  exports: [InvoiceScanService],
 })
 export class InvoiceScanModule {}

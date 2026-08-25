@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { InvoiceScan } from '../../database/entities/invoice-scan.entity';
 import { InvoiceScanItem } from '../../database/entities/invoice-scan-item.entity';
 import { InvoiceScanFile } from '../../database/entities/invoice-scan-file.entity';
@@ -16,8 +18,16 @@ export interface ScanPageInput {
   mimeType: string;
 }
 
+// Private bucket — see neon.ts for why this isn't just `invoice-scans` (that
+// bucket is stuck public_read; LEGACY_BUCKET below is what it's being
+// migrated off of).
+const INVOICE_SCANS_BUCKET = 'invoice-scans-private';
+const LEGACY_BUCKET = 'invoice-scans';
+
 @Injectable()
 export class InvoiceScanService {
+  private readonly s3 = new S3Client({ forcePathStyle: true });
+
   constructor(
     @InjectRepository(InvoiceScan) private scansRepository: Repository<InvoiceScan>,
     @InjectRepository(InvoiceScanItem) private itemsRepository: Repository<InvoiceScanItem>,
@@ -185,7 +195,115 @@ export class InvoiceScanService {
       relations: { matched_product: true },
     });
     const files = await this.filesRepository.find({ where: { scan_id: id }, order: { page_order: 'ASC' } });
-    return { ...scan, items: items.map((item) => this.withLiveIncluded(item)), files };
+    const [presignedScanUrl, presignedFiles] = await Promise.all([
+      this.presignFileUrl(scan.file_url),
+      Promise.all(files.map(async (f) => ({ ...f, file_url: await this.presignFileUrl(f.file_url) }))),
+    ]);
+    return {
+      ...scan,
+      file_url: presignedScanUrl,
+      items: items.map((item) => this.withLiveIncluded(item)),
+      files: presignedFiles,
+    };
+  }
+
+  /**
+   * `invoice-scans` is a private bucket (supplier pricing/GST data) — the
+   * bare URL stored on the row is only ever used to recover the object key;
+   * every actual read goes through a short-lived presigned URL instead.
+   */
+  private async presignFileUrl(fileUrl: string): Promise<string> {
+    const key = fileUrl.split(`/${INVOICE_SCANS_BUCKET}/`).pop();
+    if (!key) return fileUrl;
+    return getSignedUrl(
+      this.s3,
+      new GetObjectCommand({ Bucket: INVOICE_SCANS_BUCKET, Key: key }),
+      { expiresIn: 3600 },
+    );
+  }
+
+  /**
+   * One-time, idempotent migration off `invoice-scans` (public_read — could
+   * never be flipped to private in place, since Neon's config tool only
+   * creates buckets, never alters an existing one's access; see neon.ts) onto
+   * `invoice-scans-private`. Copies each object still referenced by a legacy
+   * URL to the new bucket, rewrites the DB row, THEN deletes the old copy —
+   * in that order, so a request racing this migration never hits a row
+   * pointing at an already-deleted object. Safe to run on every boot: once no
+   * row references the legacy bucket, this is a fast no-op (two indexless but
+   * small LIKE scans over what's normally a low-volume table).
+   */
+  async migrateLegacyBucket(): Promise<{ migrated: number; failed: number }> {
+    let migrated = 0;
+    let failed = 0;
+
+    const legacyScans = await this.scansRepository
+      .createQueryBuilder('scan')
+      .where('scan.file_url LIKE :pattern', { pattern: `%/${LEGACY_BUCKET}/%` })
+      .getMany();
+    for (const scan of legacyScans) {
+      const key = await this.copyOffLegacyBucket(scan.file_url);
+      if (!key) { failed++; continue; }
+      const oldUrl = scan.file_url;
+      scan.file_url = scan.file_url.replace(`/${LEGACY_BUCKET}/`, `/${INVOICE_SCANS_BUCKET}/`);
+      await this.scansRepository.save(scan);
+      await this.deleteLegacyObject(key, oldUrl);
+      migrated++;
+    }
+
+    const legacyFiles = await this.filesRepository
+      .createQueryBuilder('file')
+      .where('file.file_url LIKE :pattern', { pattern: `%/${LEGACY_BUCKET}/%` })
+      .getMany();
+    for (const file of legacyFiles) {
+      const key = await this.copyOffLegacyBucket(file.file_url);
+      if (!key) { failed++; continue; }
+      const oldUrl = file.file_url;
+      file.file_url = file.file_url.replace(`/${LEGACY_BUCKET}/`, `/${INVOICE_SCANS_BUCKET}/`);
+      await this.filesRepository.save(file);
+      await this.deleteLegacyObject(key, oldUrl);
+      migrated++;
+    }
+
+    return { migrated, failed };
+  }
+
+  /**
+   * Copies one object from the legacy bucket to the new one. Returns the
+   * object's key on success (for the caller to update its DB row with,
+   * before finally deleting the legacy copy via deleteLegacyObject), or null
+   * on failure — deliberately does NOT delete the legacy copy itself, so a
+   * crash between this and the caller's DB save never loses the only
+   * remaining copy of the file.
+   */
+  private async copyOffLegacyBucket(legacyUrl: string): Promise<string | null> {
+    const key = legacyUrl.split(`/${LEGACY_BUCKET}/`).pop();
+    if (!key) return null;
+    try {
+      await this.s3.send(
+        new CopyObjectCommand({
+          Bucket: INVOICE_SCANS_BUCKET,
+          Key: key,
+          CopySource: `/${LEGACY_BUCKET}/${encodeURIComponent(key)}`,
+        }),
+      );
+      return key;
+    } catch (err) {
+      console.error(`Failed to copy invoice-scan object off the legacy bucket (key: ${key}):`, err);
+      return null;
+    }
+  }
+
+  /** Deletes the legacy copy — only ever called after the new copy is confirmed AND the DB row is rewritten to point at it. */
+  private async deleteLegacyObject(key: string, legacyUrlForLogging: string): Promise<void> {
+    try {
+      await this.s3.send(new DeleteObjectCommand({ Bucket: LEGACY_BUCKET, Key: key }));
+    } catch (err) {
+      // Non-fatal — the row already points at the new (migrated) copy, so the
+      // app is correct either way; this just means the legacy bucket still
+      // has a stray object left to clean up (harmless: nothing references it).
+      console.error(`Migrated ${legacyUrlForLogging} but failed to delete the legacy copy:`, err);
+    }
   }
 
   /**
@@ -206,8 +324,9 @@ export class InvoiceScanService {
     return item;
   }
 
-  findAll(businessId: string) {
-    return this.scansRepository.find({ where: { business_id: businessId }, order: { created_at: 'DESC' } });
+  async findAll(businessId: string) {
+    const scans = await this.scansRepository.find({ where: { business_id: businessId }, order: { created_at: 'DESC' } });
+    return Promise.all(scans.map(async (scan) => ({ ...scan, file_url: await this.presignFileUrl(scan.file_url) })));
   }
 
   /**

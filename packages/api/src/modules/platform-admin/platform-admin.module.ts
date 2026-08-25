@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlatformAdminService } from './platform-admin.service';
@@ -9,9 +10,17 @@ import { PlatformAdminController } from './platform-admin.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting]),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'orderflow-secret-key-change-in-production',
-      signOptions: { expiresIn: '7d' },
+    // getOrThrow, not a hardcoded fallback: a fallback secret here would be a
+    // live landmine the moment this module's JWT verification path is ever
+    // reachable independently of auth.module.ts (which already hard-fails
+    // boot without JWT_SECRET) — better to fail loudly than sign/verify with
+    // a guessable well-known string.
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '7d' },
+      }),
     }),
     NotificationsModule,
   ],

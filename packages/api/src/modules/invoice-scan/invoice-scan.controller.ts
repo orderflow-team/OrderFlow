@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
+import { randomUUID } from 'node:crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -23,7 +24,9 @@ import { ConfirmInvoiceScanDto } from './dto/confirm-invoice-scan.dto';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_PAGES = 10;
-const INVOICE_SCANS_BUCKET = 'invoice-scans';
+// Private bucket — see neon.ts for why this isn't just `invoice-scans`
+// (that bucket is stuck public_read; this replaces it for new uploads).
+const INVOICE_SCANS_BUCKET = 'invoice-scans-private';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/invoice-scans')
@@ -56,7 +59,7 @@ export class InvoiceScanController {
 
     const pages = await Promise.all(
       files.map(async (file) => {
-        const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+        const key = `${randomUUID()}${extname(file.originalname)}`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: INVOICE_SCANS_BUCKET,

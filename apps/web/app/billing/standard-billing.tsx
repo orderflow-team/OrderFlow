@@ -228,6 +228,7 @@ export function StandardBilling() {
 
   const handleUndoPayment = async (paymentId: string) => {
     if (!businessId) return;
+    if (!confirm("Undo this payment? This can't be undone.")) return;
     setUndoError('');
     setUndoingId(paymentId);
     try {

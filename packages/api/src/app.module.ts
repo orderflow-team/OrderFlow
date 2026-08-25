@@ -29,6 +29,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
+import { InvoiceScanService } from './modules/invoice-scan/invoice-scan.service';
 
 @Module({
   imports: [
@@ -71,7 +72,10 @@ import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-release
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements OnApplicationBootstrap {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private invoiceScanService: InvoiceScanService,
+  ) {}
 
   async onApplicationBootstrap() {
     try {
@@ -150,6 +154,17 @@ export class AppModule implements OnApplicationBootstrap {
             (gen_random_uuid(), ${adminId ? `'${adminId}'` : 'NULL'}, ${bizId ? `'${bizId}'` : 'NULL'}, 'USER_LOGIN', 'Auth', '{"login_type":"super_admin_session"}', '127.0.0.1', NOW() - INTERVAL '10 minutes')
         `);
         console.log('✅ Seeded initial activity & audit log entries.');
+      }
+
+      // 2026-08-25 security fix: `invoice-scans` was a public_read bucket
+      // (see neon.ts) — migrate any remaining objects onto the private
+      // `invoice-scans-private` bucket. Idempotent: a no-op once nothing
+      // references the legacy bucket anymore.
+      const migrationResult = await this.invoiceScanService.migrateLegacyBucket();
+      if (migrationResult.migrated > 0 || migrationResult.failed > 0) {
+        console.log(
+          `✅ Invoice-scan legacy bucket migration: ${migrationResult.migrated} migrated, ${migrationResult.failed} failed.`,
+        );
       }
     } catch (err) {
       console.error('❌ Failed to run startup database corrections or admin seed:', err);

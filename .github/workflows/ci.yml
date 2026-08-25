@@ -1,0 +1,70 @@
+name: CI
+
+# Typecheck + build gate on every push/PR. Scoped to packages/api and apps/web
+# specifically (the two packages that actually ship) rather than the root
+# `turbo run lint`/`check-types` scripts, which also cover a few scaffold
+# packages (packages/shared, packages/ui) with pre-existing, unrelated
+# type/lint errors — see the 2026-08-25 security audit notes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Typecheck
+        working-directory: packages/api
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build
+        working-directory: packages/api
+        run: npm run build
+
+  web:
+    name: Web typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Build (includes typecheck)
+        working-directory: apps/web
+        env:
+          CAPACITOR_BUILD: '1'
+          NEXT_PUBLIC_API_URL: 'https://orderflow-1.onrender.com'
+        run: npm run build:capacitor
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      # Blocking, scoped to the api workspace: this is the actual deployed
+      # runtime, so a Critical finding here is real exposure.
+      - name: API audit (blocking on Critical)
+        run: npm audit --workspace=api --audit-level=critical
+      # Informational only, not blocking: web's Critical/High findings are all
+      # in build-time tooling (Capacitor CLI, Next.js build pipeline via
+      # postcss/sharp) — apps/web ships as a static export, so none of these
+      # run in the shipped app. Tracked here so they're visible; re-tighten
+      # once cleared by a planned dependency upgrade (see 2026-08-25 audit).
+      - name: Web audit (informational)
+        continue-on-error: true
+        run: npm audit --workspace=web

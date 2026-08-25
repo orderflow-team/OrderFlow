@@ -10,7 +10,11 @@ node_modules
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
+*.jks
+*.keystore
+keystore.properties
 
 # Testing
 coverage
