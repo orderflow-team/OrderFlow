@@ -71,6 +71,8 @@ type OrderTypeChoice = 'choice' | 'dine_in' | 'take_away' | 'history';
 
 type HistoryBucket = 'NEW' | 'UNPAID' | 'PAID';
 
+const HISTORY_PAGE_SIZE = 20;
+
 const historyBucket = (status: string): HistoryBucket | null => {
   if (status === 'draft') return 'NEW';
   if (status === 'paid') return 'PAID';
@@ -122,6 +124,9 @@ function RestaurantPageContent() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | HistoryBucket>('ALL');
+  const [totalHistoryOrders, setTotalHistoryOrders] = useState<number | null>(null);
+  const [historyOrdersLoaded, setHistoryOrdersLoaded] = useState(0);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
 
   const handleShowQr = (table: Table) => {
     setQrTable(table);
@@ -142,7 +147,9 @@ function RestaurantPageContent() {
 
   const loadPreviousTakeaways = async (bizId: string) => {
     try {
-      const res = await apiClient.get<any[]>('/api/orders', { params: { businessId: bizId } });
+      // Fetch the 50 most recent orders — enough to find 10 takeaways without
+      // pulling the entire order history over the wire.
+      const res = await apiClient.get<any[]>('/api/orders', { params: { businessId: bizId, limit: 50, offset: 0 } });
       setPreviousTakeaways(res.data.filter(o => o.order_type === 'take_away').slice(0, 10));
     } catch (err) {
       console.error(err);
@@ -152,12 +159,33 @@ function RestaurantPageContent() {
   const loadHistory = async (bizId: string) => {
     setHistoryLoading(true);
     try {
-      const res = await apiClient.get<HistoryOrder[]>('/api/orders', { params: { businessId: bizId } });
+      const res = await apiClient.get<HistoryOrder[]>('/api/orders', {
+        params: { businessId: bizId, limit: HISTORY_PAGE_SIZE, offset: 0 },
+      });
       setHistoryOrders(res.data);
+      const totalHeader = res.headers['x-total-count'];
+      setTotalHistoryOrders(totalHeader ? Number(totalHeader) : res.data.length);
+      setHistoryOrdersLoaded(res.data.length);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load order history');
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const loadMoreHistory = async () => {
+    if (!businessId || loadingMoreHistory) return;
+    setLoadingMoreHistory(true);
+    try {
+      const res = await apiClient.get<HistoryOrder[]>('/api/orders', {
+        params: { businessId, limit: HISTORY_PAGE_SIZE, offset: historyOrdersLoaded },
+      });
+      setHistoryOrders((prev) => [...prev, ...res.data]);
+      setHistoryOrdersLoaded((prev) => prev + res.data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load more history');
+    } finally {
+      setLoadingMoreHistory(false);
     }
   };
 
@@ -641,7 +669,7 @@ function RestaurantPageContent() {
               {filteredHistory.map((o) => (
                 <div
                   key={o.id}
-                  // No backdrop-blur — renders once per order (up to 50 loaded), and
+                  // No backdrop-blur — renders once per order (up to 20 per page), and
                   // stacking that many backdrop-filter blurs in a scrolling list is a
                   // well-known cause of scroll jank, especially on Android WebViews.
                   // bg-white/70 (higher opacity, no blur) keeps a similar frosted
@@ -677,6 +705,15 @@ function RestaurantPageContent() {
                   </button>
                 </div>
               ))}
+              {totalHistoryOrders !== null && historyOrdersLoaded < totalHistoryOrders && (
+                <button
+                  onClick={loadMoreHistory}
+                  disabled={loadingMoreHistory}
+                  className="w-full h-11 rounded-2xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 text-sm font-semibold text-slate-600 hover:bg-white/55 disabled:opacity-60 transition-colors"
+                >
+                  {loadingMoreHistory ? 'Loading…' : `Load more (${totalHistoryOrders - historyOrdersLoaded} older)`}
+                </button>
+              )}
             </div>
           )}
         </div>
