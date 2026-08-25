@@ -155,19 +155,28 @@ export class AppModule implements OnApplicationBootstrap {
         `);
         console.log('✅ Seeded initial activity & audit log entries.');
       }
+    } catch (err) {
+      console.error('❌ Failed to run startup database corrections or admin seed:', err);
+    }
 
+    // Deliberately its OWN try/catch, not folded into the block above — this
+    // way a failure/throw in any of those older, unrelated startup steps can
+    // never silently skip this migration (which is exactly what appears to
+    // have happened on the first deploy: the bucket never drained, with no
+    // "migration" log line at all, meaning this code plausibly never ran).
+    try {
       // 2026-08-25 security fix: `invoice-scans` was a public_read bucket
       // (see neon.ts) — migrate any remaining objects onto the private
       // `invoice-scans-private` bucket. Idempotent: a no-op once nothing
-      // references the legacy bucket anymore.
+      // references the legacy bucket anymore. Logs unconditionally (not just
+      // on a non-zero result) so its own execution is provable from the logs.
+      console.log('⏳ Checking invoice-scan legacy bucket migration...');
       const migrationResult = await this.invoiceScanService.migrateLegacyBucket();
-      if (migrationResult.migrated > 0 || migrationResult.failed > 0) {
-        console.log(
-          `✅ Invoice-scan legacy bucket migration: ${migrationResult.migrated} migrated, ${migrationResult.failed} failed.`,
-        );
-      }
+      console.log(
+        `✅ Invoice-scan legacy bucket migration check complete: ${migrationResult.migrated} migrated, ${migrationResult.failed} failed.`,
+      );
     } catch (err) {
-      console.error('❌ Failed to run startup database corrections or admin seed:', err);
+      console.error('❌ Invoice-scan legacy bucket migration threw:', err);
     }
   }
 }
