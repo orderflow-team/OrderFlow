@@ -14,15 +14,39 @@ export class AppUpdatesService {
 
   constructor(@InjectRepository(AppRelease) private appReleasesRepository: Repository<AppRelease>) {}
 
-  /** The bundle a device on `platform` should be running — the single source of truth the OTA updater polls. */
+  /**
+   * The bundle a device on `platform` should be running — the single source
+   * of truth the OTA updater polls. `platform` may be flavor-specific (e.g.
+   * "android-playstore", "android-direct" — see use-native-app-update.ts /
+   * ota-updater.ts for why the Android build has two distribution flavors)
+   * or bare ("android", from clients built before flavors existed).
+   *
+   * A flavor-specific platform with no release published under that exact
+   * key falls back to the bare OS platform, so most releases only ever need
+   * publishing once (under "android") and reach every flavor automatically.
+   * Publish under an exact flavor key (e.g. "android-playstore") only when
+   * that flavor genuinely needs a different bundle than everyone else.
+   */
   async getLatest(platform: string) {
-    const release = await this.appReleasesRepository.findOne({
+    const release = await this.findActiveRelease(platform);
+    if (release) return this.toLatestDto(release);
+
+    const basePlatform = platform.split('-')[0];
+    if (basePlatform !== platform) {
+      const fallback = await this.findActiveRelease(basePlatform);
+      if (fallback) return this.toLatestDto(fallback);
+    }
+    return null;
+  }
+
+  private findActiveRelease(platform: string) {
+    return this.appReleasesRepository.findOne({
       where: { platform, is_active: true },
       order: { created_at: 'DESC' },
     });
-    if (!release) {
-      return null;
-    }
+  }
+
+  private toLatestDto(release: AppRelease) {
     return {
       version: release.version,
       url: release.bundle_url,

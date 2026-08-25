@@ -34,7 +34,16 @@ export async function checkForOtaUpdate() {
   console.log(`${LOG_PREFIX} notifyAppReady sent, checking ${API_BASE_URL}/api/app-updates/latest`);
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/app-updates/latest?platform=${Capacitor.getPlatform()}`);
+    // On Android, distinguish the two distribution flavors (see
+    // use-native-app-update.ts and android/app/build.gradle) so a
+    // playstore-specific OTA release, if one is ever published, only reaches
+    // playstore installs — the backend falls back to the bare "android"
+    // channel when nothing flavor-specific has been published, so this is
+    // safe even before any android-playstore release exists.
+    const platform = Capacitor.getPlatform();
+    const channelPlatform =
+      platform === 'android' ? `android-${process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL || 'direct'}` : platform;
+    const res = await fetch(`${API_BASE_URL}/api/app-updates/latest?platform=${channelPlatform}`);
     if (!res.ok) {
       console.log(`${LOG_PREFIX} update check failed: HTTP ${res.status}`);
       return;

@@ -19,6 +19,19 @@ on:
         description: 'Minimum native APK version required (e.g. 1.15) — leave blank to allow any'
         required: false
         type: string
+      platform:
+        description: >-
+          Release channel — "android" (default) is the shared bucket every
+          Android install falls back to; only choose "android-playstore" when
+          this release must specifically NOT re-enable the direct flavor's
+          native-updater JS on Play Store installs (see
+          app-updates.service.ts's getLatest and use-native-app-update.ts).
+        required: false
+        type: choice
+        options:
+          - android
+          - android-playstore
+        default: android
 
 jobs:
   release:
@@ -40,6 +53,12 @@ jobs:
         env:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          # Only the android-playstore channel needs the native-updater JS
+          # disabled — the default "android" bucket is also what playstore
+          # installs fall back to before any playstore-specific release
+          # exists, but every release published under it so far (and by
+          # default) is the direct flavor's normal build.
+          NEXT_PUBLIC_DISTRIBUTION_CHANNEL: ${{ inputs.platform == 'android-playstore' && 'playstore' || 'direct' }}
         run: npm run build:capacitor
 
       - name: Publish OTA bundle
@@ -48,8 +67,4 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          ARGS="${{ inputs.version }}"
-          if [ -n "${{ inputs.min_native_version }}" ]; then
-            ARGS="$ARGS ${{ inputs.min_native_version }}"
-          fi
-          node scripts/release-ota.mjs $ARGS
+          node scripts/release-ota.mjs "${{ inputs.version }}" "${{ inputs.min_native_version }}" "${{ inputs.platform }}"

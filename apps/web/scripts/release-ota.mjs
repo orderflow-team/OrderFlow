@@ -4,18 +4,27 @@
 //
 // Usage:
 //   npm run build:capacitor
-//   ADMIN_TOKEN=<jwt for a super_admin/admin user> node scripts/release-ota.mjs <version> [minNativeVersion]
+//   ADMIN_TOKEN=<jwt for a super_admin/admin user> node scripts/release-ota.mjs <version> [minNativeVersion] [platform]
 //
 // ADMIN_TOKEN comes from the environment and is required. NEXT_PUBLIC_API_URL
 // is optional — defaults to the production API, so it only needs setting to
 // target a different backend (e.g. local dev).
+//
+// `platform` defaults to "android", the shared bucket every Android install
+// falls back to when nothing more specific has been published (see
+// app-updates.service.ts's getLatest — a client polling "android-direct" or
+// "android-playstore" falls back to "android" automatically). Leave it at
+// the default for a normal release; pass "android-playstore" explicitly only
+// when publishing something that should reach *just* Play Store installs
+// (e.g. because it must NOT be built with the direct flavor's native-updater
+// JS re-enabled — see NEXT_PUBLIC_DISTRIBUTION_CHANNEL in build:capacitor).
 
 import { ZipArchive } from 'archiver';
 import { createWriteStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const [, , version, minNativeVersion] = process.argv;
+const [, , version, minNativeVersion, platform] = process.argv;
 // Defaults to the real production API, not localhost — an OTA release always
 // ships to installed apps in the field, which only ever poll the production
 // backend, so a "local" release target isn't a real use case. Forgetting to
@@ -26,7 +35,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onr
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 if (!version) {
-  console.error('Usage: ADMIN_TOKEN=<jwt> node scripts/release-ota.mjs <version> [minNativeVersion]');
+  console.error('Usage: ADMIN_TOKEN=<jwt> node scripts/release-ota.mjs <version> [minNativeVersion] [platform]');
   process.exit(1);
 }
 if (!ADMIN_TOKEN) {
@@ -81,7 +90,7 @@ await new Promise((resolve, reject) => {
 
 const zipBuffer = readFileSync(zipPath);
 const form = new FormData();
-form.append('platform', 'android');
+form.append('platform', platform || 'android');
 form.append('version', version);
 if (minNativeVersion) form.append('minNativeVersion', minNativeVersion);
 form.append('file', new Blob([zipBuffer], { type: 'application/zip' }), `${version}.zip`);
@@ -101,5 +110,5 @@ if (!res.ok) {
 }
 
 const release = await res.json();
-console.log(`Published release ${release.version} (checksum ${release.checksum})`);
+console.log(`Published release ${release.version} for platform "${platform || 'android'}" (checksum ${release.checksum})`);
 console.log('Installed apps will pick it up next launch.');
