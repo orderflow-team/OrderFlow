@@ -319,16 +319,24 @@ export class InventoryService {
     await this.mirrorOrderToWholesaler(manager, purchaseOrder, items, supplier);
   }
 
-  findAllPurchaseOrders(businessId: string, status?: string) {
+  async findAllPurchaseOrders(
+    businessId: string,
+    status?: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<{ orders: PurchaseOrder[]; total: number }> {
     const where: Record<string, any> = { business_id: businessId };
     if (status) {
       where.status = status;
     }
-    return this.purchaseOrdersRepository.find({ 
-      where, 
+    const [orders, total] = await this.purchaseOrdersRepository.findAndCount({
+      where,
       order: { created_at: 'DESC' },
-      relations: { items: { product: true } }
+      relations: { items: { product: true } },
+      take: limit,
+      skip: offset,
     });
+    return { orders, total };
   }
 
   async findOnePurchaseOrder(id: string, businessId: string) {

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -22,8 +23,21 @@ export class InventoryController {
   }
 
   @Get('purchase-orders')
-  findAllPurchaseOrders(@Query('businessId') businessId: string, @Query('status') status?: string) {
-    return this.inventoryService.findAllPurchaseOrders(businessId, status);
+  async findAllPurchaseOrders(
+    @Query('businessId') businessId: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const { orders, total } = await this.inventoryService.findAllPurchaseOrders(
+      businessId,
+      status,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
+    res?.setHeader('X-Total-Count', String(total));
+    return orders;
   }
 
   @Get('purchase-orders/:id')

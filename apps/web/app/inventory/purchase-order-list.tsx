@@ -9,7 +9,6 @@ import type { PoFieldConfig } from '@/lib/business-modules';
 import { Plus, Warehouse, CheckCircle2, ChevronDown, ChevronRight, Pencil, XCircle, IndianRupee } from 'lucide-react';
 import type { EditingPo } from './purchase-order-form';
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
 
 interface Product {
   id: string;
@@ -49,6 +48,10 @@ export function PurchaseOrderList({
   suppliers,
   fieldConfig,
   loading,
+  totalCount,
+  loadedCount,
+  loadingMore,
+  onLoadMore,
   onChanged,
   onEdit,
   onCreateNew,
@@ -58,14 +61,16 @@ export function PurchaseOrderList({
   suppliers: Supplier[];
   fieldConfig: PoFieldConfig;
   loading: boolean;
+  totalCount: number | null;
+  loadedCount: number;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   onChanged: () => void;
   onEdit: (po: EditingPo) => void;
   onCreateNew: () => void;
 }) {
   const [expandedPo, setExpandedPo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState<number>(PAGE_SIZE_OPTIONS[0]);
-  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE_OPTIONS[0]);
 
   const supplierName = (id: string | null | undefined) => suppliers.find((s) => s.id === id)?.name;
 
@@ -113,7 +118,7 @@ export function PurchaseOrderList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {purchaseOrders.slice(0, visibleCount).map((po) => {
+            {purchaseOrders.map((po) => {
               const isBusy = busyId === po.id;
               const canEdit = po.status !== 'cancelled';
               return (
@@ -213,33 +218,19 @@ export function PurchaseOrderList({
             })}
           </tbody>
         </table></div>
-        <div className="flex items-center justify-between gap-4 flex-wrap px-6 py-3 border-t border-white/40">
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span>Showing {Math.min(visibleCount, purchaseOrders.length)} of {purchaseOrders.length}</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                const size = Number(e.target.value);
-                setPageSize(size);
-                setVisibleCount(size);
-              }}
-              className="ml-2 rounded-lg border border-slate-200 bg-white/60 px-2 py-1 text-xs text-slate-600 focus:outline-none"
-            >
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <option key={size} value={size}>{size} per page</option>
-              ))}
-            </select>
-          </div>
-          {visibleCount < purchaseOrders.length && (
+        {totalCount !== null && loadedCount < totalCount && (
+          <div className="px-6 py-3 border-t border-white/40 flex items-center justify-between gap-4">
+            <span className="text-xs text-slate-500">Showing {loadedCount} of {totalCount}</span>
             <button
               type="button"
-              onClick={() => setVisibleCount((v) => v + pageSize)}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+              onClick={onLoadMore}
+              disabled={loadingMore}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700 disabled:opacity-60"
             >
-              Show more <ChevronDown className="w-3.5 h-3.5" />
+              {loadingMore ? 'Loading…' : `Load more (${totalCount - loadedCount} older)`} <ChevronDown className="w-3.5 h-3.5" />
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

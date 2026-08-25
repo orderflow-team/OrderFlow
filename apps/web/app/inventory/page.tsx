@@ -43,9 +43,14 @@ export default function InventoryPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [totalPurchaseOrders, setTotalPurchaseOrders] = useState<number | null>(null);
+  const [poLoaded, setPoLoaded] = useState(0);
+  const [loadingMorePo, setLoadingMorePo] = useState(false);
   const [lowStock, setLowStock] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const PO_PAGE_SIZE = 20;
 
   const [showPoForm, setShowPoForm] = useState(false);
   const [editingPo, setEditingPo] = useState<EditingPo | null>(null);
@@ -71,17 +76,36 @@ export default function InventoryPage() {
       const [suppliersRes, productsRes, poRes, lowStockRes] = await Promise.all([
         apiClient.get<Supplier[]>('/api/suppliers', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/products', { params: { businessId: bizId, isDraft: 'all' } }),
-        apiClient.get<any[]>('/api/inventory/purchase-orders', { params: { businessId: bizId } }),
+        apiClient.get<any[]>('/api/inventory/purchase-orders', { params: { businessId: bizId, limit: PO_PAGE_SIZE, offset: 0 } }),
         apiClient.get<Product[]>('/api/inventory/low-stock', { params: { businessId: bizId } }),
       ]);
       setSuppliers(suppliersRes.data);
       setProducts(productsRes.data);
       setPurchaseOrders(poRes.data);
+      const totalHeader = poRes.headers['x-total-count'];
+      setTotalPurchaseOrders(totalHeader ? Number(totalHeader) : poRes.data.length);
+      setPoLoaded(poRes.data.length);
       setLowStock(lowStockRes.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load inventory data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMorePurchaseOrders = async () => {
+    if (!businessId || loadingMorePo) return;
+    setLoadingMorePo(true);
+    try {
+      const res = await apiClient.get<any[]>('/api/inventory/purchase-orders', {
+        params: { businessId, limit: PO_PAGE_SIZE, offset: poLoaded },
+      });
+      setPurchaseOrders((prev) => [...prev, ...res.data]);
+      setPoLoaded((prev) => prev + res.data.length);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load more purchase orders');
+    } finally {
+      setLoadingMorePo(false);
     }
   };
 
@@ -233,6 +257,10 @@ export default function InventoryPage() {
             suppliers={suppliers}
             fieldConfig={fieldConfig}
             loading={loading}
+            totalCount={totalPurchaseOrders}
+            loadedCount={poLoaded}
+            loadingMore={loadingMorePo}
+            onLoadMore={loadMorePurchaseOrders}
             onChanged={() => load(businessId)}
             onEdit={openEdit}
             onCreateNew={openCreate}
