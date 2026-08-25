@@ -14,7 +14,7 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
 import { useOfflineStore } from '@/lib/offline-store';
-import { Receipt, FileText, Undo2 } from 'lucide-react';
+import { Receipt, FileText, Undo2, Search, ChevronDown } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -55,6 +55,7 @@ interface Payment {
 }
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Credit'];
+const ORDER_PAGE_SIZE = 50;
 
 export function StandardBilling() {
   const router = useRouter();
@@ -75,6 +76,11 @@ export function StandardBilling() {
   const [undoingId, setUndoingId] = useState<string | null>(null);
   const [undoError, setUndoError] = useState('');
 
+  const [orderSearch, setOrderSearch] = useState('');
+  const [paySearch, setPaySearch] = useState('');
+  const [orderTotal, setOrderTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const withQueuedOrders = async (bizId: string, baseOrders: Order[]): Promise<Order[]> => {
     const outbox = await listOutbox(bizId);
     const queued = outbox
@@ -88,10 +94,11 @@ export function StandardBilling() {
     setLoading(true);
     try {
       const [ordersRes, invoicesRes, paymentsRes] = await Promise.all([
-        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId } }),
+        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId, limit: ORDER_PAGE_SIZE, offset: 0 } }),
         apiClient.get<Invoice[]>('/api/billing/invoices', { params: { businessId: bizId, type: 'invoice' } }),
         apiClient.get<Payment[]>('/api/billing/payments', { params: { businessId: bizId } }),
       ]);
+      setOrderTotal(Number(ordersRes.headers['x-total-count'] ?? ordersRes.data.length));
       setCached(bizId, 'orders', ordersRes.data);
       setCached(bizId, 'invoices', invoicesRes.data);
       setCached(bizId, 'payments', paymentsRes.data);
@@ -107,6 +114,7 @@ export function StandardBilling() {
         ]);
         if (cachedOrders || cachedInvoices || cachedPayments) {
           setOrders(await withQueuedOrders(bizId, cachedOrders || []));
+          setOrderTotal(cachedOrders?.length ?? 0);
           setInvoices(cachedInvoices || []);
           setPayments(cachedPayments || []);
           return;
@@ -207,9 +215,32 @@ export function StandardBilling() {
     }
   };
 
+  const loadMore = async () => {
+    if (!businessId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const realOrders = orders.filter(o => o.status !== 'queued' && o.status !== 'sync_failed');
+      const res = await apiClient.get<Order[]>('/api/orders', {
+        params: { businessId, limit: ORDER_PAGE_SIZE, offset: realOrders.length },
+      });
+      setOrders(prev => [...prev, ...res.data]);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load more orders');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   if (!ready) return null;
 
   const invoiceByOrderId = new Map(invoices.map((i) => [i.order_id, i.id]));
+  const orderById = new Map(orders.map((o) => [o.id, o]));
+  const filteredOrders = orderSearch
+    ? orders.filter(o =>
+        o.customer_name.toLowerCase().includes(orderSearch.toLowerCase()) ||
+        o.order_number.toLowerCase().includes(orderSearch.toLowerCase())
+      )
+    : orders;
 
   return (
     <AppShell>
@@ -230,122 +261,168 @@ export function StandardBilling() {
             </div>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handlePayment} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <select
-                value={payOrderId}
-                onChange={(e) => {
-                  const orderId = e.target.value;
-                  setPayOrderId(orderId);
-                  const order = orders.find((o) => o.id === orderId);
-                  if (order) {
-                    const paid = payments
-                      .filter((p) => p.order_id === order.id)
-                      .reduce((sum, p) => sum + Number(p.amount), 0);
-                    const remaining = Math.max(0, Number(order.total_amount) - paid);
-                    setPayAmount(remaining.toFixed(2));
-                  } else {
-                    setPayAmount('');
-                  }
-                }}
-                className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
-                required
-              >
-                <option value="">Select order</option>
-                {orders.filter(o => o.status !== 'paid' && o.status !== 'returned' && o.status !== 'cancelled').map((o) => {
-                  const paid = payments
-                    .filter((p) => p.order_id === o.id)
-                    .reduce((sum, p) => sum + Number(p.amount), 0);
-                  const remaining = Math.max(0, Number(o.total_amount) - paid);
-                  return (
-                    <option key={o.id} value={o.id}>
-                      {o.order_number} - {o.customer_name} (₹{remaining.toFixed(0)} remaining)
-                    </option>
-                  );
-                })}
-              </select>
-              <Input placeholder="Amount" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} required />
-              <select
-                value={payMethod}
-                onChange={(e) => setPayMethod(e.target.value)}
-                className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Record Payment'}</Button>
+            <form onSubmit={handlePayment} className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Search by customer or order number..."
+                  value={paySearch}
+                  onChange={(e) => { setPaySearch(e.target.value); setPayOrderId(''); setPayAmount(''); }}
+                  className="pl-8"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <select
+                  value={payOrderId}
+                  onChange={(e) => {
+                    const orderId = e.target.value;
+                    setPayOrderId(orderId);
+                    const order = orders.find((o) => o.id === orderId);
+                    if (order) {
+                      const paid = payments
+                        .filter((p) => p.order_id === order.id)
+                        .reduce((sum, p) => sum + Number(p.amount), 0);
+                      const remaining = Math.max(0, Number(order.total_amount) - paid);
+                      setPayAmount(remaining.toFixed(2));
+                    } else {
+                      setPayAmount('');
+                    }
+                  }}
+                  className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
+                  required
+                >
+                  <option value="">Select order</option>
+                  {orders
+                    .filter(o => o.status !== 'paid' && o.status !== 'returned' && o.status !== 'cancelled')
+                    .filter(o => !paySearch || o.customer_name.toLowerCase().includes(paySearch.toLowerCase()) || o.order_number.toLowerCase().includes(paySearch.toLowerCase()))
+                    .map((o) => {
+                      const paid = payments
+                        .filter((p) => p.order_id === o.id)
+                        .reduce((sum, p) => sum + Number(p.amount), 0);
+                      const remaining = Math.max(0, Number(o.total_amount) - paid);
+                      return (
+                        <option key={o.id} value={o.id}>
+                          {o.order_number} - {o.customer_name} (₹{remaining.toFixed(0)} remaining)
+                        </option>
+                      );
+                    })}
+                </select>
+                <Input placeholder="Amount" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} required />
+                <select
+                  value={payMethod}
+                  onChange={(e) => setPayMethod(e.target.value)}
+                  className="h-10 rounded-xl bg-white/40 backdrop-blur-md ring-1 ring-white/50 px-3 text-sm"
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Record Payment'}</Button>
+              </div>
             </form>
           </CardContent>
         </Card>
 
         <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
-            <CardTitle className="text-base">Orders</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base">Orders</CardTitle>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  placeholder="Search orders..."
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm w-44 sm:w-64"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
               <p className="p-10 text-center text-slate-400 text-sm">Loading...</p>
-            ) : orders.length === 0 ? (
+            ) : filteredOrders.length === 0 ? (
               <div className="p-12 text-center">
                 <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-slate-400 text-sm">No orders yet.</p>
+                <p className="text-slate-400 text-sm">{orderSearch ? 'No matching orders.' : 'No orders yet.'}</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {orders.map((o) => {
-                  const isLocal = o.status === 'queued' || o.status === 'sync_failed';
-                  return (
-                  <div
-                    key={o.id}
-                    onClick={() => { if (!isLocal) setDetailOrderId(o.id); }}
-                    className={`flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors ${!isLocal ? 'cursor-pointer' : ''}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-semibold text-slate-500">{o.order_number}</span>
-                        <StatusBadge status={o.status} />
+              <>
+                <div className="divide-y divide-slate-100">
+                  {filteredOrders.map((o) => {
+                    const isLocal = o.status === 'queued' || o.status === 'sync_failed';
+                    return (
+                    <div
+                      key={o.id}
+                      onClick={() => { if (!isLocal) setDetailOrderId(o.id); }}
+                      className={`flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors ${!isLocal ? 'cursor-pointer' : ''}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-semibold text-slate-500">{o.order_number}</span>
+                          <StatusBadge status={o.status} />
+                        </div>
+                        <p className="text-sm font-medium text-slate-800 truncate mt-0.5">{o.customer_name}</p>
                       </div>
-                      <p className="text-sm font-medium text-slate-800 truncate mt-0.5">{o.customer_name}</p>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        <span className="font-bold text-slate-800">₹{Number(o.total_amount).toFixed(2)}</span>
+                        {(() => {
+                          const paid = payments
+                            .filter((p) => p.order_id === o.id)
+                            .reduce((sum, p) => sum + Number(p.amount), 0);
+                          const remaining = Math.max(0, Number(o.total_amount) - paid);
+                          if (paid > 0 && remaining > 0) {
+                            return (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                ₹{paid.toFixed(0)} paid · ₹{remaining.toFixed(0)} due
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                        {isLocal ? (
+                          <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
+                        ) : invoiceByOrderId.has(o.id) ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/billing/invoices/view?id=${invoiceByOrderId.get(o.id)}`);
+                            }}
+                            className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
+                          >
+                            View Invoice
+                          </button>
+                        ) : (
+                          <button onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(o.id); }} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
+                            + Invoice
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="font-bold text-slate-800">₹{Number(o.total_amount).toFixed(2)}</span>
-                      {(() => {
-                        const paid = payments
-                          .filter((p) => p.order_id === o.id)
-                          .reduce((sum, p) => sum + Number(p.amount), 0);
-                        const remaining = Math.max(0, Number(o.total_amount) - paid);
-                        if (paid > 0 && remaining > 0) {
-                          return (
-                            <span className="text-[10px] text-slate-400 font-medium">
-                              ₹{paid.toFixed(0)} paid · ₹{remaining.toFixed(0)} due
-                            </span>
-                          );
-                        }
-                        return null;
-                      })()}
-                      {isLocal ? (
-                        <span className="text-[10px] text-amber-600 font-medium">Not synced yet</span>
-                      ) : invoiceByOrderId.has(o.id) ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/billing/invoices/view?id=${invoiceByOrderId.get(o.id)}`);
-                          }}
-                          className="text-xs text-emerald-600 font-semibold hover:text-emerald-700"
-                        >
-                          View Invoice
-                        </button>
-                      ) : (
-                        <button onClick={(e) => { e.stopPropagation(); handleGenerateInvoice(o.id); }} className="text-xs text-emerald-600 font-semibold hover:text-emerald-700">
-                          + Invoice
-                        </button>
-                      )}
+                    );
+                  })}
+                </div>
+                {(() => {
+                  const realLoaded = orders.filter(o => o.status !== 'queued' && o.status !== 'sync_failed').length;
+                  if (realLoaded >= orderTotal) return null;
+                  return (
+                    <div className="p-4 text-center border-t border-slate-100">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={loadingMore}
+                        onClick={loadMore}
+                        className="gap-2 text-xs"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        {loadingMore ? 'Loading...' : `Load more (${orderTotal - realLoaded} remaining)`}
+                      </Button>
                     </div>
-                  </div>
                   );
-                })}
-              </div>
+                })()}
+              </>
             )}
           </CardContent>
         </Card>
@@ -359,13 +436,25 @@ export function StandardBilling() {
               <p className="p-10 text-center text-slate-400 text-sm">No payments yet.</p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {payments.map((p) => (
-                  <div key={p.id} className="px-6 py-3 flex justify-between items-center text-sm">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600">{p.payment_method}</span>
-                    <span className="text-slate-500">{new Date(p.created_at).toLocaleString()}</span>
-                    <span className="font-semibold text-slate-800">{Number(p.amount).toFixed(2)}</span>
-                  </div>
-                ))}
+                {payments.map((p) => {
+                  const order = p.order_id ? orderById.get(p.order_id) : undefined;
+                  return (
+                    <div key={p.id} className="px-4 py-3 flex items-center justify-between gap-3 text-sm">
+                      <div className="min-w-0">
+                        {order && (
+                          <p className="text-xs font-semibold text-slate-700 truncate">
+                            {order.order_number} · {order.customer_name}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/40 backdrop-blur-sm ring-1 ring-white/50 text-slate-600">{p.payment_method}</span>
+                          <span className="text-xs text-slate-400">{new Date(p.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <span className="font-semibold text-slate-800 shrink-0">₹{Number(p.amount).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

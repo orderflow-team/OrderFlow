@@ -76,12 +76,7 @@ export class OrdersController {
 
   @Post()
   async create(@Body() dto: CreateOrderDto, @Req() req: Request & { user?: { userId: string } }) {
-    try {
-      return await this.ordersService.create(dto, req.user?.userId);
-    } catch (error: any) {
-      require('fs').appendFileSync('error.log', error.stack + '\n\n');
-      throw error;
-    }
+    return this.ordersService.create(dto, req.user?.userId);
   }
 
   @Get()
