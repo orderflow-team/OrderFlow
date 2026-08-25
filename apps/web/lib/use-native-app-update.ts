@@ -73,6 +73,15 @@ export function useNativeAppUpdate() {
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
+    // Google Play explicitly prohibits apps from self-updating outside the
+    // Play Store via REQUEST_INSTALL_PACKAGES — a Play-distributed build must
+    // get native updates through Play itself. NEXT_PUBLIC_DISTRIBUTION_CHANNEL
+    // is baked in at build time (see release-playstore.yml vs release-apk.yml)
+    // and the `playstore` Gradle flavor also strips the permission itself
+    // from that build's manifest, so this is defense in depth, not the only
+    // thing preventing it — but keeps this hook a true no-op (no network
+    // call, no download, nothing to disable per-consumer) for that channel.
+    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL === 'playstore') return;
     (async () => {
       try {
         const { native } = await CapacitorUpdater.current();
@@ -89,6 +98,11 @@ export function useNativeAppUpdate() {
   }, []);
 
   const install = async () => {
+    // Belt-and-suspenders alongside the useEffect guard above — `latest`
+    // never gets set on the playstore channel, so this is normally
+    // unreachable, but never attempt a self-install on that channel even if
+    // called directly.
+    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL === 'playstore') return;
     if (!latest || installing) return;
     setInstalling(true);
     setError('');

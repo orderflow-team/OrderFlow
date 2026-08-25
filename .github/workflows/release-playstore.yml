@@ -1,19 +1,25 @@
-name: Release APK (direct distribution)
+name: Release AAB (Play Store)
 
-# Builds a release-signed APK for the `direct` flavor — the self-hosted,
-# non-Play-Store distribution channel (landing page's "Download APK" button)
-# that self-updates via REQUEST_INSTALL_PACKAGES. Publishes it to the
-# backend, and the /api/app-apk-releases/latest endpoint starts serving it to
-# the in-app updater. Also updates the public download-site link automatically.
+# Builds a signed Android App Bundle (.aab) for Google Play submission — the
+# `playstore` flavor, which has NEXT_PUBLIC_DISTRIBUTION_CHANNEL=playstore
+# baked in (disables the native APK self-updater in use-native-app-update.ts)
+# and strips the REQUEST_INSTALL_PACKAGES permission via its manifest
+# overlay (app/src/playstore/AndroidManifest.xml). Google Play explicitly
+# prohibits apps from self-updating outside the Play Store using that
+# permission — see apps/web/android/app/build.gradle's productFlavors
+# comment for the full reasoning.
 #
-# For the Play Store submission (a signed AAB, no self-update permission),
-# use release-playstore.yml instead — see that workflow and
-# apps/web/android/app/build.gradle's productFlavors comment for why these
-# are two separate builds, not one.
+# This workflow does NOT publish to Play Console — there's no Google Play
+# Developer API service account configured in this project. It builds the
+# signed .aab and uploads it as a workflow artifact; download it from the
+# run and upload it to Play Console manually (or wire up
+# r0adkll/upload-google-play or fastlane here later if this becomes routine).
 #
-# Required GitHub secrets:
+# Required GitHub secrets (same signing key as release-apk.yml — Play App
+# Signing re-signs the .aab you upload with its own key, so the upload key
+# here doesn't need to match what's already on users' devices from the
+# direct-distribution APK):
 #   NEXT_PUBLIC_API_URL  — production API base URL (e.g. https://orderflow-1.onrender.com)
-#   ADMIN_TOKEN          — JWT for a super_admin or admin user on that API
 #   KEYSTORE_BASE64      — base64-encoded release keystore file
 #                          (base64 -w 0 your-release.jks)
 #   KEYSTORE_PASSWORD    — storePassword from keystore.properties
@@ -30,14 +36,10 @@ on:
         description: 'Version name — must match versionName in build.gradle (e.g. 1.16)'
         required: true
         type: string
-      notes:
-        description: 'Release notes shown to users in the update prompt'
-        required: false
-        type: string
 
 jobs:
   release:
-    name: Build & publish signed APK
+    name: Build signed AAB for Play Store
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +62,7 @@ jobs:
         env:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_DISTRIBUTION_CHANNEL: direct
+          NEXT_PUBLIC_DISTRIBUTION_CHANNEL: playstore
         run: npm run build:capacitor
 
       - name: Sync Capacitor to Android
@@ -81,27 +83,13 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
 
-      - name: Build release APK (direct flavor)
+      - name: Build release AAB (playstore flavor)
         working-directory: apps/web/android
-        run: ./gradlew assembleDirectRelease --no-daemon
+        run: ./gradlew bundlePlaystoreRelease --no-daemon
 
-      - name: Publish APK
-        working-directory: apps/web
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
-        run: |
-          APK_PATH="android/app/build/outputs/apk/direct/release/app-direct-release.apk"
-          NOTES="${{ inputs.notes }}"
-          if [ -n "$NOTES" ]; then
-            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH" "$NOTES"
-          else
-            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH"
-          fi
-
-      - name: Upload APK as workflow artifact
+      - name: Upload AAB as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: obix-${{ inputs.version_name }}.apk
-          path: apps/web/android/app/build/outputs/apk/direct/release/app-direct-release.apk
+          name: obix-${{ inputs.version_name }}-playstore.aab
+          path: apps/web/android/app/build/outputs/bundle/playstoreRelease/app-playstore-release.aab
           retention-days: 30

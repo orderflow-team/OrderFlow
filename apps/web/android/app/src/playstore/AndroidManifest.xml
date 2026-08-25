@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Flavor-specific manifest for the Play Store build — merged on top of
+  app/src/main/AndroidManifest.xml (see app/build.gradle's productFlavors
+  comment for why). tools:node="remove" strips a permission the main
+  manifest declares; it does not need to be declared there to be removed
+  here.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Google Play prohibits apps from using this to self-update outside
+         Play — see build.gradle. Only used by the native APK self-updater
+         (use-native-app-update.ts), which is independently disabled on this
+         channel via NEXT_PUBLIC_DISTRIBUTION_CHANNEL. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+
+</manifest>

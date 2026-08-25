@@ -22,6 +22,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Two distribution channels, one codebase. `direct` (default) is today's
+    // existing behavior unchanged — the self-hosted APK from the landing
+    // page's "Download APK" button, which self-updates via
+    // REQUEST_INSTALL_PACKAGES (use-native-app-update.ts). `playstore` is
+    // for Play Console submissions: Google Play explicitly prohibits that
+    // self-update pattern ("REQUEST_INSTALL_PACKAGES may not be used to
+    // perform self updates... apps attempting to self-update outside the
+    // Play Store... will be rejected"), so its manifest (see
+    // src/playstore/AndroidManifest.xml) strips the permission via the
+    // manifest merger. The JS side is gated independently by
+    // NEXT_PUBLIC_DISTRIBUTION_CHANNEL at build time (see release-apk.yml vs
+    // release-playstore.yml) — this manifest change is defense in depth on
+    // top of that, not a substitute for it.
+    flavorDimensions "distribution"
+    productFlavors {
+        direct {
+            dimension "distribution"
+        }
+        playstore {
+            dimension "distribution"
+        }
+    }
     signingConfigs {
         release {
             if (keystorePropertiesFile.exists()) {
