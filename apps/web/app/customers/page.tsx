@@ -334,6 +334,12 @@ function CustomersPageContent() {
     return () => window.removeEventListener('order-updated', handleUpdate);
   }, [ready, businessId, search]);
 
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [businessName, setBusinessName] = useState('');
@@ -668,7 +674,7 @@ function CustomersPageContent() {
               // no blur) keeps a similar frosted look without the per-frame cost.
               <div key={c.id} className="flex flex-col bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 transition-all">
                 <div className="flex items-center gap-3 w-full">
-                  <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left">
+                  <button onClick={() => setHistoryCustomer(c)} className="flex-1 flex items-center gap-3 min-w-0 text-left active:scale-[0.99] transition-transform">
                     <div className="w-11 h-11 rounded-xl bg-tile-sky-fg text-white flex items-center justify-center shrink-0">
                       <Users className="w-5 h-5" />
                     </div>

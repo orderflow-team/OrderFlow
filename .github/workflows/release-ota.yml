@@ -1,0 +1,55 @@
+name: Release OTA Bundle
+
+# Builds the Next.js Capacitor export and publishes it as a new OTA release.
+# Installed apps poll /api/app-updates/latest on launch and download the bundle
+# in the background — users get the update on their next app restart.
+#
+# Required GitHub secrets:
+#   NEXT_PUBLIC_API_URL  — production API base URL (e.g. https://orderflow-1.onrender.com)
+#   ADMIN_TOKEN          — JWT for a super_admin or admin user on that API
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Bundle version (e.g. 1.16, 2026.08.25)'
+        required: true
+        type: string
+      min_native_version:
+        description: 'Minimum native APK version required (e.g. 1.15) — leave blank to allow any'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Build & publish OTA bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Capacitor export
+        working-directory: apps/web
+        env:
+          CAPACITOR_BUILD: '1'
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: npm run build:capacitor
+
+      - name: Publish OTA bundle
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          ARGS="${{ inputs.version }}"
+          if [ -n "${{ inputs.min_native_version }}" ]; then
+            ARGS="$ARGS ${{ inputs.min_native_version }}"
+          fi
+          node scripts/release-ota.mjs $ARGS

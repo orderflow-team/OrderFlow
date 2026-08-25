@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/status-badge';
 import apiClient from '@/lib/api-client';
 import type { PoFieldConfig } from '@/lib/business-modules';
-import { Plus, Warehouse, CheckCircle2, ChevronDown, ChevronRight, Pencil, XCircle, IndianRupee } from 'lucide-react';
+import { Plus, Warehouse, CheckCircle2, ChevronDown, ChevronRight, Pencil, XCircle, IndianRupee, Search } from 'lucide-react';
 import type { EditingPo } from './purchase-order-form';
 
 
@@ -71,8 +71,19 @@ export function PurchaseOrderList({
 }) {
   const [expandedPo, setExpandedPo] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const supplierName = (id: string | null | undefined) => suppliers.find((s) => s.id === id)?.name;
+
+  const filteredPos = search.trim()
+    ? purchaseOrders.filter((po) => {
+        const q = search.trim().toLowerCase();
+        return (
+          po.order_number.toLowerCase().includes(q) ||
+          (supplierName(po.supplier_id) ?? '').toLowerCase().includes(q)
+        );
+      })
+    : purchaseOrders;
 
   const runAction = async (id: string, action: 'confirm' | 'receive' | 'mark-paid' | 'cancel') => {
     setBusyId(id);
@@ -106,6 +117,17 @@ export function PurchaseOrderList({
   return (
     <Card className="ring-white/50 glass-sheen-sm">
       <CardContent className="p-0">
+        <div className="px-4 pt-4 pb-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by PO # or supplier..."
+              className="w-full h-9 pl-9 pr-3 rounded-xl bg-white/40 ring-1 ring-white/50 text-sm placeholder:text-slate-400 outline-none focus:ring-emerald-400/40"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left min-w-[900px]">
           <thead className="text-xs text-slate-500 uppercase bg-white/30 border-b border-white/40">
             <tr>
@@ -118,7 +140,7 @@ export function PurchaseOrderList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {purchaseOrders.map((po) => {
+            {filteredPos.map((po) => {
               const isBusy = busyId === po.id;
               const canEdit = po.status !== 'cancelled';
               return (

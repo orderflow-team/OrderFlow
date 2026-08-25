@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager, In, Like } from 'typeorm';
+import { Repository, DataSource, EntityManager, In, Like, ILike } from 'typeorm';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
@@ -922,14 +922,24 @@ export class OrdersService {
     customerId?: string,
     limit?: number,
     offset?: number,
+    search?: string,
   ): Promise<{ orders: any[]; total: number }> {
-    const where: Record<string, any> = { business_id: businessId };
-    if (status) {
-      where.status = status;
+    const base: Record<string, any> = { business_id: businessId };
+    if (status) base.status = status;
+    if (customerId) base.customer_id = customerId;
+
+    // When a search term is present we need an OR across customer_name /
+    // order_number — TypeORM expresses this as an array of where objects.
+    let where: any;
+    if (search) {
+      where = [
+        { ...base, customer_name: ILike(`%${search}%`) },
+        { ...base, order_number: ILike(`%${search}%`) },
+      ];
+    } else {
+      where = base;
     }
-    if (customerId) {
-      where.customer_id = customerId;
-    }
+
     const [orders, total] = await this.ordersRepository.findAndCount({
       where,
       relations: { table: true, created_by: true },

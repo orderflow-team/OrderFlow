@@ -192,6 +192,17 @@
     letter-spacing: -0.006em;
   }
 
+  /* Remove the grey tap-highlight flash on mobile and eliminate the 300 ms
+     click-delay that some mobile browsers still apply to interactive elements.
+     This makes every button, link and tappable label feel instant on touch. */
+  a,
+  button,
+  label,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   /* Global Webkit Scrollbar Styling - Seamless fade-in on container hover */
   ::-webkit-scrollbar {
     width: 6px;

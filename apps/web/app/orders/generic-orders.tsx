@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -167,6 +167,7 @@ export function GenericOrders() {
   // Drawer state
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null);
   const [drawerStatus, setDrawerStatus] = useState('');
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
@@ -210,11 +211,16 @@ export function GenericOrders() {
     return [...queued, ...baseOrders];
   };
 
-  const load = async (bizId: string, silent = false) => {
+  // Tracks the current search term for use inside event-listener closures that
+  // can't close over the latest React state directly.
+  const searchRef = useRef('');
+  useEffect(() => { searchRef.current = search; }, [search]);
+
+  const load = async (bizId: string, searchTerm = '', silent = false) => {
     if (!silent) setLoading(true);
     try {
       const [ordersRes, customersRes, productsRes] = await Promise.all([
-        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId, limit: ORDERS_PAGE_SIZE, offset: 0 } }),
+        apiClient.get<Order[]>('/api/orders', { params: { businessId: bizId, limit: ORDERS_PAGE_SIZE, offset: 0, search: searchTerm || undefined } }),
         apiClient.get<Customer[]>('/api/customers', { params: { businessId: bizId } }),
         apiClient.get<Product[]>('/api/products', { params: { businessId: bizId } }),
       ]);
@@ -265,7 +271,7 @@ export function GenericOrders() {
     setLoadingMore(true);
     try {
       const res = await apiClient.get<Order[]>('/api/orders', {
-        params: { businessId, limit: ORDERS_PAGE_SIZE, offset: syncedOrdersLoaded },
+        params: { businessId, limit: ORDERS_PAGE_SIZE, offset: syncedOrdersLoaded, search: search.trim() || undefined },
       });
       setOrders((prev) => [...prev, ...res.data]);
       setSyncedOrdersLoaded((prev) => prev + res.data.length);
@@ -276,14 +282,30 @@ export function GenericOrders() {
     }
   };
 
+  // Debounced effect: handles both initial load (search='', delay=0) and
+  // every subsequent keystroke (250 ms). Resets pagination on each new search.
   useEffect(() => {
-    if (ready && businessId) load(businessId);
-  }, [ready, businessId]);
+    if (!ready || !businessId) return;
+    const t = setTimeout(() => {
+      setOrders([]);
+      setSyncedOrdersLoaded(0);
+      setTotalOrders(null);
+      load(businessId, search.trim());
+    }, search ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [search, ready, businessId]);
+
+  // Auto-dismiss error banners after 4 s so stale messages don't linger.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   useEffect(() => {
     const handleOrderUpdated = () => {
       if (ready && businessId) {
-        load(businessId, true); // Silent reload on background order updates
+        load(businessId, searchRef.current, true); // Silent reload, preserve search
       }
     };
     window.addEventListener('order-updated', handleOrderUpdated);
@@ -291,45 +313,35 @@ export function GenericOrders() {
   }, [ready, businessId]);
 
   const openDrawer = async (o: Order) => {
+    // Update all UI state synchronously so the drawer renders on the very next
+    // frame — before any network round-trips complete.
+    setActiveOrderId(o.id);
     setDrawerOrder(o);
     setDrawerStatus(o.status);
     setDeleteConfirm(false);
     setInvoiceId(null);
+    setCreditNoteId(null);
     setEditMode(false);
     setPaymentMethod('Cash');
     setReturnMode(false);
     setReturnQty({});
-    // A queued/sync_failed order's id is only a local outbox uuid — don't let
-    // the AI chat assistant latch onto it as "the order being edited", since
-    // any edit it sends would 404 against the server.
     if (typeof window !== 'undefined' && o.status !== 'queued' && o.status !== 'sync_failed') {
       window.dispatchEvent(new CustomEvent('set-active-order-id', { detail: { id: o.id, orderNumber: o.order_number } }));
     }
-    // Check for an existing invoice (type-filtered so a credit note on this
-    // same order — newer, and otherwise indistinguishable by orderId alone —
-    // is never mistaken for the sale invoice).
-    setCreditNoteId(null);
+    // Fetch invoice + credit-note in parallel so the drawer header renders
+    // instantly and the links appear as soon as both requests resolve.
     if (businessId) {
-      try {
-        const res = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
-          params: { businessId, orderId: o.id, type: 'invoice' },
-        });
-        if (res.data.length > 0) setInvoiceId(res.data[0].id);
-      } catch {
-        // no invoice yet
-      }
-      try {
-        const cn = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
-          params: { businessId, orderId: o.id, type: 'credit_note' },
-        });
-        if (cn.data.length > 0) setCreditNoteId(cn.data[0].id);
-      } catch {
-        // no credit note
-      }
+      const [invoiceRes, cnRes] = await Promise.allSettled([
+        apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: o.id, type: 'invoice' } }),
+        apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: o.id, type: 'credit_note' } }),
+      ]);
+      if (invoiceRes.status === 'fulfilled' && invoiceRes.value.data.length > 0) setInvoiceId(invoiceRes.value.data[0].id);
+      if (cnRes.status === 'fulfilled' && cnRes.value.data.length > 0) setCreditNoteId(cnRes.value.data[0].id);
     }
   };
 
   const closeDrawer = () => {
+    setActiveOrderId(null);
     setDrawerOrder(null);
     setDeleteConfirm(false);
     setPaymentMethod('Cash');
@@ -342,12 +354,19 @@ export function GenericOrders() {
 
   const handleStatusSave = async () => {
     if (!businessId || !drawerOrder) return;
+    // Optimistic update — reflect the new status immediately in both the list
+    // and the open drawer so the user sees the change without waiting for the server.
+    const prevStatus = drawerOrder.status;
+    setDrawerOrder({ ...drawerOrder, status: drawerStatus });
+    setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: drawerStatus } : o));
     setStatusSaving(true);
     try {
       await apiClient.patch(`/api/orders/${drawerOrder.id}/status`, { status: drawerStatus }, { params: { businessId } });
-      setDrawerOrder({ ...drawerOrder, status: drawerStatus });
-      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: drawerStatus } : o));
     } catch (err: any) {
+      // Revert on failure
+      setDrawerOrder({ ...drawerOrder, status: prevStatus });
+      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: prevStatus } : o));
+      setDrawerStatus(prevStatus);
       setError(err.response?.data?.message || 'Failed to update status');
     } finally {
       setStatusSaving(false);
@@ -356,6 +375,11 @@ export function GenericOrders() {
 
   const handleMarkPaid = async () => {
     if (!businessId || !drawerOrder) return;
+    // Optimistic update — flip to 'paid' immediately so the user sees instant feedback.
+    const prevStatus = drawerOrder.status;
+    setDrawerOrder({ ...drawerOrder, status: 'paid' });
+    setDrawerStatus('paid');
+    setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'paid' } : o));
     setStatusSaving(true);
     try {
       const amount = Number(drawerOrder.total_amount);
@@ -371,10 +395,11 @@ export function GenericOrders() {
         });
       }
       await apiClient.patch(`/api/orders/${drawerOrder.id}/status`, { status: 'paid' }, { params: { businessId } });
-      setDrawerOrder({ ...drawerOrder, status: 'paid' });
-      setDrawerStatus('paid');
-      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: 'paid' } : o));
     } catch (err: any) {
+      // Revert on failure
+      setDrawerOrder({ ...drawerOrder, status: prevStatus });
+      setDrawerStatus(prevStatus);
+      setOrders((prev) => prev.map((o) => o.id === drawerOrder.id ? { ...o, status: prevStatus } : o));
       setError(err.response?.data?.message || 'Failed to mark as paid');
     } finally {
       setStatusSaving(false);
@@ -774,7 +799,7 @@ export function GenericOrders() {
         // Offline — queue the sale instead of losing it.
         await enqueueOrder(businessId, orderPayload);
         setShowForm(false);
-        load(businessId, true);
+        load(businessId, searchRef.current, true);
       } else {
         // A real server-side rejection (e.g. stock validation) — rethrow so
         // the modal knows to stay open instead of closing on a failed save,
@@ -797,9 +822,9 @@ export function GenericOrders() {
   const isUnsyncedOrder = drawerOrder?.status === 'queued' || drawerOrder?.status === 'sync_failed';
   const drawerOutboxItem = isUnsyncedOrder ? outboxItems.find((i) => i.id === drawerOrder!.id) : undefined;
 
+  // Text search is server-side (see load/loadMore); only the bucket filter is client-side.
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'ALL' && orderBucket(o.status) !== statusFilter) return false;
-    if (search.trim() && !o.customer_name.toLowerCase().includes(search.trim().toLowerCase())) return false;
     return true;
   });
 
@@ -901,7 +926,7 @@ export function GenericOrders() {
                 // well-known cause of scroll jank, especially on Android WebViews.
                 // bg-white/70 (higher opacity, no blur) keeps a similar frosted
                 // look without the per-frame cost.
-                <div key={o.id} className={`bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-all hover:bg-white/80 active:scale-[0.99] cursor-pointer ${o.status === 'returned' ? 'opacity-40 hover:opacity-60' : ''}`}>
+                <div key={o.id} className={`rounded-2xl ring-1 glass-sheen-sm shadow-sm p-3.5 space-y-3 transition-all active:scale-[0.99] cursor-pointer ${activeOrderId === o.id ? 'bg-emerald-50/80 ring-emerald-300/60 shadow-emerald-100' : 'bg-white/70 ring-white/50 hover:bg-white/80'} ${o.status === 'returned' ? 'opacity-40 hover:opacity-60' : ''}`}>
                   <button onClick={() => openDrawer(o)} className="w-full flex items-start gap-3 text-left cursor-pointer">
                     <div className="w-11 h-11 rounded-xl bg-tile-peach text-tile-peach-fg flex items-center justify-center shrink-0 font-bold text-sm">
                       {o.customer_name.charAt(0).toUpperCase()}
@@ -1026,14 +1051,14 @@ export function GenericOrders() {
       {/* ── Order Detail Drawer ── */}
       {drawerOrder && (
         <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={closeDrawer} />
+          {/* Backdrop — fade-in only; no blur so it composites in a single pass */}
+          <div className="fixed inset-0 z-40 bg-black/30 animate-in fade-in duration-150" onClick={closeDrawer} />
 
-          {/* Panel: bottom sheet on mobile, right panel on desktop */}
-          <div className="fixed z-50 bg-white/60 backdrop-blur-2xl backdrop-saturate-150 flex flex-col
+          {/* Panel: slides up on mobile, slides in from the right on desktop */}
+          <div className="fixed z-50 bg-white/70 backdrop-blur-xl backdrop-saturate-150 flex flex-col
             inset-x-0 bottom-0 rounded-t-2xl max-h-[92dvh]
             md:inset-x-auto md:inset-y-0 md:right-0 md:rounded-none md:rounded-l-2xl md:w-[420px] md:max-h-none md:h-full
-            shadow-2xl">
+            shadow-2xl animate-in slide-in-from-bottom duration-200 md:slide-in-from-right md:duration-200">
 
             {/* Drag handle – mobile */}
             <div className="md:hidden flex justify-center pt-3 pb-1 shrink-0">

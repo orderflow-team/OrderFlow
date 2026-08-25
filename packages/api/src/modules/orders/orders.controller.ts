@@ -86,6 +86,7 @@ export class OrdersController {
     @Query('customerId') customerId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('search') search?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
     const { orders, total } = await this.ordersService.findAll(
@@ -94,6 +95,7 @@ export class OrdersController {
       customerId,
       limit ? Number(limit) : undefined,
       offset ? Number(offset) : undefined,
+      search || undefined,
     );
     // Total goes in a header, not the body — the body stays a plain array so
     // every existing caller that doesn't pass limit/offset (most of them;

@@ -10,7 +10,7 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil, History, Search, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil, History, Search, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
 import React from 'react';
@@ -122,6 +122,7 @@ function RestaurantPageContent() {
   // Order History states
   const [historyOrders, setHistoryOrders] = useState<HistoryOrder[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'ALL' | HistoryBucket>('ALL');
   const [totalHistoryOrders, setTotalHistoryOrders] = useState<number | null>(null);
@@ -156,11 +157,11 @@ function RestaurantPageContent() {
     }
   };
 
-  const loadHistory = async (bizId: string) => {
+  const loadHistory = async (bizId: string, searchTerm = '') => {
     setHistoryLoading(true);
     try {
       const res = await apiClient.get<HistoryOrder[]>('/api/orders', {
-        params: { businessId: bizId, limit: HISTORY_PAGE_SIZE, offset: 0 },
+        params: { businessId: bizId, limit: HISTORY_PAGE_SIZE, offset: 0, search: searchTerm || undefined },
       });
       setHistoryOrders(res.data);
       const totalHeader = res.headers['x-total-count'];
@@ -178,7 +179,7 @@ function RestaurantPageContent() {
     setLoadingMoreHistory(true);
     try {
       const res = await apiClient.get<HistoryOrder[]>('/api/orders', {
-        params: { businessId, limit: HISTORY_PAGE_SIZE, offset: historyOrdersLoaded },
+        params: { businessId, limit: HISTORY_PAGE_SIZE, offset: historyOrdersLoaded, search: historySearch.trim() || undefined },
       });
       setHistoryOrders((prev) => [...prev, ...res.data]);
       setHistoryOrdersLoaded((prev) => prev + res.data.length);
@@ -189,14 +190,29 @@ function RestaurantPageContent() {
     }
   };
 
+  // Debounced effect: handles both initial history load (historySearch='', delay=0)
+  // and every search keystroke (250 ms). Resets pagination on each new query.
   useEffect(() => {
-    if (view === 'history' && businessId) {
-      loadHistory(businessId);
-    }
-  }, [view, businessId]);
+    if (view !== 'history' || !businessId) return;
+    const t = setTimeout(() => {
+      setHistoryOrders([]);
+      setHistoryOrdersLoaded(0);
+      setTotalHistoryOrders(null);
+      loadHistory(businessId, historySearch.trim());
+    }, historySearch ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [historySearch, view, businessId]);
+
+  // Auto-dismiss error banners after 4 s.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   const openInvoice = async (order: HistoryOrder) => {
-    if (!businessId) return;
+    if (!businessId || invoiceLoadingId) return;
+    setInvoiceLoadingId(order.id); // immediate visual feedback on the button
     try {
       const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', { params: { businessId, orderId: order.id, type: 'invoice' } });
       if (existing.data.length > 0) {
@@ -207,6 +223,7 @@ function RestaurantPageContent() {
       if (created.data?.id) router.push(`/billing/invoices/view?id=${created.data.id}`);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to open invoice');
+      setInvoiceLoadingId(null);
     }
   };
 
@@ -603,12 +620,9 @@ function RestaurantPageContent() {
 }
 
   if (view === 'history') {
+    // Text search is server-side (see loadHistory); only the bucket filter is client-side.
     const filteredHistory = historyOrders.filter((o) => {
       if (historyStatusFilter !== 'ALL' && historyBucket(o.status) !== historyStatusFilter) return false;
-      if (historySearch.trim()) {
-        const q = historySearch.trim().toLowerCase();
-        if (!orderLabel(o).toLowerCase().includes(q) && !o.order_number.toLowerCase().includes(q)) return false;
-      }
       return true;
     });
 
@@ -669,12 +683,10 @@ function RestaurantPageContent() {
               {filteredHistory.map((o) => (
                 <div
                   key={o.id}
-                  // No backdrop-blur — renders once per order (up to 20 per page), and
-                  // stacking that many backdrop-filter blurs in a scrolling list is a
-                  // well-known cause of scroll jank, especially on Android WebViews.
-                  // bg-white/70 (higher opacity, no blur) keeps a similar frosted
-                  // look without the per-frame cost.
-                  className="bg-white/70 rounded-2xl ring-1 ring-white/50 glass-sheen-sm shadow-sm p-3.5 flex items-center gap-3"
+                  onClick={() => openInvoice(o)}
+                  // No backdrop-blur — bg-white/70 (higher opacity, no blur) keeps a
+                  // frosted look without the per-frame compositing cost.
+                  className={`rounded-2xl ring-1 glass-sheen-sm shadow-sm p-3.5 flex items-center gap-3 cursor-pointer transition-all active:scale-[0.99] ${invoiceLoadingId === o.id ? 'bg-emerald-50/80 ring-emerald-300/60' : 'bg-white/70 ring-white/50 hover:bg-white/80'}`}
                 >
                   <div className="w-11 h-11 rounded-xl bg-tile-sky text-tile-sky-fg flex items-center justify-center shrink-0">
                     {o.order_type === 'take_away' ? <ShoppingBag className="w-5 h-5" /> : <UtensilsCrossed className="w-5 h-5" />}
@@ -695,14 +707,14 @@ function RestaurantPageContent() {
                     </span>
                     <p className="font-black text-emerald-600 text-base mt-1">₹{Number(o.total_amount).toFixed(2)}</p>
                   </div>
-                  <button
-                    onClick={() => openInvoice(o)}
-                    className="w-9 h-9 rounded-full bg-tile-lavender text-tile-lavender-fg flex items-center justify-center shrink-0 hover:brightness-95 transition-all"
+                  <div
+                    className="w-9 h-9 rounded-full bg-tile-lavender text-tile-lavender-fg flex items-center justify-center shrink-0"
                     aria-label="Invoice"
-                    title="View / Generate Invoice"
                   >
-                    <Printer className="w-4 h-4" />
-                  </button>
+                    {invoiceLoadingId === o.id
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Printer className="w-4 h-4" />}
+                  </div>
                 </div>
               ))}
               {totalHistoryOrders !== null && historyOrdersLoaded < totalHistoryOrders && (
@@ -787,7 +799,7 @@ function RestaurantPageContent() {
                       this renders once per table, and a restaurant with many tables
                       stacking that many backdrop-filter blurs is a well-known cause
                       of scroll jank, especially on Android WebViews. */}
-                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 backdrop-blur-none bg-white/70 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
+                  <Card className={`group relative h-36 flex flex-col justify-between cursor-pointer transition-all hover:-translate-y-0.5 active:scale-[0.97] backdrop-blur-none bg-white/70 ${isAvailable ? 'ring-emerald-300/50' : isOccupied ? 'ring-blue-300/50' : 'ring-white/50'}`}>
                     <button
                       onClick={(e) => handleDeleteTable(e, t.id)}
                       className="absolute top-2 right-2 z-10 p-1.5 rounded-full text-slate-300 hover:text-rose-600 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"

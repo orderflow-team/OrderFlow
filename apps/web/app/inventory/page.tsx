@@ -113,6 +113,12 @@ export default function InventoryPage() {
     if (ready && businessId) load(businessId);
   }, [ready, businessId]);
 
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   const openCreate = () => {
     setEditingPo(null);
     setShowPoForm(true);

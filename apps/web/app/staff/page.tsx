@@ -171,6 +171,12 @@ export default function StaffPage() {
     }
   }, [activeTab, businessId]);
 
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!businessId) return;
@@ -247,7 +253,7 @@ export default function StaffPage() {
       await apiClient.post('/api/staff/attendance/clock-in', { businessId, userId });
       loadAttendance(businessId);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Clock-in failed');
+      setError(err.response?.data?.message || 'Clock-in failed');
     }
   };
 
@@ -257,7 +263,7 @@ export default function StaffPage() {
       await apiClient.post('/api/staff/attendance/clock-out', { businessId, userId });
       loadAttendance(businessId);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Clock-out failed');
+      setError(err.response?.data?.message || 'Clock-out failed');
     }
   };
 

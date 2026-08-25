@@ -78,6 +78,7 @@ export function StandardBilling() {
 
   const [orderSearch, setOrderSearch] = useState('');
   const [paySearch, setPaySearch] = useState('');
+  const [paySearchResults, setPaySearchResults] = useState<Order[] | null>(null);
   const [orderTotal, setOrderTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -129,6 +130,30 @@ export function StandardBilling() {
   useEffect(() => {
     if (ready && businessId) load(businessId);
   }, [ready, businessId]);
+
+  // Auto-dismiss error banners after 4 s.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  // Live server-side search for the "Record Payment" dropdown — so orders
+  // beyond the first 50 are still reachable even before "Load more" is clicked.
+  useEffect(() => {
+    if (!businessId || !paySearch.trim()) { setPaySearchResults(null); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<Order[]>('/api/orders', {
+          params: { businessId, limit: 20, offset: 0, search: paySearch.trim() },
+        });
+        setPaySearchResults(res.data);
+      } catch {
+        setPaySearchResults(null);
+      }
+    }, 200);
+    return () => clearTimeout(t);
+  }, [paySearch, businessId]);
 
   // The offline sync engine (triggered from AppShell, globally) dispatches
   // this after syncing queued orders/payments in the background — without
@@ -277,7 +302,8 @@ export function StandardBilling() {
                   onChange={(e) => {
                     const orderId = e.target.value;
                     setPayOrderId(orderId);
-                    const order = orders.find((o) => o.id === orderId);
+                    // Include server search results so orders beyond the first page are selectable
+                    const order = [...orders, ...(paySearchResults ?? [])].find((o) => o.id === orderId);
                     if (order) {
                       const paid = payments
                         .filter((p) => p.order_id === order.id)
@@ -292,9 +318,8 @@ export function StandardBilling() {
                   required
                 >
                   <option value="">Select order</option>
-                  {orders
+                  {(paySearchResults ?? orders)
                     .filter(o => o.status !== 'paid' && o.status !== 'returned' && o.status !== 'cancelled')
-                    .filter(o => !paySearch || o.customer_name.toLowerCase().includes(paySearch.toLowerCase()) || o.order_number.toLowerCase().includes(paySearch.toLowerCase()))
                     .map((o) => {
                       const paid = payments
                         .filter((p) => p.order_id === o.id)
@@ -355,7 +380,7 @@ export function StandardBilling() {
                     <div
                       key={o.id}
                       onClick={() => { if (!isLocal) setDetailOrderId(o.id); }}
-                      className={`flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors ${!isLocal ? 'cursor-pointer' : ''}`}
+                      className={`flex items-center gap-3 px-4 py-3 hover:bg-white/40 transition-colors ${!isLocal ? 'cursor-pointer active:bg-emerald-50 active:scale-[0.99]' : ''}`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

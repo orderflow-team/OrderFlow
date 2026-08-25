@@ -263,7 +263,7 @@ export default function SelectBusinessPage() {
                   key={b.id}
                   onClick={() => handleSelect(b.id)}
                   disabled={selecting !== null}
-                  className="w-full flex items-center gap-3 rounded-2xl border border-white/40 ring-1 ring-white/50 bg-white/40 hover:bg-white/60 px-4 py-3 text-left transition-all disabled:opacity-50 glass-sheen-sm"
+                  className="w-full flex items-center gap-3 rounded-2xl border border-white/40 ring-1 ring-white/50 bg-white/40 hover:bg-white/60 active:scale-[0.98] px-4 py-3 text-left transition-all disabled:opacity-50 glass-sheen-sm"
                 >
                   <div className="p-2 rounded-full bg-emerald-500/15 backdrop-blur-sm text-emerald-600">
                     <Store className="w-4 h-4" />
@@ -279,7 +279,7 @@ export default function SelectBusinessPage() {
               <button
                 onClick={() => setShowNewForm(true)}
                 disabled={selecting !== null}
-                className="w-full flex items-center gap-3 rounded-2xl border border-dashed border-white/60 bg-white/20 hover:bg-white/40 px-4 py-3 text-left transition-all disabled:opacity-50 mt-2"
+                className="w-full flex items-center gap-3 rounded-2xl border border-dashed border-white/60 bg-white/20 hover:bg-white/40 active:scale-[0.98] px-4 py-3 text-left transition-all disabled:opacity-50 mt-2"
               >
                 <div className="p-2 rounded-full bg-white/40 backdrop-blur-sm text-slate-600">
                   <Plus className="w-4 h-4" />

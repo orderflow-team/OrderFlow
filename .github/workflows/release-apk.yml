@@ -1,0 +1,99 @@
+name: Release APK
+
+# Builds a release-signed APK, publishes it to the backend, and the
+# /api/app-apk-releases/latest endpoint starts serving it to the in-app
+# updater. Also updates the public download-site link automatically.
+#
+# Required GitHub secrets:
+#   NEXT_PUBLIC_API_URL  — production API base URL (e.g. https://orderflow-1.onrender.com)
+#   ADMIN_TOKEN          — JWT for a super_admin or admin user on that API
+#   KEYSTORE_BASE64      — base64-encoded release keystore file
+#                          (base64 -w 0 your-release.jks)
+#   KEYSTORE_PASSWORD    — storePassword from keystore.properties
+#   KEY_ALIAS            — keyAlias from keystore.properties
+#   KEY_PASSWORD         — keyPassword from keystore.properties
+#
+# Before running: bump versionCode and versionName in
+#   apps/web/android/app/build.gradle
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name — must match versionName in build.gradle (e.g. 1.16)'
+        required: true
+        type: string
+      notes:
+        description: 'Release notes shown to users in the update prompt'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Build & publish signed APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Capacitor web export
+        working-directory: apps/web
+        env:
+          CAPACITOR_BUILD: '1'
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: npm run build:capacitor
+
+      - name: Sync Capacitor to Android
+        working-directory: apps/web
+        run: npx cap sync android
+
+      - name: Write keystore file
+        working-directory: apps/web/android
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release.jks
+
+      - name: Write keystore.properties
+        working-directory: apps/web/android
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=release.jks
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Build release APK
+        working-directory: apps/web/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Publish APK
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          NOTES="${{ inputs.notes }}"
+          if [ -n "$NOTES" ]; then
+            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH" "$NOTES"
+          else
+            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH"
+          fi
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: obix-${{ inputs.version_name }}.apk
+          path: apps/web/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30

@@ -196,6 +196,7 @@ export default function DashboardPage() {
   const [isSalesman, setIsSalesman] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourUserKey, setTourUserKey] = useState<string | null>(null);
+  const [seedError, setSeedError] = useState('');
 
   const closeTour = (open: boolean) => {
     setShowTour(open);
@@ -212,7 +213,7 @@ export default function DashboardPage() {
       await apiClient.post('/api/dev/seed', {}, { params: { businessId } });
       await loadDashboard(businessId);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to seed demo data');
+      setSeedError(err.response?.data?.message || 'Failed to seed demo data');
     } finally {
       setSeeding(false);
     }
@@ -375,6 +376,13 @@ export default function DashboardPage() {
             </div>
           }
         />
+
+        {seedError && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-rose-700 bg-rose-500/10 ring-1 ring-rose-500/20 rounded-xl px-3 py-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            {seedError}
+          </p>
+        )}
 
         <DraftReviewStack businessId={businessId} />
 

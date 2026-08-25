@@ -204,6 +204,12 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     return () => clearTimeout(t);
   }, [businessId, search, selectedCategory]);
 
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
   const openCreateForm = () => {
     setScanMode(false);
     setSuggestedName('');
@@ -356,7 +362,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
       setShowCategoryForm(false);
       loadData();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to create category');
+      setError(err.response?.data?.message || 'Failed to create category');
     }
   };
 
