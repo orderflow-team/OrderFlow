@@ -53,6 +53,18 @@ export async function dismissTourIfPresent(page: Page) {
     // blocked by that overlay and Radix dialogs close on it by default.
     await page.keyboard.press('Escape');
     await expect(dialog).not.toBeVisible();
+    // The dialog closing visually and the "seen" flag actually landing in
+    // localStorage (AppTour's closeTour, fired from Radix's onOpenChange)
+    // aren't necessarily the same tick — a reload() immediately after this
+    // call can otherwise occasionally race it and see the tour reopen on
+    // the fresh mount. Wait for the write itself, not just the animation.
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Object.keys(localStorage).some((k) => k.startsWith('obix_tour_seen_')),
+        ),
+      )
+      .toBe(true);
   }
 }
 
