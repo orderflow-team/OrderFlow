@@ -38,4 +38,11 @@
          push-notifications plugin's requestPermissions() call handles that;
          this declares the app is allowed to ask. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Declaring CAMERA above otherwise makes Google Play infer this feature
+         as required and hide the listing from camera-less devices (e.g. some
+         POS tablets) — barcode scanning is a convenience, not a hard
+         requirement, so mark it optional explicitly. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>
