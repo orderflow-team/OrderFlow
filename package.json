@@ -41,6 +41,12 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "typeorm": "^1.0.0"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }
