@@ -12,9 +12,9 @@ import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { getPoFieldConfig, type CustomBusinessSettings } from '@/lib/business-modules';
-import { Plus, X, AlertTriangle, Warehouse, Truck } from 'lucide-react';
+import { Plus, X, AlertTriangle, Warehouse, Truck, FilePlus2 } from 'lucide-react';
 import { ScanToInventoryDialog } from './scan-to-inventory';
-import { PurchaseOrderForm, type EditingPo } from './purchase-order-form';
+import { PurchaseOrderForm, type EditingPo, type PoLine } from './purchase-order-form';
 import { PurchaseOrderList } from './purchase-order-list';
 import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 
@@ -31,9 +31,12 @@ interface Product {
   batch_number?: string | null;
   expiry_date?: string | null;
   last_supplier?: { id: string; name: string } | null;
+  last_supplier_id?: string | null;
   purchase_price?: string | number | null;
   tax_percentage?: string | number | null;
   hsn_code?: string | null;
+  moq?: number | null;
+  reorder_point?: number | null;
 }
 
 export default function InventoryPage() {
@@ -54,6 +57,8 @@ export default function InventoryPage() {
 
   const [showPoForm, setShowPoForm] = useState(false);
   const [editingPo, setEditingPo] = useState<EditingPo | null>(null);
+  const [poInitialLines, setPoInitialLines] = useState<PoLine[] | undefined>();
+  const [poInitialSupplierId, setPoInitialSupplierId] = useState<string | undefined>();
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const fieldConfig = getPoFieldConfig(category, customSettings);
@@ -121,23 +126,66 @@ export default function InventoryPage() {
 
   const openCreate = () => {
     setEditingPo(null);
+    setPoInitialLines(undefined);
+    setPoInitialSupplierId(undefined);
     setShowPoForm(true);
   };
 
   const openEdit = (po: EditingPo) => {
     setEditingPo(po);
+    setPoInitialLines(undefined);
+    setPoInitialSupplierId(undefined);
+    setShowPoForm(true);
+  };
+
+  // Prefills a fresh PO with one line per currently-low-stock product —
+  // quantity defaults to whatever closes the gap to its reorder point
+  // (or its MOQ, whichever is larger) so the buyer mostly just reviews and
+  // sends rather than re-typing every line from scratch. Every field stays
+  // editable in the form before it's actually created.
+  const openCreateFromLowStock = () => {
+    const lines: PoLine[] = lowStock.map((p) => {
+      const threshold = p.reorder_point ?? 10;
+      const deficit = Math.max(threshold - p.stock_quantity, 0);
+      const quantity = Math.max(p.moq || 1, deficit, 1);
+      return {
+        productId: p.id,
+        productName: p.name,
+        quantity: String(quantity),
+        unitPrice: p.purchase_price != null ? String(Number(p.purchase_price)) : '',
+        taxPercentage: p.tax_percentage != null ? String(Number(p.tax_percentage)) : '',
+        hsnCode: p.hsn_code ?? '',
+        schemeQuantity: '',
+        batchNumber: '',
+        expiryDate: '',
+      };
+    });
+
+    // Only prefill the header supplier when every low-stock item last came
+    // from the same one — otherwise the single PO-level supplier field would
+    // silently misattribute some of the lines, so it's left for the user to pick.
+    const supplierIds = new Set(lowStock.map((p) => p.last_supplier_id).filter((id): id is string => !!id));
+    const supplierId = supplierIds.size === 1 ? [...supplierIds][0] : undefined;
+
+    setEditingPo(null);
+    setPoInitialLines(lines);
+    setPoInitialSupplierId(supplierId);
     setShowPoForm(true);
   };
 
   const handleSaved = () => {
     setShowPoForm(false);
     setEditingPo(null);
+    setPoInitialLines(undefined);
+    setPoInitialSupplierId(undefined);
     if (businessId) load(businessId);
   };
 
   const closeForm = () => {
     setShowPoForm(false);
     setEditingPo(null);
+    setPoInitialLines(undefined);
+    setPoInitialSupplierId(undefined);
   };
 
   if (!ready) return null;
@@ -157,9 +205,16 @@ export default function InventoryPage() {
 
         <Card className="ring-white/50 glass-sheen-sm">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <CardTitle className="text-base">{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <CardTitle className="text-base">{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
+              </div>
+              {lowStock.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openCreateFromLowStock}>
+                  <FilePlus2 className="w-3.5 h-3.5" /> Create Purchase Order
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -245,11 +300,14 @@ export default function InventoryPage() {
 
         {showPoForm && businessId && (
           <PurchaseOrderForm
+            key={editingPo?.id ?? (poInitialLines ? 'low-stock' : 'new')}
             businessId={businessId}
             suppliers={suppliers}
             products={products}
             fieldConfig={fieldConfig}
             editingPo={editingPo}
+            initialLines={poInitialLines}
+            initialSupplierId={poInitialSupplierId}
             onSaved={handleSaved}
             onCancel={closeForm}
             onProductCreated={(p) => setProducts((prev) => [...prev, { id: p.id, name: p.name, stock_quantity: 0, purchase_price: p.purchasePrice, tax_percentage: p.taxPercentage, hsn_code: p.hsnCode }])}

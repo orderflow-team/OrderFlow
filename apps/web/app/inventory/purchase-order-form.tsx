@@ -166,6 +166,8 @@ export function PurchaseOrderForm({
   products,
   fieldConfig,
   editingPo,
+  initialLines,
+  initialSupplierId,
   onSaved,
   onCancel,
   onProductCreated,
@@ -175,14 +177,23 @@ export function PurchaseOrderForm({
   products: ProductOption[];
   fieldConfig: PoFieldConfig;
   editingPo: EditingPo | null;
+  // Prefills a brand-new (unsaved) PO's lines/supplier — e.g. "Create purchase
+  // order" from the Low Stock list. Ignored once editingPo is set, since an
+  // existing order's own items always take precedence.
+  initialLines?: PoLine[];
+  initialSupplierId?: string;
   onSaved: () => void;
   onCancel: () => void;
   onProductCreated?: (product: { id: string; name: string; purchasePrice?: number; taxPercentage?: number; hsnCode?: string }) => void;
 }) {
-  const [supplierId, setSupplierId] = useState(editingPo?.supplier_id ?? '');
+  const [supplierId, setSupplierId] = useState(editingPo?.supplier_id ?? initialSupplierId ?? '');
   const [orderNumber, setOrderNumber] = useState(editingPo?.order_number ?? '');
   const [lines, setLines] = useState<PoLine[]>(
-    editingPo && editingPo.items.length > 0 ? editingPo.items.map((item) => toLine(item, products)) : [emptyLine()],
+    editingPo && editingPo.items.length > 0
+      ? editingPo.items.map((item) => toLine(item, products))
+      : initialLines && initialLines.length > 0
+      ? initialLines
+      : [emptyLine()],
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -210,9 +221,15 @@ export function PurchaseOrderForm({
   }, [products]);
 
   useEffect(() => {
-    setSupplierId(editingPo?.supplier_id ?? '');
+    setSupplierId(editingPo?.supplier_id ?? initialSupplierId ?? '');
     setOrderNumber(editingPo?.order_number ?? '');
-    setLines(editingPo && editingPo.items.length > 0 ? editingPo.items.map((item) => toLine(item, products)) : [emptyLine()]);
+    setLines(
+      editingPo && editingPo.items.length > 0
+        ? editingPo.items.map((item) => toLine(item, products))
+        : initialLines && initialLines.length > 0
+        ? initialLines
+        : [emptyLine()],
+    );
   }, [editingPo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-focus the new row's product picker whenever a row is appended via

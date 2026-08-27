@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
 import { CollapsibleList } from '@/components/collapsible-list';
 import { AppTour } from '@/components/app-tour';
+import { SimpleBarChart } from '../reports/simple-bar-chart';
 import Link from 'next/link';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
@@ -33,6 +34,7 @@ interface DashboardData {
   expiringProducts: Array<{ id: string; name: string; expiry_date: string }>;
   topProducts: Array<{ productId: string; productName: string; totalQuantity: number; totalRevenue: number }>;
   topCustomers: Array<{ customerId: string; customerName: string; orderCount: number; totalSpent: number }>;
+  salesTrend: Array<{ label: string; value: number }>;
 }
 
 function formatCurrency(value: number) {
@@ -404,6 +406,21 @@ export default function DashboardPage() {
           <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" href="/billing" />
           <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" href="/billing" />
         </div>
+
+        {!isSalesman && (
+          <Card className="ring-white/50 glass-sheen-sm">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
+                <CardTitle>Sales — Last 7 Days</CardTitle>
+              </div>
+              <CardDescription>Daily revenue trend</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SimpleBarChart data={data.salesTrend} />
+            </CardContent>
+          </Card>
+        )}
 
         {hasInventory && !isSalesman && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

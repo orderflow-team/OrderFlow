@@ -66,6 +66,7 @@ export class ReportsService {
       expiringProducts,
       topProducts,
       topCustomers,
+      salesTrend,
     ] = await Promise.all([
       this.ordersRepository
         .createQueryBuilder('order')
@@ -149,6 +150,7 @@ export class ReportsService {
         .orderBy('"totalSpent"', 'DESC')
         .limit(5)
         .getRawMany(),
+      this.salesTrendLast7Days(businessId),
     ]);
 
     return {
@@ -172,7 +174,44 @@ export class ReportsService {
         orderCount: Number(c.orderCount),
         totalSpent: Number(c.totalSpent),
       })),
+      salesTrend,
     };
+  }
+
+  /**
+   * Daily revenue for the last 7 calendar days (today inclusive), zero-filled
+   * so a day with no billed orders still renders as a bar instead of vanishing
+   * — same shape as SimpleBarChart expects elsewhere in Reports. Kept separate
+   * from analyticsDashboard's chart series (which is role-gated to
+   * Admin/Manager/Accountant) since the plain dashboard is unrestricted.
+   */
+  private async salesTrendLast7Days(businessId: string) {
+    const since = this.daysFromNow(-6);
+    since.setHours(0, 0, 0, 0);
+
+    const rows = await this.ordersRepository
+      .createQueryBuilder('order')
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES })
+      .andWhere('order.created_at >= :since', { since })
+      .select('DATE(order.created_at)', 'date')
+      .addSelect('COALESCE(SUM(order.total_amount), 0)', 'total')
+      .groupBy('DATE(order.created_at)')
+      .getRawMany();
+
+    const totalsByDate = new Map(rows.map((r) => [this.normalizeSqlDateKey(r.date), Number(r.total)]));
+
+    const cursor = new Date(since.getFullYear(), since.getMonth(), since.getDate());
+    const trend: { label: string; value: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const key = this.toDateKey(cursor);
+      trend.push({
+        label: cursor.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+        value: totalsByDate.get(key) ?? 0,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return trend;
   }
 
   async salesReport(businessId: string, from?: string, to?: string) {
