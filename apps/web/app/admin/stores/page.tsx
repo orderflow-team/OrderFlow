@@ -25,6 +25,7 @@ import {
   Trash2,
   AlertTriangle,
   Bell,
+  Crown,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
