@@ -71,7 +71,12 @@ jobs:
 
       - name: Write keystore file
         working-directory: apps/web/android
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release.jks
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is missing in GitHub Repository Secrets! Please add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          printf '%s' "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release.jks
 
       - name: Write keystore.properties
         working-directory: apps/web/android
