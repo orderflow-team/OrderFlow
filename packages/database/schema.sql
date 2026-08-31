@@ -382,6 +382,55 @@ CREATE TABLE IF NOT EXISTS invoice_scan_items (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Subscription Plans Table
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  price_monthly_inr DECIMAL(15, 2) NOT NULL,
+  price_yearly_inr DECIMAL(15, 2) NOT NULL,
+  max_staff_users INT NOT NULL DEFAULT 2,
+  max_devices INT NOT NULL DEFAULT 1,
+  max_orders_per_month INT NOT NULL DEFAULT 500,
+  max_ai_scans_per_month INT NOT NULL DEFAULT 15,
+  features JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Business Subscriptions Table
+CREATE TABLE IF NOT EXISTS business_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID UNIQUE NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  plan_id UUID REFERENCES subscription_plans(id),
+  status VARCHAR(50) NOT NULL DEFAULT 'trialing',
+  billing_cycle VARCHAR(20) DEFAULT 'monthly',
+  trial_starts_at TIMESTAMP DEFAULT NOW(),
+  trial_ends_at TIMESTAMP DEFAULT NOW() + INTERVAL '30 days',
+  current_period_start TIMESTAMP,
+  current_period_end TIMESTAMP,
+  gateway VARCHAR(50) DEFAULT 'razorpay',
+  gateway_subscription_id VARCHAR(100),
+  gateway_customer_id VARCHAR(100),
+  cancel_at_period_end BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Subscription Payments Table
+CREATE TABLE IF NOT EXISTS subscription_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  subscription_id UUID REFERENCES business_subscriptions(id) ON DELETE CASCADE,
+  amount DECIMAL(15, 2) NOT NULL,
+  currency VARCHAR(3) DEFAULT 'INR',
+  status VARCHAR(50) NOT NULL,
+  gateway VARCHAR(50) NOT NULL,
+  gateway_payment_id VARCHAR(100),
+  invoice_pdf_url TEXT,
+  paid_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_customers_business_id ON customers(business_id);
 CREATE INDEX idx_products_business_id ON products(business_id);
@@ -399,7 +448,23 @@ CREATE INDEX idx_visits_salesman_id ON visits(salesman_id);
 CREATE INDEX idx_price_history_customer_id ON price_history(customer_id);
 CREATE INDEX idx_price_history_product_id ON price_history(product_id);
 CREATE INDEX idx_invoice_scans_business_id ON invoice_scans(business_id);
-CREATE INDEX idx_invoice_scan_items_scan_id ON invoice_scan_items(scan_id);
+-- Referrals Table
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS referral_code VARCHAR(20);
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS referred_by_code VARCHAR(20);
+
+CREATE TABLE IF NOT EXISTS business_referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  referee_business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  reward_days_granted INT DEFAULT 30,
+  status VARCHAR(50) DEFAULT 'rewarded',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_business_referrals_referrer ON business_referrals(referrer_business_id);
+CREATE INDEX IF NOT EXISTS idx_business_subscriptions_business_id ON business_subscriptions(business_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_payments_business_id ON subscription_payments(business_id);
 
 -- Verify tables created
 SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;
+

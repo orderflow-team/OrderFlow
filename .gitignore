@@ -15,6 +15,7 @@ node_modules
 *.jks
 *.keystore
 keystore.properties
+keystore_base64.txt
 
 # Testing
 coverage

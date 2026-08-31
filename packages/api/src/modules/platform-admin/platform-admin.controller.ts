@@ -113,6 +113,21 @@ export class PlatformAdminController {
     return this.platformAdminService.updateStore(storeId, dto, req.user?.userId);
   }
 
+  @Patch('stores/:id/subscription')
+  updateStoreSubscription(
+    @Param('id') storeId: string,
+    @Body()
+    dto: {
+      plan_code?: string;
+      status?: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+      extend_days?: number;
+      billing_cycle?: 'monthly' | 'yearly';
+    },
+    @Req() req: any,
+  ) {
+    return this.platformAdminService.updateStoreSubscription(storeId, dto, req.user?.userId);
+  }
+
   @Post('stores/:id/test-push')
   sendTestPush(@Param('id') storeId: string, @Req() req: any) {
     return this.platformAdminService.sendTestPush(storeId, req.user?.userId);

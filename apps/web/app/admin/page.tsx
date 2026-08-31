@@ -139,6 +139,56 @@ export default function AdminOverviewDashboard() {
         })}
       </div>
 
+      {/* 📈 SaaS Revenue & Subscription Analytics Panel */}
+      <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-white border border-indigo-700/40 p-6 rounded-3xl shadow-xl space-y-5 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-indigo-800/60 pb-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-widest">
+              <TrendingUp className="w-4 h-4" /> SaaS Subscription Telemetry
+            </div>
+            <h2 className="text-2xl font-extrabold text-white tracking-tight mt-0.5">
+              MRR, ARR & Subscriber Metrics
+            </h2>
+          </div>
+          <span className="bg-indigo-700/60 text-indigo-200 px-3 py-1 rounded-full text-xs font-bold border border-indigo-600/50">
+            Conversion Rate: {loading ? '...' : `${stats?.conversionRate ?? 0}%`}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+            <p className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">Monthly Recurring Revenue (MRR)</p>
+            <p className="text-3xl font-extrabold text-white mt-1">
+              ₹{loading ? '...' : (stats?.mrr || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[11px] text-indigo-200 mt-1">Active paid subscriptions</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+            <p className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Annualized Run Rate (ARR)</p>
+            <p className="text-3xl font-extrabold text-emerald-400 mt-1">
+              ₹{loading ? '...' : (stats?.arr || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[11px] text-emerald-200 mt-1">Projected annual volume</p>
+          </div>
+
+          <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+            <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Subscriber Breakdown</p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="bg-indigo-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-indigo-500/50">
+                Starter (₹59): {stats?.subscriptions?.starter ?? 0}
+              </span>
+              <span className="bg-purple-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-purple-500/50">
+                Pro ⭐ (₹399): {stats?.subscriptions?.pro ?? 0}
+              </span>
+              <span className="bg-amber-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-amber-500/50">
+                Enterprise (₹999): {stats?.subscriptions?.enterprise ?? 0}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Quick Developer Action Shortcuts */}
       <div className="bg-card border border-border p-5 rounded-2xl space-y-3">
         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">

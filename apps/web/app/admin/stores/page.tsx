@@ -87,6 +87,10 @@ export default function AdminStoresPage() {
     ai_chat_enabled: true,
     b2b_sync_enabled: true,
     gst_number: '',
+    plan_code: 'pro',
+    status: 'active',
+    extend_days: 0,
+    billing_cycle: 'monthly',
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -168,6 +172,10 @@ export default function AdminStoresPage() {
       ai_chat_enabled: store.ai_chat_enabled ?? true,
       b2b_sync_enabled: store.b2b_sync_enabled ?? true,
       gst_number: store.gst_number || '',
+      plan_code: 'pro',
+      status: 'active',
+      extend_days: 0,
+      billing_cycle: 'monthly',
     });
     setEditModalOpen(true);
   };
@@ -178,24 +186,16 @@ export default function AdminStoresPage() {
       const res = await apiClient.post(`/api/platform-admin/impersonate/${store.id}`);
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
-      // Opens in a new tab instead of navigating this one away, so the admin
-      // stays on the stores list. Target "/" since that's the only path
-      // Capacitor's local server always resolves correctly — root page.tsx's
-      // own logic then routes to the right destination.
-      window.open('/', '_blank');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to impersonate store');
     }
   };
 
-  const handleTestPush = async (store: StoreData) => {
+  const handleSendTestPush = async (store: StoreData) => {
     try {
-      const res = await apiClient.post<{ devicesNotified: number; invalidTokensRemoved: number }>(`/api/platform-admin/stores/${store.id}/test-push`);
-      alert(
-        res.data.devicesNotified > 0
-          ? `Sent to ${res.data.devicesNotified} device(s) on "${store.name}".`
-          : `Sent, but every device registered for "${store.name}" rejected it (likely uninstalled) — they've been removed.`,
-      );
+      const res = await apiClient.post(`/api/platform-admin/stores/${store.id}/test-push`);
+      alert(res.data.message || `Test push dispatched to ${store.name}`);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to send test push');
     }
@@ -236,11 +236,26 @@ export default function AdminStoresPage() {
     if (!currentStore) return;
     setSaving(true);
     try {
-      await apiClient.patch(`/api/platform-admin/stores/${currentStore.id}`, editForm);
-      setMessage(`Store ${editForm.name} updated successfully!`);
+      await apiClient.patch(`/api/platform-admin/stores/${currentStore.id}`, {
+        name: editForm.name,
+        category: editForm.category,
+        inventory_enabled: editForm.inventory_enabled,
+        ai_chat_enabled: editForm.ai_chat_enabled,
+        b2b_sync_enabled: editForm.b2b_sync_enabled,
+        gst_number: editForm.gst_number,
+      });
+
+      await apiClient.patch(`/api/platform-admin/stores/${currentStore.id}/subscription`, {
+        plan_code: editForm.plan_code,
+        status: editForm.status,
+        extend_days: Number(editForm.extend_days),
+        billing_cycle: editForm.billing_cycle,
+      });
+
+      setMessage(`Store ${editForm.name} configuration & subscription updated successfully!`);
       setEditModalOpen(false);
       fetchStores();
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), 4000);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to update store');
     } finally {
@@ -793,6 +808,70 @@ export default function AdminStoresPage() {
                     className="w-4 h-4 rounded bg-card border-border text-blue-600 focus:ring-0 shrink-0 ml-3"
                   />
                 </label>
+              </div>
+
+              {/* Super Admin Subscription Override Block */}
+              <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800/40 space-y-3">
+                <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs">
+                  <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <span>Super Admin Subscription Override</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">Assigned Plan</label>
+                    <select
+                      value={editForm.plan_code}
+                      onChange={(e) => setEditForm({ ...editForm, plan_code: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="starter">Mobile Starter (₹59/mo)</option>
+                      <option value="pro">Pro Plan ⭐ (₹399/mo)</option>
+                      <option value="enterprise">Enterprise (₹999/mo)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">Subscription Status</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="active">Active ✅</option>
+                      <option value="trialing">30-Day Free Trial ✨</option>
+                      <option value="expired">Expired ⚠️</option>
+                      <option value="canceled">Canceled ❌</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">Grant / Extend Days</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="365"
+                      placeholder="e.g. 30"
+                      value={editForm.extend_days}
+                      onChange={(e) => setEditForm({ ...editForm, extend_days: Number(e.target.value) })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-foreground mb-1">Billing Cycle</label>
+                    <select
+                      value={editForm.billing_cycle}
+                      onChange={(e) => setEditForm({ ...editForm, billing_cycle: e.target.value as any })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Annual</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

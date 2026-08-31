@@ -12,7 +12,7 @@ import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
-import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell, ChevronDown, Crown } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 import { AppVersionInfo } from '@/components/app-version-info';
 
@@ -422,7 +422,33 @@ export default function SettingsPage() {
       <div className="p-6 md:p-10 pb-28 md:pb-24 max-w-2xl lg:max-w-5xl mx-auto">
       <div className="lg:flex lg:gap-6 lg:items-start">
       <div className="lg:flex-1 lg:min-w-0 space-y-8">
-        <PageHeader title="Settings" description="Manage your business profile and modules." />
+        <PageHeader title="Settings" description="Manage your business profile, subscription plans, and modules." />
+
+        {/* Subscription & Billing Quick Banner */}
+        <div 
+          onClick={() => router.push('/settings/subscription')}
+          className="cursor-pointer bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl p-5 shadow-lg border border-indigo-700/50 hover:border-indigo-400 transition flex items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-yellow-400 text-indigo-950 rounded-2xl font-bold shadow-md">
+              <Crown className="w-6 h-6 fill-current" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold flex items-center gap-2">
+                Orderflow Subscription & Billing
+                <span className="text-xs font-semibold bg-indigo-700 text-indigo-100 px-2.5 py-0.5 rounded-full">
+                  Manage Tier
+                </span>
+              </h3>
+              <p className="text-xs text-indigo-200 mt-0.5">
+                View 30-day trial status, usage quotas (Orders, AI Scans, Staff), and upgrade plans.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" className="bg-yellow-400 hover:bg-yellow-300 text-indigo-950 font-bold shrink-0">
+            View Plans
+          </Button>
+        </div>
 
         {loading ? (
           <p className="text-sm text-slate-400">Loading...</p>
