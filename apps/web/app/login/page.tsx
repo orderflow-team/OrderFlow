@@ -119,7 +119,11 @@ function PasswordLoginForm() {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      if (err.response) {
+        setError(err.response.data?.message || 'Invalid email or password');
+      } else {
+        setError('Network error: Unable to connect to server. Please check your internet connection.');
+      }
     } finally {
       setLoading(false);
     }

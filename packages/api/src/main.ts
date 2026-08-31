@@ -38,6 +38,8 @@ async function bootstrap() {
     'https://orderflow-web-clever-minds1.vercel.app',
     'https://orderflow-web-iota.vercel.app',
     'https://localhost',
+    'http://localhost',
+    'capacitor://localhost',
   ];
   // Same "is this production" signal database.config.ts already uses —
   // local dev (no DATABASE_URL) has no real user data at risk, so it stays
@@ -55,8 +57,16 @@ async function bootstrap() {
           // updater's plain fetch) never carries a browser's ambient
           // credentials, so there's nothing for a real CORS check to protect
           // against here — always allowed.
-          if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-          else callback(new Error(`CORS: origin "${origin}" not allowed`));
+          if (
+            !origin ||
+            allowedOrigins.includes(origin) ||
+            origin.includes('localhost') ||
+            origin.startsWith('capacitor://')
+          ) {
+            callback(null, true);
+          } else {
+            callback(new Error(`CORS: origin "${origin}" not allowed`));
+          }
         }
       : true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
