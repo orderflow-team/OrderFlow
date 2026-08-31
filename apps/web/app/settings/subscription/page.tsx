@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   CheckCircle2,
@@ -9,6 +9,8 @@ import {
   Building2,
   Smartphone,
   Crown,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -31,7 +33,16 @@ interface SubscriptionData {
 }
 
 export default function SubscriptionSettingsPage() {
+  const router = useRouter();
   const [sub, setSub] = useState<SubscriptionData | null>(null);
+
+  const handleClose = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/dashboard');
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [upgradingCode, setUpgradingCode] = useState<string | null>(null);
   const [selectedPlanCode, setSelectedPlanCode] = useState<string>('pro');
@@ -112,6 +123,26 @@ export default function SubscriptionSettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-3 sm:p-6 md:p-8 space-y-5 sm:space-y-8 bg-slate-50/50 min-h-screen">
+      {/* Top Back & Close Bar */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={handleClose}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200 shadow-sm transition active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
+
+        <button
+          onClick={handleClose}
+          aria-label="Close page"
+          className="p-2 rounded-full bg-slate-200/80 hover:bg-rose-500 hover:text-white text-slate-600 transition shadow-sm active:scale-95"
+          title="Close Subscription Page"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
       {/* Top Banner Header */}
       <div className="relative bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-xl overflow-hidden border border-indigo-700/50">
         <div className="absolute right-0 top-0 opacity-10 translate-x-6 -translate-y-6 pointer-events-none">
