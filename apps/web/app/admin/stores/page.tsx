@@ -506,7 +506,7 @@ export default function AdminStoresPage() {
                             <Edit className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleTestPush(store)}
+                            onClick={() => handleSendTestPush(store)}
                             title="Send test push notification"
                             className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg border border-emerald-500/30 transition"
                           >
