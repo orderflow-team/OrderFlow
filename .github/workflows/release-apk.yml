@@ -83,7 +83,9 @@ jobs:
 
       - name: Build release APK (direct flavor)
         working-directory: apps/web/android
-        run: ./gradlew assembleDirectRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDirectRelease --no-daemon
 
       - name: Publish APK
         working-directory: apps/web

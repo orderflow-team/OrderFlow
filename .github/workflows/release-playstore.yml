@@ -92,7 +92,9 @@ jobs:
 
       - name: Build release AAB (playstore flavor)
         working-directory: apps/web/android
-        run: ./gradlew bundlePlaystoreRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew bundlePlaystoreRelease --no-daemon
 
       - name: Upload AAB as workflow artifact
         uses: actions/upload-artifact@v4
