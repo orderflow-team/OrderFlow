@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
+import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -92,6 +93,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+      <PostLoginUpdateAlert />
     </div>
   );
 }
