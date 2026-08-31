@@ -75,8 +75,8 @@ export async function checkForOtaUpdate() {
     // throws on mismatch, so this is enough to catch a corrupted download or
     // a tampered/MITM'd bundle URL without needing the full encryption setup.
     const downloaded = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
-    await CapacitorUpdater.next({ id: downloaded.id });
-    console.log(`${LOG_PREFIX} staged ${latest.version} — will apply on next background/restart`);
+    await CapacitorUpdater.set({ id: downloaded.id });
+    console.log(`${LOG_PREFIX} applied ${latest.version} immediately!`);
   } catch (err) {
     console.log(`${LOG_PREFIX} update check errored (offline or bad response):`, err);
   }
