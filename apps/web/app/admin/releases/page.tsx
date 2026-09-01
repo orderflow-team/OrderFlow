@@ -98,6 +98,43 @@ export default function AdminReleasesPage() {
   const liveOtaId = otaReleases.find((r) => r.is_active)?.id;
   const liveApkId = apkReleases.find((r) => r.is_active)?.id;
 
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadType, setUploadType] = useState<'ota' | 'apk'>('ota');
+  const [version, setVersion] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePublish = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !version) return;
+    setUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('platform', 'android');
+      if (uploadType === 'ota') {
+        formData.append('version', version);
+        formData.append('notes', notes);
+        await apiClient.post('/api/app-updates', formData);
+      } else {
+        formData.append('versionName', version);
+        formData.append('notes', notes);
+        await apiClient.post('/api/app-apk-releases', formData);
+      }
+      setUploadModalOpen(false);
+      setSelectedFile(null);
+      setVersion('');
+      setNotes('');
+      await load();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to publish release');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl backdrop-blur-sm">
@@ -107,16 +144,25 @@ export default function AdminReleasesPage() {
             App Releases
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            OTA (JS bundle) and native APK release history — roll back a bad release without touching the CLI.
+            OTA (JS bundle) and native APK release history — publish live updates directly to installed apps.
           </p>
         </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground text-sm font-medium rounded-xl border border-border transition"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setUploadModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-bold rounded-xl shadow-md transition"
+          >
+            <Rocket className="w-4 h-4" />
+            Publish New Release 🚀
+          </button>
+          <button
+            onClick={load}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-accent text-foreground text-sm font-medium rounded-xl border border-border transition"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -144,6 +190,101 @@ export default function AdminReleasesPage() {
         getVersion={(r) => r.version_name}
         onToggle={(id, isActive) => toggleApk(id, isActive)}
       />
+
+      {/* Upload Release Modal */}
+      {uploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Rocket className="w-5 h-5 text-blue-500" />
+              Publish App Release
+            </h3>
+
+            <form onSubmit={handlePublish} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Release Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadType('ota')}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                      uploadType === 'ota'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                    }`}
+                  >
+                    OTA JS Bundle (.zip)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadType('apk')}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                      uploadType === 'apk'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                    }`}
+                  >
+                    Native APK (.apk)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Version (e.g. 1.2.5)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="1.2.5"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Release Notes</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Subscription badge and bug fixes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl px-3.5 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Select {uploadType === 'ota' ? '.zip Bundle File' : '.apk File'}
+                </label>
+                <input
+                  type="file"
+                  required
+                  accept={uploadType === 'ota' ? '.zip' : '.apk'}
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-foreground file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-foreground hover:file:bg-accent"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setUploadModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !selectedFile || !version}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-50"
+                >
+                  {uploading ? 'Publishing...' : 'Publish Release 🚀'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
