@@ -30,6 +30,7 @@ import {
   Trash2,
   Crown,
   Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
@@ -861,6 +862,31 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       )}
 
       <main className={`flex-1 min-w-0 ${hideNavigation ? 'pt-0 pb-0' : 'pt-[60px] pb-16 md:pt-0 md:pb-0'}`}>
+        {sub && (sub.status === 'expired' || sub.status === 'past_due' || sub.status === 'canceled') && !pathname.includes('/settings/subscription') && (
+          <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-rose-950 text-white px-4 py-3 border-b border-rose-500/40 shadow-xl flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 text-xs">
+                <p className="font-extrabold text-rose-200">
+                  ⚠️ Subscription Expired — Store Operating in Read-Only Mode
+                </p>
+                <p className="text-slate-300 text-[11px] truncate">
+                  Your User Subscription / Free Trial has ended. Upgrade today to resume taking orders across all your stores.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/settings/subscription"
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-extrabold text-xs shadow-md shrink-0 flex items-center gap-1 transition"
+            >
+              <span>Upgrade Now 👑</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
+
         {broadcastAnnouncement?.active && broadcastAnnouncement?.message && !dismissedAlert && (
           <div
             className={`px-4 py-2.5 text-xs font-semibold flex items-center justify-between border-b shadow-sm ${
