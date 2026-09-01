@@ -162,6 +162,13 @@ export default function AdminUsersPage() {
     }
   };
 
+  const [subForm, setSubForm] = useState({
+    plan_code: 'pro',
+    status: 'active',
+    extend_days: 30,
+  });
+  const [updatingSub, setUpdatingSub] = useState(false);
+
   const openEditModal = (user: UserData) => {
     setCurrentUser(user);
     setEditForm({
@@ -172,7 +179,27 @@ export default function AdminUsersPage() {
       is_active: user.is_active,
       password: '',
     });
+    setSubForm({
+      plan_code: user.subscription?.plan_code || 'pro',
+      status: (user.subscription?.status as any) || 'active',
+      extend_days: 30,
+    });
     setEditModalOpen(true);
+  };
+
+  const handleSaveUserSubscription = async () => {
+    if (!currentUser) return;
+    setUpdatingSub(true);
+    try {
+      await apiClient.patch(`/api/platform-admin/users/${currentUser.id}/subscription`, subForm);
+      setSuccessMessage(`User subscription updated successfully!`);
+      fetchUsers();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update user subscription');
+    } finally {
+      setUpdatingSub(false);
+    }
   };
 
   const handleSaveUser = async (e: React.FormEvent) => {
@@ -628,6 +655,73 @@ export default function AdminUsersPage() {
                   />
                   Account Active & Enabled
                 </label>
+              </div>
+
+              {/* User Subscription Controls (Subscriptions are tied to User, inherited by all owned stores) */}
+              <div className="pt-4 border-t border-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" /> User Subscription Management
+                  </label>
+                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 uppercase">
+                    {currentUser.subscription?.status === 'active'
+                      ? `Active (${currentUser.subscription.plan_name})`
+                      : currentUser.subscription?.status === 'expired'
+                      ? 'Expired'
+                      : `Free Trial (${currentUser.subscription?.trial_days_left ?? 30}d left)`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Subscriptions belong to the User account. All stores owned by this user inherit this subscription automatically.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Plan</label>
+                    <select
+                      value={subForm.plan_code}
+                      onChange={(e) => setSubForm({ ...subForm, plan_code: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="starter">Starter Plan (Free)</option>
+                      <option value="pro">Pro Plan (₹399/mo)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Status</label>
+                    <select
+                      value={subForm.status}
+                      onChange={(e) => setSubForm({ ...subForm, status: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-amber-500 capitalize"
+                    >
+                      <option value="trialing">Free Trial</option>
+                      <option value="active">Active (Paid)</option>
+                      <option value="expired">Expired (Paywall Lock)</option>
+                      <option value="canceled">Canceled</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">Extend (Days)</label>
+                    <input
+                      type="number"
+                      value={subForm.extend_days}
+                      onChange={(e) => setSubForm({ ...subForm, extend_days: Number(e.target.value) })}
+                      className="w-full bg-background border border-border rounded-xl px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={updatingSub}
+                  onClick={handleSaveUserSubscription}
+                  className="w-full py-2 px-3 text-xs font-bold text-amber-950 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 disabled:opacity-50 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition"
+                >
+                  <Crown className="w-3.5 h-3.5 fill-current" />
+                  {updatingSub ? 'Updating Subscription...' : 'Update User Subscription Plan'}
+                </button>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

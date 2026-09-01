@@ -509,6 +509,88 @@ export class PlatformAdminService {
   }
 
   /**
+   * Super Admin: Update User Subscription (Plan, Status & Expiry/Trial Days)
+   * All stores owned by this user or staff members associated with this user will inherit this subscription!
+   */
+  async updateUserSubscription(
+    userId: string,
+    dto: {
+      plan_code?: string;
+      status?: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+      extend_days?: number;
+      billing_cycle?: 'monthly' | 'yearly';
+    },
+    adminUserId?: string,
+  ) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    let planId: string | null = null;
+    if (dto.plan_code) {
+      const planRes = await this.dataSource.query(`SELECT id FROM subscription_plans WHERE code = $1`, [dto.plan_code]);
+      if (!planRes || planRes.length === 0) {
+        throw new BadRequestException(`Invalid plan code: ${dto.plan_code}`);
+      }
+      planId = planRes[0].id;
+    }
+
+    const subRes = await this.dataSource.query(
+      `SELECT id FROM business_subscriptions WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (subRes.length === 0) {
+      const days = dto.extend_days || 30;
+      await this.dataSource.query(
+        `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, trial_starts_at, trial_ends_at, current_period_start, current_period_end)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '${days} days', NOW(), NOW() + INTERVAL '${days} days')`,
+        [userId, user.business_id || null, planId, dto.status || 'active', dto.billing_cycle || 'monthly']
+      );
+    } else {
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
+
+      if (planId) {
+        updateFields.push(`plan_id = $${idx++}`);
+        values.push(planId);
+      }
+      if (dto.status) {
+        updateFields.push(`status = $${idx++}`);
+        values.push(dto.status);
+        if (dto.status === 'expired' || dto.status === 'past_due' || dto.status === 'canceled') {
+          updateFields.push(`trial_ends_at = NOW() - INTERVAL '1 day'`);
+          updateFields.push(`current_period_end = NOW() - INTERVAL '1 day'`);
+        }
+      }
+      if (dto.billing_cycle) {
+        updateFields.push(`billing_cycle = $${idx++}`);
+        values.push(dto.billing_cycle);
+      }
+      if (dto.extend_days && dto.extend_days > 0) {
+        if (dto.status === 'trialing') {
+          updateFields.push(`trial_ends_at = NOW() + INTERVAL '${dto.extend_days} days'`);
+        } else {
+          updateFields.push(`current_period_end = NOW() + INTERVAL '${dto.extend_days} days'`);
+        }
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      values.push(userId);
+
+      await this.dataSource.query(
+        `UPDATE business_subscriptions SET ${updateFields.join(', ')} WHERE user_id = $${idx}`,
+        values
+      );
+    }
+
+    await this.logActivity('UPDATE_USER_SUBSCRIPTION', adminUserId, user.business_id || undefined, 'BusinessSubscription', { userId, dto });
+    return { message: 'User subscription updated successfully' };
+  }
+
+  /**
    * Super Admin: Update Business Subscription Plan, Status & Expiry Days
    */
   async updateStoreSubscription(

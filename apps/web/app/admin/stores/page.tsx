@@ -885,6 +885,30 @@ export default function AdminStoresPage() {
                 </label>
               </div>
 
+              {/* Subscription Notice (Subscriptions are owned by the User, not Store) */}
+              <div className="bg-amber-500/10 p-4 rounded-2xl border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+                    <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span>User-Level Subscription Ownership</span>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 uppercase border border-amber-500/30">
+                    {currentStore.subscription?.plan_name || 'Free Trial'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Subscriptions belong to the Store Owner (User Account <span className="font-semibold text-foreground">{currentStore.owner_email || 'Owner'}</span>). All stores owned by a user automatically share the same subscription.
+                </p>
+                <div className="pt-1">
+                  <a
+                    href="/admin/users"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    <span>Manage Owner Subscription on Users Page ➔</span>
+                  </a>
+                </div>
+              </div>
+
               {/* Super Admin Subscription Override Block */}
               <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-200 dark:border-indigo-800/40 space-y-3">
                 <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs">

@@ -86,6 +86,21 @@ export class PlatformAdminController {
     return this.platformAdminService.toggleUserStatus(userId, is_active, req.user?.userId);
   }
 
+  @Patch('users/:id/subscription')
+  updateUserSubscription(
+    @Param('id') userId: string,
+    @Body()
+    dto: {
+      plan_code?: string;
+      status?: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+      extend_days?: number;
+      billing_cycle?: 'monthly' | 'yearly';
+    },
+    @Req() req: any,
+  ) {
+    return this.platformAdminService.updateUserSubscription(userId, dto, req.user?.userId);
+  }
+
   @Get('stores')
   getAllStores(
     @Query('search') search?: string,
