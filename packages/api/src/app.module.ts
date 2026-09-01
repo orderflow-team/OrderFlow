@@ -173,9 +173,19 @@ export class AppModule implements OnApplicationBootstrap {
           created_at TIMESTAMP DEFAULT NOW()
         );
 
-        UPDATE businesses 
-        SET referral_code = 'OF-' || UPPER(SUBSTRING(MD5(id::text || NOW()::text) FROM 1 FOR 6))
-        WHERE referral_code IS NULL;
+        ALTER TABLE business_subscriptions ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+        ALTER TABLE business_subscriptions ALTER COLUMN business_id DROP NOT NULL;
+
+        UPDATE business_subscriptions bs
+        SET user_id = u.id
+        FROM users u
+        WHERE bs.user_id IS NULL
+          AND u.business_id = bs.business_id
+          AND u.role IN ('admin', 'super_admin');
+
+        UPDATE business_subscriptions bs
+        SET user_id = (SELECT id FROM users WHERE business_id = bs.business_id LIMIT 1)
+        WHERE bs.user_id IS NULL;
       `);
 
       // Seed Subscription Plans if empty
@@ -194,15 +204,15 @@ export class AppModule implements OnApplicationBootstrap {
         console.log('✅ Seeded default subscription plans (starter, pro, enterprise).');
       }
 
-      // Auto-provision 30-day Free Trial for businesses without a subscription record
+      // Auto-provision 30-day Free Trial for Users without a subscription record
       const proPlan = await this.dataSource.query(`SELECT id FROM subscription_plans WHERE code = 'pro'`);
       const proPlanId = proPlan[0]?.id;
       if (proPlanId) {
         await this.dataSource.query(`
-          INSERT INTO business_subscriptions (id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
-          SELECT gen_random_uuid(), id, '${proPlanId}', 'trialing', NOW(), NOW() + INTERVAL '30 days'
-          FROM businesses
-          WHERE id NOT IN (SELECT business_id FROM business_subscriptions)
+          INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
+          SELECT gen_random_uuid(), u.id, u.business_id, '${proPlanId}', 'trialing', NOW(), NOW() + INTERVAL '30 days'
+          FROM users u
+          WHERE u.id NOT IN (SELECT user_id FROM business_subscriptions WHERE user_id IS NOT NULL)
         `);
       }
 

@@ -34,7 +34,7 @@ export class SubscriptionPaywallGuard implements CanActivate {
       return true; // Unauthenticated or non-tenant route, let JwtAuthGuard handle it
     }
 
-    const status = await this.subscriptionsService.getBusinessSubscriptionStatus(businessId);
+    const status = await this.subscriptionsService.getUserSubscriptionStatus(user?.id || user?.userId, businessId);
 
     // 1. Check if trial/subscription is expired
     if (status.status === 'expired' || status.status === 'past_due' || status.status === 'canceled') {

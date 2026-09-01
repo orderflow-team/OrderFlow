@@ -9,12 +9,13 @@ describe('SubscriptionPaywallGuard', () => {
 
   beforeEach(() => {
     service = {
+      getUserSubscriptionStatus: jest.fn(),
       getBusinessSubscriptionStatus: jest.fn(),
     } as any;
     guard = new SubscriptionPaywallGuard(service);
   });
 
-  function createMockContext(method: string, path: string, user: any = { business_id: 'biz-1', role: UserRole.ADMIN }): ExecutionContext {
+  function createMockContext(method: string, path: string, user: any = { id: 'usr-1', business_id: 'biz-1', role: UserRole.ADMIN }): ExecutionContext {
     return {
       switchToHttp: () => ({
         getRequest: () => ({
@@ -31,25 +32,25 @@ describe('SubscriptionPaywallGuard', () => {
     const ctx = createMockContext('GET', '/api/orders');
     const result = await guard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(service.getBusinessSubscriptionStatus).not.toHaveBeenCalled();
+    expect(service.getUserSubscriptionStatus).not.toHaveBeenCalled();
   });
 
   it('bypasses checks for platform-admin routes', async () => {
-    const ctx = createMockContext('POST', '/api/platform-admin/stores/123/subscription', { business_id: 'biz-1', role: UserRole.SUPER_ADMIN });
+    const ctx = createMockContext('POST', '/api/platform-admin/stores/123/subscription', { id: 'usr-admin', business_id: 'biz-1', role: UserRole.SUPER_ADMIN });
     const result = await guard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(service.getBusinessSubscriptionStatus).not.toHaveBeenCalled();
+    expect(service.getUserSubscriptionStatus).not.toHaveBeenCalled();
   });
 
   it('bypasses checks for exempt path routes like auth and subscriptions', async () => {
     const ctx = createMockContext('POST', '/api/subscriptions/simulate-upgrade');
     const result = await guard.canActivate(ctx);
     expect(result).toBe(true);
-    expect(service.getBusinessSubscriptionStatus).not.toHaveBeenCalled();
+    expect(service.getUserSubscriptionStatus).not.toHaveBeenCalled();
   });
 
   it('allows write requests when subscription is active', async () => {
-    (service.getBusinessSubscriptionStatus as any).mockResolvedValue({
+    (service.getUserSubscriptionStatus as any).mockResolvedValue({
       status: 'active',
       planCode: 'pro',
       quotas: { ordersUsedThisMonth: 10, maxOrdersPerMonth: -1 },
@@ -60,7 +61,7 @@ describe('SubscriptionPaywallGuard', () => {
   });
 
   it('throws HTTP 402 when subscription status is expired', async () => {
-    (service.getBusinessSubscriptionStatus as any).mockResolvedValue({
+    (service.getUserSubscriptionStatus as any).mockResolvedValue({
       status: 'expired',
       planCode: 'pro',
       quotas: { ordersUsedThisMonth: 10, maxOrdersPerMonth: -1 },
@@ -76,7 +77,7 @@ describe('SubscriptionPaywallGuard', () => {
   });
 
   it('throws HTTP 402 ORDER_QUOTA_EXCEEDED when monthly order limit is reached on Starter plan', async () => {
-    (service.getBusinessSubscriptionStatus as any).mockResolvedValue({
+    (service.getUserSubscriptionStatus as any).mockResolvedValue({
       status: 'active',
       planCode: 'starter',
       quotas: { ordersUsedThisMonth: 500, maxOrdersPerMonth: 500 },
@@ -91,7 +92,7 @@ describe('SubscriptionPaywallGuard', () => {
   });
 
   it('throws HTTP 402 FEATURE_LOCKED when Starter plan user tries to mutate Pro-only modules', async () => {
-    (service.getBusinessSubscriptionStatus as any).mockResolvedValue({
+    (service.getUserSubscriptionStatus as any).mockResolvedValue({
       status: 'active',
       planCode: 'starter',
       quotas: { ordersUsedThisMonth: 10, maxOrdersPerMonth: 500 },

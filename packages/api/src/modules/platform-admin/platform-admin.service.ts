@@ -195,18 +195,32 @@ export class PlatformAdminService {
 
     const [users, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
+    const userData = await Promise.all(
+      users.map(async (u) => {
+        const sub = await this.subscriptionsService.getUserSubscriptionStatus(u.id, u.business_id || undefined);
+        return {
+          id: u.id,
+          full_name: u.full_name,
+          email: u.email,
+          role: u.role,
+          is_active: u.is_active,
+          business_id: u.business_id,
+          business_name: u.business?.name || 'N/A',
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+          subscription: {
+            status: sub.status,
+            plan_code: sub.planCode,
+            plan_name: sub.planName,
+            trial_ends_at: sub.trialEndsAt,
+            trial_days_left: sub.trialDaysLeft,
+          },
+        };
+      })
+    );
+
     return {
-      data: users.map((u) => ({
-        id: u.id,
-        full_name: u.full_name,
-        email: u.email,
-        role: u.role,
-        is_active: u.is_active,
-        business_id: u.business_id,
-        business_name: u.business?.name || 'N/A',
-        created_at: u.created_at,
-        updated_at: u.updated_at,
-      })),
+      data: userData,
       meta: {
         total,
         page,
@@ -519,14 +533,23 @@ export class PlatformAdminService {
       planId = planRes[0].id;
     }
 
-    const subRes = await this.dataSource.query(`SELECT id FROM business_subscriptions WHERE business_id = $1`, [storeId]);
+    const ownerRes = await this.dataSource.query(
+      `SELECT id FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
+      [storeId]
+    );
+    const ownerUserId = ownerRes[0]?.id;
+
+    const subRes = await this.dataSource.query(
+      `SELECT id FROM business_subscriptions WHERE user_id = $1 OR business_id = $2`,
+      [ownerUserId || null, storeId]
+    );
 
     if (subRes.length === 0) {
       const days = dto.extend_days || 30;
       await this.dataSource.query(
-        `INSERT INTO business_subscriptions (id, business_id, plan_id, status, billing_cycle, trial_starts_at, trial_ends_at, current_period_start, current_period_end)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, NOW(), NOW() + INTERVAL '${days} days', NOW(), NOW() + INTERVAL '${days} days')`,
-        [storeId, planId, dto.status || 'active', dto.billing_cycle || 'monthly']
+        `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, trial_starts_at, trial_ends_at, current_period_start, current_period_end)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '${days} days', NOW(), NOW() + INTERVAL '${days} days')`,
+        [ownerUserId || null, storeId, planId, dto.status || 'active', dto.billing_cycle || 'monthly']
       );
     } else {
       const updateFields: string[] = [];
@@ -558,10 +581,11 @@ export class PlatformAdminService {
       }
 
       updateFields.push(`updated_at = NOW()`);
+      values.push(ownerUserId || null);
       values.push(storeId);
 
       await this.dataSource.query(
-        `UPDATE business_subscriptions SET ${updateFields.join(', ')} WHERE business_id = $${idx}`,
+        `UPDATE business_subscriptions SET ${updateFields.join(', ')} WHERE (user_id IS NOT NULL AND user_id = $${idx}) OR business_id = $${idx + 1}`,
         values
       );
     }

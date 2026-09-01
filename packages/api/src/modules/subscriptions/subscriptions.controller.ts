@@ -14,11 +14,9 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard)
   @Get('current')
   async getCurrentSubscription(@Req() req: any) {
+    const userId = req.user?.id || req.user?.userId;
     const businessId = req.user?.business_id;
-    if (!businessId) {
-      throw new BadRequestException('User does not belong to a business');
-    }
-    return this.subscriptionsService.getBusinessSubscriptionStatus(businessId);
+    return this.subscriptionsService.getUserSubscriptionStatus(userId, businessId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -27,15 +25,12 @@ export class SubscriptionsController {
     @Req() req: any,
     @Body() body: { planCode: string; billingCycle?: 'monthly' | 'yearly' }
   ) {
-    const businessId = req.user?.business_id;
-    if (!businessId) {
-      throw new BadRequestException('User does not belong to a business');
-    }
+    const userId = req.user?.id || req.user?.userId;
     if (!body.planCode) {
       throw new BadRequestException('planCode is required');
     }
     return this.subscriptionsService.simulateLocalPaymentUpgrade(
-      businessId,
+      userId,
       body.planCode,
       body.billingCycle || 'monthly'
     );

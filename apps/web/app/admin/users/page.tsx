@@ -22,6 +22,7 @@ import {
   Save,
   Lock,
   Crown,
+  Sparkles,
   CircleDot,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
@@ -36,6 +37,13 @@ interface UserData {
   business_name: string;
   created_at: string;
   updated_at: string;
+  subscription?: {
+    status: string;
+    plan_code: string;
+    plan_name: string;
+    trial_ends_at: string | null;
+    trial_days_left: number;
+  };
 }
 
 interface UserStoreItem {
@@ -348,6 +356,7 @@ export default function AdminUsersPage() {
                 <th className="px-6 py-4">User Details</th>
                 <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">Assigned Store</th>
+                <th className="px-6 py-4">User Subscription</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Joined Date</th>
                 <th className="px-6 py-4 text-right">Control</th>
@@ -356,14 +365,14 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     Loading user records...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                     No user accounts found matching criteria.
                   </td>
                 </tr>
@@ -400,6 +409,33 @@ export default function AdminUsersPage() {
                           <Store className="w-3.5 h-3.5 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400" />
                           <span className="underline decoration-dotted underline-offset-2">{user.business_name || 'Unassigned'}</span>
                         </button>
+                      )}
+                    </td>
+
+                    <td className="px-6 py-4">
+                      {user.subscription ? (
+                        <div className="flex flex-col gap-0.5">
+                          {user.subscription.status === 'trialing' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30">
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              Free Trial ({user.subscription.trial_days_left}d left)
+                            </span>
+                          )}
+                          {user.subscription.status === 'active' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              Active ({user.subscription.plan_name || user.subscription.plan_code})
+                            </span>
+                          )}
+                          {(user.subscription.status === 'expired' || user.subscription.status === 'past_due') && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                              <XCircle className="w-3 h-3 text-rose-600" />
+                              Expired (0d left)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
                       )}
                     </td>
 

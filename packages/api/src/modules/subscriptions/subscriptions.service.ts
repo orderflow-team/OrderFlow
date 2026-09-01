@@ -32,20 +32,63 @@ export class SubscriptionsService {
     );
   }
 
-  async getBusinessSubscriptionStatus(businessId: string): Promise<SubscriptionStatusResponse> {
-    const rows = await this.dataSource.query(
-      `SELECT bs.id, bs.status, bs.billing_cycle, bs.trial_starts_at, bs.trial_ends_at, bs.current_period_start, bs.current_period_end,
-              sp.code as plan_code, sp.name as plan_name, sp.max_staff_users, sp.max_devices, sp.max_orders_per_month, sp.max_ai_scans_per_month, sp.features
-       FROM business_subscriptions bs
-       LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
-       WHERE bs.business_id = $1`,
-      [businessId]
-    );
+  async getUserSubscriptionStatus(userId: string, businessId?: string): Promise<SubscriptionStatusResponse> {
+    let targetUserId = userId;
+    let effectiveBizId = businessId;
+
+    // Look up user details if userId provided
+    if (userId) {
+      const userRes = await this.dataSource.query(`SELECT id, business_id, role FROM users WHERE id = $1`, [userId]);
+      const user = userRes[0];
+      if (user) {
+        if (!effectiveBizId && user.business_id) {
+          effectiveBizId = user.business_id;
+        }
+        // If staff member, resolve subscription of store owner (admin)
+        if (user.role !== 'admin' && user.role !== 'super_admin' && effectiveBizId) {
+          const ownerRes = await this.dataSource.query(
+            `SELECT id FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
+            [effectiveBizId]
+          );
+          if (ownerRes[0]) {
+            targetUserId = ownerRes[0].id;
+          }
+        }
+      }
+    }
+
+    // Lookup user subscription
+    let rows = [];
+    if (targetUserId) {
+      rows = await this.dataSource.query(
+        `SELECT bs.id, bs.user_id, bs.business_id, bs.status, bs.billing_cycle, bs.trial_starts_at, bs.trial_ends_at, bs.current_period_start, bs.current_period_end,
+                sp.code as plan_code, sp.name as plan_name, sp.max_staff_users, sp.max_devices, sp.max_orders_per_month, sp.max_ai_scans_per_month, sp.features
+         FROM business_subscriptions bs
+         LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
+         WHERE bs.user_id = $1`,
+        [targetUserId]
+      );
+    }
+
+    // Fallback: lookup by business_id if not found by user_id
+    if (rows.length === 0 && effectiveBizId) {
+      rows = await this.dataSource.query(
+        `SELECT bs.id, bs.user_id, bs.business_id, bs.status, bs.billing_cycle, bs.trial_starts_at, bs.trial_ends_at, bs.current_period_start, bs.current_period_end,
+                sp.code as plan_code, sp.name as plan_name, sp.max_staff_users, sp.max_devices, sp.max_orders_per_month, sp.max_ai_scans_per_month, sp.features
+         FROM business_subscriptions bs
+         LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
+         WHERE bs.business_id = $1`,
+        [effectiveBizId]
+      );
+      if (rows[0] && targetUserId && !rows[0].user_id) {
+        await this.dataSource.query(`UPDATE business_subscriptions SET user_id = $1 WHERE id = $2`, [targetUserId, rows[0].id]);
+      }
+    }
 
     let sub = rows[0];
 
-    // Auto-provision 30-day trial if no subscription record exists yet
-    if (!sub) {
+    // Auto-provision 30-day Free Trial for User if no subscription record exists yet
+    if (!sub && targetUserId) {
       const defaultPlan = await this.dataSource.query(
         `SELECT id, code, name, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features
          FROM subscription_plans WHERE code = 'pro' LIMIT 1`
@@ -53,9 +96,9 @@ export class SubscriptionsService {
       const plan = defaultPlan[0];
       if (plan) {
         await this.dataSource.query(
-          `INSERT INTO business_subscriptions (id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
-           VALUES (gen_random_uuid(), $1, $2, 'trialing', NOW(), NOW() + INTERVAL '30 days')`,
-          [businessId, plan.id]
+          `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
+           VALUES (gen_random_uuid(), $1, $2, 'pro', 'trialing', NOW(), NOW() + INTERVAL '30 days')`,
+          [targetUserId, effectiveBizId || null]
         );
         sub = {
           status: 'trialing',
@@ -86,27 +129,30 @@ export class SubscriptionsService {
       effectiveStatus = 'expired';
     }
 
-    // Count monthly orders
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const orderCountRes = await this.dataSource.query(
-      `SELECT COUNT(*)::int as count FROM orders WHERE business_id = $1 AND created_at >= $2`,
-      [businessId, startOfMonth]
-    );
-    const ordersUsedThisMonth = orderCountRes[0]?.count || 0;
+    // Count monthly orders for effective business
+    let ordersUsedThisMonth = 0;
+    let aiScansUsedThisMonth = 0;
+    let staffUsersCount = 0;
+    if (effectiveBizId) {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const orderCountRes = await this.dataSource.query(
+        `SELECT COUNT(*)::int as count FROM orders WHERE business_id = $1 AND created_at >= $2`,
+        [effectiveBizId, startOfMonth]
+      );
+      ordersUsedThisMonth = orderCountRes[0]?.count || 0;
 
-    // Count monthly AI scans
-    const scanCountRes = await this.dataSource.query(
-      `SELECT COUNT(*)::int as count FROM invoice_scans WHERE business_id = $1 AND created_at >= $2`,
-      [businessId, startOfMonth]
-    );
-    const aiScansUsedThisMonth = scanCountRes[0]?.count || 0;
+      const scanCountRes = await this.dataSource.query(
+        `SELECT COUNT(*)::int as count FROM invoice_scans WHERE business_id = $1 AND created_at >= $2`,
+        [effectiveBizId, startOfMonth]
+      );
+      aiScansUsedThisMonth = scanCountRes[0]?.count || 0;
 
-    // Count staff users
-    const staffCountRes = await this.dataSource.query(
-      `SELECT COUNT(*)::int as count FROM users WHERE business_id = $1 AND is_active = true`,
-      [businessId]
-    );
-    const staffUsersCount = staffCountRes[0]?.count || 0;
+      const staffCountRes = await this.dataSource.query(
+        `SELECT COUNT(*)::int as count FROM users WHERE business_id = $1 AND is_active = true`,
+        [effectiveBizId]
+      );
+      staffUsersCount = staffCountRes[0]?.count || 0;
+    }
 
     return {
       status: effectiveStatus,
@@ -127,7 +173,16 @@ export class SubscriptionsService {
     };
   }
 
-  async simulateLocalPaymentUpgrade(businessId: string, planCode: string, cycle: 'monthly' | 'yearly' = 'monthly') {
+  async getBusinessSubscriptionStatus(businessId: string): Promise<SubscriptionStatusResponse> {
+    const ownerRes = await this.dataSource.query(
+      `SELECT id FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
+      [businessId]
+    );
+    const ownerUserId = ownerRes[0]?.id;
+    return this.getUserSubscriptionStatus(ownerUserId || '', businessId);
+  }
+
+  async simulateLocalPaymentUpgrade(businessIdOrUserId: string, planCode: string, cycle: 'monthly' | 'yearly' = 'monthly') {
     const plan = await this.dataSource.query(`SELECT id, code, name, price_monthly_inr, price_yearly_inr FROM subscription_plans WHERE code = $1`, [planCode]);
     if (!plan || plan.length === 0) {
       throw new NotFoundException(`Plan ${planCode} not found`);
@@ -140,19 +195,48 @@ export class SubscriptionsService {
     const currentPeriodStart = new Date();
     const currentPeriodEnd = new Date(Date.now() + durationDays * 86400 * 1000);
 
-    // Update business subscription status to active
-    await this.dataSource.query(
-      `INSERT INTO business_subscriptions (id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
-       VALUES (gen_random_uuid(), $1, $2, 'active', $3, $4, $5, 'local_simulated')
-       ON CONFLICT (business_id) DO UPDATE SET
-         plan_id = EXCLUDED.plan_id,
-         status = 'active',
-         billing_cycle = EXCLUDED.billing_cycle,
-         current_period_start = EXCLUDED.current_period_start,
-         current_period_end = EXCLUDED.current_period_end,
-         updated_at = NOW()`,
-      [businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd]
-    );
+    // Resolve user_id and business_id
+    let userId: string | null = null;
+    let businessId: string | null = null;
+
+    const userRes = await this.dataSource.query(`SELECT id, business_id FROM users WHERE id = $1`, [businessIdOrUserId]);
+    if (userRes[0]) {
+      userId = userRes[0].id;
+      businessId = userRes[0].business_id || null;
+    } else {
+      businessId = businessIdOrUserId;
+      const ownerRes = await this.dataSource.query(`SELECT id FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') LIMIT 1`, [businessId]);
+      userId = ownerRes[0]?.id || null;
+    }
+
+    // Update subscription by user_id or business_id
+    if (userId) {
+      await this.dataSource.query(
+        `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
+         VALUES (gen_random_uuid(), $1, $2, $3, 'active', $4, $5, $6, 'local_simulated')
+         ON CONFLICT (user_id) DO UPDATE SET
+           plan_id = EXCLUDED.plan_id,
+           status = 'active',
+           billing_cycle = EXCLUDED.billing_cycle,
+           current_period_start = EXCLUDED.current_period_start,
+           current_period_end = EXCLUDED.current_period_end,
+           updated_at = NOW()`,
+        [userId, businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd]
+      );
+    } else if (businessId) {
+      await this.dataSource.query(
+        `INSERT INTO business_subscriptions (id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
+         VALUES (gen_random_uuid(), $1, $2, 'active', $3, $4, $5, 'local_simulated')
+         ON CONFLICT (business_id) DO UPDATE SET
+           plan_id = EXCLUDED.plan_id,
+           status = 'active',
+           billing_cycle = EXCLUDED.billing_cycle,
+           current_period_start = EXCLUDED.current_period_start,
+           current_period_end = EXCLUDED.current_period_end,
+           updated_at = NOW()`,
+        [businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd]
+      );
+    }
 
     // Log payment audit entry
     await this.dataSource.query(
