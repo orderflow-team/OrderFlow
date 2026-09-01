@@ -5,7 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { Link2, Check, X, Loader2, RefreshCw } from 'lucide-react';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureModal } from '@/components/locked-feature-badge';
+import { Link2, Check, X, Loader2, RefreshCw, Lock } from 'lucide-react';
 
 interface ConnectionSummary {
   id: string;
@@ -37,6 +39,8 @@ const ROLE_COPY: Record<'retailer' | 'wholesaler', { verb: string; counterpart: 
  * business-connections module on the API).
  */
 export function BusinessConnectionsPanel({ businessId, role }: { businessId: string; role: 'retailer' | 'wholesaler' }) {
+  const { isStarter } = useSubscription();
+  const [showB2bLockedModal, setShowB2bLockedModal] = useState(false);
   const [data, setData] = useState<ConnectionsResponse | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [phone, setPhone] = useState('');
@@ -119,8 +123,25 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
             <Link2 className="w-4 h-4 text-sky-600" /> OBIX Business Network
           </p>
           {!showForm && (
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowForm(true)} className="h-8 text-xs font-semibold">
-              {copy.verb}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (isStarter) {
+                  setShowB2bLockedModal(true);
+                } else {
+                  setShowForm(true);
+                }
+              }}
+              className="h-8 text-xs font-semibold gap-1"
+            >
+              <span>{copy.verb}</span>
+              {isStarter && (
+                <span className="bg-amber-100 text-amber-900 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
+                  <Lock className="w-2.5 h-2.5" /> PRO
+                </span>
+              )}
             </Button>
           )}
         </div>
@@ -220,6 +241,14 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
           <p className="text-xs text-slate-400">Not connected to any {copy.counterpart}s yet.</p>
         )}
       </CardContent>
+
+      <LockedFeatureModal
+        isOpen={showB2bLockedModal}
+        onClose={() => setShowB2bLockedModal(false)}
+        featureName="OBIX B2B Wholesale Network Sync"
+        requiredPlan="Pro"
+        description="OBIX Business Network Sync is available exclusively on the Pro Plan (₹399/mo). Upgrade today to link with your suppliers/retailers and sync purchase orders automatically."
+      />
     </Card>
   );
 }

@@ -8,6 +8,8 @@ import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureBadge, LockedFeatureModal } from '@/components/locked-feature-badge';
 import {
   Plus,
   X,
@@ -24,6 +26,7 @@ import {
   AlertCircle,
   DollarSign,
   Calendar,
+  Lock,
 } from 'lucide-react';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -67,6 +70,8 @@ interface CommissionSummary {
 
 export default function StaffPage() {
   const { businessId, ready } = useBusiness();
+  const { isStarter } = useSubscription();
+  const [showStaffLockedModal, setShowStaffLockedModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'roster' | 'attendance' | 'commissions'>('roster');
 
   // Business Modules Check (For Custom/Stepwise Attendance & Commission Mode)
@@ -284,13 +289,35 @@ export default function StaffPage() {
           description="Manage team logins, shift attendance, and sales commissions."
           action={
             activeTab === 'roster' ? (
-              <Button onClick={() => setShowForm((s) => !s)} className="gap-1.5">
+              <Button
+                onClick={() => {
+                  if (isStarter && staff.length >= 2) {
+                    setShowStaffLockedModal(true);
+                  } else {
+                    setShowForm((s) => !s);
+                  }
+                }}
+                className="gap-1.5"
+              >
                 {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                {showForm ? 'Cancel' : 'Add Staff'}
+                <span>{showForm ? 'Cancel' : 'Add Staff'}</span>
+                {isStarter && staff.length >= 2 && (
+                  <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
+                    <Lock className="w-2.5 h-2.5" /> PRO
+                  </span>
+                )}
               </Button>
             ) : null
           }
         />
+
+        {isStarter && staff.length >= 2 && (
+          <LockedFeatureBadge
+            featureName="Additional Staff Accounts"
+            requiredPlan="Pro"
+            description="The Starter Plan supports up to 2 staff accounts (currently reached). Upgrade to Pro Plan (₹399/mo) to add up to 10 staff members with role-based permissions!"
+          />
+        )}
 
         {/* Tab Switcher (Attendance & Commissions only visible if enabled in Custom/Stepwise options) */}
         {(hasAttendanceModule || hasCommissionsModule) && (
@@ -617,6 +644,14 @@ export default function StaffPage() {
           </div>
         )}
       </div>
+
+      <LockedFeatureModal
+        isOpen={showStaffLockedModal}
+        onClose={() => setShowStaffLockedModal(false)}
+        featureName="Additional Staff Accounts"
+        requiredPlan="Pro"
+        description="Starter Plan includes up to 2 staff accounts. Upgrade to Pro Plan (₹399/mo) to add up to 10 staff members across all your store devices!"
+      />
     </AppShell>
   );
 }

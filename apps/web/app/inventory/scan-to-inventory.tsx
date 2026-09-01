@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
-import { ScanLine, UploadCloud, FileText, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureModal } from '@/components/locked-feature-badge';
+import { ScanLine, UploadCloud, FileText, CheckCircle2, AlertTriangle, X, Lock } from 'lucide-react';
 
 interface Supplier {
   id: string;
@@ -54,6 +56,10 @@ export function ScanToInventoryDialog({
   suppliers: Supplier[];
   onConfirmed: () => void;
 }) {
+  const { sub, isStarter } = useSubscription();
+  const [showScanLockedModal, setShowScanLockedModal] = useState(false);
+  const isScanQuotaExceeded = isStarter && (sub?.quotas?.aiScansUsedThisMonth ?? 0) >= 15;
+
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('upload');
   const [dragOver, setDragOver] = useState(false);
@@ -83,6 +89,10 @@ export function ScanToInventoryDialog({
 
   const handleFiles = async (files: File[]) => {
     if (files.length === 0) return;
+    if (isScanQuotaExceeded) {
+      setShowScanLockedModal(true);
+      return;
+    }
     setError('');
     setStep('processing');
     const formData = new FormData();
@@ -391,6 +401,14 @@ export function ScanToInventoryDialog({
           )}
         </DialogContent>
       </Dialog>
+
+      <LockedFeatureModal
+        isOpen={showScanLockedModal}
+        onClose={() => setShowScanLockedModal(false)}
+        featureName="AI Invoice Scanning Quota Limit"
+        requiredPlan="Pro"
+        description="Your Starter Plan includes 15 AI Invoice Scans/month (limit reached for this month). Upgrade to Pro Plan (₹399/mo) to scan up to 100 wholesale bill invoices per month!"
+      />
     </>
   );
 }

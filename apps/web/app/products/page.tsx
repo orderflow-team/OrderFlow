@@ -20,6 +20,9 @@ import { MenuGrid } from './menu-grid';
 import { PharmacyGrid } from './pharmacy-grid';
 import { WholesaleGrid } from './wholesale-grid';
 import { BulkUploadDialog, type BulkField } from './bulk-upload-dialog';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureModal } from '@/components/locked-feature-badge';
+import { Lock } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -81,6 +84,8 @@ function ProductsPageContent() {
   const isSeedingCategories = useRef(false);
 
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showBulkLockedModal, setShowBulkLockedModal] = useState(false);
+  const { isStarter } = useSubscription();
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
@@ -418,10 +423,22 @@ function ProductsPageContent() {
             <Button
               type="button"
               variant="outline"
-              className="gap-1.5"
-              onClick={() => setShowBulkUpload(true)}
+              className="gap-1.5 relative"
+              onClick={() => {
+                if (isStarter) {
+                  setShowBulkLockedModal(true);
+                } else {
+                  setShowBulkUpload(true);
+                }
+              }}
             >
-              <Upload className="w-4 h-4" /> Bulk Upload
+              <Upload className="w-4 h-4" />
+              <span>Bulk Upload</span>
+              {isStarter && (
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
+                  <Lock className="w-2.5 h-2.5" /> PRO
+                </span>
+              )}
             </Button>
             <Button onClick={openCreateForm} className="gap-1.5 bg-tile-lavender-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add {entityName}
@@ -768,6 +785,13 @@ function ProductsPageContent() {
         )}
       </div>
 
+      <LockedFeatureModal
+        isOpen={showBulkLockedModal}
+        onClose={() => setShowBulkLockedModal(false)}
+        featureName="Bulk Excel Product Upload"
+        requiredPlan="Pro"
+        description="Bulk Excel import is available exclusively on the Pro Plan (₹399/mo). Upgrade today to import thousands of products instantly with automated column mapping."
+      />
     </AppShell>
   );
 }

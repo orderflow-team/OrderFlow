@@ -10,6 +10,8 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser, hasRole } from '@/lib/auth';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureBadge } from '@/components/locked-feature-badge';
 import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt, Download, Share2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
@@ -39,6 +41,7 @@ interface Visit {
 
 export default function SalesmanPage() {
   const { businessId, ready } = useBusiness();
+  const { isStarter } = useSubscription();
   const isSalesmanRole = hasRole('salesman');
   const myUserId = getCurrentUser()?.id;
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
@@ -370,6 +373,14 @@ export default function SalesmanPage() {
             )
           }
         />
+
+        {isStarter && (
+          <LockedFeatureBadge
+            featureName="Salesman Field GPS Tracking & Routes"
+            requiredPlan="Pro"
+            description="Salesman GPS route tracking & live customer visit logging is a Pro Plan feature. Upgrade to Pro Plan (₹399/mo) to track field orders, salesman GPS check-ins, and daily shop visits."
+          />
+        )}
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 

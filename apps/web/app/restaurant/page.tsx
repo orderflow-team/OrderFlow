@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useBusiness } from '@/lib/use-business';
+import { useSubscription } from '@/lib/use-subscription';
+import { LockedFeatureBadge } from '@/components/locked-feature-badge';
 import { hasRole } from '@/lib/auth';
 import apiClient from '@/lib/api-client';
 import { ChefHat, Play, CheckCircle2, Check, UtensilsCrossed, KeyRound, Plus, X, Eye, EyeOff, Pencil } from 'lucide-react';
@@ -47,6 +49,7 @@ interface KOT {
 
 export default function KitchenDisplayPage() {
   const { businessId, ready } = useBusiness();
+  const { isStarter } = useSubscription();
   const isCookRole = hasRole('kitchen_staff');
   // Kitchen-staff management is admin/manager only on the backend (@Roles guard on
   // /api/restaurant/kitchen-staff) — any other non-cook role (waiter, cashier, etc.)
@@ -206,6 +209,14 @@ export default function KitchenDisplayPage() {
             </div>
           }
         />
+
+        {isStarter && (
+          <LockedFeatureBadge
+            featureName="Kitchen KOT & Live Table Layout"
+            requiredPlan="Pro"
+            description="Kitchen KOT printing & Live Table Management is a Pro Plan feature. Upgrade to Pro Plan (₹399/mo) to unlock real-time kitchen displays, waiter order tickets, and table billing."
+          />
+        )}
 
         {canManageKitchenStaff && (
           <Card className="ring-white/50 glass-sheen-sm mt-6 shrink-0">
