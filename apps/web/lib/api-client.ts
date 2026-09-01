@@ -120,6 +120,12 @@ apiClient.interceptors.response.use(
       }
     }
 
+    if (error.response?.status === 402) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orderflow-paywall-required', { detail: error.response?.data }));
+      }
+    }
+
     // A session already stuck with a stale cached businessId (see
     // refreshAccessToken above for how that happens) hits this on every
     // business-scoped request until something re-syncs it. One-shot recovery:

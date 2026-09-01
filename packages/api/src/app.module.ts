@@ -30,6 +30,7 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
 import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-paywall.guard';
 import { InvoiceScanService } from './modules/invoice-scan/invoice-scan.service';
 
 @Module({
@@ -66,7 +67,10 @@ import { InvoiceScanService } from './modules/invoice-scan/invoice-scan.service'
     SubscriptionsModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: SubscriptionPaywallGuard },
+  ],
 })
 export class AppModule implements OnApplicationBootstrap {
   constructor(

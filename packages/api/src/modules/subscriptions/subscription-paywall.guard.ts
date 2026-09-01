@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @Injectable()
 export class SubscriptionPaywallGuard implements CanActivate {
@@ -14,19 +15,25 @@ export class SubscriptionPaywallGuard implements CanActivate {
       return true;
     }
 
-    // Allow auth, subscriptions, and platform-admin endpoints
+    const user = req.user;
+    if (user?.role === UserRole.SUPER_ADMIN) {
+      return true;
+    }
+
+    // Allow auth, subscriptions, platform-admin, and app update endpoints
     const path = req.path || req.url || '';
     if (
-      path.includes('/api/auth') ||
-      path.includes('/api/subscriptions') ||
-      path.includes('/api/platform-admin') ||
-      path.includes('/api/app-updates') ||
-      path.includes('/api/app-apk-releases')
+      path.includes('/auth') ||
+      path.includes('/subscriptions') ||
+      path.includes('/platform-admin') ||
+      path.includes('/app-updates') ||
+      path.includes('/app-apk-releases') ||
+      path.includes('/dev')
     ) {
       return true;
     }
 
-    const businessId = req.user?.business_id;
+    const businessId = user?.business_id;
     if (!businessId) {
       return true; // Unauthenticated or non-tenant route, let JwtAuthGuard handle it
     }
