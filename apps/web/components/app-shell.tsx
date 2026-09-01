@@ -787,25 +787,21 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             );
           })}
         </nav>
-        <div className="mx-3 my-2 p-3 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-md border border-indigo-500/30">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0 border border-amber-400/30">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-extrabold text-white truncate">{sub?.status === 'active' ? sub.planName : 'Free Trial'}</p>
-              <p className="text-[10px] text-indigo-200 font-medium">
-                {sub?.status === 'active' ? 'Active User Plan' : sub?.status === 'expired' ? 'Expired (0d left)' : `${sub?.trialDaysLeft ?? 30} Days Left`}
-              </p>
-            </div>
-            <Link
-              href="/settings/subscription"
-              className="text-[10px] font-bold bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-1 rounded-lg border border-amber-400/30 transition shrink-0"
-            >
-              Upgrade
-            </Link>
+        <Link
+          href="/settings/subscription"
+          className="mx-3 my-2 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-md border border-indigo-500/30 flex items-center justify-between gap-2 hover:border-indigo-400/60 transition active:scale-[0.99] group"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
+            <span className="text-xs font-extrabold text-white truncate">
+              {sub?.status === 'active' ? sub.planName : 'Free Trial'}
+            </span>
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30 shrink-0">
+              {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`}
+            </span>
           </div>
-        </div>
+          <ChevronDown className="w-3.5 h-3.5 text-indigo-300 -rotate-90 group-hover:translate-x-0.5 transition-transform shrink-0" />
+        </Link>
         <button
           onClick={logout}
           className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-rose-500/10 hover:text-rose-600 text-left transition-colors"
