@@ -615,13 +615,6 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       </>
                     )}
                   </p>
-                  <div className="mt-1 flex items-center gap-1">
-                    <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-900 font-extrabold px-2 py-0.5 rounded-full text-[10px] border border-amber-500/30">
-                      <Crown className="w-3 h-3 text-amber-600 fill-amber-600" />
-                      <span>{sub?.planName || 'Pro Plan'}</span>
-                      <span className="text-amber-800 font-bold">&middot; {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? '0d left' : `${sub?.trialDaysLeft ?? 30}d left`}</span>
-                    </span>
-                  </div>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${businessMenuOpen ? 'rotate-180' : ''}`}
@@ -793,6 +786,25 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             );
           })}
         </nav>
+        <div className="mx-3 my-2 p-3 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-md border border-indigo-500/30">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0 border border-amber-400/30">
+              <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-extrabold text-white truncate">{sub?.planName || 'Pro Plan'}</p>
+              <p className="text-[10px] text-indigo-200 font-medium">
+                {sub?.status === 'active' ? 'Active User Plan' : sub?.status === 'expired' ? 'Expired (0d left)' : `${sub?.trialDaysLeft ?? 30} Days Left`}
+              </p>
+            </div>
+            <Link
+              href="/settings/subscription"
+              className="text-[10px] font-bold bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 px-2 py-1 rounded-lg border border-amber-400/30 transition shrink-0"
+            >
+              Upgrade
+            </Link>
+          </div>
+        </div>
         <button
           onClick={logout}
           className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-rose-500/10 hover:text-rose-600 text-left transition-colors"
