@@ -522,8 +522,9 @@ export class PlatformAdminService {
       [userId]
     );
 
+    const days = dto.extend_days && dto.extend_days > 0 ? Number(dto.extend_days) : 30;
+
     if (subRes.length === 0) {
-      const days = dto.extend_days || 30;
       await this.dataSource.query(
         `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, trial_starts_at, trial_ends_at, current_period_start, current_period_end)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '${days} days', NOW(), NOW() + INTERVAL '${days} days')`,
@@ -532,37 +533,37 @@ export class PlatformAdminService {
     } else {
       const updateFields: string[] = [];
       const values: any[] = [];
-      let idx = 1;
 
       if (planId) {
-        updateFields.push(`plan_id = $${idx++}`);
         values.push(planId);
+        updateFields.push(`plan_id = $${values.length}`);
       }
       if (dto.status) {
-        updateFields.push(`status = $${idx++}`);
         values.push(dto.status);
+        updateFields.push(`status = $${values.length}`);
         if (dto.status === 'expired' || dto.status === 'past_due' || dto.status === 'canceled') {
           updateFields.push(`trial_ends_at = NOW() - INTERVAL '1 day'`);
           updateFields.push(`current_period_end = NOW() - INTERVAL '1 day'`);
         }
       }
       if (dto.billing_cycle) {
-        updateFields.push(`billing_cycle = $${idx++}`);
         values.push(dto.billing_cycle);
+        updateFields.push(`billing_cycle = $${values.length}`);
       }
       if (dto.extend_days && dto.extend_days > 0) {
         if (dto.status === 'trialing') {
-          updateFields.push(`trial_ends_at = NOW() + INTERVAL '${dto.extend_days} days'`);
+          updateFields.push(`trial_ends_at = NOW() + INTERVAL '${days} days'`);
         } else {
-          updateFields.push(`current_period_end = NOW() + INTERVAL '${dto.extend_days} days'`);
+          updateFields.push(`current_period_end = NOW() + INTERVAL '${days} days'`);
         }
       }
 
       updateFields.push(`updated_at = NOW()`);
       values.push(userId);
+      const userParamIdx = values.length;
 
       await this.dataSource.query(
-        `UPDATE business_subscriptions SET ${updateFields.join(', ')} WHERE user_id = $${idx}`,
+        `UPDATE business_subscriptions SET ${updateFields.join(', ')} WHERE user_id = $${userParamIdx}`,
         values
       );
     }
