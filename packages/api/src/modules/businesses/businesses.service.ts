@@ -10,6 +10,7 @@ import { Notification } from '../../database/entities/notification.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { DevToolsService } from '../dev-tools/dev-tools.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
 
 /** Best-effort cleanup of a previously uploaded logo so replacing/removing it doesn't leak files under uploads/logos. */
@@ -30,6 +31,7 @@ export class BusinessesService {
     @InjectRepository(Business) private businessesRepository: Repository<Business>,
     @InjectRepository(User) private usersRepository: Repository<User>,
     private devToolsService: DevToolsService,
+    private subscriptionsService: SubscriptionsService,
     private dataSource: DataSource,
   ) {}
 
@@ -61,6 +63,16 @@ export class BusinessesService {
    * their active workspace.
    */
   async onboard(userId: string, dto: CreateBusinessDto) {
+    const ownedStoresCount = await this.businessesRepository.count({ where: { owner_user_id: userId } });
+    if (ownedStoresCount >= 1) {
+      const sub = await this.subscriptionsService.getUserSubscriptionStatus(userId);
+      if (!sub.multiStoreAllowed) {
+        throw new ForbiddenException(
+          'Multi-Store management is exclusive to the Pro Plan. Upgrade to Pro Plan (₹399/mo) to manage multiple stores under one account.'
+        );
+      }
+    }
+
     const business = await this.create(dto, userId);
     await this.usersRepository.update({ id: userId }, { business_id: business.id });
     return business;

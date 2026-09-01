@@ -8,6 +8,8 @@ export interface SubscriptionStatusResponse {
   trialDaysLeft: number;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
+  multiStoreAllowed: boolean;
+  maxStores: number;
   quotas: {
     ordersUsedThisMonth: number;
     maxOrdersPerMonth: number; // -1 for unlimited
@@ -154,15 +156,21 @@ export class SubscriptionsService {
       staffUsersCount = staffCountRes[0]?.count || 0;
     }
 
+    const planCode = sub?.plan_code || 'pro';
     const isTrial = effectiveStatus === 'trialing';
+    const isProOrEnterprise = planCode === 'pro' || planCode === 'enterprise';
+    const multiStoreAllowed = isTrial || isProOrEnterprise;
+    const maxStores = multiStoreAllowed ? 10 : 1;
 
     return {
       status: effectiveStatus,
-      planCode: sub?.plan_code || 'pro',
+      planCode,
       planName: isTrial ? 'Free Trial' : (sub?.plan_name || 'Pro Plan'),
       trialDaysLeft,
       trialEndsAt,
       currentPeriodEnd: sub?.current_period_end ? new Date(sub.current_period_end) : null,
+      multiStoreAllowed,
+      maxStores,
       quotas: {
         ordersUsedThisMonth,
         maxOrdersPerMonth: sub?.max_orders_per_month ?? -1,
