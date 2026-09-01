@@ -351,7 +351,7 @@ export class PlatformAdminService {
   /**
    * Get All Stores/Businesses List
    */
-  async getAllStores(query: { search?: string; category?: string; page?: number; limit?: number }) {
+  async getAllStores(query: { search?: string; category?: string; subscription_status?: string; page?: number; limit?: number }) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const skip = (page - 1) * limit;
@@ -372,9 +372,25 @@ export class PlatformAdminService {
       );
     }
 
+    if (query.subscription_status) {
+      if (query.subscription_status === 'trialing') {
+        qb.andWhere(
+          `EXISTS (SELECT 1 FROM business_subscriptions bs WHERE bs.business_id = business.id AND bs.status = 'trialing' AND bs.trial_ends_at > NOW())`,
+        );
+      } else if (query.subscription_status === 'expired') {
+        qb.andWhere(
+          `EXISTS (SELECT 1 FROM business_subscriptions bs WHERE bs.business_id = business.id AND (bs.status = 'expired' OR (bs.status = 'trialing' AND bs.trial_ends_at <= NOW())))`,
+        );
+      } else if (query.subscription_status === 'active') {
+        qb.andWhere(
+          `EXISTS (SELECT 1 FROM business_subscriptions bs WHERE bs.business_id = business.id AND bs.status = 'active')`,
+        );
+      }
+    }
+
     const [stores, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
-    // Fetch counts and owner details for each store
+    // Fetch counts, subscription status, and owner details for each store
     const storeData = await Promise.all(
       stores.map(async (store) => {
         const whereConditions: any[] = [{ business_id: store.id }];
@@ -393,6 +409,28 @@ export class PlatformAdminService {
         const productCount = await this.productRepo.count({ where: { business_id: store.id } });
         const orderCount = await this.orderRepo.count({ where: { business_id: store.id } });
 
+        const subRows = await this.dataSource.query(
+          `SELECT bs.status, bs.billing_cycle, bs.trial_starts_at, bs.trial_ends_at, bs.current_period_end,
+                  sp.code as plan_code, sp.name as plan_name
+           FROM business_subscriptions bs
+           LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
+           WHERE bs.business_id = $1`,
+          [store.id],
+        ).catch(() => []);
+        const sub = subRows[0];
+
+        const now = new Date();
+        const trialEndsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null;
+        let trialDaysLeft = 0;
+        if (trialEndsAt && trialEndsAt > now) {
+          trialDaysLeft = Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        let effectiveStatus = sub?.status || 'trialing';
+        if (effectiveStatus === 'trialing' && trialDaysLeft <= 0) {
+          effectiveStatus = 'expired';
+        }
+
         return {
           ...store,
           owner_email: ownerUser?.email || 'N/A',
@@ -400,6 +438,14 @@ export class PlatformAdminService {
           user_count: userCount,
           product_count: productCount,
           order_count: orderCount,
+          subscription: {
+            status: effectiveStatus,
+            plan_code: sub?.plan_code || 'pro',
+            plan_name: sub?.plan_name || 'Pro Plan (Trial)',
+            trial_ends_at: trialEndsAt,
+            trial_days_left: trialDaysLeft,
+            current_period_end: sub?.current_period_end || null,
+          },
         };
       }),
     );

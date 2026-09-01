@@ -73,8 +73,8 @@ describe('PlatformAdminController', () => {
   });
 
   it('getAllStores delegates to the service', () => {
-    controller.getAllStores('acme', 'pharmacy', 1, 20);
-    expect(service.getAllStores).toHaveBeenCalledWith({ search: 'acme', category: 'pharmacy', page: 1, limit: 20 });
+    controller.getAllStores('acme', 'pharmacy', 'trialing', 1, 20);
+    expect(service.getAllStores).toHaveBeenCalledWith({ search: 'acme', category: 'pharmacy', subscription_status: 'trialing', page: 1, limit: 20 });
   });
 
   it('updateStore delegates with the caller admin id', () => {

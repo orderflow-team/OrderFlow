@@ -90,10 +90,11 @@ export class PlatformAdminController {
   getAllStores(
     @Query('search') search?: string,
     @Query('category') category?: string,
+    @Query('subscription_status') subscription_status?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.platformAdminService.getAllStores({ search, category, page, limit });
+    return this.platformAdminService.getAllStores({ search, category, subscription_status, page, limit });
   }
 
   @Patch('stores/:id')

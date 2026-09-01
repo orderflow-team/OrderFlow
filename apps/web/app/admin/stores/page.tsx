@@ -44,6 +44,14 @@ interface StoreData {
   owner_email?: string;
   owner_name?: string;
   created_at: string;
+  subscription?: {
+    status: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+    plan_code: string;
+    plan_name: string;
+    trial_ends_at: string | null;
+    trial_days_left: number;
+    current_period_end: string | null;
+  };
 }
 
 interface ProductItem {
@@ -73,6 +81,7 @@ export default function AdminStoresPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubStatus, setSelectedSubStatus] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -119,6 +128,7 @@ export default function AdminStoresPage() {
         params: {
           search,
           category: selectedCategory,
+          subscription_status: selectedSubStatus,
           page,
           limit,
         },
@@ -156,7 +166,7 @@ export default function AdminStoresPage() {
 
   useEffect(() => {
     fetchStores();
-  }, [search, selectedCategory, page, limit]);
+  }, [search, selectedCategory, selectedSubStatus, page, limit]);
 
   useEffect(() => {
     if (inspectStore) {
@@ -173,8 +183,8 @@ export default function AdminStoresPage() {
       ai_chat_enabled: store.ai_chat_enabled ?? true,
       b2b_sync_enabled: store.b2b_sync_enabled ?? true,
       gst_number: store.gst_number || '',
-      plan_code: 'pro',
-      status: 'active',
+      plan_code: store.subscription?.plan_code || 'pro',
+      status: store.subscription?.status || 'active',
       extend_days: 0,
       billing_cycle: 'monthly',
     });
@@ -316,7 +326,7 @@ export default function AdminStoresPage() {
       )}
 
       {/* Filter & Search Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-card p-4 rounded-xl border border-border">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-card p-4 rounded-xl border border-border">
         {/* Search */}
         <div className="relative col-span-1 sm:col-span-2">
           <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-3" />
@@ -359,6 +369,32 @@ export default function AdminStoresPage() {
             </button>
           )}
         </div>
+
+        {/* Subscription Status Filter */}
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedSubStatus}
+            onChange={(e) => {
+              setSelectedSubStatus(e.target.value);
+              setPage(1);
+            }}
+            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:border-blue-500"
+          >
+            <option value="">All Subscription Statuses</option>
+            <option value="trialing">✨ Free Trialing Stores</option>
+            <option value="expired">⚠️ Expired Trial Stores</option>
+            <option value="active">✅ Active Paid Stores</option>
+          </select>
+          {selectedSubStatus && (
+            <button
+              onClick={() => setSelectedSubStatus('')}
+              className="p-2 text-muted-foreground hover:text-foreground bg-secondary rounded-xl border border-border"
+              title="Clear Subscription Filter"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stores Table */}
@@ -369,6 +405,7 @@ export default function AdminStoresPage() {
               <tr>
                 <th className="px-4 py-3">Store</th>
                 <th className="px-3 py-3 hidden xl:table-cell">Category</th>
+                <th className="px-3 py-3 font-bold text-indigo-600 dark:text-indigo-400">Subscription & Free Trial</th>
                 <th className="px-3 py-3">Users</th>
                 <th className="px-3 py-3">Products</th>
                 <th className="px-3 py-3 hidden xl:table-cell">Orders</th>
@@ -379,14 +416,14 @@ export default function AdminStoresPage() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600 dark:text-blue-400" />
                     Loading store catalog...
                   </td>
                 </tr>
               ) : stores.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
                     No store accounts found matching criteria.
                   </td>
                 </tr>
@@ -426,6 +463,43 @@ export default function AdminStoresPage() {
 
                     <td className="px-3 py-3 hidden xl:table-cell">
                       {isDevAccount ? <span className="text-muted-foreground">—</span> : renderCategoryBadge(store.category)}
+                    </td>
+
+                    <td className="px-3 py-3 font-semibold text-foreground">
+                      {isDevAccount ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-col gap-0.5">
+                          {store.subscription?.status === 'trialing' && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30 w-fit">
+                              <Crown className="w-3.5 h-3.5 fill-current text-amber-500" />
+                              <span>Free Trial ({store.subscription.trial_days_left}d left)</span>
+                            </span>
+                          )}
+                          {store.subscription?.status === 'expired' && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 w-fit">
+                              <span>⚠️ Trial Expired (0d left)</span>
+                            </span>
+                          )}
+                          {store.subscription?.status === 'active' && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 w-fit">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>Active ({store.subscription.plan_name || 'Pro'})</span>
+                            </span>
+                          )}
+                          {store.subscription?.status === 'canceled' && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/30 w-fit">
+                              <span>❌ Canceled</span>
+                            </span>
+                          )}
+                          {!store.subscription && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/30 w-fit">
+                              <Crown className="w-3.5 h-3.5 fill-current text-amber-500" />
+                              <span>30-Day Trial</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-3 py-3 font-semibold text-foreground">

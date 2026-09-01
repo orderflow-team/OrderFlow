@@ -173,16 +173,16 @@ export default function AdminOverviewDashboard() {
           </div>
 
           <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-            <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Subscriber Breakdown</p>
+            <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Subscription & Free Trial Status</p>
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <span className="bg-indigo-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-indigo-500/50">
-                Starter (₹59): {stats?.subscriptions?.starter ?? 0}
+              <span className="bg-sky-500/20 text-sky-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-sky-500/40">
+                ✨ Free Trialing: {stats?.subscriptions?.trialing ?? 0}
               </span>
-              <span className="bg-purple-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-purple-500/50">
-                Pro ⭐ (₹399): {stats?.subscriptions?.pro ?? 0}
+              <span className="bg-rose-500/20 text-rose-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-rose-500/40">
+                ⚠️ Trial Expired: {stats?.subscriptions?.expired ?? 0}
               </span>
-              <span className="bg-amber-600/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-amber-500/50">
-                Enterprise (₹999): {stats?.subscriptions?.enterprise ?? 0}
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-500/40">
+                ✅ Active Paid: {stats?.subscriptions?.active ?? 0}
               </span>
             </div>
           </div>
