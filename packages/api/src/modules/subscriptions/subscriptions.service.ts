@@ -97,13 +97,13 @@ export class SubscriptionsService {
       if (plan) {
         await this.dataSource.query(
           `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
-           VALUES (gen_random_uuid(), $1, $2, 'pro', 'trialing', NOW(), NOW() + INTERVAL '30 days')`,
-          [targetUserId, effectiveBizId || null]
+           VALUES (gen_random_uuid(), $1, $2, $3, 'trialing', NOW(), NOW() + INTERVAL '30 days')`,
+          [targetUserId, effectiveBizId || null, plan.id]
         );
         sub = {
           status: 'trialing',
           plan_code: plan.code,
-          plan_name: plan.name,
+          plan_name: 'Free Trial',
           trial_starts_at: new Date(),
           trial_ends_at: new Date(Date.now() + 30 * 86400 * 1000),
           max_staff_users: plan.max_staff_users,
@@ -154,10 +154,12 @@ export class SubscriptionsService {
       staffUsersCount = staffCountRes[0]?.count || 0;
     }
 
+    const isTrial = effectiveStatus === 'trialing';
+
     return {
       status: effectiveStatus,
       planCode: sub?.plan_code || 'pro',
-      planName: sub?.plan_name || 'Pro Plan (Trial)',
+      planName: isTrial ? 'Free Trial' : (sub?.plan_name || 'Pro Plan'),
       trialDaysLeft,
       trialEndsAt,
       currentPeriodEnd: sub?.current_period_end ? new Date(sub.current_period_end) : null,

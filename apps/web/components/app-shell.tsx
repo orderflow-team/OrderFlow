@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Trash2,
   Crown,
+  Sparkles,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
@@ -789,10 +790,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         <div className="mx-3 my-2 p-3 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-md border border-indigo-500/30">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-amber-400/20 flex items-center justify-center shrink-0 border border-amber-400/30">
-              <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-extrabold text-white truncate">{sub?.planName || 'Pro Plan'}</p>
+              <p className="text-xs font-extrabold text-white truncate">{sub?.status === 'active' ? sub.planName : 'Free Trial'}</p>
               <p className="text-[10px] text-indigo-200 font-medium">
                 {sub?.status === 'active' ? 'Active User Plan' : sub?.status === 'expired' ? 'Expired (0d left)' : `${sub?.trialDaysLeft ?? 30} Days Left`}
               </p>

@@ -360,8 +360,8 @@ export default function DashboardPage() {
                 href="/settings/subscription"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-900 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all border border-indigo-400/40 active:scale-95 shrink-0"
               >
-                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <span>{sub?.planName || 'Pro Plan'}</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                   sub?.status === 'expired'
                     ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'

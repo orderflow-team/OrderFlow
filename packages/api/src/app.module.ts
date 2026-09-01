@@ -214,6 +214,15 @@ export class AppModule implements OnApplicationBootstrap {
           FROM users u
           WHERE u.id NOT IN (SELECT user_id FROM business_subscriptions WHERE user_id IS NOT NULL)
         `);
+
+        // Ensure all trialing users have plan_id set to proPlanId and start their 30-day trial starting today
+        await this.dataSource.query(`
+          UPDATE business_subscriptions
+          SET plan_id = '${proPlanId}',
+              trial_starts_at = NOW(),
+              trial_ends_at = NOW() + INTERVAL '30 days'
+          WHERE status = 'trialing' AND (plan_id IS NULL OR trial_ends_at < NOW() + INTERVAL '25 days');
+        `);
       }
 
       // Seed super_admin user admin@orderflow.com only if it doesn't exist yet.
