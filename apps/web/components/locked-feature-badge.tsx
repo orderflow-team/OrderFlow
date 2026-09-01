@@ -72,20 +72,20 @@ export function LockedFeatureModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-indigo-100 relative overflow-hidden text-center space-y-5">
+    <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-indigo-100 relative overflow-hidden text-center space-y-5 my-auto">
         <div className="absolute -top-12 -right-12 w-40 h-40 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full opacity-15 blur-2xl pointer-events-none" />
         
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-700 flex items-center justify-center text-amber-300 shadow-xl shadow-indigo-200 ring-4 ring-indigo-50">
-          <Crown className="w-9 h-9 fill-current" />
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-700 flex items-center justify-center text-amber-300 shadow-xl shadow-indigo-200 ring-4 ring-indigo-50 shrink-0">
+          <Crown className="w-8 h-8 fill-current" />
         </div>
 
         <div className="space-y-2">
-          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-full text-[11px] uppercase tracking-wider">
             <Lock className="w-3.5 h-3.5 text-amber-600" />
             {requiredPlan} Feature Locked
           </span>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
             Unlock {featureName}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">
@@ -97,7 +97,7 @@ export function LockedFeatureModal({
           <Link
             href="/settings/subscription"
             onClick={onClose}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white font-extrabold text-sm shadow-xl shadow-indigo-300 hover:shadow-indigo-400 active:scale-95 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-indigo-300 hover:shadow-indigo-400 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <span>Upgrade to {requiredPlan} Plan ✨</span>
             <ArrowRight className="w-4 h-4" />
@@ -105,7 +105,7 @@ export function LockedFeatureModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+            className="w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
           >
             Maybe Later
           </button>

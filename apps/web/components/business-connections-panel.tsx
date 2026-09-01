@@ -39,7 +39,8 @@ const ROLE_COPY: Record<'retailer' | 'wholesaler', { verb: string; counterpart: 
  * business-connections module on the API).
  */
 export function BusinessConnectionsPanel({ businessId, role }: { businessId: string; role: 'retailer' | 'wholesaler' }) {
-  const { isStarter } = useSubscription();
+  const { isStarter, isTrial } = useSubscription();
+  const isFeatureLocked = isStarter && !isTrial;
   const [showB2bLockedModal, setShowB2bLockedModal] = useState(false);
   const [data, setData] = useState<ConnectionsResponse | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -128,7 +129,7 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
               size="sm"
               variant="outline"
               onClick={() => {
-                if (isStarter) {
+                if (isFeatureLocked) {
                   setShowB2bLockedModal(true);
                 } else {
                   setShowForm(true);
@@ -137,7 +138,7 @@ export function BusinessConnectionsPanel({ businessId, role }: { businessId: str
               className="h-8 text-xs font-semibold gap-1"
             >
               <span>{copy.verb}</span>
-              {isStarter && (
+              {isFeatureLocked && (
                 <span className="bg-amber-100 text-amber-900 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
                   <Lock className="w-2.5 h-2.5" /> PRO
                 </span>

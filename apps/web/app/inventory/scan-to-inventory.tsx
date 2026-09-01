@@ -56,9 +56,9 @@ export function ScanToInventoryDialog({
   suppliers: Supplier[];
   onConfirmed: () => void;
 }) {
-  const { sub, isStarter } = useSubscription();
+  const { sub, isStarter, isTrial } = useSubscription();
   const [showScanLockedModal, setShowScanLockedModal] = useState(false);
-  const isScanQuotaExceeded = isStarter && (sub?.quotas?.aiScansUsedThisMonth ?? 0) >= 15;
+  const isScanQuotaExceeded = isStarter && !isTrial && (sub?.quotas?.aiScansUsedThisMonth ?? 0) >= 15;
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('upload');

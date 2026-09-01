@@ -85,7 +85,8 @@ function ProductsPageContent() {
 
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showBulkLockedModal, setShowBulkLockedModal] = useState(false);
-  const { isStarter } = useSubscription();
+  const { isStarter, isTrial } = useSubscription();
+  const isFeatureLocked = isStarter && !isTrial;
 
   const category = businessId ? getCachedBusinessCategory(businessId) : null;
   const isRestaurant = getOptionalModulesForCategory(category).includes('restaurant');
@@ -425,7 +426,7 @@ function ProductsPageContent() {
               variant="outline"
               className="gap-1.5 relative"
               onClick={() => {
-                if (isStarter) {
+                if (isFeatureLocked) {
                   setShowBulkLockedModal(true);
                 } else {
                   setShowBulkUpload(true);
@@ -434,7 +435,7 @@ function ProductsPageContent() {
             >
               <Upload className="w-4 h-4" />
               <span>Bulk Upload</span>
-              {isStarter && (
+              {isFeatureLocked && (
                 <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
                   <Lock className="w-2.5 h-2.5" /> PRO
                 </span>

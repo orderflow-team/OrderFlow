@@ -49,7 +49,7 @@ interface KOT {
 
 export default function KitchenDisplayPage() {
   const { businessId, ready } = useBusiness();
-  const { isStarter } = useSubscription();
+  const { isStarter, isTrial } = useSubscription();
   const isCookRole = hasRole('kitchen_staff');
   // Kitchen-staff management is admin/manager only on the backend (@Roles guard on
   // /api/restaurant/kitchen-staff) — any other non-cook role (waiter, cashier, etc.)
@@ -210,7 +210,7 @@ export default function KitchenDisplayPage() {
           }
         />
 
-        {isStarter && (
+        {isStarter && !isTrial && (
           <LockedFeatureBadge
             featureName="Kitchen KOT & Live Table Layout"
             requiredPlan="Pro"

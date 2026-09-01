@@ -41,7 +41,7 @@ interface Visit {
 
 export default function SalesmanPage() {
   const { businessId, ready } = useBusiness();
-  const { isStarter } = useSubscription();
+  const { isStarter, isTrial } = useSubscription();
   const isSalesmanRole = hasRole('salesman');
   const myUserId = getCurrentUser()?.id;
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
@@ -374,11 +374,11 @@ export default function SalesmanPage() {
           }
         />
 
-        {isStarter && (
+        {isStarter && !isTrial && (
           <LockedFeatureBadge
             featureName="Salesman Field GPS Tracking & Routes"
             requiredPlan="Pro"
-            description="Salesman GPS route tracking & live customer visit logging is a Pro Plan feature. Upgrade to Pro Plan (₹399/mo) to track field orders, salesman GPS check-ins, and daily shop visits."
+            description="Salesman GPS Tracking, Field Visit Logs, and Route Assignment is a Pro Plan feature. Upgrade to Pro Plan (₹399/mo) to manage your field sales team."
           />
         )}
 
