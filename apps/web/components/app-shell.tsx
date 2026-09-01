@@ -817,19 +817,19 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       {/* Mobile top bar */}
       {!hideNavigation && (
         <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-slate-800 tracking-tight">OBIX</span>
-            {sub && (
-              <Link
-                href="/settings/subscription"
-                className="inline-flex items-center gap-1 bg-gradient-to-r from-indigo-900 to-purple-900 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] shadow-sm border border-indigo-400/30"
-              >
-                <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />
-                <span>{sub.planName}</span>
-                <span className="text-amber-300">({sub.trialDaysLeft}d left)</span>
-              </Link>
-            )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base font-bold text-slate-800 tracking-tight shrink-0">OBIX</span>
+            <Link
+              href="/settings/subscription"
+              className="inline-flex items-center gap-1 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-1 rounded-full text-[10px] shadow-md border border-amber-400/40 shrink-0 active:scale-95 transition-transform"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+              <span className="truncate">{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
+              <span className="text-amber-300 font-bold">
+                ({sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`})
+              </span>
+            </Link>
           </div>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
             <LogOut className="w-5 h-5" />
