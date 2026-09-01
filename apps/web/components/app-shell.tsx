@@ -817,46 +817,49 @@ export function AppShell({ children, hideNavigation = false }: { children: React
 
       {/* Mobile top bar */}
       {!hideNavigation && (
-        <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
+        <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[64px]">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-base font-bold text-slate-800 tracking-tight shrink-0">OBIX</span>
+          </div>
+          <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+        {businessName && (
+          <div className="flex items-center justify-between gap-2 mt-1 min-w-0">
+            <button
+              onClick={() => setMobileBusinessMenuOpen(true)}
+              disabled={switching}
+              className="flex items-center gap-1.5 text-left active:opacity-70 transition-opacity min-w-0 flex-1"
+            >
+              <span className="text-xs font-medium text-slate-700 truncate">{businessName}</span>
+              <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+              <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider shrink-0">
+                {switching ? 'Switching...' : businessCategory}
+              </span>
+              {userRole && ROLE_BADGE[userRole] && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider shrink-0">
+                    {ROLE_BADGE[userRole]}
+                  </span>
+                </>
+              )}
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
+
             <Link
               href="/settings/subscription"
-              className="inline-flex items-center gap-1 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-1 rounded-full text-[10px] shadow-md border border-amber-400/40 shrink-0 active:scale-95 transition-transform"
+              className="inline-flex items-center gap-1 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] shadow-sm border border-amber-400/40 shrink-0 active:scale-95 transition-transform"
             >
               <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-              <span className="truncate">{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
+              <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
               <span className="text-amber-300 font-bold">
                 ({sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`})
               </span>
             </Link>
           </div>
-          <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-        {businessName && (
-          <button
-            onClick={() => setMobileBusinessMenuOpen(true)}
-            disabled={switching}
-            className="flex items-center gap-1.5 mt-0.5 text-left active:opacity-70 transition-opacity"
-          >
-            <span className="text-xs font-medium text-slate-700 truncate">{businessName}</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
-            <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider shrink-0">
-              {switching ? 'Switching...' : businessCategory}
-            </span>
-            {userRole && ROLE_BADGE[userRole] && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-slate-300 shrink-0"></span>
-                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider shrink-0">
-                  {ROLE_BADGE[userRole]}
-                </span>
-              </>
-            )}
-            <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-          </button>
         )}
       </header>
       )}
