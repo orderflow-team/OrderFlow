@@ -8,11 +8,13 @@ import { UserRole } from '../../common/enums/user-role.enum';
 import { isValidGstin } from '../../common/utils/gst.util';
 import { encryptPassword } from '../../common/utils/credential-crypto.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 @Injectable()
 export class PlatformAdminService {
   constructor(
     private readonly notificationsService: NotificationsService,
+    private readonly subscriptionsService: SubscriptionsService,
     @InjectRepository(Business)
     private readonly businessRepo: Repository<Business>,
     @InjectRepository(User)
