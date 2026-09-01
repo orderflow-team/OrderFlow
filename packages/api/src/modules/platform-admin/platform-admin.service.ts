@@ -540,6 +540,10 @@ export class PlatformAdminService {
       if (dto.status) {
         updateFields.push(`status = $${idx++}`);
         values.push(dto.status);
+        if (dto.status === 'expired' || dto.status === 'past_due' || dto.status === 'canceled') {
+          updateFields.push(`trial_ends_at = NOW() - INTERVAL '1 day'`);
+          updateFields.push(`current_period_end = NOW() - INTERVAL '1 day'`);
+        }
       }
       if (dto.billing_cycle) {
         updateFields.push(`billing_cycle = $${idx++}`);

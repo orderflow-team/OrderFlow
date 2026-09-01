@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSubscription } from '@/lib/use-subscription';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -27,6 +28,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Trash2,
+  Crown,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
@@ -140,6 +142,7 @@ function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; si
 export function AppShell({ children, hideNavigation = false }: { children: React.ReactNode; hideNavigation?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { sub } = useSubscription();
 
   // Same shortcut everywhere the "+" FAB already lives — press 'n' to open
   // the New Order/Product/Customer form without reaching for the mouse.
@@ -799,7 +802,19 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       {!hideNavigation && (
         <header className="md:hidden fixed top-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-b border-white/50 shadow-[0_4px_30px_-5px_rgba(0,0,0,0.1)] px-4 py-2 flex flex-col justify-center min-h-[60px]">
         <div className="flex items-center justify-between">
-          <span className="text-base font-bold text-slate-800 tracking-tight">OBIX</span>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-bold text-slate-800 tracking-tight">OBIX</span>
+            {sub && (
+              <Link
+                href="/settings/subscription"
+                className="inline-flex items-center gap-1 bg-gradient-to-r from-indigo-900 to-purple-900 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] shadow-sm border border-indigo-400/30"
+              >
+                <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />
+                <span>{sub.planName}</span>
+                <span className="text-amber-300">({sub.trialDaysLeft}d left)</span>
+              </Link>
+            )}
+          </div>
           <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors">
             <LogOut className="w-5 h-5" />
           </button>

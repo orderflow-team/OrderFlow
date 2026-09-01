@@ -15,11 +15,6 @@ export class SubscriptionPaywallGuard implements CanActivate {
       return true;
     }
 
-    const user = req.user;
-    if (user?.role === UserRole.SUPER_ADMIN) {
-      return true;
-    }
-
     // Allow auth, subscriptions, platform-admin, and app update endpoints
     const path = req.path || req.url || '';
     if (
@@ -33,6 +28,7 @@ export class SubscriptionPaywallGuard implements CanActivate {
       return true;
     }
 
+    const user = req.user;
     const businessId = user?.business_id;
     if (!businessId) {
       return true; // Unauthenticated or non-tenant route, let JwtAuthGuard handle it
