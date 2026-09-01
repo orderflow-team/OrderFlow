@@ -615,6 +615,13 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       </>
                     )}
                   </p>
+                  <div className="mt-1 flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-900 font-extrabold px-2 py-0.5 rounded-full text-[10px] border border-amber-500/30">
+                      <Crown className="w-3 h-3 text-amber-600 fill-amber-600" />
+                      <span>{sub?.planName || 'Pro Plan'}</span>
+                      <span className="text-amber-800 font-bold">&middot; {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? '0d left' : `${sub?.trialDaysLeft ?? 30}d left`}</span>
+                    </span>
+                  </div>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${businessMenuOpen ? 'rotate-180' : ''}`}

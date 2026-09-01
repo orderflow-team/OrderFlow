@@ -355,7 +355,21 @@ export default function DashboardPage() {
           title="Dashboard"
           description="Here's what's happening with your business today."
           action={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href="/settings/subscription"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-900 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all border border-indigo-400/40 active:scale-95 shrink-0"
+              >
+                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>{sub?.planName || 'Pro Plan'}</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  sub?.status === 'expired'
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                }`}>
+                  {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired (0d left)' : `${sub?.trialDaysLeft ?? 30} Days Left`}
+                </span>
+              </Link>
               <Button
                 onClick={() => setShowTour(true)}
                 variant="outline"
