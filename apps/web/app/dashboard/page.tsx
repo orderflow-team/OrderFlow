@@ -395,53 +395,65 @@ export default function DashboardPage() {
           }
         />
 
-        {sub && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-xl border border-indigo-500/30">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-bold shadow-md shrink-0">
-                <Crown className="w-5 h-5 fill-current text-slate-950" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-extrabold text-white">{sub.planName || 'PRO PLAN'}</span>
-                  {sub.status === 'trialing' && (
-                    <span className="bg-amber-400/20 text-amber-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-amber-400/30">
-                      ✨ Free Trial ({sub.trialDaysLeft} Days Left)
-                    </span>
-                  )}
-                  {sub.status === 'active' && (
-                    <span className="bg-emerald-500/20 text-emerald-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-500/30">
-                      ✅ Active Plan ({sub.trialDaysLeft > 0 ? `${sub.trialDaysLeft} Days Left` : 'Unlimited'})
-                    </span>
-                  )}
-                  {(sub.status === 'expired' || sub.status === 'past_due') && (
-                    <span className="bg-rose-500/20 text-rose-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-rose-500/30">
-                      ⚠️ Trial Expired (0 Days Left)
-                    </span>
-                  )}
+        {(() => {
+          const displaySub = sub || {
+            status: 'trialing' as const,
+            planCode: 'pro',
+            planName: 'Free Trial',
+            trialDaysLeft: 30,
+            trialEndsAt: null,
+            currentPeriodEnd: null,
+            quotas: { ordersUsedThisMonth: 0, maxOrdersPerMonth: -1, aiScansUsedThisMonth: 0, maxAiScansPerMonth: 100, staffUsersCount: 1, maxStaffUsers: 10 },
+            features: {},
+          };
+          return (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-xl border border-indigo-500/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-bold shadow-md shrink-0">
+                  <Crown className="w-5 h-5 fill-current text-slate-950" />
                 </div>
-                <p className="text-xs text-indigo-200 mt-0.5">
-                  {sub.status === 'trialing' && (
-                    <>Your 30-day free trial has <strong>{sub.trialDaysLeft} Days Remaining</strong>.</>
-                  )}
-                  {sub.status === 'active' && (
-                    <>Full store billing & feature access unlocked.</>
-                  )}
-                  {(sub.status === 'expired' || sub.status === 'past_due') && (
-                    <>Trial period completed. <strong>0 Days Remaining</strong>. Select a plan to continue billing.</>
-                  )}
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-extrabold text-white">{displaySub.planName || 'Free Trial'}</span>
+                    {displaySub.status === 'trialing' && (
+                      <span className="bg-amber-400/20 text-amber-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-amber-400/30">
+                        ✨ Free Trial ({displaySub.trialDaysLeft} Days Left)
+                      </span>
+                    )}
+                    {displaySub.status === 'active' && (
+                      <span className="bg-emerald-500/20 text-emerald-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-500/30">
+                        ✅ Active Plan ({displaySub.trialDaysLeft > 0 ? `${displaySub.trialDaysLeft} Days Left` : 'Unlimited'})
+                      </span>
+                    )}
+                    {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
+                      <span className="bg-rose-500/20 text-rose-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-rose-500/30">
+                        ⚠️ Trial Expired (0 Days Left)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-indigo-200 mt-0.5">
+                    {displaySub.status === 'trialing' && (
+                      <>Your 30-day free trial has <strong>{displaySub.trialDaysLeft} Days Remaining</strong>.</>
+                    )}
+                    {displaySub.status === 'active' && (
+                      <>Full store billing & feature access unlocked.</>
+                    )}
+                    {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
+                      <>Trial period completed. <strong>0 Days Remaining</strong>. Select a plan to continue billing.</>
+                    )}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <Link
-              href="/settings/subscription"
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-indigo-950 font-extrabold text-xs hover:brightness-105 active:scale-95 transition shadow-sm shrink-0 self-stretch sm:self-auto text-center"
-            >
-              {sub.status === 'active' ? 'Manage Subscription' : 'Upgrade Plan Now →'}
-            </Link>
-          </div>
-        )}
+              <Link
+                href="/settings/subscription"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-indigo-950 font-extrabold text-xs hover:brightness-105 active:scale-95 transition shadow-sm shrink-0 self-stretch sm:self-auto text-center"
+              >
+                {displaySub.status === 'active' ? 'Manage Subscription' : 'Upgrade Plan Now →'}
+              </Link>
+            </div>
+          );
+        })()}
 
         {seedError && (
           <p className="flex items-center gap-1.5 text-xs font-medium text-rose-700 bg-rose-500/10 ring-1 ring-rose-500/20 rounded-xl px-3 py-2">

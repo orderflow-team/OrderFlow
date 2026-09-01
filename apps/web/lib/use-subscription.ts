@@ -21,15 +21,30 @@ export interface SubscriptionData {
   features: Record<string, boolean>;
 }
 
+const CACHE_KEY = 'obix_subscription_cache';
+
 export function useSubscription() {
-  const [sub, setSub] = useState<SubscriptionData | null>(null);
+  const [sub, setSub] = useState<SubscriptionData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {
+        // ignore JSON parse error
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchSubscription = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/api/subscriptions/current');
+      const res = await apiClient.get<SubscriptionData>('/api/subscriptions/current');
       setSub(res.data);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(res.data));
+      }
     } catch (err) {
       console.error('Failed to fetch subscription in useSubscription hook:', err);
     } finally {
@@ -41,11 +56,11 @@ export function useSubscription() {
     fetchSubscription();
   }, []);
 
-  const planCode = sub?.planCode || 'starter';
+  const planCode = sub?.planCode || 'pro';
   const isStarter = planCode === 'starter';
   const isPro = planCode === 'pro';
   const isEnterprise = planCode === 'enterprise';
-  const isTrial = sub?.status === 'trialing';
+  const isTrial = sub?.status === 'trialing' || (!sub && true);
   const isExpired = sub?.status === 'expired' || sub?.status === 'past_due' || sub?.status === 'canceled';
 
   return {
