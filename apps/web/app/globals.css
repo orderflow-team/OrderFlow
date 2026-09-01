@@ -203,6 +203,13 @@
     touch-action: manipulation;
   }
 
+  /* Prevent green/accent focus rings or tap-highlight boxes on dialog popups & tour cards */
+  [data-slot="dialog-content"],
+  [data-slot="dialog-content"] * {
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+  }
+
   /* Global Webkit Scrollbar Styling - Seamless fade-in on container hover */
   ::-webkit-scrollbar {
     width: 6px;

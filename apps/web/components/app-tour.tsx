@@ -172,7 +172,7 @@ export function AppTour({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden border-none">
+      <DialogContent className="sm:max-w-sm p-0 gap-0 overflow-hidden border-none outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 [&_*]:outline-none [&_*]:focus:outline-none [&_*]:focus-visible:outline-none [&_*]:focus-visible:ring-0 shadow-2xl">
         {/* Progress bar — Instagram-story style segments. Right padding keeps
             clear of DialogContent's built-in close (X) button, which doubles
             as this tour's "skip" affordance. */}
@@ -187,7 +187,8 @@ export function AppTour({
         </div>
 
         <div
-          className={`${card.bg} relative overflow-hidden`}
+          className={`${card.bg} relative overflow-hidden outline-none border-none ring-0`}
+          style={{ WebkitTapHighlightColor: 'transparent' }}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
@@ -197,14 +198,18 @@ export function AppTour({
               type="button"
               aria-label="Previous"
               onClick={goBack}
-              className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer"
+              tabIndex={-1}
+              className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-none select-none"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             />
           )}
           <button
             type="button"
             aria-label="Next"
             onClick={goNext}
-            className="absolute inset-y-0 right-0 w-2/3 z-10 cursor-pointer"
+            tabIndex={-1}
+            className="absolute inset-y-0 right-0 w-2/3 z-10 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 border-none select-none"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           />
 
           {/* pointer-events-none on the whole card so the tap-zone buttons above
@@ -247,7 +252,8 @@ export function AppTour({
             onClick={goBack}
             disabled={isFirst}
             aria-label="Back"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-0 transition-colors"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-0 transition-colors outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -256,7 +262,8 @@ export function AppTour({
             type="button"
             onClick={goNext}
             aria-label={isLast ? 'Finish' : 'Next'}
-            className={`h-9 px-4 rounded-full flex items-center justify-center gap-1 text-sm font-bold text-white transition-colors ${card.accentBg} hover:brightness-95`}
+            className={`h-9 px-4 rounded-full flex items-center justify-center gap-1 text-sm font-bold text-white transition-colors ${card.accentBg} hover:brightness-95 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0`}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             {isLast ? (
               <>Got it <Zap className="w-3.5 h-3.5" /></>
