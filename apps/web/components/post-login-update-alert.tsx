@@ -48,7 +48,15 @@ export function PostLoginUpdateAlert() {
           <Button type="button" variant="ghost" onClick={() => setDismissed(true)} disabled={installing} className="flex-1">
             Later
           </Button>
-          <Button type="button" onClick={install} disabled={installing} className="flex-1 gap-1.5">
+          <Button
+            type="button"
+            onClick={async () => {
+              await install();
+              setDismissed(true);
+            }}
+            disabled={installing}
+            className="flex-1 gap-1.5"
+          >
             <Download className="w-4 h-4" /> {installing ? `Downloading…${progressPct != null ? ` ${progressPct}%` : ''}` : 'Download & Install'}
           </Button>
         </DialogFooter>

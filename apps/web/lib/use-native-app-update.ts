@@ -84,11 +84,17 @@ export function useNativeAppUpdate() {
     if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL === 'playstore') return;
     (async () => {
       try {
-        const { native } = await CapacitorUpdater.current();
+        const { native, bundle } = await CapacitorUpdater.current();
         const res = await fetch(`${API_BASE_URL}/api/app-apk-releases/latest?platform=${Capacitor.getPlatform()}`);
         if (!res.ok) return;
         const release: LatestApkRelease | null = await res.json();
-        if (release && compareVersions(release.versionName, native) > 0) {
+        const attempted = typeof window !== 'undefined' ? localStorage.getItem('obix_installed_apk_version') : null;
+        if (
+          release &&
+          compareVersions(release.versionName, native) > 0 &&
+          (!bundle?.version || compareVersions(release.versionName, bundle.version) > 0) &&
+          attempted !== release.versionName
+        ) {
           setLatest(release);
         }
       } catch {
@@ -176,6 +182,9 @@ export function useNativeAppUpdate() {
       }
 
       const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+      if (typeof window !== 'undefined' && latest?.versionName) {
+        localStorage.setItem('obix_installed_apk_version', latest.versionName);
+      }
       await FileOpener.open({ filePath: uri, contentType: 'application/vnd.android.package-archive' });
     } catch (err: any) {
       console.error('[native update] install failed', err);

@@ -22,4 +22,12 @@ describe('compareVersions', () => {
   it('compares the major version first', () => {
     expect(compareVersions('2.0', '1.99')).toBeGreaterThan(0);
   });
+
+  it('handles leading v and v. prefixes correctly', () => {
+    expect(compareVersions('v1.18', '1.18')).toBe(0);
+    expect(compareVersions('v.18', '18')).toBe(0);
+    expect(compareVersions('v1.18', '1.16')).toBeGreaterThan(0);
+    expect(compareVersions('1.18', 'v1.18')).toBe(0);
+    expect(compareVersions('v.18', 'v1.16')).toBeGreaterThan(0);
+  });
 });
