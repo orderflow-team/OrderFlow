@@ -127,7 +127,7 @@ export class PlatformAdminService {
           sp.code as plan_code,
           COALESCE(sp.price_monthly_inr, 0) as price_monthly_inr,
           COALESCE(sp.price_yearly_inr, 0) as price_yearly_inr,
-          CASE WHEN bs.status = 'active' AND (bs.gateway_subscription_id IS NULL AND bs.current_period_end IS NOT NULL AND bs.current_period_end > NOW() + INTERVAL '10 years') THEN TRUE ELSE FALSE END as is_lifetime_free
+          CASE WHEN (u.created_at <= '2026-09-02 16:20:00' OR (bs.status = 'active' AND bs.gateway_subscription_id IS NULL AND (bs.current_period_end IS NULL OR bs.current_period_end > NOW() + INTERVAL '5 years'))) THEN TRUE ELSE FALSE END as is_lifetime_free
         FROM users u
         LEFT JOIN business_subscriptions bs ON (bs.user_id = u.id OR bs.business_id = u.business_id)
         LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
