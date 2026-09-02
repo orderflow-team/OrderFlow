@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orderflow-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-orderflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SuperSecretPassword123!}
+      POSTGRES_DB: ${POSTGRES_DB:-orderflow_prod}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - orderflow-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-orderflow_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orderflow-api-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgres://${POSTGRES_USER:-orderflow_admin}:${POSTGRES_PASSWORD:-SuperSecretPassword123!}@postgres:5432/${POSTGRES_DB:-orderflow_prod}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_32_chars_long!}
+      FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - orderflow-net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: orderflow-web-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://your-domain.com/api}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - orderflow-net
+
+networks:
+  orderflow-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
