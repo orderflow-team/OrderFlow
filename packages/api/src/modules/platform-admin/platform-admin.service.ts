@@ -186,7 +186,7 @@ export class PlatformAdminService {
           enterprise: parseInt(subStats.enterprise_count || '0', 10),
         },
       },
-    };    recentSignups: recentSignups.map((u) => ({
+      recentSignups: recentSignups.map((u) => ({
         id: u.id,
         full_name: u.full_name,
         email: u.email,
