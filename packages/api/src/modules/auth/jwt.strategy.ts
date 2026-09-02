@@ -25,7 +25,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     role: string;
     tokenType?: string;
   }) {
-    if (payload.tokenType !== "access") {
+    if (payload.tokenType && payload.tokenType !== "access") {
       throw new UnauthorizedException("Invalid access token");
     }
     // Guest sessions (table/takeaway QR logins) are synthetic ids like
