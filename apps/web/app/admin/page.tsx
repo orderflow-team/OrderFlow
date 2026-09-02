@@ -175,6 +175,9 @@ export default function AdminOverviewDashboard() {
           <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
             <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Subscription & Free Trial Status</p>
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-purple-500/40">
+                🎁 Lifetime Free: {stats?.subscriptions?.lifetimeFree ?? 0}
+              </span>
               <span className="bg-sky-500/20 text-sky-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-sky-500/40">
                 ✨ Free Trialing: {stats?.subscriptions?.trialing ?? 0}
               </span>
@@ -182,7 +185,7 @@ export default function AdminOverviewDashboard() {
                 ⚠️ Trial Expired: {stats?.subscriptions?.expired ?? 0}
               </span>
               <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-500/40">
-                ✅ Active Paid: {stats?.subscriptions?.active ?? 0}
+                ✅ Active Paid: {stats?.subscriptions?.activePaid ?? stats?.subscriptions?.active ?? 0}
               </span>
             </div>
           </div>

@@ -113,9 +113,7 @@ export class PlatformAdminService {
       relations: { user: true, business: true },
       order: { created_at: 'DESC' },
       take: 10,
-    });
-
-    // MRR & SaaS Subscription Analytics (Evaluated per User Email Account)
+    });    // MRR & SaaS Subscription Analytics (Evaluated per User Email Account)
     const subStatsRes = await this.dataSource.query(`
       WITH user_subscriptions AS (
         SELECT DISTINCT ON (LOWER(TRIM(u.email)))
@@ -124,9 +122,12 @@ export class PlatformAdminService {
           COALESCE(bs.status, 'trialing') as sub_status,
           bs.trial_ends_at,
           bs.billing_cycle,
+          bs.gateway_subscription_id,
+          bs.current_period_end,
           sp.code as plan_code,
           COALESCE(sp.price_monthly_inr, 0) as price_monthly_inr,
-          COALESCE(sp.price_yearly_inr, 0) as price_yearly_inr
+          COALESCE(sp.price_yearly_inr, 0) as price_yearly_inr,
+          CASE WHEN bs.status = 'active' AND (bs.gateway_subscription_id IS NULL AND bs.current_period_end IS NOT NULL AND bs.current_period_end > NOW() + INTERVAL '10 years') THEN TRUE ELSE FALSE END as is_lifetime_free
         FROM users u
         LEFT JOIN business_subscriptions bs ON (bs.user_id = u.id OR bs.business_id = u.business_id)
         LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
@@ -134,13 +135,14 @@ export class PlatformAdminService {
         ORDER BY LOWER(TRIM(u.email)), (CASE WHEN bs.status = 'active' THEN 1 WHEN bs.status = 'trialing' THEN 2 ELSE 3 END), bs.created_at DESC
       )
       SELECT 
-        COUNT(CASE WHEN sub_status = 'active' THEN 1 END) as active_subs,
+        COUNT(CASE WHEN sub_status = 'active' AND is_lifetime_free = FALSE THEN 1 END) as active_paid_subs,
+        COUNT(CASE WHEN sub_status = 'active' AND is_lifetime_free = TRUE THEN 1 END) as lifetime_free_subs,
         COUNT(CASE WHEN sub_status = 'trialing' AND (trial_ends_at IS NULL OR trial_ends_at > NOW()) THEN 1 END) as trialing_subs,
         COUNT(CASE WHEN sub_status = 'expired' OR sub_status = 'canceled' OR (sub_status = 'trialing' AND trial_ends_at IS NOT NULL AND trial_ends_at <= NOW()) THEN 1 END) as expired_subs,
         COUNT(CASE WHEN plan_code = 'starter' AND sub_status = 'active' THEN 1 END) as starter_count,
         COUNT(CASE WHEN plan_code = 'pro' AND sub_status = 'active' THEN 1 END) as pro_count,
         COUNT(CASE WHEN plan_code = 'enterprise' AND sub_status = 'active' THEN 1 END) as enterprise_count,
-        COALESCE(SUM(CASE WHEN sub_status = 'active' THEN 
+        COALESCE(SUM(CASE WHEN sub_status = 'active' AND is_lifetime_free = FALSE THEN 
           CASE WHEN billing_cycle = 'yearly' THEN price_yearly_inr / 12 ELSE price_monthly_inr END
         ELSE 0 END), 0) as mrr
       FROM user_subscriptions
@@ -149,11 +151,12 @@ export class PlatformAdminService {
     const subStats = subStatsRes[0] || {};
     const mrr = parseFloat(subStats.mrr || '0');
     const arr = mrr * 12;
-    const activeSubs = parseInt(subStats.active_subs || '0', 10);
+    const activePaidSubs = parseInt(subStats.active_paid_subs || '0', 10);
+    const lifetimeFreeSubs = parseInt(subStats.lifetime_free_subs || '0', 10);
     const trialingSubs = parseInt(subStats.trialing_subs || '0', 10);
     const expiredSubs = parseInt(subStats.expired_subs || '0', 10);
-    const totalSubs = activeSubs + trialingSubs + expiredSubs;
-    const conversionRate = totalSubs > 0 ? ((activeSubs / totalSubs) * 100).toFixed(1) : '0.0';
+    const totalSubs = activePaidSubs + lifetimeFreeSubs + trialingSubs + expiredSubs;
+    const conversionRate = totalSubs > 0 ? ((activePaidSubs / totalSubs) * 100).toFixed(1) : '0.0';
 
     return {
       stats: {
@@ -168,7 +171,9 @@ export class PlatformAdminService {
         arr,
         conversionRate,
         subscriptions: {
-          active: activeSubs,
+          active: activePaidSubs,
+          activePaid: activePaidSubs,
+          lifetimeFree: lifetimeFreeSubs,
           trialing: trialingSubs,
           expired: expiredSubs,
           starter: parseInt(subStats.starter_count || '0', 10),
@@ -176,7 +181,7 @@ export class PlatformAdminService {
           enterprise: parseInt(subStats.enterprise_count || '0', 10),
         },
       },
-      recentSignups: recentSignups.map((u) => ({
+    };    recentSignups: recentSignups.map((u) => ({
         id: u.id,
         full_name: u.full_name,
         email: u.email,
