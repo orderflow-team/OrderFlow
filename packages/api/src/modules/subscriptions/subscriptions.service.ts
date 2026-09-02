@@ -335,9 +335,10 @@ export class SubscriptionsService {
 
     await this.dataSource.query(
       `UPDATE business_subscriptions 
-       SET trial_ends_at = trial_ends_at + INTERVAL '30 days',
-           current_period_end = GREATEST(current_period_end, NOW()) + INTERVAL '30 days'
-       WHERE business_id IN ($1, $2)`,
+       SET trial_ends_at = COALESCE(trial_ends_at, NOW()) + INTERVAL '30 days',
+           current_period_end = GREATEST(COALESCE(current_period_end, NOW()), NOW()) + INTERVAL '30 days'
+       WHERE business_id IN ($1, $2)
+          OR user_id IN (SELECT owner_user_id FROM businesses WHERE id IN ($1, $2) AND owner_user_id IS NOT NULL)`,
       [referrerBusinessId, refereeBusinessId]
     );
 

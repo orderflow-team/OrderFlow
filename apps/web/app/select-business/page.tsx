@@ -36,6 +36,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('grocery');
   const [inventoryEnabled, setInventoryEnabled] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCustomWizard, setShowCustomWizard] = useState(false);
@@ -61,6 +62,9 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
       setCurrentUser(response.data.user);
+      if (referralCode.trim()) {
+        await apiClient.post('/api/subscriptions/apply-referral', { referralCode: referralCode.trim() }).catch(() => null);
+      }
       onCreated();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Could not create business');
@@ -151,6 +155,13 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
               </span>
             </label>
           )}
+
+          <Input
+            placeholder="Referral Code (Optional, e.g. OF-ABC123)"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            className="font-mono text-sm"
+          />
 
           {error && <p className="text-sm text-rose-600">{error}</p>}
           <div className="flex gap-3">

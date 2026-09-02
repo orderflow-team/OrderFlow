@@ -49,15 +49,24 @@ export default function SubscriptionSettingsPage() {
   const [selectedPlanCode, setSelectedPlanCode] = useState<string>('pro');
   const [mobileActiveTab, setMobileActiveTab] = useState<'starter' | 'pro' | 'enterprise'>('pro');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [message, setMessage] = useState('');
+  const [inputReferralCode, setInputReferralCode] = useState('');
+  const [applyingReferral, setApplyingReferral] = useState(false);
 
-  const [referralInfo, setReferralInfo] = useState<{
-    referralCode: string;
-    referralLink: string;
-    totalReferrals: number;
-    bonusDaysEarned: number;
-    shareMessage: string;
-  } | null>(null);
+  const handleApplyReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputReferralCode.trim()) return;
+    setApplyingReferral(true);
+    try {
+      const res = await apiClient.post('/api/subscriptions/apply-referral', { referralCode: inputReferralCode.trim() });
+      setMessage(res.data.message || 'Referral code applied! 30 Bonus Days credited! 🎉');
+      setInputReferralCode('');
+      fetchSubscription();
+    } catch (err: any) {
+      setMessage(err.response?.data?.message || 'Invalid or expired referral code.');
+    } finally {
+      setApplyingReferral(false);
+    }
+  };
 
   const fetchSubscription = async () => {
     try {
@@ -764,6 +773,29 @@ export default function SubscriptionSettingsPage() {
               <p className="text-xl font-extrabold text-emerald-400 mt-0.5">+{referralInfo.bonusDaysEarned} Free Days</p>
             </div>
           </div>
+
+          {/* Apply Referral Code Input Form */}
+          <form onSubmit={handleApplyReferral} className="pt-4 border-t border-emerald-800/60 flex flex-col sm:flex-row items-end gap-3">
+            <div className="flex-1 w-full">
+              <label className="text-[11px] font-bold text-emerald-300 block mb-1">
+                🎁 Received a referral code from a friend?
+              </label>
+              <input
+                type="text"
+                placeholder="Enter Referral Code (e.g. OF-ABC123)"
+                value={inputReferralCode}
+                onChange={(e) => setInputReferralCode(e.target.value.toUpperCase())}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-emerald-500/40 text-white font-mono text-sm placeholder:text-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={applyingReferral || !inputReferralCode.trim()}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 text-emerald-950 font-extrabold text-xs shadow-lg shadow-emerald-400/20 transition active:scale-95 shrink-0"
+            >
+              {applyingReferral ? 'Applying...' : 'Claim 30 Free Days 🎉'}
+            </button>
+          </form>
         </div>
       )}
     </div>
