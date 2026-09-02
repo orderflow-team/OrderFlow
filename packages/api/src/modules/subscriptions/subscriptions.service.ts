@@ -39,21 +39,23 @@ export class SubscriptionsService {
     let effectiveBizId = businessId;
 
     // Look up user details if userId provided
+    let userRecord: any = null;
     if (userId) {
-      const userRes = await this.dataSource.query(`SELECT id, business_id, role FROM users WHERE id = $1`, [userId]);
-      const user = userRes[0];
-      if (user) {
-        if (!effectiveBizId && user.business_id) {
-          effectiveBizId = user.business_id;
+      const userRes = await this.dataSource.query(`SELECT id, business_id, role, created_at FROM users WHERE id = $1`, [userId]);
+      userRecord = userRes[0];
+      if (userRecord) {
+        if (!effectiveBizId && userRecord.business_id) {
+          effectiveBizId = userRecord.business_id;
         }
         // If staff member, resolve subscription of store owner (admin)
-        if (user.role !== 'admin' && user.role !== 'super_admin' && effectiveBizId) {
+        if (userRecord.role !== 'admin' && userRecord.role !== 'super_admin' && effectiveBizId) {
           const ownerRes = await this.dataSource.query(
-            `SELECT id FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
+            `SELECT id, created_at FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
             [effectiveBizId]
           );
           if (ownerRes[0]) {
             targetUserId = ownerRes[0].id;
+            userRecord = ownerRes[0];
           }
         }
       }
@@ -89,7 +91,47 @@ export class SubscriptionsService {
 
     let sub = rows[0];
 
-    // Auto-provision 30-day Free Trial for User if no subscription record exists yet
+    // Check if user is an existing legacy user (created on or before 2026-09-02 cut-off)
+    const legacyCutoff = new Date('2026-09-02T16:20:00.000Z');
+    const userCreatedAt = userRecord?.created_at ? new Date(userRecord.created_at) : null;
+    const isExistingUser = userCreatedAt && userCreatedAt <= legacyCutoff;
+
+    if (isExistingUser && targetUserId) {
+      const enterprisePlan = await this.dataSource.query(
+        `SELECT id, code, name, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features
+         FROM subscription_plans WHERE code = 'enterprise' LIMIT 1`
+      );
+      const plan = enterprisePlan[0];
+      if (plan) {
+        if (!sub) {
+          await this.dataSource.query(
+            `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, current_period_end)
+             VALUES (gen_random_uuid(), $1, $2, $3, 'active', '2099-12-31 23:59:59')`,
+            [targetUserId, effectiveBizId || null, plan.id]
+          );
+        } else if (sub.status !== 'active' || sub.plan_code !== 'enterprise') {
+          await this.dataSource.query(
+            `UPDATE business_subscriptions 
+             SET plan_id = $1, status = 'active', current_period_end = '2099-12-31 23:59:59'
+             WHERE id = $2`,
+            [plan.id, sub.id]
+          );
+        }
+        sub = {
+          status: 'active',
+          plan_code: 'enterprise',
+          plan_name: 'Lifetime Free Access',
+          current_period_end: new Date('2099-12-31T23:59:59.000Z'),
+          max_staff_users: plan.max_staff_users,
+          max_devices: plan.max_devices,
+          max_orders_per_month: plan.max_orders_per_month,
+          max_ai_scans_per_month: plan.max_ai_scans_per_month,
+          features: plan.features,
+        };
+      }
+    }
+
+    // Auto-provision 30-day Free Trial for NEW User if no subscription record exists yet
     if (!sub && targetUserId) {
       const defaultPlan = await this.dataSource.query(
         `SELECT id, code, name, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features
