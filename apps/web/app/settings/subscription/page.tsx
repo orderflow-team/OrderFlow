@@ -51,6 +51,14 @@ export default function SubscriptionSettingsPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [inputReferralCode, setInputReferralCode] = useState('');
   const [applyingReferral, setApplyingReferral] = useState(false);
+  const [message, setMessage] = useState('');
+  const [referralInfo, setReferralInfo] = useState<{
+    referralCode: string;
+    referralLink: string;
+    totalReferrals: number;
+    bonusDaysEarned: number;
+    shareMessage: string;
+  } | null>(null);
 
   const handleApplyReferral = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -721,83 +729,92 @@ export default function SubscriptionSettingsPage() {
       </div>
 
       {/* 🎁 Referral Rewards Program Banner */}
-      {referralInfo && (
-        <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-emerald-500/30 relative overflow-hidden space-y-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-xl">
-              <span className="bg-emerald-400 text-emerald-950 font-extrabold px-3 py-1 rounded-full text-xs uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm">
-                🎁 Referral Program
-              </span>
-              <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Invite a Kirana or Pharmacy Friend — Get 1 Month FREE!
-              </h3>
-              <p className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
-                Share your unique referral code with fellow shopkeepers. When they register, <strong>both you and your friend get 30 Bonus Days of Pro Plan for FREE!</strong>
-              </p>
+      {(() => {
+        const displayRef = referralInfo || {
+          referralCode: 'OF-REWARD',
+          referralLink: 'https://orderflow.in/signup?ref=OF-REWARD',
+          totalReferrals: 0,
+          bonusDaysEarned: 0,
+          shareMessage: 'Hey! I use Orderflow to manage my shop POS billing & inventory. Use my referral link to get a 30-Day FREE Pro Trial + 30 Extra Bonus Days! Signup here: https://orderflow.in/signup?ref=OF-REWARD',
+        };
+        return (
+          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-emerald-500/30 relative overflow-hidden space-y-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-2 max-w-xl">
+                <span className="bg-emerald-400 text-emerald-950 font-extrabold px-3 py-1 rounded-full text-xs uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm">
+                  🎁 Referral Program
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  Invite a Kirana or Pharmacy Friend — Get 1 Month FREE!
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-200 leading-relaxed">
+                  Share your unique referral code with fellow shopkeepers. When they register, <strong>both you and your friend get 30 Bonus Days of Pro Plan for FREE!</strong>
+                </p>
+              </div>
+
+              <a
+                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(displayRef.shareMessage)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-xs shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 shrink-0 active:scale-95"
+              >
+                <span>Share on WhatsApp 📲</span>
+              </a>
             </div>
 
-            <a
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(referralInfo.shareMessage)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-xs shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 shrink-0 active:scale-95"
-            >
-              <span>Share on WhatsApp 📲</span>
-            </a>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-emerald-800/60">
+              <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-emerald-300">Your Referral Code</p>
+                  <p className="text-base font-extrabold font-mono text-white mt-0.5">{displayRef.referralCode}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(displayRef.referralCode);
+                    setMessage(`Referral code ${displayRef.referralCode} copied to clipboard!`);
+                  }}
+                  className="text-xs font-bold text-emerald-400 hover:text-emerald-200 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800"
+                >
+                  Copy
+                </button>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-emerald-800/60">
-            <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-emerald-300">Your Referral Code</p>
-                <p className="text-base font-extrabold font-mono text-white mt-0.5">{referralInfo.referralCode}</p>
+              <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10">
+                <p className="text-[10px] uppercase font-bold text-emerald-300">Successful Referrals</p>
+                <p className="text-xl font-extrabold text-white mt-0.5">{displayRef.totalReferrals} Stores Joined</p>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10">
+                <p className="text-[10px] uppercase font-bold text-emerald-300">Bonus Pro Days Earned</p>
+                <p className="text-xl font-extrabold text-emerald-400 mt-0.5">+{displayRef.bonusDaysEarned} Free Days</p>
+              </div>
+            </div>
+
+            {/* Apply Referral Code Input Form */}
+            <form onSubmit={handleApplyReferral} className="pt-4 border-t border-emerald-800/60 flex flex-col sm:flex-row items-end gap-3">
+              <div className="flex-1 w-full">
+                <label className="text-[11px] font-bold text-emerald-300 block mb-1">
+                  🎁 Received a referral code from a friend?
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter Referral Code (e.g. OF-ABC123)"
+                  value={inputReferralCode}
+                  onChange={(e) => setInputReferralCode(e.target.value.toUpperCase())}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-emerald-500/40 text-white font-mono text-sm placeholder:text-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
+                />
               </div>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(referralInfo.referralCode);
-                  setMessage(`Referral code ${referralInfo.referralCode} copied to clipboard!`);
-                }}
-                className="text-xs font-bold text-emerald-400 hover:text-emerald-200 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800"
+                type="submit"
+                disabled={applyingReferral || !inputReferralCode.trim()}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 text-emerald-950 font-extrabold text-xs shadow-lg shadow-emerald-400/20 transition active:scale-95 shrink-0"
               >
-                Copy
+                {applyingReferral ? 'Applying...' : 'Claim 30 Free Days 🎉'}
               </button>
-            </div>
-
-            <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-emerald-300">Successful Referrals</p>
-              <p className="text-xl font-extrabold text-white mt-0.5">{referralInfo.totalReferrals} Stores Joined</p>
-            </div>
-
-            <div className="bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10">
-              <p className="text-[10px] uppercase font-bold text-emerald-300">Bonus Pro Days Earned</p>
-              <p className="text-xl font-extrabold text-emerald-400 mt-0.5">+{referralInfo.bonusDaysEarned} Free Days</p>
-            </div>
+            </form>
           </div>
-
-          {/* Apply Referral Code Input Form */}
-          <form onSubmit={handleApplyReferral} className="pt-4 border-t border-emerald-800/60 flex flex-col sm:flex-row items-end gap-3">
-            <div className="flex-1 w-full">
-              <label className="text-[11px] font-bold text-emerald-300 block mb-1">
-                🎁 Received a referral code from a friend?
-              </label>
-              <input
-                type="text"
-                placeholder="Enter Referral Code (e.g. OF-ABC123)"
-                value={inputReferralCode}
-                onChange={(e) => setInputReferralCode(e.target.value.toUpperCase())}
-                className="w-full px-4 py-2.5 rounded-xl bg-white/10 border border-emerald-500/40 text-white font-mono text-sm placeholder:text-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={applyingReferral || !inputReferralCode.trim()}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 text-emerald-950 font-extrabold text-xs shadow-lg shadow-emerald-400/20 transition active:scale-95 shrink-0"
-            >
-              {applyingReferral ? 'Applying...' : 'Claim 30 Free Days 🎉'}
-            </button>
-          </form>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

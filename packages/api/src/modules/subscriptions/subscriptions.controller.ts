@@ -39,19 +39,24 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard)
   @Get('referral-info')
   async getReferralInfo(@Req() req: any) {
-    const businessId = req.user?.business_id;
-    if (!businessId) {
-      throw new BadRequestException('User does not belong to a business');
+    let businessId = req.user?.businessId || req.user?.business_id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!businessId && userId) {
+      businessId = await this.subscriptionsService.resolveUserBusinessId(userId);
     }
-    return this.subscriptionsService.getReferralInfo(businessId);
+    return this.subscriptionsService.getReferralInfo(businessId, userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('apply-referral')
   async applyReferral(@Req() req: any, @Body() body: { referralCode: string }) {
-    const businessId = req.user?.business_id;
+    let businessId = req.user?.businessId || req.user?.business_id;
+    const userId = req.user?.userId || req.user?.id;
+    if (!businessId && userId) {
+      businessId = await this.subscriptionsService.resolveUserBusinessId(userId);
+    }
     if (!businessId) {
-      throw new BadRequestException('User does not belong to a business');
+      throw new BadRequestException('Please set up or select a store workspace before applying a referral code.');
     }
     if (!body.referralCode) {
       throw new BadRequestException('referralCode is required');

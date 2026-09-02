@@ -278,18 +278,45 @@ export class SubscriptionsService {
     };
   }
 
-  async getReferralInfo(businessId: string) {
-    let bizRes = await this.dataSource.query(`SELECT referral_code FROM businesses WHERE id = $1`, [businessId]);
+  async resolveUserBusinessId(userId: string): Promise<string | undefined> {
+    if (!userId) return undefined;
+    const userRes = await this.dataSource.query(`SELECT business_id FROM users WHERE id = $1`, [userId]);
+    let bizId = userRes[0]?.business_id;
+    if (!bizId) {
+      const bizOwnedRes = await this.dataSource.query(`SELECT id FROM businesses WHERE owner_user_id = $1 ORDER BY created_at ASC LIMIT 1`, [userId]);
+      bizId = bizOwnedRes[0]?.id;
+    }
+    return bizId;
+  }
+
+  async getReferralInfo(businessId?: string, userId?: string) {
+    let effectiveBizId = businessId;
+    if (!effectiveBizId && userId) {
+      effectiveBizId = await this.resolveUserBusinessId(userId);
+    }
+
+    if (!effectiveBizId) {
+      const code = 'OF-' + (userId ? userId.substring(0, 6).toUpperCase() : Math.random().toString(36).substring(2, 8).toUpperCase());
+      return {
+        referralCode: code,
+        referralLink: `https://orderflow.in/signup?ref=${code}`,
+        totalReferrals: 0,
+        bonusDaysEarned: 0,
+        shareMessage: `Hey! I use Orderflow to manage my shop POS billing & inventory. Use my referral link to get a 30-Day FREE Pro Trial + 30 Extra Bonus Days! Signup here: https://orderflow.in/signup?ref=${code}`,
+      };
+    }
+
+    let bizRes = await this.dataSource.query(`SELECT referral_code FROM businesses WHERE id = $1`, [effectiveBizId]);
     let referralCode = bizRes[0]?.referral_code;
 
     if (!referralCode) {
       referralCode = 'OF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      await this.dataSource.query(`UPDATE businesses SET referral_code = $1 WHERE id = $2`, [referralCode, businessId]);
+      await this.dataSource.query(`UPDATE businesses SET referral_code = $1 WHERE id = $2`, [referralCode, effectiveBizId]);
     }
 
     const referralsCountRes = await this.dataSource.query(
       `SELECT COUNT(*) as count FROM business_referrals WHERE referrer_business_id = $1`,
-      [businessId]
+      [effectiveBizId]
     );
 
     const totalReferrals = parseInt(referralsCountRes[0]?.count || '0', 10);
