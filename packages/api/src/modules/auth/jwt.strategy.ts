@@ -1,9 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
-import { UserRole } from '../../common/enums/user-role.enum';
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { PassportStrategy } from "@nestjs/passport";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import { ConfigService } from "@nestjs/config";
+import { DataSource } from "typeorm";
+import { UserRole } from "../../common/enums/user-role.enum";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,11 +14,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+      secretOrKey: configService.getOrThrow<string>("JWT_SECRET"),
     });
   }
 
-  async validate(payload: { sub: string; email: string; businessId: string; role: string }) {
+  async validate(payload: {
+    sub: string;
+    email: string;
+    businessId: string;
+    role: string;
+    tokenType?: string;
+  }) {
+    if (payload.tokenType !== "access") {
+      throw new UnauthorizedException("Invalid access token");
+    }
     // Guest sessions (table/takeaway QR logins) are synthetic ids like
     // "guest-<tableId>" — never a real row in `users`, so skip both queries
     // below entirely rather than let them fail against a non-UUID id.
@@ -29,9 +38,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // user" double as "force logout now": every authenticated request
       // re-checks is_active, so a token minted before the disable stops
       // working on its very next use.
-      const rows = await this.dataSource.query(`SELECT is_active FROM users WHERE id = $1`, [payload.sub]);
+      const rows = await this.dataSource.query(
+        `SELECT is_active FROM users WHERE id = $1`,
+        [payload.sub],
+      );
       if (rows.length > 0 && rows[0].is_active === false) {
-        throw new UnauthorizedException('Account disabled');
+        throw new UnauthorizedException("Account disabled");
       }
 
       // Fire-and-forget, throttled to once/minute per user via the WHERE

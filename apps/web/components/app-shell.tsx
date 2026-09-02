@@ -239,10 +239,8 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     // window.location.reload() after any business-profile change (name,
     // logo, modules), since this fetch result is what's stale. That's a
     // full app reload just to refresh one cached value, and it has a real
-    // side effect: it remounts SplashGif in the root layout, replaying
-    // the launch animation every time someone saves a settings change or
-    // uploads a logo. Dispatching this event instead re-fetches the same
-    // data in place, with no reload and no splash replay.
+    // side effect: it remounts the whole root layout. Dispatching this event
+    // instead re-fetches the same data in place, with no reload.
     const fetchBusinessProfile = () => {
       apiClient
         .get<{ name: string; category: string | null; logo_url: string | null; upi_qr_url?: string | null; inventory_enabled: boolean; ai_chat_enabled?: boolean; address?: string | null; phone?: string | null; gst_number?: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
@@ -822,12 +820,25 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-base font-bold text-slate-800 tracking-tight shrink-0">OBIX</span>
           </div>
-          <button onClick={logout} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/settings/subscription"
+              aria-label="View subscription"
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-1 rounded-full text-[10px] shadow-sm border border-amber-400/40 active:scale-95 transition-transform"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+              <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
+              <span className="text-amber-300 font-bold">
+                {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`}
+              </span>
+            </Link>
+            <button onClick={logout} aria-label="Log out" className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         {businessName && (
-          <div className="flex items-center justify-between gap-2 mt-1 min-w-0">
+          <div className="flex items-center gap-2 mt-1 min-w-0">
             <button
               onClick={() => setMobileBusinessMenuOpen(true)}
               disabled={switching}
@@ -848,17 +859,6 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               )}
               <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </button>
-
-            <Link
-              href="/settings/subscription"
-              className="inline-flex items-center gap-1 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-0.5 rounded-full text-[10px] shadow-sm border border-amber-400/40 shrink-0 active:scale-95 transition-transform"
-            >
-              <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-              <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
-              <span className="text-amber-300 font-bold">
-                ({sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`})
-              </span>
-            </Link>
           </div>
         )}
       </header>

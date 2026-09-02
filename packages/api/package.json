@@ -13,7 +13,9 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "bootstrap:admin": "ts-node scripts/bootstrap-admin.ts",
+    "maintenance:migrate-legacy-invoice-scans": "ts-node scripts/migrate-legacy-invoice-scans.ts"
   },
   "keywords": [],
   "author": "",

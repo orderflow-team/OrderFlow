@@ -11,14 +11,9 @@ const config: CapacitorConfig = {
     CapacitorUpdater: {
       autoUpdate: 'off',
     },
-    // launchAutoHide: false keeps the native splash (the X logo, see
-    // android/.../drawable/splash.png) on screen past Android's default
-    // "hide on first frame" — which fires the instant the WebView paints
-    // anything, well before the Next.js bundle has hydrated. Without this,
-    // that gap between "native splash gone" and "app actually rendered"
-    // shows as a black WebView. SplashGif (components/splash-gif.tsx)
-    // calls SplashScreen.hide() itself once its video overlay has mounted,
-    // so the native splash hands off directly to the video with no gap.
+    // Keep the static native splash until the web app has hydrated, so Android
+    // does not briefly expose an unpainted WebView. DismissNativeSplash hides
+    // it immediately after hydration; no animated web splash is shown.
     SplashScreen: {
       launchAutoHide: false,
       backgroundColor: '#ffffffff',

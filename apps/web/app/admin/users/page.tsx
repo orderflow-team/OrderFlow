@@ -168,6 +168,18 @@ export default function AdminUsersPage() {
     extend_days: 30,
   });
   const [updatingSub, setUpdatingSub] = useState(false);
+  const [dbPlans, setDbPlans] = useState<{ code: string; name: string; price_monthly_inr?: number }[]>([]);
+
+  useEffect(() => {
+    apiClient
+      .get('/api/subscriptions/plans')
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setDbPlans(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const openEditModal = (user: UserData) => {
     setCurrentUser(user);
@@ -685,6 +697,14 @@ export default function AdminUsersPage() {
                     >
                       <option value="starter">Starter Plan (Free)</option>
                       <option value="pro">Pro Plan (₹399/mo)</option>
+                      <option value="enterprise">Enterprise Plan (₹999/mo)</option>
+                      {dbPlans
+                        .filter((p) => !['starter', 'pro', 'enterprise'].includes(p.code))
+                        .map((p) => (
+                          <option key={p.code} value={p.code}>
+                            {p.name} {p.price_monthly_inr ? `(₹${p.price_monthly_inr}/mo)` : ''}
+                          </option>
+                        ))}
                     </select>
                   </div>
 

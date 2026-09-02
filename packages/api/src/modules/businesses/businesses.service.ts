@@ -66,10 +66,20 @@ export class BusinessesService {
     const ownedStoresCount = await this.businessesRepository.count({ where: { owner_user_id: userId } });
     if (ownedStoresCount >= 1) {
       const sub = await this.subscriptionsService.getUserSubscriptionStatus(userId);
-      if (!sub.multiStoreAllowed) {
-        throw new ForbiddenException(
-          'Multi-Store management is exclusive to the Pro Plan. Upgrade to Pro Plan (₹399/mo) to manage multiple stores under one account.'
-        );
+      if (sub.maxStores !== -1 && ownedStoresCount >= sub.maxStores) {
+        if (sub.maxStores === 1) {
+          throw new ForbiddenException(
+            'Multi-Store management is not allowed on Mobile Starter Plan. Upgrade to Pro Plan (₹399/mo) to manage up to 2 stores, or Enterprise Plan (₹999/mo) for unlimited stores.'
+          );
+        } else if (sub.maxStores === 2) {
+          throw new ForbiddenException(
+            'Pro Plan permits a maximum of 2 stores. Upgrade to Enterprise Plan (₹999/mo) to manage unlimited stores under one account.'
+          );
+        } else {
+          throw new ForbiddenException(
+            `Your subscription plan allows a maximum of ${sub.maxStores} store(s). Please upgrade your plan to add more stores.`
+          );
+        }
       }
     }
 

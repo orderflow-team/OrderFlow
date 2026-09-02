@@ -70,7 +70,7 @@ interface CommissionSummary {
 
 export default function StaffPage() {
   const { businessId, ready } = useBusiness();
-  const { isStarter } = useSubscription();
+  const { isStarter, isTrial } = useSubscription();
   const [showStaffLockedModal, setShowStaffLockedModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'roster' | 'attendance' | 'commissions'>('roster');
 
@@ -291,7 +291,7 @@ export default function StaffPage() {
             activeTab === 'roster' ? (
               <Button
                 onClick={() => {
-                  if (isStarter && staff.length >= 2) {
+                  if (isStarter && !isTrial && staff.length >= 2) {
                     setShowStaffLockedModal(true);
                   } else {
                     setShowForm((s) => !s);
@@ -301,7 +301,7 @@ export default function StaffPage() {
               >
                 {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 <span>{showForm ? 'Cancel' : 'Add Staff'}</span>
-                {isStarter && staff.length >= 2 && (
+                {isStarter && !isTrial && staff.length >= 2 && (
                   <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ml-0.5 border border-amber-300">
                     <Lock className="w-2.5 h-2.5" /> PRO
                   </span>
@@ -311,7 +311,7 @@ export default function StaffPage() {
           }
         />
 
-        {isStarter && staff.length >= 2 && (
+        {isStarter && !isTrial && staff.length >= 2 && (
           <LockedFeatureBadge
             featureName="Additional Staff Accounts"
             requiredPlan="Pro"

@@ -356,20 +356,6 @@ export default function DashboardPage() {
           description="Here's what's happening with your business today."
           action={
             <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                href="/settings/subscription"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-900 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all border border-indigo-400/40 active:scale-95 shrink-0"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  sub?.status === 'expired'
-                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                    : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-                }`}>
-                  {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired (0d left)' : `${sub?.trialDaysLeft ?? 30} Days Left`}
-                </span>
-              </Link>
               <Button
                 onClick={() => setShowTour(true)}
                 variant="outline"
@@ -407,49 +393,35 @@ export default function DashboardPage() {
             features: {},
           };
           return (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-xl border border-indigo-500/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-bold shadow-md shrink-0">
-                  <Crown className="w-5 h-5 fill-current text-slate-950" />
+            <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-lg border border-indigo-500/30">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-bold shadow-md shrink-0">
+                <Crown className="w-4 h-4 fill-current text-slate-950" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-sm font-extrabold text-white truncate">{displaySub.planName || 'Free Trial'}</span>
+                  {displaySub.status === 'trialing' && (
+                    <span className="text-[11px] font-bold text-amber-300 shrink-0">{displaySub.trialDaysLeft}d left</span>
+                  )}
+                  {displaySub.status === 'active' && (
+                    <span className="text-[11px] font-bold text-emerald-300 shrink-0">Active</span>
+                  )}
+                  {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
+                    <span className="text-[11px] font-bold text-rose-300 shrink-0">Expired</span>
+                  )}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-extrabold text-white">{displaySub.planName || 'Free Trial'}</span>
-                    {displaySub.status === 'trialing' && (
-                      <span className="bg-amber-400/20 text-amber-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-amber-400/30">
-                        ✨ Free Trial ({displaySub.trialDaysLeft} Days Left)
-                      </span>
-                    )}
-                    {displaySub.status === 'active' && (
-                      <span className="bg-emerald-500/20 text-emerald-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-500/30">
-                        ✅ Active Plan ({displaySub.trialDaysLeft > 0 ? `${displaySub.trialDaysLeft} Days Left` : 'Unlimited'})
-                      </span>
-                    )}
-                    {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
-                      <span className="bg-rose-500/20 text-rose-300 font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border border-rose-500/30">
-                        ⚠️ Trial Expired (0 Days Left)
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-indigo-200 mt-0.5">
-                    {displaySub.status === 'trialing' && (
-                      <>Your 30-day free trial has <strong>{displaySub.trialDaysLeft} Days Remaining</strong>.</>
-                    )}
-                    {displaySub.status === 'active' && (
-                      <>Full store billing & feature access unlocked.</>
-                    )}
-                    {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
-                      <>Trial period completed. <strong>0 Days Remaining</strong>. Select a plan to continue billing.</>
-                    )}
-                  </p>
-                </div>
+                <p className="text-[11px] text-indigo-200 truncate">
+                  {displaySub.status === 'trialing' && '30-day trial'}
+                  {displaySub.status === 'active' && 'Billing and features unlocked'}
+                  {(displaySub.status === 'expired' || displaySub.status === 'past_due') && 'Select a plan to continue'}
+                </p>
               </div>
 
               <Link
                 href="/settings/subscription"
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-indigo-950 font-extrabold text-xs hover:brightness-105 active:scale-95 transition shadow-sm shrink-0 self-stretch sm:self-auto text-center"
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-indigo-950 font-extrabold text-[11px] hover:brightness-105 active:scale-95 transition shadow-sm shrink-0 text-center"
               >
-                {displaySub.status === 'active' ? 'Manage Subscription' : 'Upgrade Plan Now →'}
+                {displaySub.status === 'active' ? 'Manage' : 'Upgrade'}
               </Link>
             </div>
           );

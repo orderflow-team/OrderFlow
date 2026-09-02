@@ -5,6 +5,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import * as fs from 'fs';
 import { BusinessesService } from './businesses.service';
 import { DevToolsService } from '../dev-tools/dev-tools.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { Business } from '../../database/entities/business.entity';
 import { User } from '../../database/entities/user.entity';
 
@@ -18,6 +19,7 @@ describe('BusinessesService', () => {
     findOne: jest.Mock;
     find: jest.Mock;
     update: jest.Mock;
+    count: jest.Mock;
   };
   let usersRepo: { findOne: jest.Mock; update: jest.Mock };
   let dataSource: { transaction: jest.Mock };
@@ -39,6 +41,7 @@ describe('BusinessesService', () => {
       findOne: jest.fn(),
       find: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     };
     usersRepo = { findOne: jest.fn(), update: jest.fn() };
     dataSource = { transaction: jest.fn(async (cb) => cb({ query: jest.fn().mockResolvedValue([]) })) };
@@ -49,6 +52,7 @@ describe('BusinessesService', () => {
         { provide: getRepositoryToken(Business), useValue: businessesRepo },
         { provide: getRepositoryToken(User), useValue: usersRepo },
         { provide: DevToolsService, useValue: {} },
+        { provide: SubscriptionsService, useValue: { getUserSubscriptionStatus: jest.fn() } },
         { provide: DataSource, useValue: dataSource },
       ],
     }).compile();

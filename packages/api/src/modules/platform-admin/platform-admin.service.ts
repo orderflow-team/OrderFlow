@@ -71,7 +71,24 @@ export class PlatformAdminService {
    */
   async getOverviewStats() {
     const totalStores = await this.businessRepo.count();
-    const activeStores = await this.businessRepo.count({ where: { inventory_enabled: true } }); // Or active flag
+    let activeStores = 0;
+    try {
+      const activeStoresRes = await this.dataSource.query(`
+        SELECT COUNT(DISTINCT b.id) as count
+        FROM businesses b
+        LEFT JOIN business_subscriptions bs ON (bs.business_id = b.id OR bs.user_id = b.owner_user_id)
+        WHERE bs.status = 'active'
+           OR (bs.status = 'trialing' AND (bs.trial_ends_at IS NULL OR bs.trial_ends_at > NOW()))
+           OR (bs.id IS NULL AND b.created_at >= NOW() - INTERVAL '30 days')
+      `);
+      if (activeStoresRes && activeStoresRes[0] && activeStoresRes[0].count !== undefined) {
+        activeStores = parseInt(activeStoresRes[0].count, 10);
+      } else {
+        activeStores = await this.businessRepo.count({ where: { inventory_enabled: true } });
+      }
+    } catch {
+      activeStores = await this.businessRepo.count({ where: { inventory_enabled: true } });
+    }
     
     const totalUsers = await this.userRepo.count();
     const activeUsers = await this.userRepo.count({ where: { is_active: true } });
@@ -98,20 +115,35 @@ export class PlatformAdminService {
       take: 10,
     });
 
-    // MRR & SaaS Subscription Analytics
+    // MRR & SaaS Subscription Analytics (Evaluated per User Email Account)
     const subStatsRes = await this.dataSource.query(`
+      WITH user_subscriptions AS (
+        SELECT DISTINCT ON (LOWER(TRIM(u.email)))
+          u.id as user_id,
+          u.email,
+          COALESCE(bs.status, 'trialing') as sub_status,
+          bs.trial_ends_at,
+          bs.billing_cycle,
+          sp.code as plan_code,
+          COALESCE(sp.price_monthly_inr, 0) as price_monthly_inr,
+          COALESCE(sp.price_yearly_inr, 0) as price_yearly_inr
+        FROM users u
+        LEFT JOIN business_subscriptions bs ON (bs.user_id = u.id OR bs.business_id = u.business_id)
+        LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
+        WHERE u.role IN ('admin', 'super_admin')
+        ORDER BY LOWER(TRIM(u.email)), (CASE WHEN bs.status = 'active' THEN 1 WHEN bs.status = 'trialing' THEN 2 ELSE 3 END), bs.created_at DESC
+      )
       SELECT 
-        COUNT(CASE WHEN bs.status = 'active' THEN 1 END) as active_subs,
-        COUNT(CASE WHEN bs.status = 'trialing' THEN 1 END) as trialing_subs,
-        COUNT(CASE WHEN bs.status = 'expired' THEN 1 END) as expired_subs,
-        COUNT(CASE WHEN sp.code = 'starter' AND bs.status = 'active' THEN 1 END) as starter_count,
-        COUNT(CASE WHEN sp.code = 'pro' AND bs.status = 'active' THEN 1 END) as pro_count,
-        COUNT(CASE WHEN sp.code = 'enterprise' AND bs.status = 'active' THEN 1 END) as enterprise_count,
-        COALESCE(SUM(CASE WHEN bs.status = 'active' THEN 
-          CASE WHEN bs.billing_cycle = 'yearly' THEN sp.price_yearly_inr / 12 ELSE sp.price_monthly_inr END
+        COUNT(CASE WHEN sub_status = 'active' THEN 1 END) as active_subs,
+        COUNT(CASE WHEN sub_status = 'trialing' AND (trial_ends_at IS NULL OR trial_ends_at > NOW()) THEN 1 END) as trialing_subs,
+        COUNT(CASE WHEN sub_status = 'expired' OR sub_status = 'canceled' OR (sub_status = 'trialing' AND trial_ends_at IS NOT NULL AND trial_ends_at <= NOW()) THEN 1 END) as expired_subs,
+        COUNT(CASE WHEN plan_code = 'starter' AND sub_status = 'active' THEN 1 END) as starter_count,
+        COUNT(CASE WHEN plan_code = 'pro' AND sub_status = 'active' THEN 1 END) as pro_count,
+        COUNT(CASE WHEN plan_code = 'enterprise' AND sub_status = 'active' THEN 1 END) as enterprise_count,
+        COALESCE(SUM(CASE WHEN sub_status = 'active' THEN 
+          CASE WHEN billing_cycle = 'yearly' THEN price_yearly_inr / 12 ELSE price_monthly_inr END
         ELSE 0 END), 0) as mrr
-      FROM business_subscriptions bs
-      LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
+      FROM user_subscriptions
     `);
 
     const subStats = subStatsRes[0] || {};

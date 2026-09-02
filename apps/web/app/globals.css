@@ -64,6 +64,12 @@
 }
 
 :root {
+  /* System stacks keep the static export and CI build independent of the
+     Google Fonts network service. */
+  --font-sans-jakarta:
+    Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-geist-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-fraunces: Georgia, "Times New Roman", serif;
   color-scheme: light;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.18 0.01 250);
@@ -157,7 +163,12 @@
     transition: scrollbar-color 0.3s ease;
   }
   *:hover {
-    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 20%, transparent) transparent;
+    scrollbar-color: color-mix(
+        in oklch,
+        var(--muted-foreground) 20%,
+        transparent
+      )
+      transparent;
   }
   body {
     @apply bg-background text-foreground;
@@ -226,10 +237,18 @@
     transition: background-color 0.25s ease;
   }
   *:hover::-webkit-scrollbar-thumb {
-    background-color: color-mix(in oklch, var(--muted-foreground) 25%, transparent);
+    background-color: color-mix(
+      in oklch,
+      var(--muted-foreground) 25%,
+      transparent
+    );
   }
   ::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent) !important;
+    background-color: color-mix(
+      in oklch,
+      var(--muted-foreground) 50%,
+      transparent
+    ) !important;
   }
 }
 
@@ -270,7 +289,8 @@
   transition: scrollbar-color 0.3s ease;
 }
 .scrollbar-subtle:hover {
-  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 20%, transparent) transparent;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 20%, transparent)
+    transparent;
 }
 .scrollbar-subtle::-webkit-scrollbar {
   height: 5px;
@@ -287,10 +307,18 @@
   transition: background-color 0.25s ease;
 }
 .scrollbar-subtle:hover::-webkit-scrollbar-thumb {
-  background-color: color-mix(in oklch, var(--muted-foreground) 20%, transparent);
+  background-color: color-mix(
+    in oklch,
+    var(--muted-foreground) 20%,
+    transparent
+  );
 }
 .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
-  background-color: color-mix(in oklch, var(--muted-foreground) 50%, transparent) !important;
+  background-color: color-mix(
+    in oklch,
+    var(--muted-foreground) 50%,
+    transparent
+  ) !important;
 }
 
 /* Apple-style "liquid glass": a bright inset highlight along the top edge
@@ -321,10 +349,20 @@
 
 /* Scan-to-Inventory "wait" state: a scanning beam sweeping down a document. */
 @keyframes scan-sweep {
-  0% { top: 4%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { top: 92%; opacity: 0; }
+  0% {
+    top: 4%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 92%;
+    opacity: 0;
+  }
 }
 .scan-beam {
   animation: scan-sweep 1.8s ease-in-out infinite;
@@ -333,20 +371,41 @@
 /* Landing page: slow ambient drift on the background gradient blobs, so the page
    still feels "live" below the hero even where there's no WebGL canvas. */
 @keyframes drift-a {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50% { transform: translate(-46%, -54%) scale(1.06); }
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-46%, -54%) scale(1.06);
+  }
 }
 @keyframes drift-b {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(3%, 4%) scale(1.08); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(3%, 4%) scale(1.08);
+  }
 }
 @keyframes drift-c {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-3%, -3%) scale(1.05); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-3%, -3%) scale(1.05);
+  }
 }
-.drift-a { animation: drift-a 22s ease-in-out infinite; }
-.drift-b { animation: drift-b 26s ease-in-out infinite; }
-.drift-c { animation: drift-c 30s ease-in-out infinite; }
+.drift-a {
+  animation: drift-a 22s ease-in-out infinite;
+}
+.drift-b {
+  animation: drift-b 26s ease-in-out infinite;
+}
+.drift-c {
+  animation: drift-c 30s ease-in-out infinite;
+}
 
 /* Camera barcode scanning (ML Kit): the plugin renders the native camera
    behind the WebView, which only becomes visible where the WebView itself is
@@ -363,5 +422,9 @@ body.barcode-scanner-active .barcode-scanner-modal {
   visibility: visible;
 }
 @media (prefers-reduced-motion: reduce) {
-  .drift-a, .drift-b, .drift-c { animation: none; }
+  .drift-a,
+  .drift-b,
+  .drift-c {
+    animation: none;
+  }
 }

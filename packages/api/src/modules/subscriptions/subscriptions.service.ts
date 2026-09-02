@@ -158,9 +158,24 @@ export class SubscriptionsService {
 
     const planCode = sub?.plan_code || 'pro';
     const isTrial = effectiveStatus === 'trialing';
-    const isProOrEnterprise = planCode === 'pro' || planCode === 'enterprise';
-    const multiStoreAllowed = isTrial || isProOrEnterprise;
-    const maxStores = multiStoreAllowed ? 10 : 1;
+
+    // Store limits per subscription plan:
+    // - Mobile Starter ('starter'): 1 Store max (multi-store disabled)
+    // - Free Trial ('trialing') & Pro Plan ('pro'): Up to 2 Stores max
+    // - Enterprise Plan ('enterprise'): Unlimited Stores (-1)
+    let maxStores = 1;
+    let multiStoreAllowed = false;
+
+    if (planCode === 'enterprise') {
+      maxStores = -1; // Unlimited
+      multiStoreAllowed = true;
+    } else if (planCode === 'pro' || isTrial) {
+      maxStores = 2;
+      multiStoreAllowed = true;
+    } else {
+      maxStores = 1;
+      multiStoreAllowed = false;
+    }
 
     return {
       status: effectiveStatus,

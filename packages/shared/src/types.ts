@@ -66,3 +66,43 @@ export interface Order {
   createdAt: string;
   items?: OrderItem[];
 }
+
+export interface SubscriptionPlan {
+  id?: string;
+  code: 'starter' | 'pro' | 'enterprise' | string;
+  name: string;
+  price_monthly_inr: number;
+  price_yearly_inr?: number;
+  max_staff_users?: number;
+  max_devices?: number;
+  max_orders_per_month?: number;
+  max_ai_scans_per_month?: number;
+  features?: Record<string, boolean>;
+}
+
+export interface UserSubscriptionStatus {
+  status: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+  planCode: string;
+  planName: string;
+  trialDaysLeft: number;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  multiStoreAllowed?: boolean;
+  maxStores?: number;
+  quotas?: {
+    ordersUsedThisMonth: number;
+    maxOrdersPerMonth: number;
+    aiScansUsedThisMonth: number;
+    maxAiScansPerMonth: number;
+    staffUsersCount: number;
+    maxStaffUsers: number;
+  };
+  features?: Record<string, boolean>;
+}
+
+export interface UpdateUserSubscriptionDto {
+  plan_code?: string;
+  status?: 'trialing' | 'active' | 'past_due' | 'expired' | 'canceled';
+  extend_days?: number;
+  billing_cycle?: 'monthly' | 'yearly';
+}

@@ -151,9 +151,8 @@ export default function SettingsPage() {
     // handleWizardComplete/handleLogoUpload/handleLogoRemove all used to
     // force a window.location.reload() after saving, purely to get this
     // same fetch to re-run with fresh data. That reload had a real side
-    // effect: it remounts the root layout's SplashGif, replaying the
-    // app-launch animation on every settings save or logo upload.
-    // Dispatching the event instead re-fetches in place, no reload.
+    // effect: it remounts the whole root layout. Dispatching the event
+    // instead re-fetches in place, with no reload.
     const fetchSettings = () => {
       apiClient
         .get<BusinessProfile>(`/api/businesses/${businessId}`)
@@ -229,8 +228,7 @@ export default function SettingsPage() {
       });
       // Nav visibility (Inventory link, dashboard widgets) is cached client-side —
       // tell AppShell to re-fetch so it picks up the change immediately,
-      // without a full page reload (which used to replay the app-launch
-      // splash video every time settings were saved).
+      // without a full page reload.
       window.dispatchEvent(new Event('business-profile-updated'));
       setSaved(true);
       setSaving(false);

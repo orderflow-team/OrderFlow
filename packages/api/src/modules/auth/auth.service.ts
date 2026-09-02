@@ -1,21 +1,28 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, DataSource } from 'typeorm';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
-import { User } from '../../database/entities/user.entity';
-import { OtpCode } from '../../database/entities/otp-code.entity';
-import { PlatformSetting } from '../../database/entities/platform-setting.entity';
-import { SignupDto } from './dto/signup.dto';
-import { LoginDto } from './dto/login.dto';
-import { RequestOtpDto } from './dto/request-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { MailService } from './mail.service';
-import { UserRole } from '../../common/enums/user-role.enum';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, ILike, DataSource } from "typeorm";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcryptjs";
+import { User } from "../../database/entities/user.entity";
+import { OtpCode } from "../../database/entities/otp-code.entity";
+import { PlatformSetting } from "../../database/entities/platform-setting.entity";
+import { SignupDto } from "./dto/signup.dto";
+import { LoginDto } from "./dto/login.dto";
+import { RequestOtpDto } from "./dto/request-otp.dto";
+import { VerifyOtpDto } from "./dto/verify-otp.dto";
+import { RequestPasswordResetDto } from "./dto/request-password-reset.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
+import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { MailService } from "./mail.service";
+import { UserRole } from "../../common/enums/user-role.enum";
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
@@ -29,7 +36,7 @@ const OTP_REQUEST_COOLDOWN_SECONDS = 60;
 // gitignored, local-only .env.local — so this was plausibly wide open in the
 // deployed API the whole time, not just in local dev. An explicit opt-in
 // that defaults to "off" can't have that failure mode.
-const ALLOW_OTP_DEV_BYPASS = process.env.ALLOW_OTP_DEV_BYPASS === 'true';
+const ALLOW_OTP_DEV_BYPASS = process.env.ALLOW_OTP_DEV_BYPASS === "true";
 const OTP_MAX_ATTEMPTS = 5;
 
 @Injectable()
@@ -37,7 +44,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User) private usersRepository: Repository<User>,
     @InjectRepository(OtpCode) private otpCodesRepository: Repository<OtpCode>,
-    @InjectRepository(PlatformSetting) private platformSettingRepository: Repository<PlatformSetting>,
+    @InjectRepository(PlatformSetting)
+    private platformSettingRepository: Repository<PlatformSetting>,
     private jwtService: JwtService,
     private mailService: MailService,
     private dataSource: DataSource,
@@ -56,16 +64,19 @@ export class AuthService {
     const settings = await this.platformSettingRepository.find({ take: 1 });
     if (settings[0]?.maintenance_mode) {
       throw new ServiceUnavailableException(
-        settings[0].maintenance_message || 'The platform is temporarily down for maintenance. Please try again shortly.',
+        settings[0].maintenance_message ||
+          "The platform is temporarily down for maintenance. Please try again shortly.",
       );
     }
   }
 
   async signup(dto: SignupDto) {
     const email = dto.email.toLowerCase();
-    const existing = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    const existing = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
     if (existing) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException("Email already registered");
     }
 
     const password_hash = await bcrypt.hash(dto.password, 10);
@@ -84,36 +95,52 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const email = (dto.email || '').toLowerCase().trim();
+    const email = (dto.email || "").toLowerCase().trim();
 
-    const user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    const user = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
 
     if (!user || !user.password_hash) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     const matches = await bcrypt.compare(dto.password, user.password_hash);
     if (!matches) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException("Invalid credentials");
     }
 
     if (!user.is_active) {
-      throw new UnauthorizedException('Account is disabled');
+      throw new UnauthorizedException("Account is disabled");
     }
 
     await this.assertNotInMaintenance(user.role);
 
-    await this.logActivity(user.id, user.business_id, 'USER_LOGIN', 'Auth', { email: user.email });
+    await this.logActivity(user.id, user.business_id, "USER_LOGIN", "Auth", {
+      email: user.email,
+    });
 
     return this.issueTokens(user);
   }
 
-  private async logActivity(userId: string, businessId: string | null, action: string, resource: string, metadata: any) {
+  private async logActivity(
+    userId: string,
+    businessId: string | null,
+    action: string,
+    resource: string,
+    metadata: any,
+  ) {
     try {
       await this.dataSource.query(
         `INSERT INTO user_activity_logs (id, user_id, business_id, action, resource, metadata, ip_address, created_at)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '127.0.0.1', NOW())`,
-        [userId || null, businessId || null, action, resource, JSON.stringify(metadata)]
+        [
+          userId || null,
+          businessId || null,
+          action,
+          resource,
+          JSON.stringify(metadata),
+        ],
       );
     } catch (e) {}
   }
@@ -122,7 +149,7 @@ export class AuthService {
   async reissueTokensForUser(userId: string) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     return this.issueTokens(user);
   }
@@ -139,11 +166,20 @@ export class AuthService {
    * directly instead of a DB lookup.
    */
   async refresh(dto: RefreshTokenDto) {
-    let payload: { sub: string; email: string; businessId: string | null; role: string };
+    let payload: {
+      sub: string;
+      email: string;
+      businessId: string | null;
+      role: string;
+      tokenType?: string;
+    };
     try {
       payload = this.jwtService.verify(dto.refreshToken);
     } catch {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+      throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+    if (payload.tokenType !== "refresh") {
+      throw new UnauthorizedException("Invalid refresh token");
     }
 
     // Guest sessions have a synthetic id like "guest-takeaway-<businessId>" —
@@ -158,12 +194,14 @@ export class AuthService {
       } as any);
     }
 
-    const user = await this.usersRepository.findOne({ where: { id: payload.sub } });
+    const user = await this.usersRepository.findOne({
+      where: { id: payload.sub },
+    });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException("User not found");
     }
     if (!user.is_active) {
-      throw new UnauthorizedException('Account is disabled');
+      throw new UnauthorizedException("Account is disabled");
     }
     return this.issueTokens(user);
   }
@@ -182,19 +220,28 @@ export class AuthService {
     // processes' clocks/timezone handling for "timestamp without time zone"
     // columns aren't guaranteed to agree.
     const recent = await this.otpCodesRepository
-      .createQueryBuilder('otp')
-      .where('otp.email ILIKE :email', { email })
-      .andWhere('otp.purpose = :purpose', { purpose: 'login' })
-      .andWhere(`otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`)
+      .createQueryBuilder("otp")
+      .where("otp.email ILIKE :email", { email })
+      .andWhere("otp.purpose = :purpose", { purpose: "login" })
+      .andWhere(
+        `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
+      )
       .getOne();
     if (recent) {
-      throw new BadRequestException('Please wait a minute before requesting another code');
+      throw new BadRequestException(
+        "Please wait a minute before requesting another code",
+      );
     }
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    const otp = this.otpCodesRepository.create({ email, code, expires_at, purpose: 'login' });
+    const otp = this.otpCodesRepository.create({
+      email,
+      code,
+      expires_at,
+      purpose: "login",
+    });
     await this.otpCodesRepository.save(otp);
 
     const emailSent = await this.mailService.sendOtpEmail(email, code);
@@ -202,7 +249,11 @@ export class AuthService {
     // Only surface the code in the response when it wasn't actually emailed,
     // so the frontend's "no email provider configured" banner is accurate.
     const devOnly = !emailSent && ALLOW_OTP_DEV_BYPASS ? { devCode: code } : {};
-    return { message: 'OTP sent', expiresInMinutes: OTP_EXPIRY_MINUTES, ...devOnly };
+    return {
+      message: "OTP sent",
+      expiresInMinutes: OTP_EXPIRY_MINUTES,
+      ...devOnly,
+    };
   }
 
   /** Verifying an OTP logs in an existing user or creates a new passwordless one. */
@@ -213,27 +264,31 @@ export class AuthService {
     // (not the specific code guessed) so a lockout can't be reset by simply
     // trying a different wrong code.
     const latest = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), purpose: 'login', consumed: false },
-      order: { created_at: 'DESC' },
+      where: { email: ILike(email), purpose: "login", consumed: false },
+      order: { created_at: "DESC" },
     });
 
     if (!latest || latest.expires_at < new Date()) {
-      throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException("Invalid or expired OTP");
     }
     if (latest.attempts >= OTP_MAX_ATTEMPTS) {
-      throw new BadRequestException('Too many incorrect attempts. Request a new code.');
+      throw new BadRequestException(
+        "Too many incorrect attempts. Request a new code.",
+      );
     }
     if (latest.code !== dto.code) {
       latest.attempts += 1;
       await this.otpCodesRepository.save(latest);
-      throw new BadRequestException('Invalid or expired OTP');
+      throw new BadRequestException("Invalid or expired OTP");
     }
 
     const otp = latest;
     otp.consumed = true;
     await this.otpCodesRepository.save(otp);
 
-    let user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    let user = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
     if (!user) {
       user = await this.usersRepository.save(
         this.usersRepository.create({ email, role: UserRole.ADMIN }),
@@ -241,7 +296,7 @@ export class AuthService {
     }
 
     if (!user.is_active) {
-      throw new UnauthorizedException('Account is disabled');
+      throw new UnauthorizedException("Account is disabled");
     }
 
     await this.assertNotInMaintenance(user.role);
@@ -257,18 +312,25 @@ export class AuthService {
    */
   async requestPasswordReset(dto: RequestPasswordResetDto) {
     const email = dto.email.toLowerCase();
-    const genericResponse = { message: 'If an account exists for that email, a reset code has been sent.' };
+    const genericResponse = {
+      message:
+        "If an account exists for that email, a reset code has been sent.",
+    };
 
-    const user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    const user = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
     if (!user) {
       return genericResponse;
     }
 
     const recent = await this.otpCodesRepository
-      .createQueryBuilder('otp')
-      .where('otp.email ILIKE :email', { email })
-      .andWhere('otp.purpose = :purpose', { purpose: 'password_reset' })
-      .andWhere(`otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`)
+      .createQueryBuilder("otp")
+      .where("otp.email ILIKE :email", { email })
+      .andWhere("otp.purpose = :purpose", { purpose: "password_reset" })
+      .andWhere(
+        `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
+      )
       .getOne();
     if (recent) {
       return genericResponse;
@@ -277,10 +339,18 @@ export class AuthService {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    const otp = this.otpCodesRepository.create({ email, code, expires_at, purpose: 'password_reset' });
+    const otp = this.otpCodesRepository.create({
+      email,
+      code,
+      expires_at,
+      purpose: "password_reset",
+    });
     await this.otpCodesRepository.save(otp);
 
-    const emailSent = await this.mailService.sendPasswordResetEmail(email, code);
+    const emailSent = await this.mailService.sendPasswordResetEmail(
+      email,
+      code,
+    );
 
     const devOnly = !emailSent && ALLOW_OTP_DEV_BYPASS ? { devCode: code } : {};
     return { ...genericResponse, ...devOnly };
@@ -291,25 +361,33 @@ export class AuthService {
     const email = dto.email.toLowerCase();
 
     const latest = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), purpose: 'password_reset', consumed: false },
-      order: { created_at: 'DESC' },
+      where: {
+        email: ILike(email),
+        purpose: "password_reset",
+        consumed: false,
+      },
+      order: { created_at: "DESC" },
     });
 
     if (!latest || latest.expires_at < new Date()) {
-      throw new BadRequestException('Invalid or expired code');
+      throw new BadRequestException("Invalid or expired code");
     }
     if (latest.attempts >= OTP_MAX_ATTEMPTS) {
-      throw new BadRequestException('Too many incorrect attempts. Request a new code.');
+      throw new BadRequestException(
+        "Too many incorrect attempts. Request a new code.",
+      );
     }
     if (latest.code !== dto.code) {
       latest.attempts += 1;
       await this.otpCodesRepository.save(latest);
-      throw new BadRequestException('Invalid or expired code');
+      throw new BadRequestException("Invalid or expired code");
     }
 
-    const user = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    const user = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     latest.consumed = true;
@@ -330,23 +408,26 @@ export class AuthService {
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     if (user.password_hash) {
       if (!dto.currentPassword) {
-        throw new BadRequestException('Current password is required');
+        throw new BadRequestException("Current password is required");
       }
-      const matches = await bcrypt.compare(dto.currentPassword, user.password_hash);
+      const matches = await bcrypt.compare(
+        dto.currentPassword,
+        user.password_hash,
+      );
       if (!matches) {
-        throw new UnauthorizedException('Current password is incorrect');
+        throw new UnauthorizedException("Current password is incorrect");
       }
     }
 
     user.password_hash = await bcrypt.hash(dto.newPassword, 10);
     await this.usersRepository.save(user);
 
-    return { message: 'Password updated' };
+    return { message: "Password updated" };
   }
 
   private issueTokens(user: User) {
@@ -358,8 +439,14 @@ export class AuthService {
     };
 
     return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '24h' }),
-      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      access_token: this.jwtService.sign(
+        { ...payload, tokenType: "access" },
+        { expiresIn: "24h" },
+      ),
+      refresh_token: this.jwtService.sign(
+        { ...payload, tokenType: "refresh" },
+        { expiresIn: "7d" },
+      ),
       user: {
         id: user.id,
         email: user.email,
@@ -371,10 +458,12 @@ export class AuthService {
   }
 
   async tableGuestLogin(tableId: string) {
-    const TableEntity = require('../../database/entities/table.entity').Table;
-    const table = await this.dataSource.getRepository(TableEntity).findOne({ where: { id: tableId } });
+    const TableEntity = require("../../database/entities/table.entity").Table;
+    const table = await this.dataSource
+      .getRepository(TableEntity)
+      .findOne({ where: { id: tableId } });
     if (!table) {
-      throw new NotFoundException('Table not found');
+      throw new NotFoundException("Table not found");
     }
 
     const guestUser = {
@@ -388,10 +477,13 @@ export class AuthService {
   }
 
   async takeawayGuestLogin(businessId: string) {
-    const BusinessEntity = require('../../database/entities/business.entity').Business;
-    const business = await this.dataSource.getRepository(BusinessEntity).findOne({ where: { id: businessId } });
+    const BusinessEntity =
+      require("../../database/entities/business.entity").Business;
+    const business = await this.dataSource
+      .getRepository(BusinessEntity)
+      .findOne({ where: { id: businessId } });
     if (!business) {
-      throw new NotFoundException('Business not found');
+      throw new NotFoundException("Business not found");
     }
 
     const guestUser = {

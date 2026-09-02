@@ -7,6 +7,7 @@ import * as bcrypt from 'bcryptjs';
 import { PlatformAdminService } from './platform-admin.service';
 import { Business, User, Product, Order, UserActivityLog, BusinessConnection, PlatformSetting } from '../../database/entities';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 jest.mock('bcryptjs', () => ({ hash: jest.fn() }));
 jest.mock('../../common/utils/credential-crypto.util', () => ({ encryptPassword: jest.fn((p: string) => `encrypted(${p})`) }));
@@ -47,11 +48,20 @@ describe('PlatformAdminService', () => {
     dataSource = { transaction: jest.fn(async (cb) => cb({ query: jest.fn().mockResolvedValue([]) })), query: jest.fn().mockResolvedValue([]) };
     jwtService = { sign: jest.fn().mockReturnValue('signed-token') };
     notificationsService = { sendTestPush: jest.fn(), sendCustomPush: jest.fn() };
+    const subscriptionsService = {
+      getUserSubscriptionStatus: jest.fn().mockResolvedValue({
+        status: 'trialing',
+        planCode: 'starter',
+        planName: 'Mobile Starter',
+        trialDaysLeft: 0,
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PlatformAdminService,
         { provide: NotificationsService, useValue: notificationsService },
+        { provide: SubscriptionsService, useValue: subscriptionsService },
         { provide: getRepositoryToken(Business), useValue: businessRepo },
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: getRepositoryToken(Product), useValue: productRepo },
