@@ -106,13 +106,13 @@ export class SubscriptionsService {
         if (!sub) {
           await this.dataSource.query(
             `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, current_period_end)
-             VALUES (gen_random_uuid(), $1, $2, $3, 'active', '2099-12-31 23:59:59')`,
+             VALUES (gen_random_uuid(), $1, $2, $3, 'lifetime_free', '2099-12-31 23:59:59')`,
             [targetUserId, effectiveBizId || null, plan.id]
           );
-        } else if (sub.status !== 'active' || sub.plan_code !== 'enterprise') {
+        } else if (sub.status !== 'lifetime_free' && sub.status !== 'active') {
           await this.dataSource.query(
             `UPDATE business_subscriptions 
-             SET plan_id = $1, status = 'active', current_period_end = '2099-12-31 23:59:59'
+             SET plan_id = $1, status = 'lifetime_free', current_period_end = '2099-12-31 23:59:59'
              WHERE id = $2`,
             [plan.id, sub.id]
           );
