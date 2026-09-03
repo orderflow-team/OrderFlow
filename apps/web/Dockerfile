@@ -1,13 +1,8 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
-COPY apps/web/package*.json ./apps/web/
-COPY packages/api/package*.json ./packages/api/
-
-RUN npm ci
-
 COPY . .
+RUN npm ci
 RUN npm --prefix apps/web run build
 
 FROM node:22-alpine AS runner

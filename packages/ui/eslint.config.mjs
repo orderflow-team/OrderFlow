@@ -1,4 +1,9 @@
 import { config } from "@repo/eslint-config/react-internal";
 
-/** @type {import("eslint").Linter.Config} */
-export default config;
+/** @type {import("eslint").Linter.Config[]} */
+export default [
+  ...config,
+  {
+    ignores: ["dist/**", ".turbo/**", "node_modules/**", "coverage/**"],
+  },
+];

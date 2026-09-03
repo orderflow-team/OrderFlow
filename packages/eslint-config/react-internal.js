@@ -36,4 +36,7 @@ export const config = [
       "react/react-in-jsx-scope": "off",
     },
   },
+  {
+    ignores: ["dist/**", ".turbo/**", ".next/**", "node_modules/**", "coverage/**"],
+  },
 ];

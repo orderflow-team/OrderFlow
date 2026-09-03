@@ -44,5 +44,7 @@ error.log
 # Misc
 .DS_Store
 *.pem
+*.zip
+playstore-release-files/
 
 .vercel

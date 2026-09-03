@@ -76,7 +76,8 @@ export async function checkForOtaUpdate() {
     // a tampered/MITM'd bundle URL without needing the full encryption setup.
     const downloaded = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
     await CapacitorUpdater.set({ id: downloaded.id });
-    console.log(`${LOG_PREFIX} applied ${latest.version} immediately!`);
+    console.log(`${LOG_PREFIX} applied ${latest.version} — reloading webview...`);
+    await CapacitorUpdater.reload();
   } catch (err) {
     console.log(`${LOG_PREFIX} update check errored (offline or bad response):`, err);
   }

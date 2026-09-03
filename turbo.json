@@ -13,9 +13,7 @@
         "app-export/**"
       ]
     },
-    "lint": {
-      "dependsOn": ["^lint"]
-    },
+    "lint": {},
     "check-types": {
       "dependsOn": ["^check-types"]
     },
