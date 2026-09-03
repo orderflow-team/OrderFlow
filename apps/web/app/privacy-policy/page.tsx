@@ -151,7 +151,7 @@ export default function PrivacyPolicyPage() {
               All communications between your devices and OBIX servers are encrypted using industry-standard TLS/SSL (HTTPS) protocols. Data stored at rest is protected with strict multi-tenant access controls.
             </p>
             <p className="text-slate-600 leading-relaxed text-sm">
-              <strong>Account & Data Deletion:</strong> You have the right to request complete deletion of your user account, store records, and associated data at any time. You may request account deletion by emailing our support team at <a href="mailto:support@obix.app" className="text-sky-600 underline font-semibold">support@obix.app</a> or via the Account Settings panel in the app.
+              <strong>Account & Data Deletion:</strong> You have the right to request complete deletion of your user account, store records, and associated data at any time. You may request account deletion by emailing our support team at <a href="mailto:admin.cleverminds@gmail.com" className="text-sky-600 underline font-semibold">admin.cleverminds@gmail.com</a> or via the Account Settings panel in the app.
             </p>
           </section>
 
@@ -168,7 +168,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="p-6 rounded-2xl bg-slate-900 text-white space-y-2">
               <p className="font-bold text-base">OBIX OrderFlow Privacy Team</p>
-              <p className="text-xs text-slate-300">Email: support@obix.app / privacy@obix.app</p>
+              <p className="text-xs text-slate-300">Email: admin.cleverminds@gmail.com</p>
               <p className="text-xs text-slate-300">Website: https://orderflow-web-iota.vercel.app</p>
             </div>
           </section>
