@@ -41,10 +41,10 @@ import { ObixMark } from "@/components/obix-logo";
 import { API_BASE_URL } from "@/lib/api-client";
 
 const OrbitScene = dynamic(
-  () => import("./orbit-scene").then((m) => m.OrbitScene),
+  () => import("./orbit-scene").then((m) => ({ default: m.OrbitScene })),
   { ssr: false },
 );
-const FlowPath = dynamic(() => import("./flow-path").then((m) => m.FlowPath), {
+const FlowPath = dynamic(() => import("./flow-path").then((m) => ({ default: m.FlowPath })), {
   ssr: false,
 });
 

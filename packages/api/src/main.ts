@@ -44,6 +44,11 @@ async function bootstrap() {
   // alone, without a code change/redeploy, while defaulting to exactly
   // what's actually in use today.
   const DEFAULT_ALLOWED_ORIGINS = [
+    "https://obix360.com",
+    "https://www.obix360.com",
+    "http://localhost:3000",
+    "http://localhost:4000",
+    "http://localhost:5173",
     "https://orderflow-web-git-main-clever-minds1.vercel.app",
     "https://orderflow-web-clever-minds1.vercel.app",
     "https://orderflow-web-iota.vercel.app",
@@ -73,7 +78,7 @@ async function bootstrap() {
           if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
           } else {
-            callback(new Error(`CORS: origin "${origin}" not allowed`));
+            callback(null, false);
           }
         }
       : true,

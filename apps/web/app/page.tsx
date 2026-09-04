@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { Capacitor } from '@capacitor/core';
 import { isTokenExpired } from '@/lib/auth';
 
-const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => m.LandingPage), { ssr: false });
+const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => ({ default: m.LandingPage })), { ssr: false });
 
 export default function Home() {
   const router = useRouter();

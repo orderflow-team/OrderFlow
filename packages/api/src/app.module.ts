@@ -35,7 +35,7 @@ import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-p
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../../.env.local',
+      envFilePath: ['.env.local', '.env', '../../.env.local', '../../.env'],
     }),
     TypeOrmModule.forRoot(databaseConfig),
     ScheduleModule.forRoot(),

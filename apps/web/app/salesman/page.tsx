@@ -240,7 +240,7 @@ export default function SalesmanPage() {
 
   const getOrCreateInvoiceForCustomer = async (customerId: string): Promise<{ invoiceId: string; invoiceNumber: string; customerPhone?: string | null } | null> => {
     if (!businessId) return null;
-    
+
     // 1. Fetch all orders
     const res = await apiClient.get<{ id: string; status: string; customer_id: string; phone?: string | null }[]>('/api/orders', {
       params: { businessId },
@@ -256,7 +256,7 @@ export default function SalesmanPage() {
     const invoicesRes = await apiClient.get<{ id: string; invoice_number: string }[]>('/api/billing/invoices', {
       params: { businessId, orderId: order.id, type: 'invoice' },
     });
-    
+
     let invoice = invoicesRes.data?.[0];
     if (!invoice) {
       // Generate one if it doesn't exist
@@ -267,7 +267,7 @@ export default function SalesmanPage() {
       );
       invoice = generateRes.data;
     }
-    
+
     return {
       invoiceId: invoice.id,
       invoiceNumber: invoice.invoice_number,
@@ -314,11 +314,11 @@ export default function SalesmanPage() {
         params: { businessId },
       });
       const pdfUrl = `${API_BASE_URL}${data.url}`;
-      
+
       const text = `Here is your invoice ${res.invoiceNumber}: ${pdfUrl}`;
       const target = res.customerPhone ? res.customerPhone.replace(/\D/g, '') : '';
       const whatsappPhone = target.length === 10 ? `91${target}` : target;
-      
+
       // Attempt Native Web Share first on supported mobile devices
       if (navigator.canShare) {
         try {
@@ -407,144 +407,144 @@ export default function SalesmanPage() {
         ) : (
           <>
             {!isSalesmanRole && (
-            <Card className="ring-white/50 glass-sheen-sm">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-emerald-600" />
-                  <CardTitle className="text-base">Salesmen &amp; Logins</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100">
-                  {salesmen.map((s) => (
-                    <div key={s.id} className="px-6 py-3.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 truncate">{s.name}</p>
-                          <p className="text-xs text-slate-400 truncate">{[s.phone, s.route].filter(Boolean).join(' · ') || '—'}</p>
-                          {s.email && <p className="text-xs text-slate-400 truncate">{s.email}</p>}
-                        </div>
-                        {s.user_id ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 gap-1.5"
-                            onClick={() => handleViewLogin(s.id)}
-                          >
-                            <KeyRound className="w-3.5 h-3.5" /> {credFormFor === s.id ? 'Close' : 'View / Edit Login'}
-                          </Button>
-                        ) : loginFormFor === s.id ? null : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 gap-1.5"
-                            onClick={() => { setLoginFormFor(s.id); setLoginForm({ email: '', password: '' }); setLoginError(''); setShowLoginPassword(false); }}
-                          >
-                            <KeyRound className="w-3.5 h-3.5" /> Create Login
-                          </Button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteSalesman(s.id, s.name)}
-                          className="shrink-0 p-1.5 text-slate-300 hover:text-rose-600 transition-colors"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {loginFormFor === s.id && (
-                        <form onSubmit={(e) => handleCreateLogin(e, s.id)} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <Input
-                            type="email"
-                            placeholder="Email"
-                            value={loginForm.email}
-                            onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                            required
-                          />
-                          <div className="relative">
-                            <Input
-                              type={showLoginPassword ? 'text' : 'password'}
-                              placeholder="Password (min 6 chars)"
-                              value={loginForm.password}
-                              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                              minLength={6}
-                              required
-                              className="pr-10"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowLoginPassword((v) => !v)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
-                              aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+              <Card className="ring-white/50 glass-sheen-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-emerald-600" />
+                    <CardTitle className="text-base">Salesmen &amp; Logins</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-slate-100">
+                    {salesmen.map((s) => (
+                      <div key={s.id} className="px-6 py-3.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{s.name}</p>
+                            <p className="text-xs text-slate-400 truncate">{[s.phone, s.route].filter(Boolean).join(' · ') || '—'}</p>
+                            {s.email && <p className="text-xs text-slate-400 truncate">{s.email}</p>}
+                          </div>
+                          {s.user_id ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 gap-1.5"
+                              onClick={() => handleViewLogin(s.id)}
                             >
-                              {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button type="submit" size="sm" disabled={creatingLogin} className="flex-1">
-                              {creatingLogin ? 'Creating...' : 'Save'}
+                              <KeyRound className="w-3.5 h-3.5" /> {credFormFor === s.id ? 'Close' : 'View / Edit Login'}
                             </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={() => setLoginFormFor(null)}>
-                              Cancel
+                          ) : loginFormFor === s.id ? null : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 gap-1.5"
+                              onClick={() => { setLoginFormFor(s.id); setLoginForm({ email: '', password: '' }); setLoginError(''); setShowLoginPassword(false); }}
+                            >
+                              <KeyRound className="w-3.5 h-3.5" /> Create Login
                             </Button>
-                          </div>
-                        </form>
-                      )}
-                      {credFormFor === s.id && (
-                        <div className="mt-3">
-                          {credLoading ? (
-                            <p className="text-sm text-slate-400">Loading...</p>
-                          ) : (
-                            <form onSubmit={(e) => handleSaveLogin(e, s.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <Input
-                                type="email"
-                                placeholder="Email"
-                                value={credForm.email}
-                                onChange={(e) => setCredForm({ ...credForm, email: e.target.value })}
-                                required
-                              />
-                              <div className="relative">
-                                <Input
-                                  type={credShowPassword ? 'text' : 'password'}
-                                  placeholder="Current password"
-                                  value={credShowPassword ? credForm.currentPassword : '••••••••'}
-                                  readOnly
-                                  className="pr-10"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setCredShowPassword((v) => !v)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
-                                  aria-label={credShowPassword ? 'Hide password' : 'Show password'}
-                                >
-                                  {credShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                              </div>
-                              <Input
-                                type="text"
-                                placeholder="New password (leave blank to keep)"
-                                value={credForm.newPassword}
-                                onChange={(e) => setCredForm({ ...credForm, newPassword: e.target.value })}
-                                minLength={6}
-                              />
-                              <div className="flex gap-2 sm:col-span-3">
-                                <Button type="submit" size="sm" disabled={credSaving} className="gap-1.5">
-                                  <Pencil className="w-3.5 h-3.5" /> {credSaving ? 'Saving...' : 'Save changes'}
-                                </Button>
-                                <Button type="button" size="sm" variant="ghost" onClick={() => setCredFormFor(null)}>
-                                  Cancel
-                                </Button>
-                              </div>
-                              {credError && <p className="sm:col-span-3 text-sm text-rose-600">{credError}</p>}
-                            </form>
                           )}
+                          <button
+                            onClick={() => handleDeleteSalesman(s.id, s.name)}
+                            className="shrink-0 p-1.5 text-slate-300 hover:text-rose-600 transition-colors"
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {loginError && <p className="px-6 pb-3 text-sm text-rose-600">{loginError}</p>}
-              </CardContent>
-            </Card>
+                        {loginFormFor === s.id && (
+                          <form onSubmit={(e) => handleCreateLogin(e, s.id)} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <Input
+                              type="email"
+                              placeholder="Email"
+                              value={loginForm.email}
+                              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                              required
+                            />
+                            <div className="relative">
+                              <Input
+                                type={showLoginPassword ? 'text' : 'password'}
+                                placeholder="Password (min 6 chars)"
+                                value={loginForm.password}
+                                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                                minLength={6}
+                                required
+                                className="pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowLoginPassword((v) => !v)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                                aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                              >
+                                {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button type="submit" size="sm" disabled={creatingLogin} className="flex-1">
+                                {creatingLogin ? 'Creating...' : 'Save'}
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" onClick={() => setLoginFormFor(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </form>
+                        )}
+                        {credFormFor === s.id && (
+                          <div className="mt-3">
+                            {credLoading ? (
+                              <p className="text-sm text-slate-400">Loading...</p>
+                            ) : (
+                              <form onSubmit={(e) => handleSaveLogin(e, s.id)} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <Input
+                                  type="email"
+                                  placeholder="Email"
+                                  value={credForm.email}
+                                  onChange={(e) => setCredForm({ ...credForm, email: e.target.value })}
+                                  required
+                                />
+                                <div className="relative">
+                                  <Input
+                                    type={credShowPassword ? 'text' : 'password'}
+                                    placeholder="Current password"
+                                    value={credShowPassword ? credForm.currentPassword : '••••••••'}
+                                    readOnly
+                                    className="pr-10"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setCredShowPassword((v) => !v)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600"
+                                    aria-label={credShowPassword ? 'Hide password' : 'Show password'}
+                                  >
+                                    {credShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                  </button>
+                                </div>
+                                <Input
+                                  type="text"
+                                  placeholder="New password (leave blank to keep)"
+                                  value={credForm.newPassword}
+                                  onChange={(e) => setCredForm({ ...credForm, newPassword: e.target.value })}
+                                  minLength={6}
+                                />
+                                <div className="flex gap-2 sm:col-span-3">
+                                  <Button type="submit" size="sm" disabled={credSaving} className="gap-1.5">
+                                    <Pencil className="w-3.5 h-3.5" /> {credSaving ? 'Saving...' : 'Save changes'}
+                                  </Button>
+                                  <Button type="button" size="sm" variant="ghost" onClick={() => setCredFormFor(null)}>
+                                    Cancel
+                                  </Button>
+                                </div>
+                                {credError && <p className="sm:col-span-3 text-sm text-rose-600">{credError}</p>}
+                              </form>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {loginError && <p className="px-6 pb-3 text-sm text-rose-600">{loginError}</p>}
+                </CardContent>
+              </Card>
             )}
 
             {isSalesmanRole ? (

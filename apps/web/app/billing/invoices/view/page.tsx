@@ -14,7 +14,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import { Share } from '@capacitor/share';
 import { ThermalPrint } from '@/lib/thermal-print-plugin';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com/api';
 
 // Both the WhatsApp and Download buttons wait on the PDF fetch before doing
 // anything — without a timeout, a hung backend request left them looking
@@ -383,7 +383,7 @@ function InvoiceDetailPageInner() {
                     className="gap-1.5 bg-[#25D366] hover:bg-[#1ebd5b] text-white px-4 md:px-5 disabled:opacity-60"
                   >
                     <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
                     </svg>
                     <span className="hidden sm:inline text-[15px] font-medium">{pdfReady ? 'Share on WhatsApp' : 'Preparing...'}</span>
                   </Button>
@@ -400,198 +400,198 @@ function InvoiceDetailPageInner() {
           <div id="invoice-pdf-content" className="bg-white/40 backdrop-blur-md ring-1 ring-white/50 glass-sheen-sm rounded-3xl overflow-hidden print:bg-white print:ring-0 print:shadow-none print:backdrop-blur-none">
             <div className={`h-2 print:hidden bg-gradient-to-r ${invoice.type === 'credit_note' ? 'from-amber-500 to-orange-400' : 'from-emerald-500 to-teal-400'}`} />
             <div className="p-8">
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">{invoice.type === 'credit_note' ? 'Credit Note' : 'Tax Invoice'}</h2>
-                <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
-                {invoice.type === 'credit_note' && invoice.reference_invoice_number && (
-                  <p className="text-amber-700 text-xs mt-1">Reversing Invoice: {invoice.reference_invoice_number}</p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
-                <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</p>
-                {invoice.order_status && (
-                  <div className="mt-2 inline-flex items-center rounded-full bg-emerald-500/10 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 uppercase tracking-wider">
-                    Status: {invoice.order_status}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Customer Details (Billed To) - only shown if name or phone exists */}
-            {(invoice.customer?.name || invoice.order_customer_name || invoice.customer?.phone) && (
-              <div className="mb-6">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
-                {(invoice.customer?.name || invoice.order_customer_name) && (
-                  <p className="text-slate-800 font-semibold">
-                    {invoice.customer?.name || invoice.order_customer_name}
-                  </p>
-                )}
-                {invoice.customer?.phone && (
-                  <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>
-                )}
-              </div>
-            )}
-
-            {/* Pharmacy details (Patient & Doctor) - only shown if they exist */}
-            {(invoice.patient_name || invoice.doctor_name || invoice.doctor_registration_number || invoice.has_prescription_image) && (
-              <div className="mb-6 grid grid-cols-2 gap-4">
-                {invoice.patient_name && (
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">Patient Name</p>
-                    <p className="text-slate-800 font-semibold">{invoice.patient_name}</p>
-                  </div>
-                )}
-                {invoice.doctor_name && (
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Name</p>
-                    <p className="text-slate-800 font-semibold">{invoice.doctor_name}</p>
-                  </div>
-                )}
-                {invoice.doctor_registration_number && (
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Reg. No.</p>
-                    <p className="text-slate-800 font-semibold">{invoice.doctor_registration_number}</p>
-                  </div>
-                )}
-                {invoice.has_prescription_image && (
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">Prescription</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5 mt-1"
-                      onClick={handleViewPrescription}
-                      disabled={loadingPrescription}
-                    >
-                      <FileImage className="w-3.5 h-3.5" /> {loadingPrescription ? 'Loading...' : 'View Photo'}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left mb-6 min-w-[800px]">
-              <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">
-                <tr>
-                  <th className="py-2">Item</th>
-                  <th className="py-2">HSN</th>
-                  <th className="py-2 text-right">Qty</th>
-                  {invoice.items.some((item) => item.product?.mrp != null) && (
-                    <th className="py-2 text-right">MRP</th>
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">{invoice.type === 'credit_note' ? 'Credit Note' : 'Tax Invoice'}</h2>
+                  <p className="text-slate-500 text-sm mt-1">{invoice.invoice_number}</p>
+                  {invoice.type === 'credit_note' && invoice.reference_invoice_number && (
+                    <p className="text-amber-700 text-xs mt-1">Reversing Invoice: {invoice.reference_invoice_number}</p>
                   )}
-                  <th className="py-2 text-right">Unit Price</th>
+                </div>
+                <div className="text-right">
+                  <p className="text-slate-500 text-sm">{new Date(invoice.created_at).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+                  <p className="text-slate-400 text-xs mt-0.5">{new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</p>
+                  {invoice.order_status && (
+                    <div className="mt-2 inline-flex items-center rounded-full bg-emerald-500/10 backdrop-blur-sm px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-500/20 uppercase tracking-wider">
+                      Status: {invoice.order_status}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Customer Details (Billed To) - only shown if name or phone exists */}
+              {(invoice.customer?.name || invoice.order_customer_name || invoice.customer?.phone) && (
+                <div className="mb-6">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Billed To</p>
+                  {(invoice.customer?.name || invoice.order_customer_name) && (
+                    <p className="text-slate-800 font-semibold">
+                      {invoice.customer?.name || invoice.order_customer_name}
+                    </p>
+                  )}
+                  {invoice.customer?.phone && (
+                    <p className="text-slate-500 text-sm">{invoice.customer.phone}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Pharmacy details (Patient & Doctor) - only shown if they exist */}
+              {(invoice.patient_name || invoice.doctor_name || invoice.doctor_registration_number || invoice.has_prescription_image) && (
+                <div className="mb-6 grid grid-cols-2 gap-4">
+                  {invoice.patient_name && (
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider">Patient Name</p>
+                      <p className="text-slate-800 font-semibold">{invoice.patient_name}</p>
+                    </div>
+                  )}
+                  {invoice.doctor_name && (
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Name</p>
+                      <p className="text-slate-800 font-semibold">{invoice.doctor_name}</p>
+                    </div>
+                  )}
+                  {invoice.doctor_registration_number && (
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider">Doctor Reg. No.</p>
+                      <p className="text-slate-800 font-semibold">{invoice.doctor_registration_number}</p>
+                    </div>
+                  )}
+                  {invoice.has_prescription_image && (
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase tracking-wider">Prescription</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1.5 mt-1"
+                        onClick={handleViewPrescription}
+                        disabled={loadingPrescription}
+                      >
+                        <FileImage className="w-3.5 h-3.5" /> {loadingPrescription ? 'Loading...' : 'View Photo'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="overflow-x-auto w-full pb-2"><table className="w-full text-sm text-left mb-6 min-w-[800px]">
+                <thead className="text-xs text-slate-500 uppercase border-b border-slate-200">
+                  <tr>
+                    <th className="py-2">Item</th>
+                    <th className="py-2">HSN</th>
+                    <th className="py-2 text-right">Qty</th>
+                    {invoice.items.some((item) => item.product?.mrp != null) && (
+                      <th className="py-2 text-right">MRP</th>
+                    )}
+                    <th className="py-2 text-right">Unit Price</th>
+                    {invoice.is_interstate ? (
+                      <th className="py-2 text-right">IGST</th>
+                    ) : (
+                      <>
+                        <th className="py-2 text-right">CGST</th>
+                        <th className="py-2 text-right">SGST</th>
+                      </>
+                    )}
+                    <th className="py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(() => {
+                    const hasMrp = invoice.items.some((item) => item.product?.mrp != null);
+                    return invoice.items.map((item) => {
+                      const details: string[] = [];
+                      if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
+                      if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`);
+                      if (item.product?.prescription_required) details.push('Rx');
+                      return (
+                        <tr key={item.id}>
+                          <td className="py-3 text-slate-800">
+                            {item.product?.name || item.custom_product_name || '-'}
+                            {details.length > 0 && (
+                              <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
+                            )}
+                          </td>
+                          <td className="py-3 text-slate-600">{item.product?.hsn_code || '-'}</td>
+                          <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
+                          {hasMrp && (
+                            <td className="py-3 text-right text-slate-600">
+                              {item.product?.mrp != null ? Number(item.product.mrp).toFixed(2) : '-'}
+                            </td>
+                          )}
+                          <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
+                          {invoice.is_interstate ? (
+                            <td className="py-3 text-right text-slate-600">
+                              {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
+                            </td>
+                          ) : (
+                            <>
+                              <td className="py-3 text-right text-slate-600">
+                                {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
+                              </td>
+                              <td className="py-3 text-right text-slate-600">
+                                {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
+                              </td>
+                            </>
+                          )}
+                          <td className="py-3 text-right text-slate-800 font-medium">
+                            {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table></div>
+
+              <div className="flex justify-end">
+                <div className="w-56 space-y-2 text-sm">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal</span>
+                    <span>{subtotal.toFixed(2)}</span>
+                  </div>
                   {invoice.is_interstate ? (
-                    <th className="py-2 text-right">IGST</th>
+                    <div className="flex justify-between text-slate-600">
+                      <span>IGST</span>
+                      <span>{Number(invoice.igst_amount ?? invoice.tax_amount).toFixed(2)}</span>
+                    </div>
                   ) : (
                     <>
-                      <th className="py-2 text-right">CGST</th>
-                      <th className="py-2 text-right">SGST</th>
+                      <div className="flex justify-between text-slate-600">
+                        <span>CGST</span>
+                        <span>{Number(invoice.cgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>SGST</span>
+                        <span>{Number(invoice.sgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
+                      </div>
                     </>
                   )}
-                  <th className="py-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {(() => {
-                  const hasMrp = invoice.items.some((item) => item.product?.mrp != null);
-                  return invoice.items.map((item) => {
-                    const details: string[] = [];
-                    if (item.product?.batch_number) details.push(`Batch: ${item.product.batch_number}`);
-                    if (item.product?.expiry_date) details.push(`Exp: ${new Date(item.product.expiry_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}`);
-                    if (item.product?.prescription_required) details.push('Rx');
-                    return (
-                    <tr key={item.id}>
-                      <td className="py-3 text-slate-800">
-                        {item.product?.name || item.custom_product_name || '-'}
-                        {details.length > 0 && (
-                          <p className="text-xs text-slate-400 mt-0.5">{details.join('  •  ')}</p>
-                        )}
-                      </td>
-                      <td className="py-3 text-slate-600">{item.product?.hsn_code || '-'}</td>
-                      <td className="py-3 text-right text-slate-600">{Number(item.quantity)}</td>
-                      {hasMrp && (
-                        <td className="py-3 text-right text-slate-600">
-                          {item.product?.mrp != null ? Number(item.product.mrp).toFixed(2) : '-'}
-                        </td>
-                      )}
-                      <td className="py-3 text-right text-slate-600">{Number(item.unit_price).toFixed(2)}</td>
-                      {invoice.is_interstate ? (
-                        <td className="py-3 text-right text-slate-600">
-                          {Number(item.tax_percentage) > 0 ? `${Number(item.tax_percentage)}%` : '-'}
-                        </td>
-                      ) : (
-                        <>
-                          <td className="py-3 text-right text-slate-600">
-                            {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
-                          </td>
-                          <td className="py-3 text-right text-slate-600">
-                            {Number(item.tax_percentage) > 0 ? `${(Number(item.tax_percentage) / 2).toFixed(2)}%` : '-'}
-                          </td>
-                        </>
-                      )}
-                      <td className="py-3 text-right text-slate-800 font-medium">
-                        {(Number(item.subtotal) + Number(item.tax_amount)).toFixed(2)}
-                      </td>
-                    </tr>
-                    );
-                  });
-                })()}
-              </tbody>
-            </table></div>
-
-            <div className="flex justify-end">
-              <div className="w-56 space-y-2 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{subtotal.toFixed(2)}</span>
-                </div>
-                {invoice.is_interstate ? (
-                  <div className="flex justify-between text-slate-600">
-                    <span>IGST</span>
-                    <span>{Number(invoice.igst_amount ?? invoice.tax_amount).toFixed(2)}</span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between text-slate-600">
-                      <span>CGST</span>
-                      <span>{Number(invoice.cgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>SGST</span>
-                      <span>{Number(invoice.sgst_amount ?? Number(invoice.tax_amount) / 2).toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-                {invoice.type === 'credit_note' ? (
-                  <div className="flex justify-between text-base font-bold text-amber-700 border-t border-slate-200 pt-2">
-                    <span>Amount Credited</span>
-                    <span>{Number(invoice.total_amount).toFixed(2)}</span>
-                  </div>
-                ) : previousBalanceDue > 0.01 ? (
-                  <>
-                    <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
-                      <span>This Invoice</span>
+                  {invoice.type === 'credit_note' ? (
+                    <div className="flex justify-between text-base font-bold text-amber-700 border-t border-slate-200 pt-2">
+                      <span>Amount Credited</span>
                       <span>{Number(invoice.total_amount).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Previous Balance Due</span>
-                      <span>{previousBalanceDue.toFixed(2)}</span>
+                  ) : previousBalanceDue > 0.01 ? (
+                    <>
+                      <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
+                        <span>This Invoice</span>
+                        <span>{Number(invoice.total_amount).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Previous Balance Due</span>
+                        <span>{previousBalanceDue.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-base font-bold text-rose-700 border-t border-slate-200 pt-2">
+                        <span>Total Amount Due</span>
+                        <span>{(Number(invoice.total_amount) + previousBalanceDue).toFixed(2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
+                      <span>Total</span>
+                      <span>{Number(invoice.total_amount).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-base font-bold text-rose-700 border-t border-slate-200 pt-2">
-                      <span>Total Amount Due</span>
-                      <span>{(Number(invoice.total_amount) + previousBalanceDue).toFixed(2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-between text-base font-bold text-slate-800 border-t border-slate-200 pt-2">
-                    <span>Total</span>
-                    <span>{Number(invoice.total_amount).toFixed(2)}</span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
             </div>
           </div>
         )}
