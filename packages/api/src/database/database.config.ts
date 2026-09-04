@@ -8,8 +8,9 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env.local") });
 dotenv.config();
 
+const isManagedPostgres = !!process.env.DATABASE_URL;
+
 export function getConnectionOptions() {
-  const isManagedPostgres = !!process.env.DATABASE_URL;
   return isManagedPostgres
     ? {
       url: process.env.DATABASE_URL,
