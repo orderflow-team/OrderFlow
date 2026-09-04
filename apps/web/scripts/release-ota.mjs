@@ -31,7 +31,7 @@ const [, , version, minNativeVersion, platform] = process.argv;
 // set NEXT_PUBLIC_API_URL used to mean the upload silently went to
 // localhost:4000 (usually nothing listening there) instead of failing loudly
 // or doing the right thing by default.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 if (!version) {

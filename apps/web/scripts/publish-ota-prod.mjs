@@ -3,7 +3,7 @@ import { createWriteStream, existsSync, mkdtempSync, readFileSync, rmSync } from
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 const version = process.argv[2] || '1.22.0';
 
 async function run() {

@@ -14,7 +14,7 @@ import { FileOpener } from '@capacitor-community/file-opener';
 import { Share } from '@capacitor/share';
 import { ThermalPrint } from '@/lib/thermal-print-plugin';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 
 // Both the WhatsApp and Download buttons wait on the PDF fetch before doing
 // anything — without a timeout, a hung backend request left them looking
