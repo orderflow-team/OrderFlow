@@ -15,7 +15,7 @@ import { LockedFeatureBadge } from '@/components/locked-feature-badge';
 import { Plus, X, MapPin, UserRound, KeyRound, CheckCircle2, Eye, EyeOff, Pencil, Trash2, Receipt, Download, Share2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://orderflow-1.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com/api';
 
 interface Salesman {
   id: string;
