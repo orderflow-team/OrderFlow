@@ -119,6 +119,22 @@ describe('OrderParserService', () => {
       expect(result.order).toEqual(expect.objectContaining({ id: 'order-1' }));
     });
 
+    it('parses conversational greetings and order prefixes locally without Gemini AI', async () => {
+      ordersService.create.mockResolvedValue({ id: 'order-2', order_number: 'ORD-2', token_number: 6, customer_name: 'Chat Order' });
+
+      const result = await service.parseChatOrder('biz-1', 'Hi Obix, I want to place an order: 3 Widget');
+
+      expect(ordersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: 'biz-1',
+          orderType: 'take_away',
+          items: [expect.objectContaining({ productId: 'p1', quantity: 3 })],
+        }),
+      );
+      expect(result.reply).toMatch(/order placed/i);
+      expect(result.order).toEqual(expect.objectContaining({ id: 'order-2' }));
+    });
+
     it('adds an item not on the menu as a new ₹0 draft product', async () => {
       ordersService.create.mockResolvedValue({ id: 'order-1', order_number: 'ORD-1', token_number: 6, customer_name: 'Chat Order' });
 
@@ -151,11 +167,13 @@ describe('OrderParserService', () => {
       { ...widget, id: 'p2', name: 'Widget B' },
     ];
 
-    it('throws BadRequestException when deterministic parsing is ambiguous and Gemini is not configured', async () => {
+    it('uses local fallback parsing when deterministic parsing is ambiguous and Gemini is not configured', async () => {
       productsService.findAll.mockResolvedValue(ambiguousCatalog());
       geminiKeyPool.isConfigured = false;
+      ordersService.create.mockResolvedValue({ id: 'order-fallback-1', order_number: 'ORD-FB1', token_number: 1, customer_name: 'Chat Order' });
 
-      await expect(service.parseChatOrder('biz-1', '2 widget')).rejects.toThrow(BadRequestException);
+      const res = await service.parseChatOrder('biz-1', '2 widget');
+      expect(res.reply).toContain('Order placed');
     });
 
     it('falls through to Gemini for an ambiguous message and places the resulting order', async () => {
@@ -174,12 +192,14 @@ describe('OrderParserService', () => {
       expect(result.order).toEqual(expect.objectContaining({ id: 'order-2' }));
     });
 
-    it('throws BadRequestException when the Gemini response has no parsable JSON', async () => {
+    it('falls back to local parsing when the Gemini response has no parsable JSON', async () => {
       productsService.findAll.mockResolvedValue(ambiguousCatalog());
       geminiKeyPool.isConfigured = true;
       geminiKeyPool.generateContent.mockResolvedValue('sorry I cannot help');
+      ordersService.create.mockResolvedValue({ id: 'order-fallback-2', order_number: 'ORD-FB2', token_number: 2, customer_name: 'Chat Order' });
 
-      await expect(service.parseChatOrder('biz-1', '2 widget')).rejects.toThrow(BadRequestException);
+      const res = await service.parseChatOrder('biz-1', '2 widget');
+      expect(res.reply).toContain('Order placed');
     });
 
     it('reports an unknown table for a dine-in request', async () => {

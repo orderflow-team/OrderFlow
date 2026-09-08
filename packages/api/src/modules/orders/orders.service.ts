@@ -2,6 +2,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  Optional,
+  forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -39,6 +42,7 @@ import {
 } from "./dto/create-order.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { InvoicesService } from "../billing/invoices.service";
+import { EvolutionApiService } from "../whatsapp/evolution-api.service";
 import { findOrCreateProductByName } from "../../common/utils/find-or-create-product.util";
 import {
   enforceMrpCeiling,
@@ -62,6 +66,7 @@ export class OrdersService {
     @InjectRepository(Ledger) private ledgerRepository: Repository<Ledger>,
     private dataSource: DataSource,
     private invoicesService: InvoicesService,
+    private evolutionApiService: EvolutionApiService,
   ) {}
 
   /**
@@ -1463,8 +1468,54 @@ export class OrdersService {
       }
 
       order.status = dto.status;
-      return manager.save(order);
+      const savedOrder = await manager.save(order);
+
+      this.notifyWhatsappStatusUpdate(savedOrder.id, dto.status).catch(() => null);
+
+      return savedOrder;
     });
+  }
+
+  /** Sends automated WhatsApp message (order confirmed, paid, etc.) to the customer. */
+  private async notifyWhatsappStatusUpdate(orderId: string, newStatus: string) {
+    try {
+      const order = await this.ordersRepository.findOne({
+        where: { id: orderId },
+        relations: { items: { product: true }, customer: true },
+      });
+      if (!order) return;
+
+      const business = await this.dataSource.getRepository(Business).findOne({
+        where: { id: order.business_id },
+      });
+      if (!business || !business.whatsapp_instance_name || !business.whatsapp_enabled) return;
+
+      const phone = order.customer?.phone;
+      if (!phone) return;
+
+      const itemsSummary = (order.items || [])
+        .map((i: any) => `${Number(i.quantity)}x ${i.product?.name || i.custom_product_name || 'item'}`)
+        .join(', ');
+
+      const storeName = business.name || 'Store';
+      const formattedTotal = Number(order.total_amount || 0).toFixed(2);
+      let message = '';
+
+      const lowerStatus = newStatus.toLowerCase();
+      if (['confirmed', 'accepted', 'completed', 'preparing', 'dispatched', 'delivered'].includes(lowerStatus)) {
+        message = `✅ *Order Confirmed!*\n\nYour order *#${order.order_number}* has been confirmed by *${storeName}*.\n\n📦 *Items:* ${itemsSummary || 'Items ordered'}\n💰 *Total:* ₹${formattedTotal}\n📌 *Status:* ${newStatus.toUpperCase()}\n\nThank you for ordering with us!`;
+      } else if (lowerStatus === 'paid') {
+        message = `💳 *Payment Received!*\n\nPayment of ₹${formattedTotal} for Order *#${order.order_number}* has been received by *${storeName}*.\n\n📌 *Status:* Paid & Completed\n\nThank you for shopping with us!`;
+      } else if (lowerStatus === 'cancelled') {
+        message = `❌ *Order Cancelled*\n\nYour order *#${order.order_number}* has been cancelled by *${storeName}*.`;
+      }
+
+      if (message) {
+        await this.evolutionApiService.sendTextMessage(business.whatsapp_instance_name, phone, message);
+      }
+    } catch (err: any) {
+      // Best-effort notification
+    }
   }
 
   async returnOrder(

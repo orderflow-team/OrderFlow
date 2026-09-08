@@ -111,7 +111,7 @@ export class MoveStartupDatabaseWorkToMigration1788307200000 implements Migratio
       INSERT INTO subscription_plans
         (code, name, price_monthly_inr, price_yearly_inr, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features)
       VALUES
-        ('starter', 'Mobile Starter', 59.00, 599.00, 2, 1, 500, 15, '{"restaurant_kot": false, "salt_search": false, "h1_register": false, "salesman_gps": false}'),
+        ('starter', 'Mobile Starter', 99.00, 999.00, 2, 1, 500, 15, '{"restaurant_kot": false, "salt_search": false, "h1_register": false, "salesman_gps": false}'),
         ('pro', 'Pro Plan', 399.00, 3999.00, 10, 5, -1, 100, '{"restaurant_kot": true, "salt_search": true, "h1_register": true, "salesman_gps": true}'),
         ('enterprise', 'Enterprise Plan', 999.00, 9999.00, -1, -1, -1, -1, '{"multi_branch": true, "restaurant_kot": true, "salt_search": true, "h1_register": true, "salesman_gps": true}')
       ON CONFLICT (code) DO NOTHING

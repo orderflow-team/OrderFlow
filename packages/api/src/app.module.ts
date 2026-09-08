@@ -29,6 +29,7 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
 import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
 import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-paywall.guard';
 
 @Module({
@@ -63,6 +64,7 @@ import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-p
     AppUpdatesModule,
     AppApkReleasesModule,
     SubscriptionsModule,
+    WhatsappModule,
   ],
   controllers: [AppController],
   providers: [

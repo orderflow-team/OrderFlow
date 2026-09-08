@@ -10,6 +10,7 @@ import { PriceHistory } from '../../database/entities/price-history.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { InvoicesService } from '../billing/invoices.service';
+import { EvolutionApiService } from '../whatsapp/evolution-api.service';
 
 jest.mock('../billing/templates/invoice.template', () => ({ renderA4ReceiptHtml: jest.fn(() => '<html></html>') }), {
   virtual: true,
@@ -87,6 +88,7 @@ describe('OrdersService', () => {
         { provide: getRepositoryToken(Ledger), useValue: ledgerRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: InvoicesService, useValue: invoicesService },
+        { provide: EvolutionApiService, useValue: { sendTextMessage: jest.fn().mockResolvedValue({}) } },
       ],
     }).compile();
 

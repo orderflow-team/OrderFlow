@@ -90,6 +90,18 @@ export class Business {
   @Column({ type: 'jsonb', nullable: true })
   notification_preferences: Record<string, boolean>;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  whatsapp_phone_number: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  whatsapp_instance_name: string;
+
+  @Column({ type: 'boolean', default: false })
+  whatsapp_enabled: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  whatsapp_connected: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

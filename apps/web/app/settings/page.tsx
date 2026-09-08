@@ -12,7 +12,7 @@ import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCurrentUser } from '@/lib/auth';
 import { CONTACT_URL } from '@/lib/mailer-client';
-import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell, ChevronDown, Crown } from 'lucide-react';
+import { AlertTriangle, Trash2, ImageUp, Mail, CheckCircle2, Sliders, Bell, ChevronDown, Crown, MessageSquare } from 'lucide-react';
 import { CustomBusinessWizard } from '@/components/custom-business-wizard';
 import { AppVersionInfo } from '@/components/app-version-info';
 
@@ -482,6 +482,28 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
             )}
+            {/* WhatsApp Order Manager Card */}
+            <Card className="ring-emerald-400/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-300/50 shadow-md">
+              <CardContent className="p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-emerald-600 text-white shadow-sm">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">WhatsApp Order Manager</h4>
+                    <p className="text-xs text-slate-600">Connect store WhatsApp, configure AI ordering, and print counter QR standee</p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => router.push('/settings/whatsapp')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 h-10 rounded-xl shrink-0 shadow-sm"
+                >
+                  Configure WhatsApp
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="ring-white/50 glass-sheen-sm">
               <CardHeader>
                 <CardTitle className="text-base">Business profile</CardTitle>

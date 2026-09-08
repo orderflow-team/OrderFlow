@@ -76,7 +76,7 @@ export class InvoiceVisionParserService {
 
     let text: string;
     try {
-      text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [
+      text = await this.geminiKeyPool.generateContent('gemini-1.5-flash', [
         { inlineData: { mimeType, data } },
         { text: prompt },
       ]);

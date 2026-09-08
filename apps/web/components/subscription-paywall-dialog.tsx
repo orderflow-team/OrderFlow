@@ -79,7 +79,7 @@ export function SubscriptionPaywallDialog() {
             Upgrade Your Plan to Continue
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">
-            Your 30-day free trial has completed. Choose a plan starting at <strong>₹59/month</strong> to keep creating orders and accessing all features.
+            Your 30-day free trial has completed. Choose a plan starting at <strong>₹99/month</strong> to keep creating orders and accessing all features.
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function SubscriptionPaywallDialog() {
           </div>
           <div className="flex items-center gap-2 text-slate-600">
             <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
-            <span>Select Mobile Starter (₹59) or Pro Plan (₹399).</span>
+            <span>Select Mobile Starter (₹99) or Pro Plan (₹399).</span>
           </div>
         </div>
 

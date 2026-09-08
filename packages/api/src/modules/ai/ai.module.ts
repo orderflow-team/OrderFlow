@@ -11,5 +11,6 @@ import { GeminiKeyPoolService } from '../../common/services/gemini-key-pool.serv
   imports: [OrdersModule, ProductsModule, RestaurantModule, CustomersModule],
   controllers: [AiController],
   providers: [OrderParserService, GeminiKeyPoolService],
+  exports: [OrderParserService, GeminiKeyPoolService],
 })
 export class AiModule {}

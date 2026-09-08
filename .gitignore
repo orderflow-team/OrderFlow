@@ -46,5 +46,6 @@ error.log
 *.pem
 *.zip
 playstore-release-files/
+evolution-api/
 
 .vercel

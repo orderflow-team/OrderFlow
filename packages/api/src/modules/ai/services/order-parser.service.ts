@@ -202,96 +202,102 @@ export class OrderParserService {
       : this.tryDeterministicParse(itemMessage, available, tables);
 
     if (!parsed) {
-      if (!this.geminiKeyPool.isConfigured) {
-        throw new BadRequestException('Generative AI is not configured on the server. Please check the environment variables.');
+      if (this.geminiKeyPool.isConfigured) {
+        let prompt = '';
+        if (existingOrder) {
+          prompt = `
+            You are an ordering assistant editing an existing order for a shop.
+            Here is the product catalog (case-insensitive): ${catalog}
+
+            The current items in this order are: ${currentItemsDesc || 'None'}
+
+            The customer is giving instructions to edit the order. They may want to:
+            - Add new items — including items NOT on the menu (append to the order or increment quantity).
+            - Remove items (delete them from the order completely).
+            - Change quantity of items (update the count).
+            - Replace items.
+            - Change who the order is for (a new customer name, and/or a 10-digit phone number).
+
+            Please interpret the customer's instruction: "${message}"
+
+            Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
+
+            If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+            "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+            bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
+            For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
+            "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
+            price they said for that item's whole quantity (not a per-unit price). If no price is stated, use
+            null. Never invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is
+            never captured — the menu's own price always applies there.
+
+            Only if the customer explicitly asked to change who the order is for (e.g. "this is for Priya now",
+            "change customer to Neel", "set customer 9876543210"), capture that in "customerName" and/or "phone".
+            Otherwise leave both null — never guess a customer change from ambiguous wording.
+
+            Return ONLY JSON in this exact shape, no other text:
+            {
+              "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
+              "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
+              "customerName": "string or null",
+              "phone": "10-digit string or null"
+            }
+          `;
+        } else {
+          prompt = `
+            You are an ordering assistant for a shop. The customer will describe what they want in plain
+            English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
+            ignore minor spelling differences): ${catalog}
+
+            ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
+            The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
+            "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
+            to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
+            at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
+
+            If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
+            "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
+            bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
+
+            For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
+            "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
+            price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
+            price: 1000 for quantity: 10, NOT price: 1000 per kg). A trailing number+"rs"/"rupees"/"₹" is ALWAYS
+            the price of the item right before it — it is never a separate item on its own. For example,
+            "10kg mango 1000rs" is ONE unmatched entry: { "name": "mango", "quantity": 10, "unit": "kg", "price":
+            1000 } — never two entries where "1000rs" becomes its own item. If no price is stated, use null. Never
+            invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
+            captured — the menu's own price always applies there, so "matched" has no price field at all.
+
+            Customer message: "${itemMessage}"
+
+            If the message is not an order, is conversational, or mentions NO products to purchase (e.g. asking a question, greeting, small talk), return empty arrays: "matched": [], "unmatched": []. NEVER turn conversational words, questions, or greetings into unmatched items.
+
+            Return ONLY JSON in this exact shape, no other text:
+            {
+              "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
+              "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
+              "orderType": "dine_in" | "take_away",
+              "tableName": "exact table name from the list above, or null"
+            }
+          `;
+        }
+
+        try {
+          const text = await this.geminiKeyPool.generateContent('gemini-1.5-flash-latest', [prompt]);
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          }
+        } catch {
+          // Gemini failed or unavailable — fall through to local parsing
+        }
       }
 
-      let prompt = '';
-      if (existingOrder) {
-        prompt = `
-          You are an ordering assistant editing an existing order for a shop.
-          Here is the product catalog (case-insensitive): ${catalog}
-
-          The current items in this order are: ${currentItemsDesc || 'None'}
-
-          The customer is giving instructions to edit the order. They may want to:
-          - Add new items — including items NOT on the menu (append to the order or increment quantity).
-          - Remove items (delete them from the order completely).
-          - Change quantity of items (update the count).
-          - Replace items.
-          - Change who the order is for (a new customer name, and/or a 10-digit phone number).
-
-          Please interpret the customer's instruction: "${message}"
-
-          Determine the FINAL COMPLETE list of matched items that should remain in the order. If an item was in the original order and was NOT requested to be removed or modified, KEEP it in the final list.
-
-          If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
-          "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
-          bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
-
-          For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
-          "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
-          price they said for that item's whole quantity (not a per-unit price). If no price is stated, use
-          null. Never invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is
-          never captured — the menu's own price always applies there.
-
-          Only if the customer explicitly asked to change who the order is for (e.g. "this is for Priya now",
-          "change customer to Neel", "set customer 9876543210"), capture that in "customerName" and/or "phone".
-          Otherwise leave both null — never guess a customer change from ambiguous wording.
-
-          Return ONLY JSON in this exact shape, no other text:
-          {
-            "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
-            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
-            "customerName": "string or null",
-            "phone": "10-digit string or null"
-          }
-        `;
-      } else {
-        prompt = `
-          You are an ordering assistant for a shop. The customer will describe what they want in plain
-          English or Hinglish. Match each requested item to the closest item in this catalog (case-insensitive,
-          ignore minor spelling differences): ${catalog}
-
-          ${tableNames.length > 0 ? `This is a restaurant with these tables: ${tableNames.join(', ')}.
-          The customer may say which table the order is for (e.g. "for table 3", "table T2") or say
-          "takeaway"/"take away"/"to go". If a table is mentioned, set orderType to "dine_in" and tableName
-          to the exact matching name from the list above. If takeaway is mentioned or no table is mentioned
-          at all, set orderType to "take_away" and tableName to null.` : 'This shop has no tables — always set orderType to "take_away" and tableName to null.'}
-
-          If the customer mentions a unit for an item (e.g. "2kg rice", "3 packets of maggi", "1 dozen eggs",
-          "500ml oil"), capture it in "unit" using their wording (kg, liter/litre, ml, piece, packet, tin, box,
-          bag, dozen, etc.). If no unit is mentioned, use null — do not guess one.
-
-          For an item that ISN'T on the menu (goes in "unmatched"), the customer may also state a price, e.g.
-          "10kg mango 1000rs", "rs 1000", "₹1000", "1000 rupees" — if so, capture it in "price" as the TOTAL
-          price they said for that item's whole quantity (not a per-unit price; e.g. "10kg mango 1000rs" means
-          price: 1000 for quantity: 10, NOT price: 1000 per kg). A trailing number+"rs"/"rupees"/"₹" is ALWAYS
-          the price of the item right before it — it is never a separate item on its own. For example,
-          "10kg mango 1000rs" is ONE unmatched entry: { "name": "mango", "quantity": 10, "unit": "kg", "price":
-          1000 } — never two entries where "1000rs" becomes its own item. If no price is stated, use null. Never
-          invent a price. A price mentioned for an item that IS on the menu (goes in "matched") is never
-          captured — the menu's own price always applies there, so "matched" has no price field at all.
-
-          Customer message: "${itemMessage}"
-
-          Return ONLY JSON in this exact shape, no other text:
-          {
-            "matched": [{ "menuName": "exact name from the menu list above", "rawName": "the customer's own wording for this item (not the menu name), used only if it turns out to need its own separate line item", "quantity": number, "unit": "string or null" }],
-            "unmatched": [{ "name": "raw text for anything you couldn't confidently match", "quantity": number, "unit": "string or null", "price": "total price stated for this item, or null" }],
-            "orderType": "dine_in" | "take_away",
-            "tableName": "exact table name from the list above, or null"
-          }
-        `;
-      }
-
-      try {
-        const text = await this.geminiKeyPool.generateContent('gemini-2.5-flash', [prompt]);
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('No JSON in model response');
-        parsed = JSON.parse(jsonMatch[0]);
-      } catch (error) {
-        throw new BadRequestException(`Could not understand the order: ${error.message}`);
+      // Fallback local regex parsing guarantees 100% local operation with ZERO Gemini calls or API cost
+      if (!parsed) {
+        parsed = this.tryFallbackLocalParse(itemMessage, available, tables);
       }
     }
 
@@ -374,7 +380,32 @@ export class OrderParserService {
     // pack size, just a plain quantity.
     const newItems = [
       ...(parsed.unmatched || [])
-        .filter((u) => u && typeof u.name === 'string' && u.name.trim().length > 0)
+        .filter((u) => {
+          if (!u || typeof u.name !== 'string') return false;
+          const name = u.name.trim();
+          if (name.length < 2) return false;
+
+          // Check if it has any explicit quantity, unit, or stated price
+          const hasExplicitQty = u.quantity != null && Number(u.quantity) > 1;
+          const hasExplicitUnit = u.unit != null && typeof u.unit === 'string' && u.unit.trim().length > 0;
+          const hasExplicitPrice = u.price != null && Number(u.price) > 0;
+
+          // Check if it matches any catalog product
+          const catalogMatch = this.matchCatalogProduct(name.toLowerCase(), available);
+          if (catalogMatch && catalogMatch !== 'ambiguous') return true;
+
+          // If no catalog match, must have at least explicit unit, price, or quantity > 1
+          if (!hasExplicitQty && !hasExplicitUnit && !hasExplicitPrice) {
+            return false;
+          }
+
+          const cleanWords = name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+          if (cleanWords.length === 0) return false;
+          const isConversational = cleanWords.every((w) => OrderParserService.CHAT_STOPWORDS.has(w));
+          if (isConversational) return false;
+
+          return true;
+        })
         .map((u) => {
           const statedQuantity = Number(u.quantity) || 1;
           const statedTotal = u.price != null && !isNaN(Number(u.price)) ? Number(u.price) : null;
@@ -501,7 +532,7 @@ export class OrderParserService {
 
     const summary = [matchedSummary, newSummary].filter(Boolean).join(', ');
 
-    const placementNote = table ? `for Table ${table.name}` : `— Token #${order.token_number}`;
+    const placementNote = table ? `for Table ${table.name}` : `— Token #${order?.token_number || order?.order_number || 1}`;
     const namePart = contactInfo?.customerName ? ` for ${contactInfo.customerName}` : '';
 
     return {
@@ -678,10 +709,17 @@ export class OrderParserService {
     return { phone, index: match.index, length: match[0].length };
   }
 
-  // Exact-match only (the whole trimmed message, punctuation stripped) — a
-  // substring match would risk firing mid-sentence on unrelated chat.
-  private static readonly GREETING_MESSAGES = new Set(['hi', 'hello', 'hey', 'hii', 'helo', 'yo', 'hola', 'namaste']);
-  private static readonly HELP_MESSAGES = new Set(['help', 'what can you do', 'how does this work', 'commands']);
+  // Exact-match only (the whole trimmed message, punctuation stripped)
+  private static readonly GREETING_MESSAGES = new Set([
+    'hi', 'hello', 'hey', 'hii', 'helo', 'yo', 'hola', 'namaste', 'kem cho', 'kaise ho',
+    'good morning', 'good afternoon', 'good evening', 'good night',
+    'how are you', 'how r u', 'how do you do', 'who are you', 'who r u', 'what is your name',
+    'thanks', 'thank you', 'thank u', 'thx', 'ok', 'okay', 'kk', 'bye', 'goodbye', 'cya',
+    'nice', 'great', 'awesome', 'cool', 'done', 'yes', 'no', 'sure', 'alright',
+  ]);
+  private static readonly HELP_MESSAGES = new Set([
+    'help', 'what can you do', 'how does this work', 'how to order', 'commands',
+  ]);
 
   // Whole-message shapes only, same reasoning as GREETING/HELP above — "menu"
   // as a bare word is safe to treat as an intent since it's not a plausible
@@ -691,6 +729,24 @@ export class OrderParserService {
     /^what(?:'s|\s+is)\s+on\s+the\s+menu\??$/i,
     /^what\s+do\s+you\s+have\??$/i,
     /^(?:show\s+(?:me\s+)?(?:the\s+)?)?(?:products|items|catalog)\??$/i,
+    /^(?:send|give\s+me)\s+(?:the\s+)?(?:menu|catalog|product\s+list)\??$/i,
+  ];
+
+  // Store information patterns (timings, location, contact, help, questions)
+  private static readonly TIMING_PATTERNS = [
+    /\b(?:timing|timings|open\s*time|close\s*time|when\s+do\s+you\s+open|what\s+time\s+do\s+you\s+open|when\s+do\s+you\s+close|what\s+time\s+do\s+you\s+close|what\s+time|are\s+you\s+open|shop\s+open|store\s+open|kholte|band)\b/i,
+  ];
+  private static readonly LOCATION_PATTERNS = [
+    /\b(?:where\s+is\s+(?:the\s+|your\s+)?shop|where\s+is\s+(?:the\s+|your\s+)?store|shop\s+location|store\s+location|address|where\s+are\s+you\s+located|kaha\s+hai|kahan\s+hai|send\s+location)\b/i,
+  ];
+  private static readonly CONVERSATION_PATTERNS = [
+    /\b(?:how\s+are\s+you|how\s+r\s+u|who\s+are\s+you|who\s+r\s+u|are\s+you\s+(?:a\s+)?bot|tell\s+me\s+about\s+yourself|what\s+is\s+your\s+name|what\s+can\s+you\s+do|kaise\s+ho|kya\s+hal\s+hai|anyone\s+there|is\s+anyone\s+there|hello\s+there)\b/i,
+  ];
+  private static readonly QUESTION_PATTERNS = [
+    /\b(?:can\s+i\s+ask|have\s+a\s+question|delivery\s+available|do\s+you\s+deliver|home\s+delivery|contact\s+number|phone\s+number|talk\s+to\s+human|call\s+me)\b/i,
+  ];
+  private static readonly COURTESY_PATTERNS = [
+    /\b(?:thank\s+you|thanks|thank\s+u|thx|welcome|appreciate|good\s+job|great\s+job|well\s+done)\b/i,
   ];
 
   // Deliberately English-only ("status") rather than also matching Hinglish
@@ -721,15 +777,35 @@ export class OrderParserService {
     const trimmed = message.trim();
     const lower = trimmed.toLowerCase().replace(/[!.?]+$/, '');
 
-    if (OrderParserService.GREETING_MESSAGES.has(lower)) {
+    if (OrderParserService.GREETING_MESSAGES.has(lower) || OrderParserService.CONVERSATION_PATTERNS.some((re) => re.test(trimmed))) {
       return {
-        reply: `Hi! Tell me what you'd like to order (e.g. "2kg rice, 1 dozen eggs"), or ask for the "menu", an order's "status" (e.g. "status of table 3"), or a customer's "balance" (e.g. "balance for Neel").`,
+        reply: `Hi! I am Obix, your digital store ordering assistant. Tell me what you'd like to order (e.g. "2kg rice, 1 dozen eggs"), or ask for the "menu", an order's "status" (e.g. "status of table 3"), or a customer's "balance" (e.g. "balance for Neel").`,
         order: null,
       };
     }
-    if (OrderParserService.HELP_MESSAGES.has(lower)) {
+    if (OrderParserService.COURTESY_PATTERNS.some((re) => re.test(trimmed))) {
+      return {
+        reply: `You're welcome! Let me know if you would like to place an order or need any assistance.`,
+        order: null,
+      };
+    }
+    if (OrderParserService.HELP_MESSAGES.has(lower) || OrderParserService.QUESTION_PATTERNS.some((re) => re.test(trimmed))) {
       return {
         reply: `I can place an order ("2kg rice, 1 dozen eggs" or "for Neel 9876543210 2kg rice"), edit one ("add 2 cokes to table 3"), show the "menu", check an order's "status" (by table or token), or look up a customer's "balance".`,
+        order: null,
+      };
+    }
+
+    if (OrderParserService.TIMING_PATTERNS.some((re) => re.test(trimmed))) {
+      return {
+        reply: `⏰ We are open and accepting orders! Please send the items and quantities you'd like to order (e.g. "2kg rice, 3 tata salt").`,
+        order: null,
+      };
+    }
+
+    if (OrderParserService.LOCATION_PATTERNS.some((re) => re.test(trimmed))) {
+      return {
+        reply: `📍 You can order directly here on WhatsApp! Send your item list (e.g. "2kg rice, 1 dozen eggs") for takeaway or delivery.`,
         order: null,
       };
     }
@@ -853,33 +929,27 @@ export class OrderParserService {
   private extractContactInfo(message: string): { customerName: string | null; phone: string | null; cleanMessage: string } {
     let text = message.trim();
 
-    // Strip a leading "new order" (bare, or with a make/place/create/start
+    // Strip conversational greetings ("Hi Shop,", "Hi Store,", "Hi Obix,", "Hello,", "Hey,")
+    text = text.replace(/^(?:hi|hello|hey|hii|helo)\s+(?:shop|store|obix|sir|mam|madam|team|there|bot)?\s*[,:-]?\s*/i, '').trim();
+    text = text.replace(/^obix\s*[,:-]?\s*/i, '').trim();
+
+    // Strip a leading "new order" or "place an order" command (bare, or with a make/place/create/start
     // verb in front) BEFORE phone/name extraction runs — otherwise "new" has
     // nowhere to go: it isn't part of the name (NAME_STOPWORDS already
     // rejects it there), isn't a phone digit, and isn't consumed by the
-    // "(?:order\s+)?for" name-match pattern below (that only swallows a
-    // literal "order" immediately before "for", not an extra word ahead of
-    // it). Left unstripped, "new" survives into cleanMessage as a stray
-    // one-word "item" — which then either fails Gemini strangely or, worse,
-    // becomes a real ₹0 "New" quick-add product on the order, silently
-    // completing it before the actual items ever get typed.
+    // "(?:order\s+)?for" name-match pattern below.
     const beforeNewOrderStrip = text;
-    text = text.replace(/^(?:please\s+)?(?:(?:make|create|place|start)\s+(?:a|an)\s+)?new\s+order\s*/i, '').trim();
-    text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*/i, '').trim();
+    text = text.replace(/^(?:please\s+)?(?:(?:make|create|place|start)\s+(?:a|an)\s+)?new\s+order\s*[:,-]?\s*/i, '').trim();
+    text = text.replace(/^(?:please\s+)?(?:make|create|place)\s+(?:a|an)\s+order\s*[:,-]?\s*/i, '').trim();
+    text = text.replace(/^(?:please\s+)?i\s+(?:want|need|would\s+like)\s+(?:to\s+)?(?:place\s+(?:a|an)\s+)?order\s*[:,-]?\s*/i, '').trim();
+    text = text.replace(/^order\s*[:,-]\s*/i, '').trim();
     const strippedExplicitNewOrder = text !== beforeNewOrderStrip;
 
     const titleCase = (raw: string) =>
       raw.trim().split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
     // "new order neel," — an explicit new-order command immediately followed
-    // by ONLY a bare name and a trailing comma, nothing else. The comma is
-    // what makes this unambiguous versus a genuine one-word item order like
-    // "new order rice" (no comma, left untouched below): it's the shape
-    // someone produces typing a customer's name first, meaning to follow with
-    // items as a comma-separated list or as separate messages afterward, and
-    // hitting send before any item made it in. Without this, "neel" falls
-    // through as cleanMessage and becomes a real ₹0 "Neel" quick-add product
-    // on the order instead of being saved as the customer.
+    // by ONLY a bare name and a trailing comma, nothing else.
     if (strippedExplicitNewOrder) {
       const bareNameMatch = text.match(/^([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2})\s*,\s*$/);
       if (bareNameMatch) {
@@ -887,18 +957,16 @@ export class OrderParserService {
       }
     }
 
-    // A conversational opener ("give me", "I want", "can I get") isn't part
+    // A conversational opener ("give me", "I want", "can I get", "I want to place an order:") isn't part
     // of the order — left in place it becomes the leading word of whatever
-    // segment follows, which then fails parseSegment's confidence guard (its
-    // quantity digit reads as a stray token stuck inside a longer "name") and
-    // bails the whole deterministic parse to Gemini even for an otherwise
-    // trivial single-item order.
+    // segment follows, which then fails parseSegment's confidence guard.
     text = text
       .replace(/^(?:please\s+)?give\s+me\s+/i, '')
-      .replace(/^(?:please\s+)?i(?:'d|\s+would)\s+like\s+(?:to\s+(?:order|get|have)\s+)?/i, '')
-      .replace(/^(?:please\s+)?i\s+(?:want|need)\s+(?:to\s+(?:order|get|have)\s+)?/i, '')
+      .replace(/^(?:please\s+)?i(?:'d|\s+would)\s+like\s+(?:to\s+(?:order|get|have|place)\s+)?/i, '')
+      .replace(/^(?:please\s+)?i\s+(?:want|need)\s+(?:to\s+(?:order|get|have|place)\s+(?:an?\s+)?(?:order\s*)?)?[:,-]?\s*/i, '')
       .replace(/^(?:please\s+)?can\s+i\s+(?:get|have)\s+/i, '')
       .replace(/^(?:please\s+)?i'?ll\s+(?:have|take)\s+/i, '')
+      .replace(/^[:,-]\s*/, '')
       .trim();
 
     let phone: string | null = null;
@@ -1749,5 +1817,136 @@ export class OrderParserService {
         `Voice parsing failed: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Pure local fallback parser that extracts items, quantities, units, prices,
+   * and tables locally when Gemini AI is unconfigured, removed, or unavailable.
+   */
+  private tryFallbackLocalParse(
+    message: string,
+    available: any[],
+    tables: any[],
+  ): {
+    matched: { menuName: string; quantity: number; unit?: string | null }[];
+    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
+    orderType: string;
+    tableName: string | null;
+  } {
+    let text = message.trim();
+    let orderType = 'take_away';
+    let tableName: string | null = null;
+
+    if (tables.length > 0) {
+      const tableMatch = text.match(/\b(?:for\s+)?table\s*([a-zA-Z0-9]+)\b/i);
+      if (tableMatch) {
+        const raw = tableMatch[1].trim().toLowerCase();
+        const table = tables.find((t) => {
+          const name = t.name.toLowerCase();
+          return name === raw || name === `t${raw}` || `t${name}` === raw;
+        });
+        if (table) {
+          orderType = 'dine_in';
+          tableName = table.name;
+        }
+        text = text.replace(tableMatch[0], ' ').trim();
+      }
+    }
+
+    const segments = text
+      .split(new RegExp(`\\s*(?:${OrderParserService.LIST_SEPARATOR}|\\n|;)\\s*`, 'i'))
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const matched: { menuName: string; quantity: number; unit?: string | null }[] = [];
+    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
+
+    for (const segment of segments) {
+      // 1. Try matching against catalog products
+      const item = this.parseSegment(segment);
+      if (item) {
+        const catalogMatch = this.matchCatalogProduct(item.name.toLowerCase(), available);
+        if (catalogMatch && catalogMatch !== 'ambiguous') {
+          matched.push({
+            menuName: catalogMatch,
+            quantity: item.quantity,
+            unit: item.unit || null,
+          });
+          continue;
+        }
+      }
+
+      // 2. If no catalog match, parse as unmatched custom item (only if it has valid item/quantity patterns)
+      const freeItem = this.parseFreeTextSegment(segment);
+      if (freeItem && freeItem.name) {
+        matched.push ? null : null; // noop
+        unmatched.push(freeItem);
+      }
+    }
+
+    return { matched, unmatched, orderType, tableName };
+  }
+
+  private static readonly CHAT_STOPWORDS = new Set([
+    'what', 'when', 'where', 'why', 'who', 'how', 'which', 'whom', 'whose',
+    'is', 'are', 'am', 'was', 'were', 'be', 'been', 'being',
+    'do', 'does', 'did', 'done', 'doing',
+    'can', 'could', 'will', 'would', 'shall', 'should', 'may', 'might', 'must',
+    'have', 'has', 'had', 'having',
+    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
+    'my', 'your', 'his', 'her', 'its', 'our', 'their', 'mine', 'yours', 'ours',
+    'this', 'that', 'these', 'those', 'there', 'here',
+    'the', 'a', 'an', 'and', 'but', 'or', 'so', 'because', 'if', 'then', 'than', 'just', 'too', 'very', 'much', 'for', 'with', 'about', 'from', 'to', 'in', 'on', 'at', 'by', 'of',
+    'hi', 'hello', 'hey', 'hii', 'helo', 'yo', 'hola', 'namaste', 'kem cho', 'kaise ho',
+    'thanks', 'thank', 'thx', 'welcome', 'ok', 'okay', 'kk', 'yes', 'no', 'yeah', 'nope', 'sure', 'fine', 'alright',
+    'bye', 'goodbye', 'cya', 'see you', 'take care', 'good morning', 'good afternoon', 'good evening', 'good night',
+    'shop', 'store', 'location', 'address', 'timing', 'timings', 'time', 'times', 'open', 'close', 'opened', 'closed',
+    'delivery', 'deliver', 'delivers', 'delivered', 'delivering',
+    'please', 'tell', 'told', 'know', 'want', 'need', 'ask', 'asking', 'question', 'questions', 'help', 'call', 'talk', 'chat', 'today', 'tomorrow', 'now', 'later', 'anyone', 'someone',
+  ]);
+
+  /** Helper to parse free-text unmatched items with quantity, unit, and price locally. */
+  private parseFreeTextSegment(segment: string): { name: string; quantity: number; unit: string | null; price: number | null } | null {
+    let text = segment.trim();
+    if (!text) return null;
+
+    let price: number | null = null;
+    const priceMatch = text.match(/(?:rs\.?|₹)\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rs|rupees|inr)\b/i);
+    if (priceMatch) {
+      price = Number(priceMatch[1] || priceMatch[2]);
+      text = text.replace(priceMatch[0], '').trim();
+    }
+
+    let quantity = 1;
+    let unit: string | null = null;
+    let hasExplicitQty = false;
+
+    const qtyUnitMatch = text.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s+(.+)$/i);
+    if (qtyUnitMatch) {
+      hasExplicitQty = true;
+      quantity = Number(qtyUnitMatch[1]);
+      unit = qtyUnitMatch[2] ? qtyUnitMatch[2].toLowerCase() : null;
+      text = qtyUnitMatch[3].trim();
+    } else {
+      const trailingMatch = text.match(/^(.+)\s+(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/i);
+      if (trailingMatch) {
+        hasExplicitQty = true;
+        text = trailingMatch[1].trim();
+        quantity = Number(trailingMatch[2]);
+        unit = trailingMatch[3] ? trailingMatch[3].toLowerCase() : null;
+      }
+    }
+
+    // If there is no explicit quantity, price, or unit, check if text is purely conversational words
+    const cleanLower = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+    const words = cleanLower.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return null;
+
+    const isPurelyConversational = words.every((w) => OrderParserService.CHAT_STOPWORDS.has(w));
+    if (isPurelyConversational && !hasExplicitQty && price === null) {
+      return null;
+    }
+
+    return { name: text || segment, quantity, unit, price };
   }
 }

@@ -5,12 +5,17 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
   const pathSegments = resolvedParams.path || [];
   const fullPath = pathSegments.join('/');
 
-  // Route auth paths to https://obix360.com/auth/..., api/ paths to https://obix360.com/api/...
+  const apiOrigin = process.env.NODE_ENV === 'development'
+    ? (process.env.DEV_API_URL || 'http://127.0.0.1:4000')
+    : (process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com');
+  const targetHost = new URL(apiOrigin).host;
+
+  // Route auth paths to /auth/..., api/ paths to /api/...
   let targetUrl: string;
   if (pathSegments[0] === 'auth' || pathSegments[0] === 'api') {
-    targetUrl = `https://obix360.com/${fullPath}`;
+    targetUrl = `${apiOrigin}/${fullPath}`;
   } else {
-    targetUrl = `https://obix360.com/api/${fullPath}`;
+    targetUrl = `${apiOrigin}/api/${fullPath}`;
   }
 
   const searchParams = req.nextUrl.search;
@@ -19,9 +24,11 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
   }
 
   const headers = new Headers(req.headers);
+  headers.delete('host');
   headers.delete('origin');
   headers.delete('referer');
-  headers.set('host', 'obix360.com');
+  headers.delete('connection');
+  headers.delete('content-length');
 
   try {
     const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer();
@@ -43,8 +50,9 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
       headers: responseHeaders,
     });
   } catch (err: any) {
+    console.error('API Proxy Error:', targetUrl, err?.message || err);
     return NextResponse.json(
-      { message: 'Proxy Error', error: err.message },
+      { message: 'Proxy Error', error: err?.message || String(err) },
       { status: 502 },
     );
   }

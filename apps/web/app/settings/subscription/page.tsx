@@ -254,7 +254,7 @@ export default function SubscriptionSettingsPage() {
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Starter ₹59
+            Starter ₹99
           </button>
           <button
             onClick={() => setMobileActiveTab('pro')}
@@ -298,12 +298,12 @@ export default function SubscriptionSettingsPage() {
               <div className="my-5">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-extrabold text-slate-900">
-                    {billingCycle === 'yearly' ? '₹599' : '₹59'}
+                    {billingCycle === 'yearly' ? '₹999' : '₹99'}
                   </span>
                   <span className="text-xs text-slate-500">/{billingCycle === 'yearly' ? 'year' : 'month'}</span>
                 </div>
                 {billingCycle === 'yearly' && (
-                  <p className="text-xs font-semibold text-emerald-600 mt-1">Equivalent to ~₹49/month</p>
+                  <p className="text-xs font-semibold text-emerald-600 mt-1">Equivalent to ~₹83/month</p>
                 )}
               </div>
 
@@ -515,14 +515,14 @@ export default function SubscriptionSettingsPage() {
             <div className="my-6">
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-extrabold text-slate-900">
-                  {billingCycle === 'yearly' ? '₹599' : '₹59'}
+                  {billingCycle === 'yearly' ? '₹999' : '₹99'}
                 </span>
                 <span className="text-xs text-slate-500">
                   /{billingCycle === 'yearly' ? 'year' : 'month'}
                 </span>
               </div>
               {billingCycle === 'yearly' && (
-                <p className="text-xs font-semibold text-emerald-600 mt-1">Equivalent to ~₹49/month</p>
+                <p className="text-xs font-semibold text-emerald-600 mt-1">Equivalent to ~₹83/month</p>
               )}
             </div>
 
