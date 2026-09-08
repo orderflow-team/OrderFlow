@@ -115,11 +115,12 @@ export default function AdminUsersPage() {
           limit,
         },
       });
-      setUsers(res.data.data);
-      setTotalPages(res.data.meta.totalPages);
-      setTotalUsers(res.data.meta.total);
+      setUsers(Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalUsers(res.data?.meta?.total || 0);
     } catch (err: any) {
       console.error(err);
+      setUsers([]);
       setError(err.response?.data?.message || 'Failed to load users data');
     } finally {
       setLoading(false);
@@ -154,8 +155,9 @@ export default function AdminUsersPage() {
     setStoresError('');
     try {
       const res = await apiClient.get(`/api/platform-admin/users/${user.id}/stores`);
-      setUserStores(res.data.stores);
+      setUserStores(Array.isArray(res.data?.stores) ? res.data.stores : []);
     } catch (err: any) {
+      setUserStores([]);
       setStoresError(err.response?.data?.message || 'Failed to load stores for this user');
     } finally {
       setStoresLoading(false);
@@ -409,14 +411,14 @@ export default function AdminUsersPage() {
                     Loading user records...
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : !Array.isArray(users) || users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                     No user accounts found matching criteria.
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                (Array.isArray(users) ? users : []).map((user) => (
                   <tr key={user.id} className="hover:bg-accent transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -457,13 +459,13 @@ export default function AdminUsersPage() {
                           {user.subscription.status === 'trialing' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                               <Sparkles className="w-3 h-3 text-amber-500" />
-                              Free Trial ({user.subscription.trial_days_left}d left)
+                              Free Trial ({user.subscription.trial_days_left ?? 30}d left)
                             </span>
                           )}
                           {user.subscription.status === 'active' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                               <CheckCircle className="w-3 h-3 text-emerald-600" />
-                              Active ({user.subscription.plan_name || user.subscription.plan_code})
+                              Active ({user.subscription.plan_name || user.subscription.plan_code || 'Pro'})
                             </span>
                           )}
                           {(user.subscription.status === 'expired' || user.subscription.status === 'past_due') && (
@@ -500,7 +502,7 @@ export default function AdminUsersPage() {
                     </td>
 
                     <td className="px-6 py-4 text-xs text-muted-foreground font-mono">
-                      {new Date(user.created_at).toLocaleDateString()}
+                      {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}
                     </td>
 
                     <td className="px-6 py-4 text-right">
@@ -795,13 +797,13 @@ export default function AdminUsersPage() {
               </div>
             ) : storesError ? (
               <div className="py-6 text-center text-rose-600 dark:text-rose-400 text-sm">{storesError}</div>
-            ) : userStores.length === 0 ? (
+            ) : !Array.isArray(userStores) || userStores.length === 0 ? (
               <div className="py-10 text-center text-muted-foreground text-sm">
                 This user doesn&apos;t own any stores and has no active workspace assigned.
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {userStores.map((s) => (
+                {(Array.isArray(userStores) ? userStores : []).map((s) => (
                   <div
                     key={s.id}
                     className="flex items-center justify-between p-3 bg-muted rounded-xl border border-border"

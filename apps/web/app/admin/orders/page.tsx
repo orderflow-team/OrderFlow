@@ -59,12 +59,14 @@ export default function AdminOrdersPage() {
           limit,
         },
       });
-      setOrders(res.data.data);
-      setTotalRevenue(res.data.summary.totalRevenue || 0);
-      setTotalPages(res.data.meta.totalPages);
-      setTotalOrders(res.data.meta.total);
+      const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setOrders(data);
+      setTotalRevenue(res.data?.summary?.totalRevenue || 0);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalOrders(res.data?.meta?.total || (data ? data.length : 0));
     } catch (err) {
       console.error(err);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ export default function AdminOrdersPage() {
         },
       });
 
-      const exportData: OrderItem[] = res.data.data;
+      const exportData: OrderItem[] = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       if (!exportData || exportData.length === 0) {
         alert('No orders found to export.');
         return;
@@ -98,15 +100,15 @@ export default function AdminOrdersPage() {
 
       exportData.forEach((o) => {
         const row = [
-          `"${o.id}"`,
-          `"${o.order_number}"`,
+          `"${o.id || ''}"`,
+          `"${o.order_number || ''}"`,
           `"${(o.customer_name || 'Walk-in').replace(/"/g, '""')}"`,
           `"${(o.business_name || '').replace(/"/g, '""')}"`,
-          `"${o.status}"`,
+          `"${o.status || ''}"`,
           `"${o.origin || 'manual'}"`,
           o.total_amount || 0,
           o.tax_amount || 0,
-          `"${new Date(o.created_at).toLocaleString()}"`,
+          `"${o.created_at ? new Date(o.created_at).toLocaleString() : ''}"`,
         ];
         csvRows.push(row.join(','));
       });
@@ -342,7 +344,7 @@ export default function AdminOrdersPage() {
                     </td>
 
                     <td className="px-6 py-4 font-extrabold text-emerald-600 dark:text-emerald-400">
-                      ₹{o.total_amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      ₹{Number(o.total_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </td>
 
                     <td className="px-6 py-4">
@@ -350,7 +352,7 @@ export default function AdminOrdersPage() {
                     </td>
 
                     <td className="px-6 py-4 text-right text-xs text-muted-foreground font-mono">
-                      {new Date(o.created_at).toLocaleString()}
+                      {o.created_at ? new Date(o.created_at).toLocaleString() : '—'}
                     </td>
                   </tr>
                 ))

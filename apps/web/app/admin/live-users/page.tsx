@@ -30,10 +30,12 @@ export default function AdminLiveUsersPage() {
   const fetchLiveUsers = useCallback(async () => {
     try {
       const res = await apiClient.get<LiveUser[]>('/api/platform-admin/live-users');
-      setUsers(res.data);
+      const data = Array.isArray(res.data) ? res.data : (Array.isArray((res.data as any)?.data) ? (res.data as any).data : []);
+      setUsers(data);
       setLastRefreshed(new Date().toLocaleTimeString());
     } catch (err) {
       console.error('Failed to fetch live users', err);
+      setUsers([]);
     } finally {
       setLoading(false);
     }

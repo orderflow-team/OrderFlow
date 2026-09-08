@@ -67,9 +67,10 @@ export default function AdminProductsPage() {
       const res = await apiClient.get('/api/platform-admin/stores', {
         params: { limit: 100, category: selectedCategory },
       });
-      setStoresList(res.data.data || []);
+      setStoresList(Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Failed to load stores list:', err);
+      setStoresList([]);
     }
   };
 
@@ -85,11 +86,12 @@ export default function AdminProductsPage() {
           limit,
         },
       });
-      setProducts(res.data.data);
-      setTotalPages(res.data.meta.totalPages);
-      setTotalProducts(res.data.meta.total);
+      setProducts(Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : []);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalProducts(res.data?.meta?.total || 0);
     } catch (err) {
       console.error(err);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -312,7 +314,7 @@ export default function AdminProductsPage() {
                     Loading catalog data...
                   </td>
                 </tr>
-              ) : products.length === 0 ? (
+              ) : !Array.isArray(products) || products.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
                     No products found matching specified shop or category filters.
@@ -326,7 +328,7 @@ export default function AdminProductsPage() {
                         <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-emerald-600 dark:text-emerald-400 text-xs">
                           📦
                         </div>
-                        {p.name}
+                        {p.name || 'Unnamed Product'}
                       </div>
                     </td>
 
@@ -337,7 +339,7 @@ export default function AdminProductsPage() {
                     <td className="px-6 py-4 text-xs text-foreground">
                       <div className="flex items-center gap-1.5 font-medium text-blue-700 dark:text-blue-300">
                         <Store className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        {p.business_name}
+                        {p.business_name || 'N/A'}
                       </div>
                     </td>
 
@@ -348,23 +350,23 @@ export default function AdminProductsPage() {
                     </td>
 
                     <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">
-                      ₹{p.price.toLocaleString('en-IN')}
+                      ₹{Number(p.price || 0).toLocaleString('en-IN')}
                     </td>
 
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center justify-center whitespace-nowrap px-3 py-1 text-xs font-semibold rounded-full border ${
-                        p.current_stock > 10
+                        Number(p.current_stock || 0) > 10
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                          : p.current_stock > 0
+                          : Number(p.current_stock || 0) > 0
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                           : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                       }`}>
-                        {p.current_stock} in stock
+                        {Number(p.current_stock || 0)} in stock
                       </span>
                     </td>
 
                     <td className="px-6 py-4 text-right text-xs text-muted-foreground font-mono">
-                      {new Date(p.created_at).toLocaleDateString()}
+                      {p.created_at ? new Date(p.created_at).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))

@@ -38,12 +38,15 @@ export default function AdminOverviewDashboard() {
         apiClient.get('/api/platform-admin/health').catch(() => null),
       ]);
 
-      setStats(resOverview.data.stats);
-      setRecentSignups(resOverview.data.recentSignups || []);
-      setRecentActivities(resOverview.data.recentActivities || []);
-      if (resHealth) setHealth(resHealth.data);
+      setStats(resOverview?.data?.stats || null);
+      setRecentSignups(Array.isArray(resOverview?.data?.recentSignups) ? resOverview.data.recentSignups : []);
+      setRecentActivities(Array.isArray(resOverview?.data?.recentActivities) ? resOverview.data.recentActivities : []);
+      if (resHealth?.data) setHealth(resHealth.data);
     } catch (err) {
       console.error('Failed to load overview metrics:', err);
+      setStats(null);
+      setRecentSignups([]);
+      setRecentActivities([]);
     } finally {
       setLoading(false);
     }
@@ -130,7 +133,7 @@ export default function AdminOverviewDashboard() {
                 <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition" />
               </div>
               <div className="text-3xl font-extrabold text-foreground tracking-tight mb-1">
-                {loading ? '...' : card.value.toLocaleString()}
+                {loading ? '...' : (typeof card.value === 'number' ? card.value.toLocaleString() : (card.value ?? 0))}
               </div>
               <div className="text-xs font-semibold text-foreground">{card.title}</div>
               <div className="text-[11px] text-muted-foreground mt-1">{card.subtext}</div>

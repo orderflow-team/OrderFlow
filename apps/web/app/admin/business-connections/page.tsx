@@ -39,11 +39,13 @@ export default function AdminBusinessConnectionsPage() {
       const res = await apiClient.get('/api/platform-admin/business-connections', {
         params: { search, status: statusFilter, page, limit },
       });
-      setConnections(res.data.data);
-      setTotalPages(res.data.meta.totalPages);
-      setTotal(res.data.meta.total);
+      const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setConnections(data);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotal(res.data?.meta?.total || (data ? data.length : 0));
     } catch (err) {
       console.error(err);
+      setConnections([]);
     } finally {
       setLoading(false);
     }

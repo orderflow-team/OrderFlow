@@ -93,11 +93,13 @@ export default function AdminActivityPage() {
           limit,
         },
       });
-      setLogs(res.data.data);
-      setTotalPages(res.data.meta.totalPages);
-      setTotalLogs(res.data.meta.total);
+      const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setLogs(data);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalLogs(res.data?.meta?.total || (data ? data.length : 0));
     } catch (err) {
       console.error(err);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,7 @@ export default function AdminActivityPage() {
         },
       });
 
-      const exportData: LogItem[] = res.data.data;
+      const exportData: LogItem[] = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       if (!exportData || exportData.length === 0) {
         alert('No activity logs found to export.');
         return;

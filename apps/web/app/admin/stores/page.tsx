@@ -133,11 +133,13 @@ export default function AdminStoresPage() {
           limit,
         },
       });
-      setStores(res.data.data);
-      setTotalPages(res.data.meta.totalPages);
-      setTotalStores(res.data.meta.total);
+      const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setStores(data);
+      setTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalStores(res.data?.meta?.total || (data ? data.length : 0));
     } catch (err) {
       console.error(err);
+      setStores([]);
     } finally {
       setLoading(false);
     }
@@ -154,11 +156,13 @@ export default function AdminStoresPage() {
           limit: 8,
         },
       });
-      setStoreProducts(res.data.data);
-      setProductTotalPages(res.data.meta.totalPages);
-      setTotalStoreProducts(res.data.meta.total);
+      const data = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      setStoreProducts(data);
+      setProductTotalPages(res.data?.meta?.totalPages || 1);
+      setTotalStoreProducts(res.data?.meta?.total || (data ? data.length : 0));
     } catch (err) {
       console.error(err);
+      setStoreProducts([]);
     } finally {
       setLoadingProducts(false);
     }
@@ -752,17 +756,17 @@ export default function AdminStoresPage() {
                         </td>
                         <td className="px-4 py-3 font-mono text-muted-foreground">{p.sku || '-'}</td>
                         <td className="px-4 py-3 capitalize text-foreground">{p.category || 'General'}</td>
-                        <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">₹{(p.price || 0).toLocaleString('en-IN')}</td>
-                        <td className="px-4 py-3 text-muted-foreground">₹{(p.cost_price || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">₹{Number(p.price || 0).toLocaleString('en-IN')}</td>
+                        <td className="px-4 py-3 text-muted-foreground">₹{Number(p.cost_price || 0).toLocaleString('en-IN')}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={`inline-flex items-center justify-center whitespace-nowrap px-2.5 py-0.5 font-semibold rounded-full border text-[10px] ${
-                            p.current_stock > 10
+                            Number(p.current_stock || 0) > 10
                               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : p.current_stock > 0
+                              : Number(p.current_stock || 0) > 0
                               ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                           }`}>
-                            {p.current_stock} in stock
+                            {p.current_stock ?? 0} in stock
                           </span>
                         </td>
                       </tr>

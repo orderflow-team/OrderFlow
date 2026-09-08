@@ -57,10 +57,12 @@ export default function AdminReleasesPage() {
         apiClient.get<OtaRelease[]>('/api/app-updates', { params: { platform: 'android' } }),
         apiClient.get<ApkRelease[]>('/api/app-apk-releases', { params: { platform: 'android' } }),
       ]);
-      setOtaReleases(ota.data);
-      setApkReleases(apk.data);
+      setOtaReleases(Array.isArray(ota.data) ? ota.data : []);
+      setApkReleases(Array.isArray(apk.data) ? apk.data : []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load releases');
+      setOtaReleases([]);
+      setApkReleases([]);
     } finally {
       setLoading(false);
     }
@@ -307,8 +309,9 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
   onToggle: (id: string, isActive: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const visibleRows = expanded ? rows : rows.slice(0, COLLAPSE_LIMIT);
-  const hiddenCount = rows.length - COLLAPSE_LIMIT;
+  const rowsArr = Array.isArray(rows) ? rows : [];
+  const visibleRows = expanded ? rowsArr : rowsArr.slice(0, COLLAPSE_LIMIT);
+  const hiddenCount = rowsArr.length - COLLAPSE_LIMIT;
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xl">
@@ -334,7 +337,7 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
                   Loading releases...
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : rowsArr.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">
                   No releases published yet.
@@ -365,7 +368,7 @@ function ReleaseTable<T extends { id: string; notes: string | null; is_active: b
                       {r.notes || '—'}
                     </td>
                     <td className="px-3 py-3 text-muted-foreground text-xs">
-                      {new Date(r.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {r.created_at ? new Date(r.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                     </td>
                     <td className="px-3 py-3 text-right">
                       {r.is_active ? (

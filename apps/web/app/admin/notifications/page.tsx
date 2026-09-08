@@ -133,7 +133,8 @@ export default function AdminNotificationsPage() {
       setPushSearching(true);
       try {
         const res = await apiClient.get('/api/platform-admin/stores', { params: { search: pushStoreQuery, limit: 8 } });
-        setPushStoreResults(res.data.data || []);
+        const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+        setPushStoreResults(list);
       } catch {
         setPushStoreResults([]);
       } finally {
