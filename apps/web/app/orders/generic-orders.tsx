@@ -848,11 +848,20 @@ export function GenericOrders() {
       <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
-          {!showForm && (
-            <Button onClick={() => setShowForm(true)} title="Press N" className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
-              <Plus className="w-4 h-4" /> New Order
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-order-assistant', { detail: { mode: 'order' } }))}
+              className="gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-sm font-bold text-xs rounded-xl"
+            >
+              <Bot className="w-4 h-4" /> AI Order Assistant
             </Button>
-          )}
+            {!showForm && (
+              <Button onClick={() => setShowForm(true)} title="Press N" className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
+                <Plus className="w-4 h-4" /> New Order
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="relative">

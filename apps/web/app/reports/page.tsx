@@ -83,7 +83,16 @@ export default function ReportsPage() {
   return (
     <AppShell>
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-6">
-        <PageHeader title="Analytics" description="Every angle on the business — sales, purchases, customers, products, suppliers, and finance." />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <PageHeader title="Analytics & Intelligence" description="Every angle on the business — sales, purchases, customers, products, suppliers, and finance." />
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-order-assistant', { detail: { mode: 'report' } }))}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs shadow-md shadow-indigo-500/20 transition-all active:scale-95 shrink-0 self-start sm:self-auto"
+          >
+            <span>Ask AI Report Assistant ✨</span>
+          </button>
+        </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <ReportTabBar tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
