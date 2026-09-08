@@ -41,7 +41,7 @@ export class SubscriptionsService {
     // Look up user details if userId provided
     let userRecord: any = null;
     if (userId) {
-      const userRes = await this.dataSource.query(`SELECT id, business_id, role, created_at FROM users WHERE id = $1`, [userId]);
+      const userRes = await this.dataSource.query(`SELECT id, business_id, role, created_at FROM users WHERE id = $1`, [userId]).catch(() => []);
       userRecord = userRes[0];
       if (userRecord) {
         if (!effectiveBizId && userRecord.business_id) {
@@ -52,12 +52,14 @@ export class SubscriptionsService {
           const ownerRes = await this.dataSource.query(
             `SELECT id, created_at FROM users WHERE business_id = $1 AND role IN ('admin', 'super_admin') ORDER BY created_at ASC LIMIT 1`,
             [effectiveBizId]
-          );
+          ).catch(() => []);
           if (ownerRes[0]) {
             targetUserId = ownerRes[0].id;
             userRecord = ownerRes[0];
           }
         }
+      } else {
+        targetUserId = '';
       }
     }
 
@@ -71,7 +73,7 @@ export class SubscriptionsService {
          LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
          WHERE bs.user_id = $1`,
         [targetUserId]
-      );
+      ).catch(() => []);
     }
 
     // Fallback: lookup by business_id if not found by user_id
@@ -83,9 +85,9 @@ export class SubscriptionsService {
          LEFT JOIN subscription_plans sp ON bs.plan_id = sp.id
          WHERE bs.business_id = $1`,
         [effectiveBizId]
-      );
-      if (rows[0] && targetUserId && !rows[0].user_id) {
-        await this.dataSource.query(`UPDATE business_subscriptions SET user_id = $1 WHERE id = $2`, [targetUserId, rows[0].id]);
+      ).catch(() => []);
+      if (rows[0] && targetUserId && userRecord && !rows[0].user_id) {
+        await this.dataSource.query(`UPDATE business_subscriptions SET user_id = $1 WHERE id = $2`, [targetUserId, rows[0].id]).catch(() => {});
       }
     }
 
@@ -96,11 +98,11 @@ export class SubscriptionsService {
     const userCreatedAt = userRecord?.created_at ? new Date(userRecord.created_at) : null;
     const isExistingUser = userCreatedAt && userCreatedAt <= legacyCutoff;
 
-    if (isExistingUser && targetUserId) {
+    if (isExistingUser && targetUserId && userRecord) {
       const enterprisePlan = await this.dataSource.query(
         `SELECT id, code, name, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features
          FROM subscription_plans WHERE code = 'enterprise' LIMIT 1`
-      );
+      ).catch(() => []);
       const plan = enterprisePlan[0];
       if (plan) {
         if (!sub) {
@@ -108,14 +110,14 @@ export class SubscriptionsService {
             `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, current_period_end)
              VALUES (gen_random_uuid(), $1, $2, $3, 'lifetime_free', '2099-12-31 23:59:59')`,
             [targetUserId, effectiveBizId || null, plan.id]
-          );
+          ).catch(() => {});
         } else if (sub.status !== 'lifetime_free' && sub.status !== 'active') {
           await this.dataSource.query(
             `UPDATE business_subscriptions 
              SET plan_id = $1, status = 'lifetime_free', current_period_end = '2099-12-31 23:59:59'
              WHERE id = $2`,
             [plan.id, sub.id]
-          );
+          ).catch(() => {});
         }
         sub = {
           status: 'active',
@@ -132,18 +134,18 @@ export class SubscriptionsService {
     }
 
     // Auto-provision 30-day Free Trial for NEW User if no subscription record exists yet
-    if (!sub && targetUserId) {
+    if (!sub && targetUserId && userRecord) {
       const defaultPlan = await this.dataSource.query(
         `SELECT id, code, name, max_staff_users, max_devices, max_orders_per_month, max_ai_scans_per_month, features
          FROM subscription_plans WHERE code = 'pro' LIMIT 1`
-      );
+      ).catch(() => []);
       const plan = defaultPlan[0];
       if (plan) {
         await this.dataSource.query(
           `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, trial_starts_at, trial_ends_at)
            VALUES (gen_random_uuid(), $1, $2, $3, 'trialing', NOW(), NOW() + INTERVAL '30 days')`,
           [targetUserId, effectiveBizId || null, plan.id]
-        );
+        ).catch(() => {});
         sub = {
           status: 'trialing',
           plan_code: plan.code,

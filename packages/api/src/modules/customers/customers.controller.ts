@@ -7,10 +7,11 @@ import {
   Body,
   Param,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { CustomersService } from './customers.service';
@@ -34,17 +35,19 @@ export class CustomersController {
   // directly and needs the full, unbounded list).
   @Get()
   async findAll(
-    @Query('businessId') businessId: string,
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('search') search?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
+    const effectiveBizId = businessId || req.user?.businessId || '';
     if (limit === undefined && offset === undefined && search === undefined) {
-      return this.customersService.findAll(businessId);
+      return this.customersService.findAll(effectiveBizId);
     }
     const { customers, total } = await this.customersService.findAllPaginated(
-      businessId,
+      effectiveBizId,
       search,
       limit ? Number(limit) : undefined,
       offset ? Number(offset) : undefined,
@@ -56,8 +59,12 @@ export class CustomersController {
   // Must be registered before the `:id` route below, or "stats" would be
   // swallowed as an :id param instead of matching here.
   @Get('stats')
-  getStats(@Query('businessId') businessId: string) {
-    return this.customersService.getStats(businessId);
+  getStats(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+  ) {
+    const effectiveBizId = businessId || req.user?.businessId || '';
+    return this.customersService.getStats(effectiveBizId);
   }
 
   @Get(':id')

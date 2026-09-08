@@ -1,4 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -14,34 +15,46 @@ export class ReportsController {
   // Unrestricted: this is also the data source for the home Dashboard page,
   // which every role (including Cashier/Waiter/Salesman/etc.) lands on.
   @Get('dashboard')
-  dashboard(@Query('businessId') businessId: string) {
-    return this.reportsService.dashboard(businessId);
+  dashboard(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+  ) {
+    const effectiveBizId = businessId || req.user?.businessId || '';
+    return this.reportsService.dashboard(effectiveBizId);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @Get('sales')
   salesReport(
-    @Query('businessId') businessId: string,
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.reportsService.salesReport(businessId, from, to);
+    const effectiveBizId = businessId || req.user?.businessId || '';
+    return this.reportsService.salesReport(effectiveBizId, from, to);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @Get('outstanding')
-  outstandingReport(@Query('businessId') businessId: string) {
-    return this.reportsService.outstandingReport(businessId);
+  outstandingReport(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+  ) {
+    const effectiveBizId = businessId || req.user?.businessId || '';
+    return this.reportsService.outstandingReport(effectiveBizId);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @Get('profit')
   profitReport(
-    @Query('businessId') businessId: string,
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.reportsService.profitReport(businessId, from, to);
+    const effectiveBizId = businessId || req.user?.businessId || '';
+    return this.reportsService.profitReport(effectiveBizId, from, to);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)

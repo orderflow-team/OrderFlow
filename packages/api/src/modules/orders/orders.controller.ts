@@ -89,7 +89,8 @@ export class OrdersController {
 
   @Get()
   async findAll(
-    @Query('businessId') businessId: string,
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
     @Query('status') status?: string,
     @Query('customerId') customerId?: string,
     @Query('limit') limit?: string,
@@ -97,8 +98,9 @@ export class OrdersController {
     @Query('search') search?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
+    const effectiveBizId = businessId || req.user?.businessId || '';
     const { orders, total } = await this.ordersService.findAll(
-      businessId,
+      effectiveBizId,
       status,
       customerId,
       limit ? Number(limit) : undefined,
