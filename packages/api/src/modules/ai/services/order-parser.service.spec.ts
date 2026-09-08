@@ -135,6 +135,35 @@ describe('OrderParserService', () => {
       expect(result.order).toEqual(expect.objectContaining({ id: 'order-2' }));
     });
 
+    it('parses bracketed template instructions and hyphenated item-qty-unit formats', async () => {
+      productsService.findAll.mockResolvedValue([
+        { ...widget, id: 'p1', name: 'Basmati Rice', unit: 'kg' },
+        { ...widget, id: 'p2', name: 'Sugar', unit: 'kg' },
+      ]);
+      ordersService.create.mockResolvedValue({ id: 'order-bracket-1', order_number: 'ORD-B1', token_number: 1, customer_name: 'Chat Order' });
+
+      const templateMessage = `Hi Obix, I want to place an order:
+[Write your order inside this bracket as below
+Product-Qty-Unit with coma saperated 
+Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
+
+      const result = await service.parseChatOrder('biz-1', templateMessage);
+
+      expect(ordersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          businessId: 'biz-1',
+          orderType: 'take_away',
+          items: expect.arrayContaining([
+            expect.objectContaining({ productId: 'p1', quantity: 5, unit: 'kg' }),
+            expect.objectContaining({ productId: 'p2', quantity: 2, unit: 'kg' }),
+          ]),
+        }),
+      );
+      expect(result.reply).toMatch(/order placed/i);
+      expect(result.reply).toContain('5 kg Basmati Rice');
+      expect(result.reply).toContain('2 kg Sugar');
+    });
+
     it('adds an item not on the menu as a new ₹0 draft product', async () => {
       ordersService.create.mockResolvedValue({ id: 'order-1', order_number: 'ORD-1', token_number: 6, customer_name: 'Chat Order' });
 

@@ -933,6 +933,13 @@ export class OrderParserService {
     text = text.replace(/^(?:hi|hello|hey|hii|helo)\s+(?:shop|store|obix|sir|mam|madam|team|there|bot)?\s*[,:-]?\s*/i, '').trim();
     text = text.replace(/^obix\s*[,:-]?\s*/i, '').trim();
 
+    // Strip template / guide instructions often pasted from WhatsApp ordering prompts or brackets
+    text = text.replace(/[\[\]\(\)\{\}]/g, ' ');
+    text = text.replace(/(?:write|type|enter)\s+(?:your\s+)?order\s+(?:inside|in)\s+(?:this\s+)?(?:bracket|box)?(?:\s+as\s+below)?[:,-]?/gi, ' ');
+    text = text.replace(/product\s*-\s*qty\s*-\s*unit\s*(?:with\s+coma\s+saperated|with\s+comma\s+separated)?[:,-]?/gi, ' ');
+    text = text.replace(/\b(?:eg|e\.g\.|example|sample|ex)\s*[:.-]?\s*/gi, ' ');
+    text = text.replace(/\s+/g, ' ').trim();
+
     // Strip a leading "new order" or "place an order" command (bare, or with a make/place/create/start
     // verb in front) BEFORE phone/name extraction runs — otherwise "new" has
     // nowhere to go: it isn't part of the name (NAME_STOPWORDS already
@@ -1628,7 +1635,7 @@ export class OrderParserService {
     if (!text) return null;
 
     const trailingQtyMatch = text.match(
-      new RegExp(`^(.+?)\\s+(${OrderParserService.NUMBER_PATTERN})\\s*(${OrderParserService.UNIT_WORDS})?\\b\\.?$`, 'i'),
+      new RegExp(`^(.+?)(?:\\s+|\\s*-\\s*)(${OrderParserService.NUMBER_PATTERN})(?:\\s+|\\s*-\\s*)?(${OrderParserService.UNIT_WORDS})?\\b\\.?$`, 'i'),
     );
     if (!trailingQtyMatch) return null;
 
@@ -1707,15 +1714,19 @@ export class OrderParserService {
 
     // Confidence guard: a clean name shouldn't have a standalone number or a
     // number+unit token like "2kg" left in it — that's a quantity we failed to
-    // pull out (e.g. a trailing "rice 2kg" our qty regex is leading-only and
+    // pull out (e.g. a trailing "rice 2kg" or "rice-5-kg" our qty regex is leading-only and
     // doesn't catch), not part of the product name. Product names WITH digits in
     // them (e2e, 7up, v8) are fine and shouldn't be rejected just for that. Same
     // goes for a stray spelled-out number ("rice three milk" with no connector,
     // where the digit-boundary segment splitter can't tell the items apart) —
     // bail rather than fold a quantity word into the product name.
-    const strayQtyToken = new RegExp(`^${OrderParserService.NUMBER_PATTERN}(?:${OrderParserService.UNIT_WORDS})?$`, 'i');
+    const strayQtyToken = new RegExp(`^(?:-?\\s*)?${OrderParserService.NUMBER_PATTERN}(?:-?\\s*(?:${OrderParserService.UNIT_WORDS}))?$`, 'i');
+    const strayHyphenatedQty = new RegExp(`-[\\s]*${OrderParserService.NUMBER_PATTERN}(?:[\\s-]*(?:${OrderParserService.UNIT_WORDS}))?$`, 'i');
     const strayWordNumbers = new Set(Object.keys(OrderParserService.WORD_NUMBERS));
-    if (name.split(/\s+/).some((word) => strayQtyToken.test(word) || strayWordNumbers.has(word.toLowerCase()))) {
+    if (
+      strayHyphenatedQty.test(name) ||
+      name.split(/\s+/).some((word) => strayQtyToken.test(word) || strayWordNumbers.has(word.toLowerCase()))
+    ) {
       return null;
     }
 
@@ -1928,7 +1939,7 @@ export class OrderParserService {
       unit = qtyUnitMatch[2] ? qtyUnitMatch[2].toLowerCase() : null;
       text = qtyUnitMatch[3].trim();
     } else {
-      const trailingMatch = text.match(/^(.+)\s+(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/i);
+      const trailingMatch = text.match(/^(.+?)(?:\s+|\s*-\s*)(\d+(?:\.\d+)?)(?:\s+|\s*-\s*)?([a-zA-Z]+)?$/i);
       if (trailingMatch) {
         hasExplicitQty = true;
         text = trailingMatch[1].trim();
