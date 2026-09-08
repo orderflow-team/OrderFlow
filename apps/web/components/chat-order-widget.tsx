@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   CheckCircle2,
   HelpCircle,
@@ -162,6 +163,14 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chipsScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollChips = (direction: 'left' | 'right') => {
+    if (chipsScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -200 : 200;
+      chipsScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const activeMessages = mode === 'order' ? orderMessages : reportMessages;
 
@@ -298,10 +307,12 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   ];
 
   const orderChips = [
-    { label: '+ Takeaway Order', query: 'takeaway order' },
-    { label: '📋 What is on Menu?', query: "what's on the menu?" },
-    { label: '🍽️ Table Status', query: 'table status' },
+    { label: '📋 Show Menu', query: "what's on the menu?" },
+    { label: '🛍️ Takeaway Chai & Samosa', query: 'takeaway order for 2 masala chai and 1 samosa' },
+    { label: '🍚 1kg Rice & Sugar', query: 'order 1kg rice and 2kg sugar' },
+    { label: '🍽️ Table 1 Order', query: 'Table 1, 2 tea and 1 samosa' },
     { label: '📍 Shop Location', query: 'where is the shop located?' },
+    { label: '🕒 Shop Timings', query: 'what time do you open?' },
   ];
 
   if (!businessId) return null;
@@ -448,23 +459,47 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
           </div>
         )}
 
-        {/* ── Quick Action Suggestion Chips ── */}
-        <div className="shrink-0 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          {(mode === 'report' ? reportChips : orderChips).map((chip, idx) => {
-            const Icon = (chip as any).icon;
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => sendQuery(chip.query)}
-                disabled={sending}
-                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-              >
-                {Icon && <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />}
-                <span>{chip.label}</span>
-              </button>
-            );
-          })}
+        {/* ── Quick Action Suggestion Chips with Smooth Horizontal Scroll ── */}
+        <div className="relative shrink-0 bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200/80 dark:border-slate-800 px-2 py-2 flex items-center group/chips">
+          <button
+            type="button"
+            onClick={() => scrollChips('left')}
+            className="shrink-0 p-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-slate-800 dark:hover:text-white mr-1.5 transition-all active:scale-95 hover:bg-slate-50"
+            title="Scroll left"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+
+          <div
+            ref={chipsScrollRef}
+            className="flex-1 flex items-center gap-2 overflow-x-auto scroll-smooth py-0.5"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {(mode === 'report' ? reportChips : orderChips).map((chip, idx) => {
+              const Icon = (chip as any).icon;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => sendQuery(chip.query)}
+                  disabled={sending}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-sm transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />}
+                  <span>{chip.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => scrollChips('right')}
+            className="shrink-0 p-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-slate-800 dark:hover:text-white ml-1.5 transition-all active:scale-95 hover:bg-slate-50"
+            title="Scroll right"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* ── Chat Messages Stream ── */}

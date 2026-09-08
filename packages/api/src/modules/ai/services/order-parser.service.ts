@@ -474,12 +474,6 @@ export class OrderParserService {
     ];
 
     if (allItems.length === 0) {
-      // A message like "order for Neel 9876543210" with no items mentioned yet
-      // still identifies a customer — save/update that record now (same dedup
-      // logic a real order would use) rather than losing the info because
-      // there's nothing to order. A bare phone with no name is skipped: without
-      // a name, resolveOrCreateCustomerByContact can't create anything new to
-      // report as "saved" (it can only enrich an EXISTING customer's phone).
       if (contactInfo?.customerName) {
         await this.ordersService.resolveOrCreateCustomerByContact(businessId, {
           customerName: contactInfo.customerName,
@@ -493,8 +487,32 @@ export class OrderParserService {
         };
       }
 
+      const lower = message.trim().toLowerCase();
+      if (lower.includes('takeaway') || lower.includes('take away') || lower.includes('parcel') || lower.includes('pack')) {
+        return {
+          reply: `🛍️ **Takeaway mode selected!** What items would you like to order for takeaway?\n\n*For example: "2 Masala Chai and 1 Samosa" or "1kg Rice"*`,
+          order: null,
+        };
+      }
+
+      if (lower === 'menu' || lower.includes('what is on the menu') || lower.includes("what's on the menu") || lower.includes('show menu') || lower.includes('list items')) {
+        const cleanList = available.slice(0, 15).map((p) => `• **${p.name}** — ₹${Number(p.selling_price || 0).toFixed(2)}${p.unit ? ` / ${p.unit}` : ''}`).join('\n');
+        return {
+          reply: `📋 **Available Menu & Products:**\n${cleanList || 'No products registered yet in catalog.'}`,
+          order: null,
+        };
+      }
+
+      if (lower.includes('table') || lower.includes('dine in') || lower.includes('dine-in')) {
+        return {
+          reply: `🍽️ **Dine-in selected!** Please mention table number and items (e.g. "Table 1, 2 Tea and 1 Samosa").\nAvailable tables: ${tableNames.join(', ') || 'none'}.`,
+          order: null,
+        };
+      }
+
+      const cleanSample = available.slice(0, 8).map((p) => p.name).join(', ');
       return {
-        reply: `I couldn't match that to anything on the menu. Could you try naming an item directly? Available: ${available.map((p) => p.name).join(', ')}`,
+        reply: `I couldn't match any items in that message. Tell me what you'd like to order (e.g. "2 Chai, 1 Samosa" or "1kg Rice").\n\n**Sample Items:** ${cleanSample || 'None registered yet.'}`,
         order: null,
       };
     }

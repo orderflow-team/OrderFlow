@@ -297,24 +297,29 @@ export default function AdminUsersPage() {
           <div className="flex items-center gap-3">
             <XCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 flex-shrink-0" />
             <div>
-              <div className="font-bold text-foreground text-base">Authentication Required</div>
+              <div className="font-bold text-foreground text-base">
+                {error.toLowerCase().includes('auth') || error.toLowerCase().includes('unauthorized') || error.toLowerCase().includes('forbidden')
+                  ? 'Authentication Required'
+                  : 'Unable to Load Users'}
+              </div>
               <div className="text-rose-700 dark:text-rose-300/80 text-xs mt-0.5">
-                {error}. Please log in with an Admin account to access developer platform features.
+                {error}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/signup"
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-xs rounded-xl shadow transition"
+            <button
+              onClick={() => fetchUsers()}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-xs rounded-xl shadow transition flex items-center gap-1.5"
             >
-              Sign Up as Admin
-            </a>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Retry
+            </button>
             <a
               href="/login"
               className="px-4 py-2 bg-secondary hover:bg-accent text-foreground font-semibold text-xs rounded-xl border border-border transition"
             >
-              Log In
+              Re-login
             </a>
           </div>
         </div>
