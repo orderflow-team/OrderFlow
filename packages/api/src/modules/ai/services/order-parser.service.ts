@@ -81,13 +81,13 @@ export class OrderParserService {
       let editTarget: { type: 'table' | 'token'; value: string | number } | null = null;
       let cleanMessage = message;
 
-      const tokenRegex = /\b(?:token|tk|tok)\s*(\d+)\b/i;
+      const tokenRegex = /\b(?:(?:to|from|for|in|on)\s+)?(?:token\b|tk\b|tok\b)\s*(\d+)\b/i;
       const tokenMatch = message.match(tokenRegex);
       if (tokenMatch) {
         editTarget = { type: 'token', value: Number(tokenMatch[1]) };
         cleanMessage = message.replace(tokenRegex, '').trim();
       } else {
-        const tableRegex = /\b(?:table|t)\s*([a-zA-Z\d]+)\b/i;
+        const tableRegex = /\b(?:(?:to|from|for|in|on)\s+)?(?:table\b|t(?=\s*\d))\s*([a-zA-Z\d]+)\b/i;
         const tableMatch = message.match(tableRegex);
         if (tableMatch) {
           editTarget = { type: 'table', value: tableMatch[1] };
@@ -776,8 +776,13 @@ export class OrderParserService {
   ): Promise<{ reply: string; order: null } | null> {
     const trimmed = message.trim();
     const lower = trimmed.toLowerCase().replace(/[!.?]+$/, '');
+    const normalizedGreeting = lower.replace(/^(?:hi|hello|hey|hii|helo|namaste|yo|hola)\s+(?:obix|shop|store|bot|team|there)$/i, (m) => m.split(/\s+/)[0]);
 
-    if (OrderParserService.GREETING_MESSAGES.has(lower) || OrderParserService.CONVERSATION_PATTERNS.some((re) => re.test(trimmed))) {
+    if (
+      OrderParserService.GREETING_MESSAGES.has(lower) ||
+      OrderParserService.GREETING_MESSAGES.has(normalizedGreeting) ||
+      OrderParserService.CONVERSATION_PATTERNS.some((re) => re.test(trimmed))
+    ) {
       return {
         reply: `Hi! I am Obix, your digital store ordering assistant. Tell me what you'd like to order (e.g. "2kg rice, 1 dozen eggs"), or ask for the "menu", an order's "status" (e.g. "status of table 3"), or a customer's "balance" (e.g. "balance for Neel").`,
         order: null,
@@ -937,7 +942,7 @@ export class OrderParserService {
     text = text.replace(/[\[\]\(\)\{\}]/g, ' ');
     text = text.replace(/(?:write|type|enter)\s+(?:your\s+)?order\s+(?:inside|in)\s+(?:this\s+)?(?:bracket|box)?(?:\s+as\s+below)?[:,-]?/gi, ' ');
     text = text.replace(/product\s*-\s*qty\s*-\s*unit\s*(?:with\s+coma\s+saperated|with\s+comma\s+separated)?[:,-]?/gi, ' ');
-    text = text.replace(/\b(?:eg|e\.g\.|example|sample|ex)\s*[:.-]?\s*/gi, ' ');
+    text = text.replace(/\b(?:eg|e\.g\.|example|sample|ex)\b\s*[:.-]?\s*/gi, ' ');
     text = text.replace(/\s+/g, ' ').trim();
 
     // Strip a leading "new order" or "place an order" command (bare, or with a make/place/create/start
@@ -997,7 +1002,7 @@ export class OrderParserService {
     let customerName: string | null = null;
 
     const tryMatchName = (allowEndOfString: boolean): boolean => {
-      const anchor = allowEndOfString ? '(?:\\+?\\d|$)' : '\\+?\\d';
+      const anchor = allowEndOfString ? '(?:[\\s,:;-]*\\+?\\d|$)' : '[\\s,:;-]*\\+?\\d';
 
       // "Neel order 2kg rice..." / "Neel's order for 3kg rice..." — name leads,
       // immediately followed by the word "order" itself. The optional numeric
@@ -1005,7 +1010,7 @@ export class OrderParserService {
       // above (see hasPhoneAttempt) — e.g. "Het 906598042 order" — so it
       // doesn't block "order" from being recognized right after the name.
       const leadingMatch = text.match(
-        new RegExp(`^([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?:'s)?\\s+(?:\\d[\\d\\s-]*\\s+)?order\\b(?:\\s+for)?[\\s,]*(?=${anchor})`, 'i'),
+        new RegExp(`^([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?:'s)?\\s+(?:\\d[\\d\\s-]*\\s+)?order\\b(?:\\s+for)?[\\s,:;-]*(?=${anchor})`, 'i'),
       );
       const leadingWords = leadingMatch ? leadingMatch[1].trim().split(/\s+/) : [];
       if (leadingMatch && !leadingWords.some((w) => OrderParserService.NAME_STOPWORDS.has(w.toLowerCase()))) {
@@ -1018,7 +1023,7 @@ export class OrderParserService {
       // "for table 3..." isn't mistaken for a customer named Table — that phrase
       // is handled separately by the dine-in table detection.
       const nameMatch = text.match(
-        new RegExp(`\\b(?:order\\s+)?for\\s+(?:the\\s+)?(?!table\\b)([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?=[\\s,]*${anchor})`, 'i'),
+        new RegExp(`\\b(?:order\\s+)?for\\s+(?:the\\s+)?(?!table\\b)([a-zA-Z]+(?:\\s+[a-zA-Z]+){0,2})(?=[\\s,:;-]*${anchor})`, 'i'),
       );
       if (nameMatch && nameMatch.index !== undefined) {
         const words = nameMatch[1].trim().split(/\s+/);
@@ -1037,7 +1042,7 @@ export class OrderParserService {
       tryMatchName(true);
     }
 
-    return { customerName, phone, cleanMessage: text.replace(/\s+/g, ' ').trim() };
+    return { customerName, phone, cleanMessage: text.replace(/^[:;,-]+\s*/, '').replace(/\s+/g, ' ').trim() };
   }
 
   /**
