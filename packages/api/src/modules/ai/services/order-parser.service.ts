@@ -1,8 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Optional } from '@nestjs/common';
 import { OrdersService } from '../../orders/orders.service';
 import { ProductsService } from '../../products/products.service';
 import { RestaurantService } from '../../restaurant/restaurant.service';
 import { CustomersService } from '../../customers/customers.service';
+import { SuppliersService } from '../../suppliers/suppliers.service';
+import { ReportsService } from '../../reports/reports.service';
 import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
 import { unitFamilyMismatch } from '../../products/utils/pricing.util';
 
@@ -14,6 +16,8 @@ export class OrderParserService {
     private productsService: ProductsService,
     private restaurantService: RestaurantService,
     private customersService: CustomersService,
+    @Optional() private suppliersService?: SuppliersService,
+    @Optional() private reportsService?: ReportsService,
   ) {}
 
   /**
@@ -756,6 +760,34 @@ export class OrderParserService {
   private static readonly STATUS_KEYWORD = /\bstatus\b/i;
   private static readonly BALANCE_KEYWORD = /\b(?:balance|owe|owes|dues|outstanding|udhaar|baki)\b/i;
 
+  private static readonly SUPPLIER_REPORT_PATTERNS = [
+    /\b(?:remaining\s+payments?|pending\s+payments?|outstanding\s+payments?|dues?|balances?|ledger)\b.*?\b(?:suppliers?|vendors?|distributors?)\b/i,
+    /\b(?:suppliers?|vendors?|distributors?)\b.*?\b(?:remaining\s+payments?|pending\s+payments?|dues?|balances?|reports?|list|ledger|outstanding|baki|udhaar)\b/i,
+    /\b(?:who\s+do\s+i\s+owe|how\s+much\s+(?:do\s+i\s+owe|to\s+pay)\s+(?:suppliers?|vendors?))\b/i,
+    /\b(?:remaining|pending|outstanding)\s+(?:amount|payment|balance)\s+(?:of|to)\s+(?:suppliers?|vendors?)\b/i,
+  ];
+
+  private static readonly CUSTOMER_REPORT_PATTERNS = [
+    /\b(?:remaining\s+payments?|pending\s+payments?|outstanding\s+payments?|dues?|balances?)\s+(?:of|from)\s+(?:customers?|clients?)\b/i,
+    /\b(?:customers?|clients?)\s*(?:remaining\s+payments?|pending\s+payments?|dues?|balances?|reports?|list|ledger|outstanding|udhaar|baki)\b/i,
+    /\b(?:who\s+owes\s+me|who\s+has\s+dues|list\s+of\s+dues|all\s+balances|customer\s+receivables|customer\s+dues)\b/i,
+  ];
+
+  private static readonly SALES_REPORT_PATTERNS = [
+    /\b(?:today'?s|todays|daily)\s*(?:sales?|revenue|income|collection|reports?|summary|orders?)\b/i,
+    /\bhow\s+much\s+(?:did\s+i\s+sell|sales|revenue|collection)\s+today\b/i,
+    /\b(?:sales\s+today|today\s+sales|today\s+revenue)\b/i,
+  ];
+
+  private static readonly INVENTORY_REPORT_PATTERNS = [
+    /\b(?:low\s*stock|out\s+of\s+stock|inventory\s+alert|stock\s+alert|inventory\s+reports?|stock\s+reports?|low\s+inventory)\b/i,
+    /\bwhich\s+items\s+are\s+(?:low|out\s+of\s+stock|empty)\b/i,
+  ];
+
+  private static readonly EXPENSE_REPORT_PATTERNS = [
+    /\b(?:today'?s\s+expenses?|expense\s+reports?|expenses\s+reports?|profit\s+and\s+loss|pnl|financial\s+summary|expenses?\s+today)\b/i,
+  ];
+
   /**
    * Handles a handful of common non-order chat questions entirely locally —
    * no catalog matching, no Gemini call: a bare greeting/help request,
@@ -784,19 +816,128 @@ export class OrderParserService {
       OrderParserService.CONVERSATION_PATTERNS.some((re) => re.test(trimmed))
     ) {
       return {
-        reply: `Hi! I am Obix, your digital store ordering assistant. Tell me what you'd like to order (e.g. "2kg rice, 1 dozen eggs"), or ask for the "menu", an order's "status" (e.g. "status of table 3"), or a customer's "balance" (e.g. "balance for Neel").`,
+        reply: `Hi! I am Obix, your store ordering & business reports assistant. You can place orders ("2kg rice, 1 dozen eggs"), or ask for reports like "remaining payment of supplier", "customer dues", "today's sales", "low stock report", or "menu".`,
         order: null,
       };
     }
     if (OrderParserService.COURTESY_PATTERNS.some((re) => re.test(trimmed))) {
       return {
-        reply: `You're welcome! Let me know if you would like to place an order or need any assistance.`,
+        reply: `You're welcome! Let me know if you would like to place an order or check any store reports.`,
         order: null,
       };
     }
     if (OrderParserService.HELP_MESSAGES.has(lower) || OrderParserService.QUESTION_PATTERNS.some((re) => re.test(trimmed))) {
       return {
-        reply: `I can place an order ("2kg rice, 1 dozen eggs" or "for Neel 9876543210 2kg rice"), edit one ("add 2 cokes to table 3"), show the "menu", check an order's "status" (by table or token), or look up a customer's "balance".`,
+        reply: `I can help you place/edit orders ("2kg rice, 1 dozen eggs", "add 2 cokes to table 3"), or fetch live business reports ("remaining payment of supplier", "customer dues", "today's sales", "low stock report", "menu").`,
+        order: null,
+      };
+    }
+
+    // 1. Supplier Dues & Remaining Payment Report
+    if (this.suppliersService && OrderParserService.SUPPLIER_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const suppliers = await this.suppliersService.findAll(businessId);
+
+      // Check if a specific supplier name is mentioned
+      const specificMatch =
+        trimmed.match(/\b(?:supplier|vendor)\s+([a-zA-Z0-9\s]+?)(?:\s+dues|\s+balance|\s+payment|\s+remaining|$)/i) ||
+        trimmed.match(/\b(?:remaining\s+payment|dues|balance)\s+(?:of|to|for)\s+(?:supplier\s+)?([a-zA-Z0-9\s]+)\b/i);
+
+      if (specificMatch) {
+        const queryName = specificMatch[1].trim().toLowerCase();
+        const matchedSup = suppliers.find(
+          (s) => s.name.toLowerCase() === queryName || s.name.toLowerCase().includes(queryName),
+        );
+        if (matchedSup) {
+          const owed = Number(matchedSup.outstanding_amount || 0);
+          const contact = matchedSup.phone ? ` (Phone: ${matchedSup.phone})` : '';
+          const summary = owed > 0 ? `has an outstanding payable of ₹${owed.toFixed(2)}` : `is fully settled (₹0.00 balance)`;
+          return { reply: `🏢 *Supplier ${matchedSup.name}*${contact} ${summary}.`, order: null };
+        }
+      }
+
+      const withDues = suppliers.filter((s) => Number(s.outstanding_amount || 0) > 0);
+      if (withDues.length === 0) {
+        return { reply: `✅ You have no pending payments to suppliers! All accounts are settled (₹0.00).`, order: null };
+      }
+
+      const total = withDues.reduce((sum, s) => sum + Number(s.outstanding_amount || 0), 0);
+      const list = withDues
+        .slice(0, 10)
+        .map((s) => `• *${s.name}*: ₹${Number(s.outstanding_amount).toFixed(2)}${s.phone ? ` (${s.phone})` : ''}`)
+        .join('\n');
+      const more = withDues.length > 10 ? `\n...and ${withDues.length - 10} more.` : '';
+
+      return {
+        reply: `📋 *Supplier Outstanding Payables Report:*\n${list}${more}\n\n*Total Payable to Suppliers:* ₹${total.toFixed(2)} across ${withDues.length} supplier${withDues.length > 1 ? 's' : ''}.`,
+        order: null,
+      };
+    }
+
+    // 2. Customer Outstanding Receivables Report
+    if (OrderParserService.CUSTOMER_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const customers = await this.customersService.findAll(businessId);
+      const withDues = customers.filter((c) => Number(c.outstanding_amount || 0) > 0);
+      if (withDues.length === 0) {
+        return { reply: `✅ No outstanding dues from customers! All customer accounts are settled (₹0.00).`, order: null };
+      }
+
+      const total = withDues.reduce((sum, c) => sum + Number(c.outstanding_amount || 0), 0);
+      const list = withDues
+        .slice(0, 10)
+        .map((c) => `• *${c.name}*: owes ₹${Number(c.outstanding_amount).toFixed(2)}${c.phone ? ` (${c.phone})` : ''}`)
+        .join('\n');
+      const more = withDues.length > 10 ? `\n...and ${withDues.length - 10} more.` : '';
+
+      return {
+        reply: `📋 *Customer Outstanding Receivables Report:*\n${list}${more}\n\n*Total Outstanding from Customers:* ₹${total.toFixed(2)} across ${withDues.length} customer${withDues.length > 1 ? 's' : ''}.`,
+        order: null,
+      };
+    }
+
+    // 3. Today's Sales Summary Report
+    if (this.reportsService && OrderParserService.SALES_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const dash = await this.reportsService.dashboard(businessId);
+      const topItems = (dash.topProducts || [])
+        .slice(0, 3)
+        .map((p: any) => `${p.totalQuantity}x ${p.productName} (₹${Number(p.totalRevenue).toFixed(0)})`)
+        .join(', ');
+      const topPart = topItems ? `\n• *Top Selling Products:* ${topItems}` : '';
+
+      return {
+        reply: `📊 *Today's Sales Report:*\n• *Total Billed Sales:* ₹${Number(dash.todaysSales).toFixed(2)}\n• *Total Orders Today:* ${dash.todaysOrders} (${dash.pendingOrders} active/pending)\n• *Delivered/Paid Orders:* ${dash.deliveredOrders}${topPart}`,
+        order: null,
+      };
+    }
+
+    // 4. Low Stock / Inventory Alert Report
+    if (this.reportsService && OrderParserService.INVENTORY_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const dash = await this.reportsService.dashboard(businessId);
+      const lowStock = dash.lowStockProducts || [];
+      if (lowStock.length === 0) {
+        return { reply: `✅ All inventory products are well-stocked! No items are currently below reorder levels.`, order: null };
+      }
+
+      const list = lowStock
+        .slice(0, 10)
+        .map((p: any) => {
+          const qty = Number(p.stock_quantity || 0);
+          const status = qty <= 0 ? '❌ Out of stock!' : `remaining: ${qty} ${p.unit || 'units'}`;
+          return `• *${p.name}*: ${status} (reorder level: ${p.reorder_point || 10})`;
+        })
+        .join('\n');
+      const more = lowStock.length > 10 ? `\n...and ${lowStock.length - 10} more.` : '';
+
+      return {
+        reply: `⚠️ *Low Stock Alert (${lowStock.length} item${lowStock.length > 1 ? 's' : ''}):*\n${list}${more}`,
+        order: null,
+      };
+    }
+
+    // 5. Expense & Financial Overview
+    if (this.reportsService && OrderParserService.EXPENSE_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const dash = await this.reportsService.dashboard(businessId);
+      return {
+        reply: `💰 *Financial & Business Overview:*\n• *Today's Billed Sales:* ₹${Number(dash.todaysSales).toFixed(2)}\n• *Customer Outstanding Dues:* ₹${Number(dash.pendingPaymentsAmount).toFixed(2)}\n• *Active Orders in Progress:* ${dash.pendingOrders}\n• *Delivered Orders:* ${dash.deliveredOrders}`,
         order: null,
       };
     }

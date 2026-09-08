@@ -5,6 +5,8 @@ import { OrdersService } from '../../orders/orders.service';
 import { ProductsService } from '../../products/products.service';
 import { RestaurantService } from '../../restaurant/restaurant.service';
 import { CustomersService } from '../../customers/customers.service';
+import { SuppliersService } from '../../suppliers/suppliers.service';
+import { ReportsService } from '../../reports/reports.service';
 import { GeminiKeyPoolService } from '../../../common/services/gemini-key-pool.service';
 
 describe('OrderParserService', () => {
@@ -14,6 +16,8 @@ describe('OrderParserService', () => {
   let productsService: { findAll: jest.Mock };
   let restaurantService: { findAllTables: jest.Mock };
   let customersService: { findAll: jest.Mock };
+  let suppliersService: { findAll: jest.Mock };
+  let reportsService: { dashboard: jest.Mock };
 
   const widget = { id: 'p1', name: 'Widget', selling_price: 20, unit: 'piece', is_available: true, mrp: null, tax_percentage: 0 };
 
@@ -30,6 +34,18 @@ describe('OrderParserService', () => {
     productsService = { findAll: jest.fn().mockResolvedValue([widget]) };
     restaurantService = { findAllTables: jest.fn().mockResolvedValue([]) };
     customersService = { findAll: jest.fn().mockResolvedValue([]) };
+    suppliersService = { findAll: jest.fn().mockResolvedValue([]) };
+    reportsService = {
+      dashboard: jest.fn().mockResolvedValue({
+        todaysSales: 15400,
+        todaysOrders: 18,
+        pendingOrders: 2,
+        deliveredOrders: 16,
+        pendingPaymentsAmount: 4700,
+        topProducts: [{ productName: 'Widget', totalQuantity: 15, totalRevenue: 300 }],
+        lowStockProducts: [{ name: 'Sugar', stock_quantity: 3, reorder_point: 10, unit: 'kg' }],
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -39,6 +55,8 @@ describe('OrderParserService', () => {
         { provide: ProductsService, useValue: productsService },
         { provide: RestaurantService, useValue: restaurantService },
         { provide: CustomersService, useValue: customersService },
+        { provide: SuppliersService, useValue: suppliersService },
+        { provide: ReportsService, useValue: reportsService },
       ],
     }).compile();
 
@@ -63,14 +81,14 @@ describe('OrderParserService', () => {
       const result = await service.parseChatOrder('biz-1', 'hi');
 
       expect(result.order).toBeNull();
-      expect(result.reply).toMatch(/tell me what you'd like to order/i);
+      expect(result.reply).toMatch(/Obix/i);
       expect(ordersService.create).not.toHaveBeenCalled();
     });
 
     it('replies to a help request locally', async () => {
       const result = await service.parseChatOrder('biz-1', 'help');
 
-      expect(result.reply).toMatch(/i can place an order/i);
+      expect(result.reply).toMatch(/help you place\/edit orders/i);
     });
 
     it('lists the menu locally', async () => {
@@ -356,6 +374,77 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     });
   });
 
+  describe('Report & Business intelligence queries', () => {
+    it('returns remaining payment / dues of all suppliers', async () => {
+      suppliersService.findAll.mockResolvedValue([
+        { id: 's1', name: 'Metro Cash & Carry', outstanding_amount: 14500, phone: '9876543210' },
+        { id: 's2', name: 'Fresh Farms Ltd', outstanding_amount: 6200, phone: '9876543211' },
+      ]);
+
+      const res = await service.parseChatOrder('biz-1', 'remaining payment of supplier');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Supplier Outstanding Payables Report');
+      expect(res.reply).toContain('Metro Cash & Carry');
+      expect(res.reply).toContain('14500.00');
+      expect(res.reply).toContain('Fresh Farms Ltd');
+      expect(res.reply).toContain('6200.00');
+      expect(res.reply).toContain('20700.00');
+    });
+
+    it('returns specific supplier balance when requested', async () => {
+      suppliersService.findAll.mockResolvedValue([
+        { id: 's1', name: 'Metro Cash & Carry', outstanding_amount: 14500, phone: '9876543210' },
+      ]);
+
+      const res = await service.parseChatOrder('biz-1', 'supplier Metro balance');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Metro Cash & Carry');
+      expect(res.reply).toContain('14500.00');
+    });
+
+    it('returns customer outstanding dues report', async () => {
+      customersService.findAll.mockResolvedValue([
+        { id: 'c1', name: 'Ramesh Sharma', outstanding_amount: 3500, phone: '9812345678' },
+        { id: 'c2', name: 'Pooja Verma', outstanding_amount: 1200, phone: '9812345679' },
+      ]);
+
+      const res = await service.parseChatOrder('biz-1', 'customer dues report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Customer Outstanding Receivables Report');
+      expect(res.reply).toContain('Ramesh Sharma');
+      expect(res.reply).toContain('3500.00');
+      expect(res.reply).toContain('4700.00');
+    });
+
+    it("returns today's sales report", async () => {
+      const res = await service.parseChatOrder('biz-1', "today's sales");
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain("Today's Sales Report");
+      expect(res.reply).toContain('15400.00');
+      expect(res.reply).toContain('18');
+      expect(reportsService.dashboard).toHaveBeenCalled();
+    });
+
+    it('returns low stock / inventory alert report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'low stock report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Low Stock Alert');
+      expect(res.reply).toContain('Sugar');
+      expect(reportsService.dashboard).toHaveBeenCalled();
+    });
+
+    it('returns financial summary / expense overview', async () => {
+      customersService.findAll.mockResolvedValue([{ id: 'c1', name: 'Ramesh', outstanding_amount: 2000 }]);
+      suppliersService.findAll.mockResolvedValue([{ id: 's1', name: 'Metro', outstanding_amount: 5000 }]);
+
+      const res = await service.parseChatOrder('biz-1', 'financial summary');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Financial & Business Overview');
+      expect(res.reply).toContain('Today\'s Billed Sales');
+      expect(res.reply).toContain('Customer Outstanding Dues');
+    });
+  });
+
   describe('private pure helpers', () => {
     it('levenshteinDistance computes edit distance correctly', () => {
       expect((service as any).levenshteinDistance('kitten', 'sitting')).toBe(3);
@@ -385,3 +474,4 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     });
   });
 });
+

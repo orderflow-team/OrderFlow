@@ -5,10 +5,19 @@ import { OrdersModule } from '../orders/orders.module';
 import { ProductsModule } from '../products/products.module';
 import { RestaurantModule } from '../restaurant/restaurant.module';
 import { CustomersModule } from '../customers/customers.module';
+import { SuppliersModule } from '../suppliers/suppliers.module';
+import { ReportsModule } from '../reports/reports.module';
 import { GeminiKeyPoolService } from '../../common/services/gemini-key-pool.service';
 
 @Module({
-  imports: [OrdersModule, ProductsModule, RestaurantModule, CustomersModule],
+  imports: [
+    OrdersModule,
+    ProductsModule,
+    RestaurantModule,
+    CustomersModule,
+    SuppliersModule,
+    ReportsModule,
+  ],
   controllers: [AiController],
   providers: [OrderParserService, GeminiKeyPoolService],
   exports: [OrderParserService, GeminiKeyPoolService],
