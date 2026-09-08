@@ -17,7 +17,7 @@ describe('OrderParserService', () => {
   let restaurantService: { findAllTables: jest.Mock };
   let customersService: { findAll: jest.Mock };
   let suppliersService: { findAll: jest.Mock };
-  let reportsService: { dashboard: jest.Mock };
+  let reportsService: Record<string, jest.Mock>;
 
   const widget = { id: 'p1', name: 'Widget', selling_price: 20, unit: 'piece', is_available: true, mrp: null, tax_percentage: 0 };
 
@@ -44,6 +44,46 @@ describe('OrderParserService', () => {
         pendingPaymentsAmount: 4700,
         topProducts: [{ productName: 'Widget', totalQuantity: 15, totalRevenue: 300 }],
         lowStockProducts: [{ name: 'Sugar', stock_quantity: 3, reorder_point: 10, unit: 'kg' }],
+      }),
+      analyticsDashboard: jest.fn().mockResolvedValue({
+        chart: [{ date: '2026-09-01', sales: 450000, purchases: 310000 }],
+        comparison: { salesGrowthPercent: 12.5 },
+        fastMoving: [{ productId: 'p1', productName: 'Widget', totalQuantity: 150, totalRevenue: 3000 }],
+        customers: { topCustomers: [{ customerId: 'c1', customerName: 'Neel Sharma', totalSpent: 45000, orderCount: 10 }] },
+        products: {
+          categoryBreakdown: [{ category: 'Groceries', totalRevenue: 300000, totalQuantity: 800 }],
+          brandBreakdown: [{ brand: 'Nestle', totalRevenue: 150000, totalQuantity: 400 }],
+          inventoryValuation: { totalPurchaseValue: 180000, totalRetailValue: 240000, totalStockUnits: 1500, trackedItemsCount: 45 },
+          slowMoving: [{ id: 'p3', name: 'Old Brand Tea', stockQuantity: 20, tiedUpValue: 2000 }],
+          expiryValueAtRisk: 5000,
+          reorderSuggestions: [],
+        },
+        expiringSoon: [{ id: 'p4', name: 'Fresh Milk', batch_number: 'B01', expiry_date: '2026-09-15' }],
+        suppliers: { topSuppliers: [{ supplierId: 's1', supplierName: 'Metro Cash & Carry', totalPurchased: 120000, orderCount: 5 }] },
+        finance: {
+          paymentMethodBreakdown: [{ method: 'cash', total: 200000, orderCount: 80 }, { method: 'upi', total: 250000, orderCount: 70 }],
+          expenses: { total: 32000, byCategory: [{ category: 'Rent', total: 20000 }] },
+          netProfit: 108000,
+        },
+        operations: {
+          salesmanPerformance: [{ salesmanId: 'sm1', salesmanName: 'Rajesh Kumar', totalSales: 180000, orderCount: 45 }],
+          orderStatusBreakdown: [{ status: 'delivered', orderCount: 130, totalAmount: 420000 }],
+          cancellationRatePercent: 3.3,
+          salesByDayOfWeek: [{ day: 'Monday', total: 60000, orderCount: 20 }],
+        },
+      }),
+      profitReport: jest.fn().mockResolvedValue({
+        revenue: 450000,
+        cost: 310000,
+        grossProfit: 140000,
+        marginPercent: 31.11,
+      }),
+      gstSummaryReport: jest.fn().mockResolvedValue({
+        businessGstNumber: '24AAAAA0000A1Z5',
+        rateWise: [{ taxPercentage: 18, taxableValue: 300000, cgstAmount: 27000, sgstAmount: 27000, igstAmount: 0, totalTax: 54000, itemCount: 10 }],
+        hsnWise: [{ hsnCode: '1006', quantity: 50, taxableValue: 50000, taxAmount: 2500 }],
+        b2b: { invoiceCount: 1, totalValue: 180000 },
+        b2c: { invoiceCount: 5, totalValue: 270000 },
       }),
     };
 
@@ -434,14 +474,78 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     });
 
     it('returns financial summary / expense overview', async () => {
-      customersService.findAll.mockResolvedValue([{ id: 'c1', name: 'Ramesh', outstanding_amount: 2000 }]);
-      suppliersService.findAll.mockResolvedValue([{ id: 's1', name: 'Metro', outstanding_amount: 5000 }]);
-
       const res = await service.parseChatOrder('biz-1', 'financial summary');
       expect(res.order).toBeNull();
-      expect(res.reply).toContain('Financial & Business Overview');
-      expect(res.reply).toContain('Today\'s Billed Sales');
-      expect(res.reply).toContain('Customer Outstanding Dues');
+      expect(res.reply).toContain('Expense & Financial Summary');
+      expect(res.reply).toContain('32000.00');
+      expect(res.reply).toContain('108000.00');
+    });
+
+    it('returns all reports catalog / menu', async () => {
+      const res = await service.parseChatOrder('biz-1', 'all reports');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Available Obix Business & Financial Reports');
+      expect(res.reply).toContain('Suppliers:');
+      expect(res.reply).toContain('GST & Tax:');
+      expect(res.reply).toContain('Inventory:');
+    });
+
+    it('returns profit and loss report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'profit report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Profit & Loss / Margin Report');
+      expect(res.reply).toContain('140000.00');
+      expect(res.reply).toContain('31.1%');
+      expect(reportsService.profitReport).toHaveBeenCalledWith('biz-1');
+    });
+
+    it('returns GST & Tax filing report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'gst report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('GSTR-1 & Tax Summary Report');
+      expect(res.reply).toContain('54000.00');
+      expect(res.reply).toContain('27000.00');
+      expect(reportsService.gstSummaryReport).toHaveBeenCalledWith('biz-1');
+    });
+
+    it('returns inventory & stock valuation report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'stock valuation report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Inventory Valuation & Stock Summary');
+      expect(res.reply).toContain('180000.00');
+      expect(res.reply).toContain('240000.00');
+      expect(reportsService.analyticsDashboard).toHaveBeenCalledWith('biz-1', 30);
+    });
+
+    it('returns top products report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'top selling products');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Top Selling Products');
+      expect(res.reply).toContain('Widget');
+      expect(reportsService.analyticsDashboard).toHaveBeenCalledWith('biz-1', 30);
+    });
+
+    it('returns payment mode breakdown report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'sales by payment mode');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Sales by Payment Method');
+      expect(res.reply).toContain('CASH');
+      expect(res.reply).toContain('200000.00');
+      expect(reportsService.analyticsDashboard).toHaveBeenCalledWith('biz-1', 30);
+    });
+
+    it('returns category and brand breakdown report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'category sales report');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Sales by Category');
+      expect(res.reply).toContain('Groceries');
+    });
+
+    it('returns salesman performance report', async () => {
+      const res = await service.parseChatOrder('biz-1', 'salesman performance');
+      expect(res.order).toBeNull();
+      expect(res.reply).toContain('Salesman Field Performance');
+      expect(res.reply).toContain('Rajesh Kumar');
     });
   });
 

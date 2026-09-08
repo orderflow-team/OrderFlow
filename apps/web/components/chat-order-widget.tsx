@@ -14,6 +14,10 @@ import {
   TrendingUp,
   AlertTriangle,
   Wallet,
+  Receipt,
+  Package,
+  Layers,
+  FileSpreadsheet,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -38,11 +42,14 @@ function orderGreetingFor(category: string | null) {
 
 const REPORT_GREETING =
   `👋 Ask me for any live business or financial report! For example:\n` +
-  `• "Remaining payment of supplier" or "Supplier dues"\n` +
-  `• "Customer dues" or "Pending balances"\n` +
-  `• "Today's sales summary"\n` +
-  `• "Low stock report" or "Inventory alert"\n` +
-  `• "Financial summary"`;
+  `• 🏢 "Remaining payment of supplier" or "Top suppliers"\n` +
+  `• 👥 "Customer dues report" or "Top customers"\n` +
+  `• 📈 "Today's sales" or "Monthly sales"\n` +
+  `• 💰 "Profit report" or "Top margin products"\n` +
+  `• 💸 "Expense report" or "Financial summary"\n` +
+  `• 🧾 "GST report" or "GSTR 1 summary"\n` +
+  `• 📦 "Low stock report", "Stock valuation", "Dead stock"\n` +
+  `• 🏷️ "Top products", "Category report", "Salesman report"`;
 
 interface EditingOrderInfo {
   id: string;
@@ -197,11 +204,16 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   };
 
   const reportChips = [
-    { label: 'Supplier Dues', icon: Building2, query: 'remaining payment of supplier' },
-    { label: 'Customer Dues', icon: Users, query: 'customer dues report' },
-    { label: "Today's Sales", icon: TrendingUp, query: "today's sales" },
-    { label: 'Low Stock', icon: AlertTriangle, query: 'low stock report' },
-    { label: 'Financials', icon: Wallet, query: 'financial summary' },
+    { label: '🏢 Supplier Dues', icon: Building2, query: 'remaining payment of supplier' },
+    { label: '👥 Customer Dues', icon: Users, query: 'customer dues report' },
+    { label: "📈 Today's Sales", icon: TrendingUp, query: "today's sales" },
+    { label: '💰 Profit & Loss', icon: Wallet, query: 'profit report' },
+    { label: '🧾 GST Report', icon: Receipt, query: 'gst report' },
+    { label: '💸 Expenses', icon: Wallet, query: 'expense report' },
+    { label: '⚠️ Low Stock', icon: AlertTriangle, query: 'low stock report' },
+    { label: '📦 Stock Valuation', icon: Package, query: 'inventory valuation' },
+    { label: '🔥 Top Products', icon: Layers, query: 'top products' },
+    { label: '📋 All Reports', icon: FileSpreadsheet, query: 'all reports' },
   ];
 
   const orderChips = [

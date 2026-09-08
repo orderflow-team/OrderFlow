@@ -760,32 +760,70 @@ export class OrderParserService {
   private static readonly STATUS_KEYWORD = /\bstatus\b/i;
   private static readonly BALANCE_KEYWORD = /\b(?:balance|owe|owes|dues|outstanding|udhaar|baki)\b/i;
 
+  private static readonly REPORTS_CATALOG_PATTERNS = [
+    /^(?:show\s+|list\s+|view\s+|get\s+)?(?:all\s+)?reports?\??$/i,
+    /^(?:help\s+with\s+reports?|what\s+reports?\s+(?:do\s+you\s+have|are\s+available))\??$/i,
+    /^(?:report\s+list|list\s+of\s+reports?|available\s+reports?)$/i,
+  ];
+
   private static readonly SUPPLIER_REPORT_PATTERNS = [
     /\b(?:remaining\s+payments?|pending\s+payments?|outstanding\s+payments?|dues?|balances?|ledger)\b.*?\b(?:suppliers?|vendors?|distributors?)\b/i,
     /\b(?:suppliers?|vendors?|distributors?)\b.*?\b(?:remaining\s+payments?|pending\s+payments?|dues?|balances?|reports?|list|ledger|outstanding|baki|udhaar)\b/i,
     /\b(?:who\s+do\s+i\s+owe|how\s+much\s+(?:do\s+i\s+owe|to\s+pay)\s+(?:suppliers?|vendors?))\b/i,
     /\b(?:remaining|pending|outstanding)\s+(?:amount|payment|balance)\s+(?:of|to)\s+(?:suppliers?|vendors?)\b/i,
+    /\btop\s+(?:suppliers?|vendors?)\b/i,
+    /\b(?:supplier|vendor)\s+lead\s*time\b/i,
   ];
 
   private static readonly CUSTOMER_REPORT_PATTERNS = [
     /\b(?:remaining\s+payments?|pending\s+payments?|outstanding\s+payments?|dues?|balances?)\s+(?:of|from)\s+(?:customers?|clients?)\b/i,
     /\b(?:customers?|clients?)\s*(?:remaining\s+payments?|pending\s+payments?|dues?|balances?|reports?|list|ledger|outstanding|udhaar|baki)\b/i,
     /\b(?:who\s+owes\s+me|who\s+has\s+dues|list\s+of\s+dues|all\s+balances|customer\s+receivables|customer\s+dues)\b/i,
+    /\btop\s+customers?\b/i,
+    /\b(?:inactive|dormant|lost)\s+customers?\b/i,
   ];
 
   private static readonly SALES_REPORT_PATTERNS = [
     /\b(?:today'?s|todays|daily)\s*(?:sales?|revenue|income|collection|reports?|summary|orders?)\b/i,
     /\bhow\s+much\s+(?:did\s+i\s+sell|sales|revenue|collection)\s+today\b/i,
     /\b(?:sales\s+today|today\s+sales|today\s+revenue)\b/i,
+    /\b(?:monthly|weekly|last\s+30\s+days?|period)\s*(?:sales?|revenue|orders?)\b/i,
+    /\b(?:sales\s+by\s+payment\s+mode|payment\s+methods?\s+reports?|payment\s+breakdown|upi\s+vs\s+cash)\b/i,
+    /\b(?:sales\s+by\s+day|busiest\s+days?|sales\s+by\s+hour|peak\s+hours?)\b/i,
+  ];
+
+  private static readonly PROFIT_MARGIN_PATTERNS = [
+    /\b(?:profit\s+reports?|gross\s+profit|net\s+profit|profit\s+and\s+loss|pnl|margin\s+reports?|profit\s+margins?|margin\s+percentage)\b/i,
+    /\b(?:top\s+margin\s+products?|most\s+profitable\s+products?|highest\s+margin)\b/i,
+  ];
+
+  private static readonly EXPENSE_REPORT_PATTERNS = [
+    /\b(?:today'?s\s+expenses?|expense\s+reports?|expenses\s+reports?|financial\s+summary|expenses?\s+today|all\s+expenses?|recent\s+expenses?|expense\s+breakdown)\b/i,
+  ];
+
+  private static readonly GST_TAX_REPORT_PATTERNS = [
+    /\b(?:gst\s+reports?|tax\s+reports?|gstr\s*1\s+summary|tax\s+summary|gst\s+summary|output\s+tax|tax\s+collected|hsn\s+reports?|b2b\s+vs\s+b2c)\b/i,
   ];
 
   private static readonly INVENTORY_REPORT_PATTERNS = [
     /\b(?:low\s*stock|out\s+of\s+stock|inventory\s+alert|stock\s+alert|inventory\s+reports?|stock\s+reports?|low\s+inventory)\b/i,
     /\bwhich\s+items\s+are\s+(?:low|out\s+of\s+stock|empty)\b/i,
+    /\b(?:inventory\s+valuation|stock\s+valuation|total\s+stock\s+value|stock\s+worth|inventory\s+worth)\b/i,
+    /\b(?:slow\s+moving|dead\s+stock|unsold\s+stock|idle\s+inventory)\b/i,
+    /\b(?:expiring\s+soon|near\s+expiry|expiry\s+reports?|expired\s+stock)\b/i,
+    /\b(?:reorder\s+suggestions?|reorder\s+list|what\s+to\s+reorder)\b/i,
   ];
 
-  private static readonly EXPENSE_REPORT_PATTERNS = [
-    /\b(?:today'?s\s+expenses?|expense\s+reports?|expenses\s+reports?|profit\s+and\s+loss|pnl|financial\s+summary|expenses?\s+today)\b/i,
+  private static readonly PRODUCT_CATEGORY_REPORT_PATTERNS = [
+    /\b(?:top\s+(?:selling\s+)?products?|best\s+selling\s+products?|fast\s+moving\s+products?)\b/i,
+    /\b(?:category\s+(?:sales\s+)?reports?|sales\s+by\s+category|top\s+categories?|category\s+breakdown)\b/i,
+    /\b(?:brand\s+(?:sales\s+)?reports?|sales\s+by\s+brand|top\s+brands?|brand\s+breakdown)\b/i,
+  ];
+
+  private static readonly OPERATIONS_STAFF_PATTERNS = [
+    /\b(?:order\s+status\s+reports?|cancellation\s+rates?|order\s+breakdown)\b/i,
+    /\b(?:salesm[ae]n\s+(?:field\s+)?(?:reports?|performance)|field\s+staff\s+reports?|staff\s+performance)\b/i,
+    /\b(?:schedule\s+h1|h1\s+register|rx\s+vs\s+otc)\b/i,
   ];
 
   /**
@@ -833,8 +871,40 @@ export class OrderParserService {
       };
     }
 
-    // 1. Supplier Dues & Remaining Payment Report
+    // 0. Interactive Report Catalog & Help Menu
+    if (OrderParserService.REPORTS_CATALOG_PATTERNS.some((re) => re.test(trimmed))) {
+      return {
+        reply:
+          `📊 *Available Obix Business & Financial Reports:*\n\n` +
+          `🏢 *Suppliers:* "Remaining payment of supplier", "Top suppliers", "Supplier <Name> balance"\n` +
+          `👥 *Customers:* "Customer dues report", "Top customers", "Inactive customers", "Balance for <Name>"\n` +
+          `📈 *Sales:* "Today's sales", "Monthly sales", "Payment methods report", "Busiest days"\n` +
+          `💰 *Profit & Loss:* "Profit report", "Top margin products", "Financial summary"\n` +
+          `💸 *Expenses:* "Expense report", "Expenses by category", "Recent expenses"\n` +
+          `🧾 *GST & Tax:* "GST report", "GSTR 1 summary", "Tax collected"\n` +
+          `📦 *Inventory:* "Low stock report", "Stock valuation", "Dead stock", "Expiring stock", "Reorder suggestions"\n` +
+          `🏷️ *Catalog:* "Top products", "Category report", "Brand report"\n` +
+          `👔 *Operations:* "Order status report", "Salesman report"\n\n` +
+          `💡 *Tip:* You can type or tap any query above to generate the live report instantly!`,
+        order: null,
+      };
+    }
+
+    // 1. Supplier Dues & Remaining Payment Reports
     if (this.suppliersService && OrderParserService.SUPPLIER_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      if (this.reportsService && /\btop\s+(?:suppliers?|vendors?)\b/i.test(trimmed)) {
+        const analytics = await this.reportsService.analyticsDashboard(businessId, 30);
+        const topSups = analytics.suppliers?.topSuppliers || [];
+        if (topSups.length === 0) {
+          return { reply: `ℹ️ No supplier purchase history found in the last 30 days.`, order: null };
+        }
+        const list = topSups
+          .slice(0, 5)
+          .map((s: any, idx: number) => `${idx + 1}. *${s.supplierName}*: ₹${Number(s.totalSpent).toFixed(2)} (${s.orderCount} POs)`)
+          .join('\n');
+        return { reply: `🏢 *Top Suppliers (Last 30 Days):*\n${list}`, order: null };
+      }
+
       const suppliers = await this.suppliersService.findAll(businessId);
 
       // Check if a specific supplier name is mentioned
@@ -873,8 +943,34 @@ export class OrderParserService {
       };
     }
 
-    // 2. Customer Outstanding Receivables Report
+    // 2. Customer Outstanding Receivables & Customer Reports
     if (OrderParserService.CUSTOMER_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      if (this.reportsService && /\btop\s+customers?\b/i.test(trimmed)) {
+        const analytics = await this.reportsService.analyticsDashboard(businessId, 30);
+        const topCusts = analytics.customers?.topCustomers || [];
+        if (topCusts.length === 0) {
+          return { reply: `ℹ️ No customer order history found in the last 30 days.`, order: null };
+        }
+        const list = topCusts
+          .slice(0, 5)
+          .map((c: any, idx: number) => `${idx + 1}. *${c.customerName || 'Walk-in'}*: ₹${Number(c.totalSpent).toFixed(2)} (${c.orderCount} orders)`)
+          .join('\n');
+        return { reply: `👥 *Top Customers by Spend (Last 30 Days):*\n${list}`, order: null };
+      }
+
+      if (this.reportsService && /\b(?:inactive|dormant|lost)\s+customers?\b/i.test(trimmed)) {
+        const analytics = await this.reportsService.analyticsDashboard(businessId, 30);
+        const inactive = analytics.customers?.inactiveCustomers || [];
+        if (inactive.length === 0) {
+          return { reply: `✅ Great news! No inactive customer accounts (all active within 30 days).`, order: null };
+        }
+        const list = inactive
+          .slice(0, 5)
+          .map((c: any) => `• *${c.customerName || 'Customer'}*: Last order on ${new Date(c.lastOrderAt).toLocaleDateString('en-IN')} (Lifetime ₹${Number(c.lifetimeSpent).toFixed(0)})`)
+          .join('\n');
+        return { reply: `⚠️ *Inactive Customers (No order in 30+ days):*\n${list}`, order: null };
+      }
+
       const customers = await this.customersService.findAll(businessId);
       const withDues = customers.filter((c) => Number(c.outstanding_amount || 0) > 0);
       if (withDues.length === 0) {
@@ -894,23 +990,130 @@ export class OrderParserService {
       };
     }
 
-    // 3. Today's Sales Summary Report
-    if (this.reportsService && OrderParserService.SALES_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
-      const dash = await this.reportsService.dashboard(businessId);
-      const topItems = (dash.topProducts || [])
-        .slice(0, 3)
-        .map((p: any) => `${p.totalQuantity}x ${p.productName} (₹${Number(p.totalRevenue).toFixed(0)})`)
-        .join(', ');
-      const topPart = topItems ? `\n• *Top Selling Products:* ${topItems}` : '';
+    // 3. Profit & Loss / Margin Reports
+    if (this.reportsService && OrderParserService.PROFIT_MARGIN_PATTERNS.some((re) => re.test(trimmed))) {
+      if (/\b(?:top\s+margin|most\s+profitable|highest\s+margin)\b/i.test(trimmed)) {
+        const analytics = await this.reportsService.analyticsDashboard(businessId, 30);
+        const marginProds = analytics.products?.topMarginProducts || [];
+        if (marginProds.length === 0) {
+          return { reply: `ℹ️ No product margin data available yet.`, order: null };
+        }
+        const list = marginProds
+          .slice(0, 5)
+          .map((p: any, idx: number) => `${idx + 1}. *${p.productName}*: ₹${Number(p.totalMargin).toFixed(2)} total profit (${p.totalQuantity} units sold)`)
+          .join('\n');
+        return { reply: `🏆 *Top Profit-Generating Products (Last 30 Days):*\n${list}`, order: null };
+      }
+
+      const profit = (await this.reportsService.profitReport(businessId)) as any;
+      const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+      const revenue = Number(profit?.revenue ?? profit?.totalRevenue ?? 0);
+      const cost = Number(profit?.cost ?? profit?.cogs ?? profit?.totalCogs ?? 0);
+      const grossProfit = Number(profit?.grossProfit ?? (revenue - cost));
+      const marginPercent = Number(profit?.marginPercent ?? profit?.grossMarginPercentage ?? (revenue > 0 ? ((grossProfit / revenue) * 100) : 0));
+      const expenses = Number(analytics?.finance?.expenses?.total ?? analytics?.expenses?.totalExpenses ?? 0);
+      const netProfit = Number(analytics?.finance?.netProfit ?? analytics?.netProfit ?? (grossProfit - expenses));
 
       return {
-        reply: `📊 *Today's Sales Report:*\n• *Total Billed Sales:* ₹${Number(dash.todaysSales).toFixed(2)}\n• *Total Orders Today:* ${dash.todaysOrders} (${dash.pendingOrders} active/pending)\n• *Delivered/Paid Orders:* ${dash.deliveredOrders}${topPart}`,
+        reply:
+          `📈 *Profit & Loss / Margin Report (Last 30 Days):*\n` +
+          `• *Total Billed Revenue:* ₹${revenue.toFixed(2)}\n` +
+          `• *Cost of Goods Sold (COGS):* ₹${cost.toFixed(2)}\n` +
+          `• *Gross Profit:* ₹${grossProfit.toFixed(2)}\n` +
+          `• *Gross Margin:* ${marginPercent.toFixed(1)}%\n` +
+          `• *Total Operating Expenses:* ₹${expenses.toFixed(2)}\n` +
+          `• *Estimated Net Profit:* ₹${netProfit.toFixed(2)}`,
         order: null,
       };
     }
 
-    // 4. Low Stock / Inventory Alert Report
+    // 4. GST & Tax Filing Reports
+    if (this.reportsService && OrderParserService.GST_TAX_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const gst = (await this.reportsService.gstSummaryReport(businessId)) as any;
+      const rateBreakdown = (gst.rateWise || gst.rateWiseBreakdown || [])
+        .map((r: any) => `• *${r.taxPercentage ?? r.gstRate}% GST:* Taxable ₹${Number(r.taxableValue ?? r.taxableAmount ?? 0).toFixed(2)} | CGST ₹${Number(r.cgstAmount ?? (r.totalTax ? r.totalTax / 2 : 0)).toFixed(2)} | SGST ₹${Number(r.sgstAmount ?? (r.totalTax ? r.totalTax / 2 : 0)).toFixed(2)} | Total Tax ₹${Number(r.totalTax ?? 0).toFixed(2)}`)
+        .join('\n');
+      const gstNumber = gst.businessGstNumber ? ` (GSTIN: ${gst.businessGstNumber})` : '';
+
+      return {
+        reply:
+          `🧾 *GSTR-1 & Tax Summary Report${gstNumber}:*\n\n` +
+          `*Rate-Wise Breakdown:*\n${rateBreakdown || '• No taxable sales recorded.'}\n\n` +
+          `*Filing Categories:*\n` +
+          `• *B2B Invoices:* ${gst.b2b?.invoiceCount ?? (gst.b2bSales ? 1 : 0)} (Total Value: ₹${Number(gst.b2b?.totalValue ?? gst.b2bSales ?? 0).toFixed(2)})\n` +
+          `• *B2C Sales:* ${gst.b2c?.invoiceCount ?? (gst.b2cSales ? 1 : 0)} (Total Value: ₹${Number(gst.b2c?.totalValue ?? gst.b2cSales ?? 0).toFixed(2)})`,
+        order: null,
+      };
+    }
+
+    // 5. Product, Category & Brand Reports
+    if (this.reportsService && OrderParserService.PRODUCT_CATEGORY_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+      if (/\b(?:category|categories)\b/i.test(trimmed)) {
+        const cats = analytics.products?.categoryBreakdown || analytics.categoryBreakdown || [];
+        if (cats.length === 0) return { reply: `ℹ️ No category sales data found.`, order: null };
+        const list = cats.slice(0, 5).map((c: any) => `• *${c.category ?? c.categoryName}*: ₹${Number(c.totalRevenue ?? 0).toFixed(2)} (${c.totalQuantity ?? c.itemsSold ?? 0} items)`).join('\n');
+        return { reply: `🏷️ *Sales by Category (Last 30 Days):*\n${list}`, order: null };
+      }
+      if (/\b(?:brand|brands)\b/i.test(trimmed)) {
+        const brands = analytics.products?.brandBreakdown || analytics.brandBreakdown || [];
+        if (brands.length === 0) return { reply: `ℹ️ No brand sales data found.`, order: null };
+        const list = brands.slice(0, 5).map((b: any) => `• *${b.brand ?? b.brandName}*: ₹${Number(b.totalRevenue ?? 0).toFixed(2)} (${b.totalQuantity ?? b.itemsSold ?? 0} items)`).join('\n');
+        return { reply: `🏷️ *Sales by Brand (Last 30 Days):*\n${list}`, order: null };
+      }
+      let fastMoving = analytics.fastMoving || [];
+      if (fastMoving.length === 0 && this.reportsService.dashboard) {
+        const dash = await this.reportsService.dashboard(businessId);
+        fastMoving = (dash.topProducts || []).map((p: any) => ({
+          productId: p.productId || p.id || 'p',
+          productName: p.productName || p.name,
+          totalQuantity: p.totalQuantity || p.quantity || 0,
+          totalRevenue: p.totalRevenue || p.revenue || 0,
+        }));
+      }
+      if (fastMoving.length === 0) return { reply: `ℹ️ No fast-moving product data found.`, order: null };
+      const list = fastMoving.slice(0, 5).map((p: any, idx: number) => `${idx + 1}. *${p.productName}*: ${p.totalQuantity} units sold (₹${Number(p.totalRevenue).toFixed(2)})`).join('\n');
+      return { reply: `🔥 *Top Selling Products (Last 30 Days):*\n${list}`, order: null };
+    }
+
+    // 6. Inventory, Valuation, Expiry & Reorder Reports
     if (this.reportsService && OrderParserService.INVENTORY_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+
+      if (/\b(?:inventory\s+valuation|stock\s+valuation|stock\s+worth|total\s+stock|inventory\s+worth)\b/i.test(trimmed)) {
+        const val = analytics.products?.inventoryValuation || analytics.inventoryValuation || { totalPurchaseValue: 0, totalRetailValue: 0, totalStockUnits: 0, trackedItemsCount: 0 };
+        return {
+          reply:
+            `📦 *Inventory Valuation & Stock Summary:*\n` +
+            `• *Total Inventory Value (Cost):* ₹${Number(val.totalPurchaseValue ?? val.totalValue ?? 0).toFixed(2)}\n` +
+            `• *Total Retail Valuation:* ₹${Number(val.totalRetailValue ?? 0).toFixed(2)}\n` +
+            `• *Total Tracked SKUs:* ${val.trackedItemsCount ?? val.skuCount ?? 0}\n` +
+            `• *Total Units in Stock:* ${val.totalStockUnits ?? val.totalUnits ?? 0}`,
+          order: null,
+        };
+      }
+
+      if (/\b(?:slow\s+moving|dead\s+stock|unsold)\b/i.test(trimmed)) {
+        const slow = analytics.products?.slowMoving || analytics.deadStock || [];
+        if (slow.length === 0) return { reply: `✅ No dead stock identified! All products are moving.`, order: null };
+        const list = slow.slice(0, 5).map((s: any) => `• *${s.name}*: ${s.stockQuantity} units (₹${Number(s.tiedUpValue ?? 0).toFixed(2)} capital tied up)`).join('\n');
+        return { reply: `⏳ *Slow-Moving & Dead Stock Alert:*\n${list}`, order: null };
+      }
+
+      if (/\b(?:expiring|expiry|expired)\b/i.test(trimmed)) {
+        const expiring = analytics.expiringSoon || analytics.nearExpiry || [];
+        if (expiring.length === 0) return { reply: `✅ No products expiring in the next 90-180 days!`, order: null };
+        const list = expiring.slice(0, 5).map((e: any) => `• *${e.name ?? e.productName}*: Batch ${e.batch_number ?? e.batchNumber ?? '—'} (Expires ${e.expiry_date ?? e.expiryDate})`).join('\n');
+        return { reply: `⚠️ *Near-Expiry Stock (At Risk: ₹${Number(analytics.products?.expiryValueAtRisk || 0).toFixed(2)}):*\n${list}`, order: null };
+      }
+
+      if (/\b(?:reorder\s+suggestions?|reorder\s+list|what\s+to\s+reorder)\b/i.test(trimmed)) {
+        const reorder = analytics.products?.reorderSuggestions || [];
+        if (reorder.length === 0) return { reply: `✅ All products have sufficient stock! No urgent reorders needed.`, order: null };
+        const list = reorder.slice(0, 5).map((r: any) => `• *${r.name}*: ${r.stockQuantity} left (~${Math.round(r.daysLeft || 0)} days stock at current pace)`).join('\n');
+        return { reply: `🔄 *Reorder Shortlist:*\n${list}`, order: null };
+      }
+
       const dash = await this.reportsService.dashboard(businessId);
       const lowStock = dash.lowStockProducts || [];
       if (lowStock.length === 0) {
@@ -933,11 +1136,81 @@ export class OrderParserService {
       };
     }
 
-    // 5. Expense & Financial Overview
-    if (this.reportsService && OrderParserService.EXPENSE_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+    // 7. Operations, Staff & Pharmacy Reports
+    if (this.reportsService && OrderParserService.OPERATIONS_STAFF_PATTERNS.some((re) => re.test(trimmed))) {
+      const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+      if (/\b(?:salesm[ae]n|field\s+staff)\b/i.test(trimmed)) {
+        const sm = analytics.operations?.salesmanPerformance || analytics.salesmanPerformance || [];
+        if (sm.length === 0) return { reply: `ℹ️ No field salesman activity logged in the last 30 days.`, order: null };
+        const list = sm.map((s: any) => `• *${s.salesmanName ?? s.name}*: ₹${Number(s.totalSales ?? 0).toFixed(2)} (${s.orderCount ?? s.ordersCount ?? 0} orders)`).join('\n');
+        return { reply: `👔 *Salesman Field Performance:*\n${list}`, order: null };
+      }
+      if (/\b(?:order\s+status|cancellation)\b/i.test(trimmed)) {
+        const os = analytics.operations?.orderStatusBreakdown || [];
+        const list = os.map((o: any) => `• *${o.status.toUpperCase()}*: ${o.orderCount} orders (₹${Number(o.totalAmount ?? 0).toFixed(2)})`).join('\n');
+        return { reply: `📊 *Order Status Breakdown (Last 30 Days):*\n${list}\n• *Cancellation Rate:* ${analytics.operations?.cancellationRatePercent ?? analytics.cancellationRate ?? 0}%`, order: null };
+      }
+    }
+
+    // 8. Sales Summary & Period Sales Reports
+    if (this.reportsService && OrderParserService.SALES_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      if (/\b(?:payment\s+mode|payment\s+method|payment\s+breakdown|upi\s+vs\s+cash)\b/i.test(trimmed)) {
+        const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+        const payments = analytics.finance?.paymentMethodBreakdown || analytics.paymentModes || [];
+        if (payments.length === 0) return { reply: `ℹ️ No payment records found in the last 30 days.`, order: null };
+        const list = payments.map((p: any) => `• *${(p.method ?? p.mode ?? 'other').toUpperCase()}*: ₹${Number(p.total ?? p.amount ?? 0).toFixed(2)}`).join('\n');
+        return { reply: `💳 *Sales by Payment Method (Last 30 Days):*\n${list}`, order: null };
+      }
+
+      if (/\b(?:sales\s+by\s+day|busiest\s+days?)\b/i.test(trimmed)) {
+        const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+        const days = analytics.operations?.salesByDayOfWeek || analytics.dayOfWeek || [];
+        const list = days.map((d: any) => `• *${d.day}*: ₹${Number(d.total ?? d.totalSales ?? 0).toFixed(2)}`).join('\n');
+        return { reply: `📅 *Sales by Day of Week (Last 30 Days):*\n${list}`, order: null };
+      }
+
+      if (/\b(?:monthly|weekly|last\s+30\s+days?|period)\s*(?:sales?|revenue|orders?)\b/i.test(trimmed)) {
+        const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
+        const totalSales = analytics.chart?.reduce((sum: number, row: any) => sum + row.sales, 0) || analytics.sales?.totalSales || 0;
+        return {
+          reply:
+            `📊 *Last 30 Days Sales Summary:*\n` +
+            `• *Total Sales Revenue:* ₹${Number(totalSales).toFixed(2)}\n` +
+            `• *Sales Growth:* ${analytics.comparison?.salesGrowthPercent?.toFixed(1) || 0}% vs previous period\n` +
+            `• *Active Customers:* ${analytics.customers?.topCustomers?.length || analytics.topCustomers?.length || 0}`,
+          order: null,
+        };
+      }
+
       const dash = await this.reportsService.dashboard(businessId);
+      const topItems = (dash.topProducts || [])
+        .slice(0, 3)
+        .map((p: any) => `${p.totalQuantity}x ${p.productName} (₹${Number(p.totalRevenue).toFixed(0)})`)
+        .join(', ');
+      const topPart = topItems ? `\n• *Top Selling Products:* ${topItems}` : '';
+
       return {
-        reply: `💰 *Financial & Business Overview:*\n• *Today's Billed Sales:* ₹${Number(dash.todaysSales).toFixed(2)}\n• *Customer Outstanding Dues:* ₹${Number(dash.pendingPaymentsAmount).toFixed(2)}\n• *Active Orders in Progress:* ${dash.pendingOrders}\n• *Delivered Orders:* ${dash.deliveredOrders}`,
+        reply: `📊 *Today's Sales Report:*\n• *Total Billed Sales:* ₹${Number(dash.todaysSales).toFixed(2)}\n• *Total Orders Today:* ${dash.todaysOrders} (${dash.pendingOrders} active/pending)\n• *Delivered/Paid Orders:* ${dash.deliveredOrders}${topPart}`,
+        order: null,
+      };
+    }
+
+    // 9. Expense & Financial Overview
+    if (this.reportsService && OrderParserService.EXPENSE_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
+      const analytics = await this.reportsService.analyticsDashboard(businessId, 30);
+      const expenses = analytics.finance?.expenses || { total: 0, byCategory: [] };
+      const catList = (expenses.byCategory || [])
+        .slice(0, 5)
+        .map((c: any) => `• *${c.category}*: ₹${c.total.toFixed(2)}`)
+        .join('\n');
+
+      return {
+        reply:
+          `💸 *Expense & Financial Summary (Last 30 Days):*\n` +
+          `• *Total Expenses:* ₹${Number(expenses.total).toFixed(2)}\n` +
+          (catList ? `\n*Expenses by Category:*\n${catList}\n\n` : '\n') +
+          `• *Net Profit:* ₹${analytics.finance?.netProfit?.toFixed(2) || '0.00'}\n` +
+          `• *Net GST Payable:* ₹${analytics.finance?.netGstPayable?.toFixed(2) || '0.00'}`,
         order: null,
       };
     }
