@@ -149,9 +149,10 @@ export class WhatsappService {
         // Note: Human-typed messages from the connected phone (fromMe: true) are allowed for developer testing
       }
 
-      // Only process as an order if the chat contains "obix" (case-insensitive, e.g., "Hi Obix", "hi obix").
-      // Otherwise, ignore it as a normal personal chat with family or friends.
-      if (!messageText.toLowerCase().includes('obix')) {
+      // Only process as an order if the chat explicitly starts with an Obix trigger (e.g. "Hi Obix", "Hey Obix", "Obix:").
+      // Normal chats or messages containing URLs/domains (e.g. "obix360.com") are ignored.
+      const OBIX_TRIGGER_REGEX = /^(hi\s+obix|hey\s+obix|obix)(?:[\s,:]+|$)/i;
+      if (!OBIX_TRIGGER_REGEX.test(messageText)) {
         return { status: 'ignored_not_an_order' };
       }
 
@@ -216,10 +217,9 @@ export class WhatsappService {
 
       this.logger.log(`Processing WhatsApp order message for ${business.name} from ${customerName} (${senderPhone}): "${messageText}"`);
 
-      // Strip Obix trigger prefix (e.g., "Hi Obix,", "hi obix", "Obix:") for clean item parsing
+      // Strip Obix trigger prefix (e.g., "Hi Obix,", "hey obix", "Obix:") for clean item parsing
       const cleanOrderText = messageText
-        .replace(/^hi\s+obix[,:\s]*/i, '')
-        .replace(/^obix[,:\s]*/i, '')
+        .replace(/^(hi\s+obix|hey\s+obix|obix)(?:[\s,:]+|$)/i, '')
         .trim() || messageText;
 
       // 1. Run AI Order Parser

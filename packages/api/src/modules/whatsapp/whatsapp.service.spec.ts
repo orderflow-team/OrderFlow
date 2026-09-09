@@ -99,6 +99,24 @@ describe('WhatsappService', () => {
       expect(orderParserService.parseChatOrder).not.toHaveBeenCalled();
     });
 
+    it('ignores messages containing domain names/URLs like obix360.com without the explicit trigger', async () => {
+      const payload = {
+        event: 'MESSAGES_UPSERT',
+        instance: 'obix-b1234567',
+        data: {
+          key: { remoteJid: '919876543210@s.whatsapp.net', fromMe: false },
+          pushName: 'Admin Neel',
+          message: {
+            conversation: 'obix360.com\nhttps://obix360.com/api/whatsapp/webhook\nEVOLUTION_API_URL=http://localhost:8080',
+          },
+        },
+      };
+
+      const res = await service.handleWebhookPayload(payload);
+      expect(res).toEqual({ status: 'ignored_not_an_order' });
+      expect(orderParserService.parseChatOrder).not.toHaveBeenCalled();
+    });
+
     it('processes uppercase MESSAGES_UPSERT event with Hi Obix trigger and places order', async () => {
       const payload = {
         event: 'MESSAGES_UPSERT',
