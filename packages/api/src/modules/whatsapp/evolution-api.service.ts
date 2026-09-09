@@ -13,10 +13,10 @@ export class EvolutionApiService {
     return process.env.EVOLUTION_API_KEY || 'OrderFlowWhatsAppSecret2026!';
   }
 
-  private get headers() {
+  private get axiosConfig() {
     return {
-      'Content-Type': 'application/json',
-      apikey: this.apiKey,
+      headers: this.headers,
+      timeout: 7000,
     };
   }
 
@@ -46,7 +46,7 @@ export class EvolutionApiService {
             ],
           },
         },
-        { headers: this.headers },
+        this.axiosConfig,
       );
       return res.data;
     } catch (err: any) {
@@ -58,9 +58,7 @@ export class EvolutionApiService {
   /** Gets the base64 QR code or connection pairing status for the instance. */
   async fetchQrCode(instanceName: string) {
     try {
-      const res = await axios.get(`${this.apiUrl}/instance/connect/${instanceName}`, {
-        headers: this.headers,
-      });
+      const res = await axios.get(`${this.apiUrl}/instance/connect/${instanceName}`, this.axiosConfig);
       return res.data; // { code, base64, count }
     } catch (err: any) {
       this.logger.error(`Failed to fetch QR code for ${instanceName}: ${err.message}`);
@@ -68,12 +66,17 @@ export class EvolutionApiService {
     }
   }
 
+  private get headers() {
+    return {
+      'Content-Type': 'application/json',
+      apikey: this.apiKey,
+    };
+  }
+
   /** Fetches all active instances from Evolution API. */
   async fetchInstances() {
     try {
-      const res = await axios.get(`${this.apiUrl}/instance/fetchInstances`, {
-        headers: this.headers,
-      });
+      const res = await axios.get(`${this.apiUrl}/instance/fetchInstances`, this.axiosConfig);
       return Array.isArray(res.data) ? res.data : [];
     } catch (err: any) {
       this.logger.error(`Failed to fetch instances: ${err.message}`);
@@ -84,9 +87,7 @@ export class EvolutionApiService {
   /** Checks connection state (open, connected, connecting, close) with fallback to fetchInstances. */
   async fetchConnectionState(instanceName: string) {
     try {
-      const res = await axios.get(`${this.apiUrl}/instance/connectionState/${instanceName}`, {
-        headers: this.headers,
-      });
+      const res = await axios.get(`${this.apiUrl}/instance/connectionState/${instanceName}`, this.axiosConfig);
       const state = res.data?.instance?.state || res.data?.state;
       if (state && state !== 'close') {
         return state;
@@ -130,7 +131,7 @@ export class EvolutionApiService {
             events: ['CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'QRCODE_UPDATED'],
           },
         },
-        { headers: this.headers },
+        this.axiosConfig,
       );
     } catch (err: any) {
       // Best-effort setting
@@ -154,7 +155,7 @@ export class EvolutionApiService {
             presence: 'composing',
           },
         },
-        { headers: this.headers },
+        this.axiosConfig,
       );
       return res.data;
     } catch (err: any) {
@@ -166,12 +167,8 @@ export class EvolutionApiService {
   /** Logs out and deletes an instance connection. */
   async logoutInstance(instanceName: string) {
     try {
-      await axios.delete(`${this.apiUrl}/instance/logout/${instanceName}`, {
-        headers: this.headers,
-      });
-      await axios.delete(`${this.apiUrl}/instance/delete/${instanceName}`, {
-        headers: this.headers,
-      });
+      await axios.delete(`${this.apiUrl}/instance/logout/${instanceName}`, this.axiosConfig);
+      await axios.delete(`${this.apiUrl}/instance/delete/${instanceName}`, this.axiosConfig);
       return true;
     } catch (err: any) {
       this.logger.error(`Failed to delete instance ${instanceName}: ${err.message}`);

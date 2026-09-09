@@ -352,6 +352,12 @@ export class WhatsappService {
     await this.evolutionApiService.createInstance(instanceName).catch(() => null);
     const qrData = await this.evolutionApiService.fetchQrCode(instanceName);
 
+    if (!qrData || (!qrData.base64 && !qrData.code)) {
+      throw new BadRequestException(
+        'Evolution API did not return a QR code. Please ensure Evolution API is started and running on port 8080.',
+      );
+    }
+
     return {
       instanceName,
       qrData, // Contains base64 image or pairing code

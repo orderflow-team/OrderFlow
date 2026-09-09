@@ -133,15 +133,17 @@ export default function WhatsappSettingsPage() {
     // Open modal immediately so the user gets instant visual feedback
     setQrModalOpen(true);
     try {
-      const res = await apiClient.post('/api/whatsapp/connect', { phoneNumber });
+      const res = await apiClient.post('/api/whatsapp/connect', { phoneNumber }, { timeout: 10000 });
       if (res.data?.qrData?.base64) {
         setQrCodeData(res.data.qrData.base64);
       } else if (res.data?.qrData?.code) {
         setPairingCode(res.data.qrData.code);
+      } else {
+        throw new Error('Evolution API did not return a QR code. Please check that Evolution API is running on port 8080.');
       }
       await loadSettings();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not connect WhatsApp instance. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Could not connect WhatsApp instance. Please ensure Evolution API is running.');
       setQrModalOpen(false);
     } finally {
       setIsConnecting(false);
