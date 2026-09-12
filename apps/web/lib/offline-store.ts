@@ -27,9 +27,11 @@ export function isNetworkError(err: any): boolean {
  */
 export async function probeApiReachable(): Promise<boolean> {
   try {
-    await apiClient.get('/health', { timeout: 6000 });
+    await apiClient.get('/api/app-updates/latest', { timeout: 5000 });
     return true;
-  } catch {
+  } catch (err: any) {
+    // If the server returned an HTTP status (even 400/401/404), network is reachable!
+    if (err?.response) return true;
     return false;
   }
 }
@@ -55,7 +57,7 @@ interface OfflineState {
 }
 
 export const useOfflineStore = create<OfflineState>((set, get) => ({
-  isOnline: typeof navigator === 'undefined' ? true : navigator.onLine,
+  isOnline: true,
   syncing: false,
   pendingCount: 0,
   items: [],

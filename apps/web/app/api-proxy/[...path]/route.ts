@@ -58,6 +58,11 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
   }
 }
 
+export const dynamic = 'force-static';
+export function generateStaticParams() {
+  return [{ path: ['_init'] }];
+}
+
 export const GET = handleProxy;
 export const POST = handleProxy;
 export const PUT = handleProxy;

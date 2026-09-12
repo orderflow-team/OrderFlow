@@ -3,5 +3,18 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "orderflow-web-iota.vercel.app"
+        }
+      ],
+      "destination": "https://obix360.com/:path*",
+      "permanent": true
+    }
+  ]
 }

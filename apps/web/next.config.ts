@@ -17,6 +17,21 @@ const nextConfig: NextConfig = {
       'zustand',
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'orderflow-web-iota.vercel.app',
+          },
+        ],
+        destination: 'https://obix360.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

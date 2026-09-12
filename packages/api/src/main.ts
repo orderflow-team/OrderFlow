@@ -12,6 +12,9 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Trust reverse proxy (Apache2 / Nginx) so client IP addresses from X-Forwarded-For
+  // are used for rate-limiting rather than treating all traffic as 127.0.0.1
+  app.set('trust proxy', true);
   // API responses are JSON/files rather than embeddable application pages.
   // These low-risk defaults prevent content-type sniffing, clickjacking, and
   // accidental referrer leakage without interfering with the web client.
@@ -56,38 +59,41 @@ async function bootstrap() {
     "http://localhost",
     "capacitor://localhost",
   ];
-  // Same "is this production" signal database.config.ts already uses —
-  // local dev (no DATABASE_URL) has no real user data at risk, so it stays
-  // fully permissive rather than needing every developer's local origin
-  // added to an allowlist.
-  const isManagedPostgres = !!process.env.DATABASE_URL;
+
   const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
     : DEFAULT_ALLOWED_ORIGINS;
 
   app.enableCors({
-    origin: isManagedPostgres
-      ? (
-          origin: string | undefined,
-          callback: (err: Error | null, allow?: boolean) => void,
-        ) => {
-          // No Origin header at all (server-to-server calls, curl, the OTA
-          // updater's plain fetch) never carries a browser's ambient
-          // credentials, so there's nothing for a real CORS check to protect
-          // against here — always allowed.
-          if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-          } else {
-            callback(null, false);
-          }
-        }
-      : true,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Server-to-server, mobile native calls without Origin header: allow
+      if (!origin) return callback(null, true);
+
+      // Mobile APK / Capacitor WebView origins: ALWAYS allow
+      if (
+        origin === "https://localhost" ||
+        origin === "http://localhost" ||
+        origin === "capacitor://localhost" ||
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("https://localhost:") ||
+        origin.startsWith("capacitor://")
+      ) {
+        return callback(null, true);
+      }
+
+      // Check configured origins or default list
+      if (allowedOrigins.includes(origin) || DEFAULT_ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+
+      callback(null, false);
+    },
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: "Content-Type,Accept,Authorization,X-Requested-With",
-    // Browsers hide all response headers from JS by default except a small
-    // "safe" set — X-Total-Count (see orders.controller.ts's paginated
-    // findAll) needs to be explicitly opted in or it's just invisible.
     exposedHeaders: "X-Total-Count",
   });
   app.useGlobalFilters(new AllExceptionsFilter());

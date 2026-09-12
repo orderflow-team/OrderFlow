@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const [, , versionName, apkPathArg, notes] = process.argv;
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 if (!versionName || !apkPathArg) {

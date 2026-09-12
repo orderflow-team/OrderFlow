@@ -92,7 +92,6 @@ export function useNativeAppUpdate() {
         if (
           release &&
           compareVersions(release.versionName, native) > 0 &&
-          (!bundle?.version || compareVersions(release.versionName, bundle.version) > 0) &&
           attempted !== release.versionName
         ) {
           setLatest(release);

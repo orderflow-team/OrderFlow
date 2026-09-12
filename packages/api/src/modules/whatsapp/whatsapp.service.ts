@@ -309,7 +309,7 @@ export class WhatsappService {
     const instanceName = business.whatsapp_instance_name || `obix-${business.id.slice(0, 8)}`;
     const connectionState = await this.evolutionApiService.fetchConnectionState(instanceName);
 
-    const isConnected = connectionState === 'open' || connectionState === 'connected' || connectionState === 'connecting';
+    const isConnected = connectionState === 'open' || connectionState === 'connected';
 
     // Auto-sync status flag and instance name in DB if changed
     if (business.whatsapp_connected !== isConnected || business.whatsapp_instance_name !== instanceName) {
@@ -349,12 +349,26 @@ export class WhatsappService {
     );
 
     // Create fresh instance and fetch brand-new QR code
-    await this.evolutionApiService.createInstance(instanceName).catch(() => null);
-    const qrData = await this.evolutionApiService.fetchQrCode(instanceName);
+    const createRes = await this.evolutionApiService.createInstance(instanceName).catch(() => null);
+    let qrData = await this.evolutionApiService.fetchQrCode(instanceName);
+
+    // If fetchQrCode didn't return a QR code immediately, check if createInstance returned one
+    if ((!qrData || (!qrData.base64 && !qrData.code)) && createRes) {
+      const fallback = this.evolutionApiService.extractQr(createRes);
+      if (fallback?.base64 || fallback?.code) {
+        qrData = fallback;
+      }
+    }
+
+    // If still null, wait 1 second and retry fetchQrCode once (Evolution API Baileys initialization)
+    if (!qrData || (!qrData.base64 && !qrData.code)) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      qrData = await this.evolutionApiService.fetchQrCode(instanceName);
+    }
 
     if (!qrData || (!qrData.base64 && !qrData.code)) {
       throw new BadRequestException(
-        'Evolution API did not return a QR code. Please ensure Evolution API is started and running on port 8080.',
+        'Evolution API did not return a QR code. Please ensure Evolution API is running and accessible.',
       );
     }
 

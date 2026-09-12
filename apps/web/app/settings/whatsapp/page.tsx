@@ -92,7 +92,7 @@ export default function WhatsappSettingsPage() {
 
     const interval = setInterval(async () => {
       const freshSettings = await loadSettings();
-      if (freshSettings && (freshSettings.whatsappConnected || freshSettings.connectionState === 'open' || freshSettings.connectionState === 'connecting')) {
+      if (freshSettings && (freshSettings.whatsappConnected || freshSettings.connectionState === 'open' || freshSettings.connectionState === 'connected')) {
         setQrModalOpen(false);
         setQrCodeData(null);
         setPairingCode(null);
