@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
+function getCandidateOrigins(): string[] {
+  const origins: string[] = [];
+  if (process.env.DEV_API_URL) {
+    origins.push(process.env.DEV_API_URL.replace(/\/+$/, ''));
+  }
+  if (process.env.NODE_ENV === 'development') {
+    origins.push('http://127.0.0.1:4000');
+    origins.push('http://localhost:4000');
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    origins.push(process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, ''));
+  }
+  origins.push('https://obix360.com');
+  return Array.from(new Set(origins));
+}
+
 async function handleProxy(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const resolvedParams = await params;
   const pathSegments = resolvedParams.path || [];
   const fullPath = pathSegments.join('/');
-
-  const apiOrigin = process.env.NODE_ENV === 'development'
-    ? (process.env.DEV_API_URL || 'http://127.0.0.1:4000')
-    : (process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com');
-  const targetHost = new URL(apiOrigin).host;
-
-  // Route auth paths to /auth/..., api/ paths to /api/...
-  let targetUrl: string;
-  if (pathSegments[0] === 'auth' || pathSegments[0] === 'api') {
-    targetUrl = `${apiOrigin}/${fullPath}`;
-  } else {
-    targetUrl = `${apiOrigin}/api/${fullPath}`;
-  }
-
-  const searchParams = req.nextUrl.search;
-  if (searchParams) {
-    targetUrl += searchParams;
-  }
+  const searchParams = req.nextUrl.search || '';
 
   const headers = new Headers(req.headers);
   headers.delete('host');
@@ -30,37 +31,51 @@ async function handleProxy(req: NextRequest, { params }: { params: Promise<{ pat
   headers.delete('connection');
   headers.delete('content-length');
 
-  try {
-    const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer();
+  const bodyBuffer = ['GET', 'HEAD'].includes(req.method) ? undefined : await req.arrayBuffer();
+  const candidateOrigins = getCandidateOrigins();
+  let lastError: any = null;
 
-    const response = await fetch(targetUrl, {
-      method: req.method,
-      headers,
-      body,
-      redirect: 'follow',
-    });
+  for (const apiOrigin of candidateOrigins) {
+    // Route auth paths to /auth/..., api/ paths to /api/...
+    let targetUrl: string;
+    if (pathSegments[0] === 'auth' || pathSegments[0] === 'api') {
+      targetUrl = `${apiOrigin}/${fullPath}`;
+    } else {
+      targetUrl = `${apiOrigin}/api/${fullPath}`;
+    }
+    if (searchParams) {
+      targetUrl += searchParams;
+    }
 
-    const data = await response.arrayBuffer();
-    const responseHeaders = new Headers(response.headers);
-    responseHeaders.delete('content-encoding');
+    try {
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers,
+        body: bodyBuffer,
+        redirect: 'follow',
+      });
 
-    return new NextResponse(data, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders,
-    });
-  } catch (err: any) {
-    console.error('API Proxy Error:', targetUrl, err?.message || err);
-    return NextResponse.json(
-      { message: 'Proxy Error', error: err?.message || String(err) },
-      { status: 502 },
-    );
+      const data = await response.arrayBuffer();
+      const responseHeaders = new Headers(response.headers);
+      responseHeaders.delete('content-encoding');
+
+      return new NextResponse(data, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+      });
+    } catch (err: any) {
+      lastError = err;
+      // If local server is not responding, loop to next candidate
+      console.warn(`[API Proxy] Connection to ${targetUrl} failed (${err?.message || err}), trying next candidate...`);
+    }
   }
-}
 
-export const dynamic = 'force-static';
-export function generateStaticParams() {
-  return [{ path: ['_init'] }];
+  console.error('[API Proxy] All candidates failed. Last error:', lastError?.message || lastError);
+  return NextResponse.json(
+    { message: 'Proxy Error', error: lastError?.message || String(lastError) },
+    { status: 502 },
+  );
 }
 
 export const GET = handleProxy;

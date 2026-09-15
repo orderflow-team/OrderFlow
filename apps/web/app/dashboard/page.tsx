@@ -16,11 +16,12 @@ import { DraftReviewStack } from '@/components/draft-review-stack';
 import { CollapsibleList } from '@/components/collapsible-list';
 import { AppTour } from '@/components/app-tour';
 import { SimpleBarChart } from '../reports/simple-bar-chart';
+import { ProductPurchasersModal } from '../reports/product-purchasers-modal';
 import Link from 'next/link';
 import { useSubscription } from '@/lib/use-subscription';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
-  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, HelpCircle, Crown,
+  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, HelpCircle, Crown, ChevronRight,
 } from 'lucide-react';
 
 const TOUR_SEEN_KEY_PREFIX = 'obix_tour_seen_';
@@ -131,7 +132,7 @@ function QuickActionRow({ action }: { action: ReturnType<typeof getQuickActions>
       <button
         type="button"
         onClick={() => {
-          if ('onMic' in action) action.onMic();
+          if ('onMic' in action && action.onMic) action.onMic();
         }}
         className={`${action.micBg} w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0 hover:brightness-95 active:scale-95 transition-all`}
         aria-label={`Voice ${action.title}`}
@@ -201,6 +202,7 @@ export default function DashboardPage() {
   const [showTour, setShowTour] = useState(false);
   const [tourUserKey, setTourUserKey] = useState<string | null>(null);
   const [seedError, setSeedError] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
 
   const closeTour = (open: boolean) => {
     setShowTour(open);
@@ -233,11 +235,6 @@ export default function DashboardPage() {
       setStale(false);
       setCached(bizId, 'dashboard', response.data);
     } catch (err: any) {
-      // Offline/flaky-network fallback, same pattern as the New Order screen —
-      // fall back to whatever was last cached so the dashboard can still show
-      // something. Only if the cache has nothing either (e.g. first-ever load
-      // with no network) is there truly nothing to render, so send them to
-      // the home page instead of a dead-end error screen.
       const cached = await getCached<DashboardData>(bizId, 'dashboard');
       if (cached) {
         setData(cached);
@@ -279,9 +276,6 @@ export default function DashboardPage() {
     setIsSalesman(hasRole('salesman'));
     loadDashboard(user.businessId);
 
-    // First-ever dashboard visit for this login gets the tour automatically;
-    // after that it's opt-in via the "Take a tour" button. Keyed per-user
-    // (not per-device) since POS terminals are often shared across staff.
     const tourKey = `${TOUR_SEEN_KEY_PREFIX}${user.id}`;
     setTourUserKey(tourKey);
     if (!localStorage.getItem(tourKey)) {
@@ -569,19 +563,35 @@ export default function DashboardPage() {
                 {isPharmacy ? <Pill className="w-4 h-4 text-emerald-600" /> : <Package className="w-4 h-4 text-emerald-600" />}
                 <CardTitle>{isPharmacy ? 'Top Selling Medicines' : 'Top Products'}</CardTitle>
               </div>
-              <CardDescription>By quantity sold</CardDescription>
+              <CardDescription>By quantity sold · Click any product to view buyers & invoices</CardDescription>
             </CardHeader>
             <CardContent>
               {data.topProducts.length === 0 ? (
                 <p className="text-sm text-slate-400">No orders yet.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-1">
                   {data.topProducts.map((p) => (
-                    <div key={p.productId} className="flex justify-between items-center text-sm">
-                      <p className="font-medium text-slate-800">{p.productName}</p>
-                      <div className="text-right">
-                        <p className="font-medium text-slate-800">{p.totalQuantity} units</p>
-                        <p className="text-slate-400">{formatCurrency(p.totalRevenue)}</p>
+                    <div
+                      key={p.productId}
+                      onClick={() => setSelectedProduct({ id: p.productId, name: p.productName })}
+                      className="flex justify-between items-center text-sm p-2.5 rounded-xl hover:bg-slate-50/90 dark:hover:bg-slate-800/60 cursor-pointer transition-all group"
+                      title="Click to view customer purchase history & invoices"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          {p.productName}
+                        </p>
+                        <div className="flex items-center gap-1 text-[11px] text-slate-400 group-hover:text-emerald-600/70 transition-colors">
+                          <Users className="w-3 h-3" />
+                          <span>View buyers</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{p.totalQuantity} units</p>
+                          <p className="text-xs text-slate-400">{formatCurrency(p.totalRevenue)}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
                       </div>
                     </div>
                   ))}
@@ -629,6 +639,16 @@ export default function DashboardPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {businessId && selectedProduct && (
+      <ProductPurchasersModal
+        open={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+        productId={selectedProduct.id}
+        productName={selectedProduct.name}
+        businessId={businessId}
+      />
+    )}
     </>
   );
 }

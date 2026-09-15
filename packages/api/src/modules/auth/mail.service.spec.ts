@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
+import * as nodemailer from 'nodemailer';
+
+jest.mock('nodemailer');
 
 describe('MailService', () => {
   let service: MailService;
@@ -25,6 +28,47 @@ describe('MailService', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     jest.restoreAllMocks();
+  });
+
+  describe('when direct SMTP is configured', () => {
+    let mockSendMail: jest.Mock;
+
+    beforeEach(async () => {
+      mockSendMail = jest.fn().mockResolvedValue({ messageId: '123' });
+      (nodemailer.createTransport as jest.Mock).mockReturnValue({
+        sendMail: mockSendMail,
+      });
+
+      await buildModule({
+        SMTP_HOST: 'smtp.example.com',
+        SMTP_PORT: '587',
+        SMTP_USER: 'smtp_user',
+        SMTP_PASSWORD: 'smtp_password',
+        SMTP_FROM_EMAIL: 'noreply@example.com',
+      });
+    });
+
+    it('sendOtpEmail sends mail directly via nodemailer and returns true', async () => {
+      const result = await service.sendOtpEmail('user@example.com', '123456');
+
+      expect(mockSendMail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'noreply@example.com',
+          to: 'user@example.com',
+          subject: 'Your Login OTP Code',
+          text: expect.stringContaining('123456'),
+        }),
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when nodemailer throws an error', async () => {
+      mockSendMail.mockRejectedValueOnce(new Error('SMTP connection failed'));
+
+      const result = await service.sendOtpEmail('user@example.com', '123456');
+
+      expect(result).toBe(false);
+    });
   });
 
   describe('when the email proxy is configured', () => {
@@ -78,12 +122,12 @@ describe('MailService', () => {
     });
   });
 
-  describe('when the email proxy is not configured', () => {
+  describe('when neither direct SMTP nor proxy is configured', () => {
     beforeEach(async () => {
       await buildModule({ EMAIL_PROXY_URL: undefined, EMAIL_PROXY_SECRET: undefined });
     });
 
-    it('returns false and never calls fetch', async () => {
+    it('returns false and never calls fetch or nodemailer', async () => {
       global.fetch = jest.fn() as any;
 
       const result = await service.sendOtpEmail('user@example.com', '123456');

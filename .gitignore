@@ -45,6 +45,8 @@ error.log
 .DS_Store
 *.pem
 *.zip
+*.sql
+scratch/
 playstore-release-files/
 evolution-api/
 

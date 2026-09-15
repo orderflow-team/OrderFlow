@@ -109,12 +109,7 @@ export class EvolutionApiService {
     return null;
   }
 
-  private get headers() {
-    return {
-      'Content-Type': 'application/json',
-      apikey: this.apiKey,
-    };
-  }
+
 
   /** Fetches all active instances from Evolution API. */
   async fetchInstances() {
@@ -130,14 +125,14 @@ export class EvolutionApiService {
     return [];
   }
 
-  /** Checks connection state (open, connected, connecting, close) with fallback to fetchInstances. */
+  /** Checks connection state (open, connected, connecting, close) accurately. */
   async fetchConnectionState(instanceName: string) {
     for (const url of this.candidateUrls) {
       try {
         const res = await axios.get(`${url}/instance/connectionState/${instanceName}`, this.axiosConfig);
         this.workingUrl = url;
         const state = res.data?.instance?.state || res.data?.state;
-        if (state && state !== 'close') {
+        if (state) {
           return state;
         }
       } catch (err: any) {
@@ -145,15 +140,16 @@ export class EvolutionApiService {
       }
     }
 
-    // Fallback: check fetchInstances list for ownerJid or connectionStatus
+    // Fallback: check fetchInstances list for explicit connectionStatus / state
+    // (Never use ownerJid alone because ownerJid persists even after disconnect/logout)
     try {
       const instances = await this.fetchInstances();
       const inst = instances.find((i: any) => i.name === instanceName || i.token === instanceName);
       if (inst) {
-        if (inst.connectionStatus === 'open' || inst.ownerJid) {
-          return 'open';
+        const status = inst.connectionStatus || inst.instance?.state || inst.state;
+        if (status) {
+          return status;
         }
-        return inst.connectionStatus || 'close';
       }
     } catch {}
 

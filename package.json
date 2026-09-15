@@ -6,7 +6,10 @@
     "build:web": "npm run build --workspace=web",
     "build:api": "npm run build --workspace=api",
     "build:turbo": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "concurrently -n \"API,WEB\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run start:dev --workspace=api\" \"npm run dev --workspace=web\"",
+    "dev:turbo": "turbo run dev",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:api": "npm run start:dev --workspace=api",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
@@ -15,6 +18,7 @@
     "test": "npm run test --workspace=api"
   },
   "devDependencies": {
+    "concurrently": "^10.0.5",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
     "turbo": "^2.9.18",

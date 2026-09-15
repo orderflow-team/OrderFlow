@@ -92,4 +92,22 @@ export class ReportsController {
   analyticsDashboard(@Query('businessId') businessId: string, @Query('days') days?: string) {
     return this.reportsService.analyticsDashboard(businessId, days ? Number(days) : 30);
   }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.CASHIER)
+  @Get('product-purchasers')
+  productPurchasers(
+    @Query('businessId') businessId: string,
+    @Query('productId') productId: string,
+    @Query('days') days?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reportsService.getProductPurchasers(
+      businessId,
+      productId,
+      days ? Number(days) : undefined,
+      from,
+      to,
+    );
+  }
 }

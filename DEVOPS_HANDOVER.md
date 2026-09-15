@@ -62,6 +62,16 @@
    AWS_SECRET_ACCESS_KEY=your_secret_key
    AWS_ENDPOINT_URL_S3=https://your-s3-endpoint.storage.com
    AWS_REGION=us-east-2
+
+   # Email & OTP Configuration (SMTP)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   SMTP_FROM_EMAIL="OrderFlow <your-email@gmail.com>"
+   # Or if using Vercel Proxy:
+   # EMAIL_PROXY_URL=https://your-mailer.vercel.app/api/send-email
+   # EMAIL_PROXY_SECRET=your_shared_secret
    ```
 
 ---

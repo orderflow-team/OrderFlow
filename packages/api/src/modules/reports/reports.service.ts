@@ -1634,4 +1634,105 @@ export class ReportsService {
     date.setDate(date.getDate() + days);
     return date;
   }
+
+  /**
+   * Returns list of customers who purchased a specific product, along with
+   * order details, quantities, prices, and invoice link IDs.
+   */
+  async getProductPurchasers(businessId: string, productId: string, days?: number, from?: string, to?: string) {
+    const product = await this.productsRepository.findOne({
+      where: { id: productId, business_id: businessId },
+    });
+
+    const query = this.orderItemsRepository
+      .createQueryBuilder('item')
+      .innerJoin('orders', 'order', 'order.id = item.order_id')
+      .leftJoin('customers', 'customer', 'customer.id = order.customer_id')
+      .leftJoin('invoices', 'invoice', "invoice.order_id = order.id AND invoice.type = 'invoice'")
+      .where('order.business_id = :businessId', { businessId })
+      .andWhere('item.product_id = :productId', { productId })
+      .andWhere('order.status NOT IN (:...excludedStatuses)', { excludedStatuses: UNBILLED_ORDER_STATUSES });
+
+    if (from) {
+      query.andWhere('order.created_at >= :from', { from });
+    } else if (days && days > 0) {
+      const since = this.daysFromNow(-days);
+      since.setHours(0, 0, 0, 0);
+      query.andWhere('order.created_at >= :since', { since });
+    }
+
+    if (to) {
+      query.andWhere('order.created_at <= :to', { to });
+    }
+
+    const rows = await query
+      .select('order.id', 'orderId')
+      .addSelect('order.order_number', 'orderNumber')
+      .addSelect('order.status', 'orderStatus')
+      .addSelect('order.created_at', 'purchasedAt')
+      .addSelect('order.customer_id', 'customerId')
+      .addSelect('COALESCE(customer.name, order.customer_name, :defaultCust)', 'customerName')
+      .addSelect('customer.phone', 'customerPhone')
+      .addSelect('customer.email', 'customerEmail')
+      .addSelect('item.quantity', 'quantity')
+      .addSelect('item.unit_price', 'unitPrice')
+      .addSelect('item.subtotal', 'subtotal')
+      .addSelect('item.tax_amount', 'taxAmount')
+      .addSelect('invoice.id', 'invoiceId')
+      .addSelect('invoice.invoice_number', 'invoiceNumber')
+      .setParameter('defaultCust', 'Walk-in Customer')
+      .orderBy('order.created_at', 'DESC')
+      .getRawMany<{
+        orderId: string;
+        orderNumber: string | null;
+        orderStatus: string;
+        purchasedAt: string;
+        customerId: string | null;
+        customerName: string;
+        customerPhone: string | null;
+        customerEmail: string | null;
+        quantity: string | number;
+        unitPrice: string | number;
+        subtotal: string | number;
+        taxAmount: string | number | null;
+        invoiceId: string | null;
+        invoiceNumber: string | null;
+      }>();
+
+    const purchases = rows.map((r) => ({
+      orderId: r.orderId,
+      orderNumber: r.orderNumber,
+      orderStatus: r.orderStatus,
+      purchasedAt: r.purchasedAt,
+      customerId: r.customerId,
+      customerName: r.customerName,
+      customerPhone: r.customerPhone,
+      customerEmail: r.customerEmail,
+      quantity: Number(r.quantity),
+      unitPrice: Number(r.unitPrice),
+      subtotal: Number(r.subtotal),
+      taxAmount: Number(r.taxAmount || 0),
+      totalAmount: Number(r.subtotal) + Number(r.taxAmount || 0),
+      invoiceId: r.invoiceId,
+      invoiceNumber: r.invoiceNumber || r.orderNumber,
+    }));
+
+    const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0);
+    const totalRevenue = purchases.reduce((sum, p) => sum + p.totalAmount, 0);
+    const uniqueCustomerCount = new Set(purchases.map((p) => p.customerId || p.customerPhone || p.customerName)).size;
+
+    return {
+      product: {
+        id: product?.id || productId,
+        name: product?.name || 'Product',
+        sku: product?.sku || null,
+        mrp: product?.mrp ? Number(product.mrp) : null,
+        sellingPrice: product?.selling_price ? Number(product.selling_price) : null,
+        totalQuantity,
+        totalRevenue,
+        uniqueCustomerCount,
+      },
+      purchases,
+    };
+  }
 }

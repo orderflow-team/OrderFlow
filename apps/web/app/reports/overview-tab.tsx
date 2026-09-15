@@ -132,7 +132,7 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isP
           <CardDescription>Top 5 {isPharmacy ? 'medicines' : 'products'} by quantity sold in the last {days} day{days !== 1 ? 's' : ''}.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <FastMovingWidget rows={analytics?.fastMoving || []} />
+          <FastMovingWidget rows={analytics?.fastMoving || []} days={days} />
         </CardContent>
       </Card>
 

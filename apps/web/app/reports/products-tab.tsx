@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format-currency';
+import { useBusiness } from '@/lib/use-business';
 import { KpiCard } from './kpi-card';
 import { SimpleBarChart } from './simple-bar-chart';
-import { Package, Boxes, PackageSearch, TrendingUp, CalendarClock, RefreshCw, ShieldAlert, Tags } from 'lucide-react';
+import { ProductPurchasersModal } from './product-purchasers-modal';
+import { Package, Boxes, PackageSearch, TrendingUp, CalendarClock, RefreshCw, ShieldAlert, Tags, Users, ChevronRight } from 'lucide-react';
 import type { AnalyticsPayload } from './types';
 
 export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, showExpiry }: {
@@ -12,6 +15,8 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
   inventoryEnabled: boolean;
   showExpiry: boolean;
 }) {
+  const { businessId } = useBusiness();
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
   const products = analytics?.products;
 
   return (
@@ -158,12 +163,29 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
             ) : (
               <div className="divide-y divide-slate-100">
                 {products?.topMarginProducts.map((p) => (
-                  <div key={p.productId} className="flex items-center justify-between px-4 py-3 gap-4">
+                  <div
+                    key={p.productId}
+                    onClick={() => setSelectedProduct({ id: p.productId, name: p.productName })}
+                    className="flex items-center justify-between px-4 py-3.5 gap-4 hover:bg-slate-50/90 dark:hover:bg-slate-800/60 cursor-pointer transition-all group"
+                    title="Click to view customer purchase history"
+                  >
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{p.productName}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{p.totalQuantity} sold</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        {p.productName}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                        <span>{p.totalQuantity} sold</span>
+                        <span>·</span>
+                        <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          <Users className="w-3 h-3" />
+                          <span>View buyers</span>
+                        </span>
+                      </div>
                     </div>
-                    <p className="font-bold text-emerald-600 shrink-0">{formatCurrency(p.totalMargin)}</p>
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <p className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(p.totalMargin)}</p>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -197,6 +219,17 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
           </Card>
         )}
       </div>
+
+      {businessId && selectedProduct && (
+        <ProductPurchasersModal
+          open={!!selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          productId={selectedProduct.id}
+          productName={selectedProduct.name}
+          businessId={businessId}
+          days={days}
+        />
+      )}
     </div>
   );
 }

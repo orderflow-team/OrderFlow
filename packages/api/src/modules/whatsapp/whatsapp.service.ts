@@ -34,7 +34,7 @@ export class WhatsappService {
       // Real-time connection status sync on CONNECTION_UPDATE
       if (normalizedEvent === 'connection.update') {
         const state = payload.data?.state || payload.data?.instance?.state;
-        const isConnected = state === 'open' || state === 'connected' || state === 'connecting';
+        const isConnected = state === 'open' || state === 'connected';
         this.logger.log(`WhatsApp connection update for instance ${instanceName}: state=${state}, isConnected=${isConnected}`);
 
         if (instanceName) {
