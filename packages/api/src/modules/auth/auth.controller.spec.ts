@@ -14,6 +14,7 @@ describe('AuthController', () => {
           provide: AuthService,
           useValue: {
             signup: jest.fn(),
+            requestSignupOtp: jest.fn(),
             login: jest.fn(),
             refresh: jest.fn(),
             requestOtp: jest.fn(),
@@ -36,8 +37,18 @@ describe('AuthController', () => {
     expect(controller).toBeDefined();
   });
 
+  it('requestSignupOtp delegates to AuthService.requestSignupOtp', async () => {
+    const dto = { email: 'a@b.com' } as any;
+    (service.requestSignupOtp as jest.Mock).mockResolvedValue({ message: 'Verification code sent' });
+
+    const result = await controller.requestSignupOtp(dto);
+
+    expect(service.requestSignupOtp).toHaveBeenCalledWith(dto);
+    expect(result).toEqual({ message: 'Verification code sent' });
+  });
+
   it('signup delegates to AuthService.signup', async () => {
-    const dto = { email: 'a@b.com', password: 'password123' } as any;
+    const dto = { email: 'a@b.com', password: 'password123', code: '123456' } as any;
     (service.signup as jest.Mock).mockResolvedValue({ access_token: 'x' });
 
     const result = await controller.signup(dto);

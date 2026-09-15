@@ -15,9 +15,12 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // Per-route overrides of the app-wide default throttle (app.module.ts) —
-  // these are credential-guessing/spam surfaces, so they get much tighter
-  // per-IP limits than ordinary polling traffic.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('signup/otp')
+  async requestSignupOtp(@Body() dto: RequestOtpDto) {
+    return this.authService.requestSignupOtp(dto);
+  }
+
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('signup')
   async signup(@Body() dto: SignupDto) {

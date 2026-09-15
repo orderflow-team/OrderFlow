@@ -10,13 +10,6 @@ export function uniqueEmail(prefix: string) {
 
 export async function signUp(page: Page, email: string, password: string, fullName = 'E2E Test User') {
   await page.goto('/signup');
-  // next dev serves the document immediately but React hydration lands a
-  // beat later — a fill() that lands before hydration attaches listeners
-  // sets the raw DOM value with no onChange firing, and hydration then syncs
-  // the input back to its (still-empty) initial React state, silently
-  // discarding the fill. Waiting for hydration to settle before typing
-  // avoids that race; asserting the value after typing (rather than relying
-  // on fill's own is-empty check beforehand) catches it if it ever recurs.
   await page.waitForLoadState('networkidle');
   const fullNameInput = page.getByPlaceholder('Full name');
   await fullNameInput.fill(fullName);
@@ -25,7 +18,21 @@ export async function signUp(page: Page, email: string, password: string, fullNa
   await emailInput.fill(email);
   await expect(emailInput).toHaveValue(email);
   await page.getByPlaceholder('Password (min 6 characters)').fill(password);
-  await page.getByRole('button', { name: 'Create Account' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  // Step 2: OTP Verification
+  await expect(page.getByRole('heading', { name: 'Verify email' })).toBeVisible({ timeout: 10_000 });
+  
+  // In dev/test environments with dev bypass, extract code from banner or use default
+  const devBanner = page.locator('text=your code is');
+  let otpCode = '123456';
+  if (await devBanner.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    const text = await devBanner.innerText();
+    const match = text.match(/\b\d{6}\b/);
+    if (match) otpCode = match[0];
+  }
+  await page.getByPlaceholder('123456').fill(otpCode);
+  await page.getByRole('button', { name: 'Verify & Create Account' }).click();
 }
 
 export async function createBusiness(page: Page, businessName: string, category: 'pharmacy' | 'grocery' | 'restaurant' = 'pharmacy') {

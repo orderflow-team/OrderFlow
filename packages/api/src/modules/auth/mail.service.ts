@@ -45,6 +45,24 @@ export class MailService {
     );
   }
 
+  /** Returns true if the signup OTP was actually emailed, false if it was only logged (no SMTP / send failure). */
+  async sendSignupOtpEmail(email: string, code: string): Promise<boolean> {
+    return this.sendEmail(
+      email,
+      'Verify Your OrderFlow Account',
+      `Welcome to OrderFlow! Your email verification code is: ${code}. It is valid for 10 minutes.`,
+      `<div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #0f172a; margin-bottom: 8px;">Welcome to OrderFlow</h2>
+        <p style="color: #475569; font-size: 15px;">Please use the verification code below to complete your account registration:</p>
+        <div style="background-color: #f8fafc; padding: 16px; text-align: center; border-radius: 8px; margin: 20px 0; border: 1px dashed #cbd5e1;">
+          <span style="font-size: 28px; font-weight: bold; letter-spacing: 5px; color: #ea580c;">${code}</span>
+        </div>
+        <p style="color: #64748b; font-size: 13px;">This code is valid for 10 minutes. If you didn't request this, you can safely ignore this email.</p>
+      </div>`,
+      code,
+    );
+  }
+
   /** Returns true if the reset code was actually emailed, false if it was only logged (no SMTP / send failure). */
   async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
     return this.sendEmail(

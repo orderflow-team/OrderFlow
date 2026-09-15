@@ -91,6 +91,7 @@ describe("AuthService", () => {
           provide: MailService,
           useValue: {
             sendOtpEmail: jest.fn().mockResolvedValue(true),
+            sendSignupOtpEmail: jest.fn().mockResolvedValue(true),
             sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
           },
         },
@@ -114,13 +115,72 @@ describe("AuthService", () => {
     jest.clearAllMocks();
   });
 
-  describe("signup", () => {
-    it("creates a new user and issues tokens when email is not taken", async () => {
+  it("is defined", () => {
+    expect(service).toBeDefined();
+  });
+
+  describe("requestSignupOtp", () => {
+    it("generates and sends a signup OTP code", async () => {
       usersRepo.findOne.mockResolvedValue(null);
+      otpRepo.createQueryBuilder.mockReturnValue(buildQueryBuilder(null));
+      otpRepo.create.mockReturnValue({
+        email: "new@example.com",
+        code: "123456",
+        purpose: "signup",
+      });
+
+      const result = await service.requestSignupOtp({ email: "new@example.com" });
+
+      expect(usersRepo.findOne).toHaveBeenCalledWith({
+        where: { email: expect.anything() },
+      });
+      expect(otpRepo.save).toHaveBeenCalled();
+      expect(mailService.sendSignupOtpEmail).toHaveBeenCalledWith(
+        "new@example.com",
+        expect.any(String),
+      );
+      expect(result.message).toBe("Verification code sent");
+      expect(result.expiresInMinutes).toBe(10);
+    });
+
+    it("throws ConflictException when email is already registered", async () => {
+      usersRepo.findOne.mockResolvedValue(baseUser);
+
+      await expect(
+        service.requestSignupOtp({ email: "user@example.com" }),
+      ).rejects.toThrow(ConflictException);
+      expect(otpRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException when cooldown is active", async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      otpRepo.createQueryBuilder.mockReturnValue(
+        buildQueryBuilder({ id: "recent-otp" }),
+      );
+
+      await expect(
+        service.requestSignupOtp({ email: "new@example.com" }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("signup", () => {
+    it("creates a new user and issues tokens when OTP is valid and email is not taken", async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      const validOtp = {
+        email: "new@example.com",
+        code: "123456",
+        purpose: "signup",
+        consumed: false,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000),
+        attempts: 0,
+      };
+      otpRepo.findOne.mockResolvedValue(validOtp);
 
       const result = await service.signup({
         email: "New@Example.com",
         password: "password123",
+        code: "123456",
         fullName: "New User",
         businessId: "biz-2",
       });
@@ -128,6 +188,8 @@ describe("AuthService", () => {
       expect(usersRepo.findOne).toHaveBeenCalledWith({
         where: { email: expect.anything() },
       });
+      expect(validOtp.consumed).toBe(true);
+      expect(otpRepo.save).toHaveBeenCalledWith(validOtp);
       expect(bcrypt.hash).toHaveBeenCalledWith("password123", 10);
       expect(usersRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -146,9 +208,37 @@ describe("AuthService", () => {
       usersRepo.findOne.mockResolvedValue(baseUser);
 
       await expect(
-        service.signup({ email: "user@example.com", password: "password123" }),
+        service.signup({ email: "user@example.com", password: "password123", code: "123456" }),
       ).rejects.toThrow(ConflictException);
       expect(usersRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException when OTP is invalid or expired", async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      otpRepo.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.signup({ email: "new@example.com", password: "password123", code: "123456" }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws BadRequestException and increments attempts on incorrect OTP code", async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      const otp = {
+        email: "new@example.com",
+        code: "654321",
+        purpose: "signup",
+        consumed: false,
+        expires_at: new Date(Date.now() + 10 * 60 * 1000),
+        attempts: 1,
+      };
+      otpRepo.findOne.mockResolvedValue(otp);
+
+      await expect(
+        service.signup({ email: "new@example.com", password: "password123", code: "123456" }),
+      ).rejects.toThrow(BadRequestException);
+      expect(otp.attempts).toBe(2);
+      expect(otpRepo.save).toHaveBeenCalledWith(otp);
     });
   });
 

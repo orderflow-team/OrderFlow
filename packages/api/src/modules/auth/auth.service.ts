@@ -70,14 +70,80 @@ export class AuthService {
     }
   }
 
-  async signup(dto: SignupDto) {
-    const email = dto.email.toLowerCase();
+  async requestSignupOtp(dto: RequestOtpDto) {
+    const email = (dto.email || "").toLowerCase().trim();
     const existing = await this.usersRepository.findOne({
       where: { email: ILike(email) },
     });
     if (existing) {
       throw new ConflictException("Email already registered");
     }
+
+    const recent = await this.otpCodesRepository
+      .createQueryBuilder("otp")
+      .where("otp.email ILIKE :email", { email })
+      .andWhere("otp.purpose = :purpose", { purpose: "signup" })
+      .andWhere(
+        `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
+      )
+      .getOne();
+    if (recent) {
+      throw new BadRequestException(
+        "Please wait a minute before requesting another code",
+      );
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    const otp = this.otpCodesRepository.create({
+      email,
+      code,
+      expires_at,
+      purpose: "signup",
+    });
+    await this.otpCodesRepository.save(otp);
+
+    const emailSent = await this.mailService.sendSignupOtpEmail(email, code);
+
+    const devOnly = !emailSent && ALLOW_OTP_DEV_BYPASS ? { devCode: code } : {};
+    return {
+      message: "Verification code sent",
+      expiresInMinutes: OTP_EXPIRY_MINUTES,
+      ...devOnly,
+    };
+  }
+
+  async signup(dto: SignupDto) {
+    const email = dto.email.toLowerCase().trim();
+    const existing = await this.usersRepository.findOne({
+      where: { email: ILike(email) },
+    });
+    if (existing) {
+      throw new ConflictException("Email already registered");
+    }
+
+    const latest = await this.otpCodesRepository.findOne({
+      where: { email: ILike(email), purpose: "signup", consumed: false },
+      order: { created_at: "DESC" },
+    });
+
+    if (!latest || latest.expires_at < new Date()) {
+      throw new BadRequestException("Invalid or expired verification code");
+    }
+    if (latest.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new BadRequestException(
+        "Too many incorrect attempts. Request a new verification code.",
+      );
+    }
+    if (latest.code !== dto.code) {
+      latest.attempts += 1;
+      await this.otpCodesRepository.save(latest);
+      throw new BadRequestException("Invalid verification code");
+    }
+
+    latest.consumed = true;
+    await this.otpCodesRepository.save(latest);
 
     const password_hash = await bcrypt.hash(dto.password, 10);
 
