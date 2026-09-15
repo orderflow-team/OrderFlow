@@ -217,6 +217,8 @@ export function ProductPurchasersModal({
     return list;
   }, [data?.purchases, search]);
 
+  const [openingInvoiceOrderId, setOpeningInvoiceOrderId] = useState<string | null>(null);
+
   const toggleCustomer = (key: string) => {
     setExpandedKeys((prev) => {
       const next = new Set(prev);
@@ -237,14 +239,43 @@ export function ProductPurchasersModal({
     }
   };
 
-  const handleGoToInvoice = (purchase: ProductPurchaserRow) => {
-    onClose();
+  const handleGoToInvoice = async (purchase: ProductPurchaserRow) => {
+    // 1. If invoiceId is already known, navigate immediately
     if (purchase.invoiceId) {
+      onClose();
       router.push(`/billing/invoices/view?id=${encodeURIComponent(purchase.invoiceId)}`);
-    } else if (purchase.orderNumber || purchase.orderId) {
-      router.push(`/orders?search=${encodeURIComponent(purchase.orderNumber || purchase.orderId)}`);
-    } else {
-      router.push('/orders');
+      return;
+    }
+
+    if (!purchase.orderId || !businessId) return;
+
+    setOpeningInvoiceOrderId(purchase.orderId);
+    try {
+      // 2. Check if an invoice was already generated for this order
+      const existing = await apiClient.get<{ id: string }[]>('/api/billing/invoices', {
+        params: { businessId, orderId: purchase.orderId, type: 'invoice' },
+      });
+      if (existing.data && existing.data.length > 0) {
+        onClose();
+        router.push(`/billing/invoices/view?id=${encodeURIComponent(existing.data[0].id)}`);
+        return;
+      }
+
+      // 3. If not yet generated, generate it on the fly and open it directly
+      const created = await apiClient.post<{ id: string }>(
+        `/api/billing/invoices/from-order/${purchase.orderId}`,
+        {},
+        { params: { businessId } },
+      );
+      if (created.data?.id) {
+        onClose();
+        router.push(`/billing/invoices/view?id=${encodeURIComponent(created.data.id)}`);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Failed to open/generate invoice:', err);
+    } finally {
+      setOpeningInvoiceOrderId(null);
     }
   };
 
@@ -521,12 +552,22 @@ export function ProductPurchasersModal({
                                 <Button
                                   type="button"
                                   onClick={() => handleGoToInvoice(inv)}
+                                  disabled={openingInvoiceOrderId === inv.orderId}
                                   size="sm"
-                                  className="h-8 px-3 rounded-lg font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
+                                  className="h-8 px-3 rounded-lg font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xs active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-75"
                                 >
-                                  <Receipt className="w-3.5 h-3.5" />
-                                  <span>View Invoice</span>
-                                  <ExternalLink className="w-3 h-3 opacity-70" />
+                                  {openingInvoiceOrderId === inv.orderId ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      <span>Opening...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Receipt className="w-3.5 h-3.5" />
+                                      <span>View Invoice</span>
+                                      <ExternalLink className="w-3 h-3 opacity-70" />
+                                    </>
+                                  )}
                                 </Button>
                               </div>
                             </div>
