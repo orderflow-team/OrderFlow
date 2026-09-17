@@ -88,12 +88,13 @@ export function toAbsoluteFileUrl(url: string | null | undefined): string | null
   return `${API_BASE_URL}${url}`;
 }
 
-const resolveAdapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+const defaultAdapter = axios.getAdapter(axios.defaults.adapter);
+
+const resolveAdapter: AxiosAdapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
   if (typeof window !== 'undefined' && Capacitor?.isNativePlatform && Capacitor.isNativePlatform()) {
     return capacitorAdapter(config);
   }
-  const standardAdapter = axios.getAdapter(config.adapter || axios.defaults.adapter);
-  return standardAdapter(config);
+  return defaultAdapter(config);
 };
 
 export const apiClient = axios.create({
