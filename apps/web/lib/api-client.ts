@@ -1,74 +1,9 @@
-import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import axios from 'axios';
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://obix360.com' : 'http://localhost:4000');
-
-const capacitorAdapter: AxiosAdapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
-  let fullUrl = config.url || '';
-  if (config.baseURL && !fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
-    const base = config.baseURL.replace(/\/+$/, '');
-    const path = fullUrl.replace(/^\/+/, '');
-    fullUrl = `${base}/${path}`;
-  }
-
-  const headers: Record<string, string> = {};
-  if (config.headers) {
-    for (const [key, value] of Object.entries(config.headers)) {
-      if (value !== undefined && value !== null && typeof value !== 'function') {
-        headers[key] = String(value);
-      }
-    }
-  }
-
-  let data = config.data;
-  if (typeof data === 'string') {
-    try {
-      data = JSON.parse(data);
-    } catch {
-      // Keep as raw string if not JSON
-    }
-  }
-
-  try {
-    const res = await CapacitorHttp.request({
-      url: fullUrl,
-      method: (config.method || 'GET').toUpperCase(),
-      headers,
-      data,
-      params: config.params,
-      responseType: config.responseType === 'blob' || config.responseType === 'arraybuffer' ? 'blob' : 'json',
-      connectTimeout: config.timeout || 30000,
-      readTimeout: config.timeout || 30000,
-    });
-
-    const response: AxiosResponse = {
-      data: res.data,
-      status: res.status,
-      statusText: String(res.status),
-      headers: res.headers || {},
-      config,
-      request: {},
-    };
-
-    if (res.status >= 200 && res.status < 300) {
-      return response;
-    }
-
-    const error: any = new Error(`Request failed with status code ${res.status}`);
-    error.config = config;
-    error.response = response;
-    error.isAxiosError = true;
-    error.status = res.status;
-    return Promise.reject(error);
-  } catch (err: any) {
-    if (err.response) return Promise.reject(err);
-    const error: any = new Error(err.message || 'Network error');
-    error.config = config;
-    error.isAxiosError = true;
-    return Promise.reject(error);
-  }
-};
+  process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? '/api-proxy'
+    : (process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com');
 
 /**
  * Uploaded-file paths from the backend (product images, business logos,
@@ -88,19 +23,9 @@ export function toAbsoluteFileUrl(url: string | null | undefined): string | null
   return `${API_BASE_URL}${url}`;
 }
 
-const defaultAdapter = axios.getAdapter(axios.defaults.adapter);
-
-const resolveAdapter: AxiosAdapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
-  if (typeof window !== 'undefined' && Capacitor?.isNativePlatform && Capacitor.isNativePlatform()) {
-    return capacitorAdapter(config);
-  }
-  return defaultAdapter(config);
-};
-
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  adapter: resolveAdapter,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -127,11 +52,7 @@ async function refreshAccessToken(): Promise<string | null> {
   try {
     // Bare axios, not apiClient — a call through apiClient would re-enter
     // this same response interceptor if the refresh itself ever 401s.
-    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken }, {
-      adapter: resolveAdapter,
-    });
-
-
+    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
     localStorage.setItem('access_token', res.data.access_token);
     localStorage.setItem('refresh_token', res.data.refresh_token);
     // The refreshed token's businessId is re-derived server-side from the
