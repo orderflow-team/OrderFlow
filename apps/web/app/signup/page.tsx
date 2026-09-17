@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { ObixMark } from '@/components/obix-logo';
+import { GoogleAuthButton } from '@/components/google-auth-button';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -222,6 +223,19 @@ export default function SignupPage() {
                   {loading ? 'Sending code...' : 'Continue'}
                 </Button>
               </form>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-300/60" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
+                    Or sign up with
+                  </span>
+                </div>
+              </div>
+
+              <GoogleAuthButton mode="signup" onError={(err) => setError(err)} />
             </>
           ) : (
             <form onSubmit={handleVerifySignup} className="space-y-4">

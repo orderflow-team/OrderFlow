@@ -9,6 +9,7 @@ import apiClient from '@/lib/api-client';
 import { getPostLoginPath } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
+import { GoogleAuthButton } from '@/components/google-auth-button';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -25,6 +26,7 @@ const GLASS_SHEEN =
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'password' | 'otp'>('password');
+  const [oauthError, setOauthError] = useState('');
   const router = useRouter();
 
   return (
@@ -61,7 +63,10 @@ export default function LoginPage() {
           <div className="flex gap-1 bg-white/25 rounded-full p-1 mb-6 relative z-20 ring-1 ring-white/40 shadow-[inset_0_1px_3px_rgba(148,163,184,0.25)]">
             <button
               type="button"
-              onClick={() => setMode('password')}
+              onClick={() => {
+                setMode('password');
+                setOauthError('');
+              }}
               className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer touch-manipulation ${
                 mode === 'password'
                   ? `bg-sky-500/80 backdrop-blur-md text-white ${GLASS_SHEEN}`
@@ -72,7 +77,10 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => setMode('otp')}
+              onClick={() => {
+                setMode('otp');
+                setOauthError('');
+              }}
               className={`flex-1 py-2.5 rounded-full text-sm font-semibold transition-all cursor-pointer touch-manipulation ${
                 mode === 'otp'
                   ? `bg-violet-500/80 backdrop-blur-md text-white ${GLASS_SHEEN}`
@@ -83,7 +91,26 @@ export default function LoginPage() {
             </button>
           </div>
 
+          {oauthError && (
+            <div className="mb-4 flex items-center space-x-2 text-rose-700 bg-rose-500/15 backdrop-blur-sm p-3 rounded-2xl ring-1 ring-rose-400/30 text-sm animate-in slide-in-from-top-2">
+              <p className="font-semibold">{oauthError}</p>
+            </div>
+          )}
+
           {mode === 'password' ? <PasswordLoginForm /> : <OtpLoginForm />}
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-300/60" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          <GoogleAuthButton mode="signin" onError={(err) => setOauthError(err)} />
 
           <p className="text-center text-sm text-slate-600 mt-6">
             Don't have an account?{' '}

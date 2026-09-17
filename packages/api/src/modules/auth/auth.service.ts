@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
   ServiceUnavailableException,
+  Logger,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, ILike, DataSource } from "typeorm";
@@ -21,6 +22,7 @@ import { RequestPasswordResetDto } from "./dto/request-password-reset.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ChangePasswordDto } from "./dto/change-password.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { GoogleAuthDto } from "./dto/google-auth.dto";
 import { MailService } from "./mail.service";
 import { UserRole } from "../../common/enums/user-role.enum";
 
@@ -187,6 +189,112 @@ export class AuthService {
     });
 
     return this.issueTokens(user);
+  }
+
+  async googleAuth(dto: GoogleAuthDto) {
+    if (!dto.idToken) {
+      throw new BadRequestException("Google ID token is required");
+    }
+
+    let payload: {
+      sub: string;
+      email: string;
+      email_verified?: string | boolean;
+      name?: string;
+      picture?: string;
+      aud?: string;
+    };
+
+    try {
+      const googleRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
+      );
+      if (!googleRes.ok) {
+        const errText = await googleRes.text();
+        throw new Error(`Google token validation failed: ${errText}`);
+      }
+      payload = await googleRes.json();
+    } catch (err: any) {
+      throw new UnauthorizedException(err.message || "Invalid Google token");
+    }
+
+    if (!payload.email || !payload.sub) {
+      throw new UnauthorizedException("Invalid Google token payload");
+    }
+
+    const email = payload.email.toLowerCase().trim();
+    const isEmailVerified =
+      payload.email_verified === true || payload.email_verified === "true";
+    if (!isEmailVerified) {
+      throw new UnauthorizedException("Google email address is not verified");
+    }
+
+    const configuredClientId =
+      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (configuredClientId && payload.aud && payload.aud !== configuredClientId) {
+      Logger.warn(
+        `Google token audience mismatch: ${payload.aud} vs ${configuredClientId}`,
+        "AuthService",
+      );
+    }
+
+    let user = await this.usersRepository.findOne({
+      where: [{ google_id: payload.sub }, { email: ILike(email) }],
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+      if (!user.is_active) {
+        throw new UnauthorizedException("Account is disabled");
+      }
+      await this.assertNotInMaintenance(user.role);
+
+      let needsSave = false;
+      if (!user.google_id) {
+        user.google_id = payload.sub;
+        needsSave = true;
+      }
+      if (!user.avatar_url && payload.picture) {
+        user.avatar_url = payload.picture;
+        needsSave = true;
+      }
+      if (!user.full_name && payload.name) {
+        user.full_name = payload.name;
+        needsSave = true;
+      }
+      if (needsSave) {
+        user = await this.usersRepository.save(user);
+      }
+    } else {
+      isNewUser = true;
+      user = this.usersRepository.create({
+        email,
+        full_name: payload.name || "Google User",
+        google_id: payload.sub,
+        avatar_url: payload.picture || null,
+        role: UserRole.ADMIN,
+        is_active: true,
+      });
+      user = await this.usersRepository.save(user);
+    }
+
+    await this.logActivity(
+      user.id,
+      user.business_id,
+      isNewUser ? "USER_SIGNUP_GOOGLE" : "USER_LOGIN_GOOGLE",
+      "Auth",
+      {
+        email: user.email,
+        googleId: payload.sub,
+      },
+    );
+
+    const tokens = this.issueTokens(user);
+    return {
+      ...tokens,
+      isNewUser,
+    };
   }
 
   private async logActivity(

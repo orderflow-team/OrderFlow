@@ -34,6 +34,12 @@ export class User {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  google_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  avatar_url: string | null;
+
   // Touched (throttled, at most once/minute) by JwtStrategy on every
   // authenticated request — powers the admin "live users" view. Null means
   // never logged in / hasn't made an authenticated request since restart.

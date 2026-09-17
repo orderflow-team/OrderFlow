@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
+
+export function generateStaticParams() {
+  return [{ path: ['_init'] }];
+}
+
 
 function getCandidateOrigins(): string[] {
   const origins: string[] = [];
