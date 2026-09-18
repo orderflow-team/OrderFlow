@@ -188,11 +188,13 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
   }, []);
 
   useEffect(() => {
-    const handleSetActiveOrder = (e: CustomEvent<{ id: string | null; orderNumber?: string | null }>) => {
-      if (e.detail.id && e.detail.orderNumber) {
+    const handleSetActiveOrder = (e: CustomEvent<{ id: string | null; orderNumber?: string | null; open?: boolean }>) => {
+      if (e.detail?.id && e.detail?.orderNumber) {
         setEditingOrder({ id: e.detail.id, orderNumber: e.detail.orderNumber });
         setMode('order');
-        setOpen(true);
+        if (e.detail.open) {
+          setOpen(true);
+        }
       } else {
         setEditingOrder(null);
       }
