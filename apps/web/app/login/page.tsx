@@ -6,7 +6,7 @@ import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
-import { getPostLoginPath } from '@/lib/auth';
+import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 import { GoogleAuthButton } from '@/components/google-auth-button';
@@ -145,11 +145,18 @@ function PasswordLoginForm() {
 
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      setCurrentUser(response.data.user);
+
+      if (!response.data.user?.businessId && response.data.user.role !== 'super_admin') {
+        router.push('/select-business');
+      } else {
+        router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      }
     } catch (err: any) {
-      if (err.response) {
-        setError(err.response.data?.message || 'Invalid email or password');
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.message && !err.message.includes('status code')) {
+        setError(err.message);
       } else {
         setError('Network error: Unable to connect to server. Please check your internet connection.');
       }
@@ -190,7 +197,7 @@ function PasswordLoginForm() {
             </svg>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-4 8-11 8-11-8-11-8z"></path>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-4 8-11 8-4 8-11 8-11-8-11-8z"></path>
               <circle cx="12" cy="12" r="3"></circle>
             </svg>
           )}
@@ -238,7 +245,7 @@ function OtpLoginForm() {
       setDevCode(response.data.devCode || '');
       setStep('verify');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Could not send code');
+      setError(err.response?.data?.message || err.message || 'Could not send code');
     } finally {
       setLoading(false);
     }
@@ -252,10 +259,15 @@ function OtpLoginForm() {
       const response = await apiClient.post('/auth/otp/verify', { email, code });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      setCurrentUser(response.data.user);
+
+      if (!response.data.user?.businessId && response.data.user.role !== 'super_admin') {
+        router.push('/select-business');
+      } else {
+        router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid or expired code');
+      setError(err.response?.data?.message || err.message || 'Invalid or expired code');
     } finally {
       setLoading(false);
     }

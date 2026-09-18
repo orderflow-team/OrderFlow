@@ -6,6 +6,7 @@ import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
+import { setCurrentUser } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { GoogleAuthButton } from '@/components/google-auth-button';
 
@@ -111,7 +112,7 @@ export default function SignupPage() {
       });
       localStorage.setItem('access_token', response.data.access_token);
       localStorage.setItem('refresh_token', response.data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      setCurrentUser(response.data.user);
       router.push('/select-business');
     } catch (err: any) {
       if (!err.response) {

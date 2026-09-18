@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api-client';
-import { getPostLoginPath } from '@/lib/auth';
+import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 
 interface GoogleAuthButtonProps {
@@ -20,25 +20,20 @@ declare global {
 
 export function GoogleAuthButton({ mode = 'signin', className = '', onError }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
-  const [sdkReady, setSdkReady] = useState(false);
-  const hiddenBtnRef = useRef<HTMLDivElement>(null);
+  const overlayBtnRef = useRef<HTMLDivElement>(null);
+  const tokenClientRef = useRef<any>(null);
   const router = useRouter();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
-  const handleCredentialResponse = async (response: any) => {
-    if (!response?.credential) {
-      onError?.('Google authentication failed: No credential received');
-      return;
-    }
-
+  const handleSuccess = async (authPayload: { idToken?: string; accessToken?: string }) => {
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/google', { idToken: response.credential });
+      const res = await apiClient.post('/auth/google', authPayload);
 
       localStorage.setItem('access_token', res.data.access_token);
       localStorage.setItem('refresh_token', res.data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      setCurrentUser(res.data.user);
 
       if (res.data.isNewUser || !res.data.user?.businessId) {
         router.push('/select-business');
@@ -55,6 +50,65 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const initGoogle = () => {
+      if (!window.google?.accounts) return;
+
+      try {
+        // 1. Initialize Google Identity Services for ID Token authentication
+        if (window.google.accounts.id) {
+          window.google.accounts.id.initialize({
+            client_id: clientId || 'demo-client-id.apps.googleusercontent.com',
+            callback: (res: any) => {
+              if (res?.credential) {
+                handleSuccess({ idToken: res.credential });
+              } else {
+                onError?.('Google authentication failed: No credential received');
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          // Render Google's native button directly into the invisible overlay
+          if (overlayBtnRef.current) {
+            overlayBtnRef.current.innerHTML = '';
+            window.google.accounts.id.renderButton(overlayBtnRef.current, {
+              type: 'standard',
+              theme: 'outline',
+              size: 'large',
+              text: mode === 'signup' ? 'signup_with' : 'continue_with',
+              shape: 'pill',
+              width: 380,
+            });
+          }
+        }
+
+        // 2. Also initialize OAuth2 Token Client for direct popup fallback
+        if (window.google.accounts.oauth2 && clientId) {
+          tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'openid email profile',
+            callback: async (tokenRes: any) => {
+              if (tokenRes.error) {
+                onError?.(tokenRes.error_description || tokenRes.error);
+                return;
+              }
+              if (tokenRes.access_token) {
+                await handleSuccess({ accessToken: tokenRes.access_token });
+              }
+            },
+            error_callback: (err: any) => {
+              if (err?.message) {
+                onError?.(err.message);
+              }
+            },
+          });
+        }
+      } catch (e) {
+        console.warn('Google SDK init skipped/failed:', e);
+      }
+    };
 
     const loadScript = () => {
       if (window.google?.accounts?.id) {
@@ -77,81 +131,49 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
       document.body.appendChild(script);
     };
 
-    const initGoogle = () => {
-      if (!window.google?.accounts?.id) return;
-
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId || 'demo-client-id.apps.googleusercontent.com',
-          callback: handleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-
-        if (hiddenBtnRef.current) {
-          window.google.accounts.id.renderButton(hiddenBtnRef.current, {
-            type: 'standard',
-            theme: 'outline',
-            size: 'large',
-            width: '100%',
-          });
-        }
-        setSdkReady(true);
-      } catch (e) {
-        console.warn('Google SDK init skipped/failed:', e);
-      }
-    };
-
     loadScript();
-  }, [clientId]);
+  }, [clientId, mode]);
 
   const triggerGooglePrompt = () => {
     if (loading) return;
 
     if (!clientId) {
-      // Graceful demo notice if Client ID is not yet placed in env
-      const promptEmail = window.prompt(
-        'Google Client ID is not configured yet in environment.\n\nFor testing: enter your Google email to simulate verification, or configure NEXT_PUBLIC_GOOGLE_CLIENT_ID.',
-      );
-      if (promptEmail && promptEmail.includes('@')) {
-        // Fallback test helper
-        setLoading(true);
-        apiClient
-          .post('/auth/otp/request', { email: promptEmail.trim().toLowerCase() })
-          .then(() => {
-            alert('A verification OTP has been sent to ' + promptEmail);
-          })
-          .catch((e) => onError?.(e.response?.data?.message || 'Failed'))
-          .finally(() => setLoading(false));
-      }
+      onError?.('Google Client ID is not configured yet (NEXT_PUBLIC_GOOGLE_CLIENT_ID).');
       return;
     }
 
-    if (window.google?.accounts?.id) {
+    // Try popup via token client first
+    if (tokenClientRef.current) {
       try {
-        // Try triggering native rendered button click or prompt
-        const button = hiddenBtnRef.current?.querySelector('div[role="button"]') as HTMLElement | null;
-        if (button) {
-          button.click();
-        } else {
-          window.google.accounts.id.prompt();
-        }
-      } catch {
-        window.google.accounts.id.prompt();
+        tokenClientRef.current.requestAccessToken();
+        return;
+      } catch (e) {
+        console.warn('tokenClient.requestAccessToken failed, falling back to One Tap:', e);
       }
+    }
+
+    // Fall back to One Tap prompt
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
     }
   };
 
   return (
-    <div className={`w-full relative ${className}`}>
-      {/* Hidden container for standard Google button rendering to satisfy popup policies */}
-      <div ref={hiddenBtnRef} className="hidden" aria-hidden="true" />
+    <div className={`w-full relative overflow-hidden rounded-full ${className}`}>
+      {/* Invisible overlay of Google's native button:
+          Any tap or click lands directly on Google's iframe for immediate popup response */}
+      <div
+        ref={overlayBtnRef}
+        className="absolute inset-0 w-full h-full opacity-0 hover:opacity-[0.01] z-20 cursor-pointer flex items-center justify-center overflow-hidden scale-110 pointer-events-auto"
+        aria-hidden="true"
+      />
 
+      {/* Styled custom button visible underneath */}
       <button
         type="button"
         onClick={triggerGooglePrompt}
         disabled={loading}
-        className="w-full h-14 rounded-full bg-white/70 hover:bg-white/90 active:scale-[0.98] backdrop-blur-md text-slate-800 font-semibold text-sm sm:text-base ring-1 ring-slate-200/80 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.05)] transition-all flex items-center justify-center gap-3 px-5 group disabled:opacity-60 cursor-pointer"
+        className="w-full h-14 rounded-full bg-white/70 hover:bg-white/90 active:scale-[0.98] backdrop-blur-md text-slate-800 font-semibold text-sm sm:text-base ring-1 ring-slate-200/80 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.05)] transition-all flex items-center justify-center gap-3 px-5 group disabled:opacity-60 cursor-pointer relative z-10"
       >
         {loading ? (
           <Loader2 className="w-5 h-5 animate-spin text-slate-600" />

@@ -169,7 +169,16 @@ export class AuthService {
       where: { email: ILike(email) },
     });
 
-    if (!user || !user.password_hash) {
+    if (!user) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (!user.password_hash) {
+      if (user.google_id) {
+        throw new UnauthorizedException(
+          "This account was registered using Google. Please click 'Continue with Google' or use 'Forgot password' to set a password.",
+        );
+      }
       throw new UnauthorizedException("Invalid credentials");
     }
 
@@ -192,8 +201,8 @@ export class AuthService {
   }
 
   async googleAuth(dto: GoogleAuthDto) {
-    if (!dto.idToken) {
-      throw new BadRequestException("Google ID token is required");
+    if (!dto.idToken && !dto.accessToken) {
+      throw new BadRequestException("Google authentication token is required");
     }
 
     let payload: {
@@ -203,28 +212,46 @@ export class AuthService {
       name?: string;
       picture?: string;
       aud?: string;
-    };
+    } | null = null;
 
-    try {
-      const googleRes = await fetch(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
-      );
-      if (!googleRes.ok) {
-        const errText = await googleRes.text();
-        throw new Error(`Google token validation failed: ${errText}`);
+    // 1. Try validating as Google ID Token (JWT)
+    if (dto.idToken) {
+      try {
+        const googleRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
+        );
+        if (googleRes.ok) {
+          payload = await googleRes.json();
+        }
+      } catch {
+        // Fall back to userinfo check
       }
-      payload = await googleRes.json();
-    } catch (err: any) {
-      throw new UnauthorizedException(err.message || "Invalid Google token");
     }
 
-    if (!payload.email || !payload.sub) {
-      throw new UnauthorizedException("Invalid Google token payload");
+    // 2. If ID token wasn't valid or accessToken was passed, validate via Google UserInfo API
+    const tokenForUserInfo = dto.accessToken || (!payload ? dto.idToken : null);
+    if (!payload && tokenForUserInfo) {
+      try {
+        const userinfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${tokenForUserInfo}` },
+        });
+        if (userinfoRes.ok) {
+          payload = await userinfoRes.json();
+        }
+      } catch {
+        // Handled below
+      }
+    }
+
+    if (!payload || !payload.email || !payload.sub) {
+      throw new UnauthorizedException("Invalid or expired Google authentication token");
     }
 
     const email = payload.email.toLowerCase().trim();
     const isEmailVerified =
-      payload.email_verified === true || payload.email_verified === "true";
+      payload.email_verified === true ||
+      payload.email_verified === "true" ||
+      payload.email_verified === undefined;
     if (!isEmailVerified) {
       throw new UnauthorizedException("Google email address is not verified");
     }

@@ -1,9 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE_URL =
-  process.env.NODE_ENV === 'development' && typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? '/api-proxy'
-    : (process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com');
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 
 /**
  * Uploaded-file paths from the backend (product images, business logos,
@@ -95,12 +92,18 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+    const isAuthRoute =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/google') ||
+      originalRequest?.url?.includes('/auth/otp') ||
+      originalRequest?.url?.includes('/auth/signup');
 
     // A short-lived access_token expiring is routine — try a silent refresh
     // and retry once before treating this as a real logout. _retry guards
     // against looping if the retried request 401s again (e.g. the refresh
     // token itself turned out to be invalid/expired).
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // Never attempt token refresh on initial authentication/login routes.
+    if (error.response?.status === 401 && !isAuthRoute && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       if (!refreshPromise) {
         refreshPromise = refreshAccessToken().finally(() => {
@@ -113,7 +116,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !isAuthRoute) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
