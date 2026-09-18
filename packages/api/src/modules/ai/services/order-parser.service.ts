@@ -196,7 +196,7 @@ export class OrderParserService {
 
     let parsed: {
       matched: { menuName: string; rawName?: string | null; quantity: number; unit?: string | null }[];
-      unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
+      unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null; hasExplicitQuantity?: boolean }[];
       orderType?: string;
       tableName?: string | null;
       customerName?: string | null;
@@ -390,7 +390,7 @@ export class OrderParserService {
           if (name.length < 2) return false;
 
           // Check if it has any explicit quantity, unit, or stated price
-          const hasExplicitQty = u.quantity != null && Number(u.quantity) > 1;
+          const hasExplicitQty = (u as any).hasExplicitQuantity === true || (u.quantity != null && Number(u.quantity) >= 1);
           const hasExplicitUnit = u.unit != null && typeof u.unit === 'string' && u.unit.trim().length > 0;
           const hasExplicitPrice = u.price != null && Number(u.price) > 0;
 
@@ -398,7 +398,7 @@ export class OrderParserService {
           const catalogMatch = this.matchCatalogProduct(name.toLowerCase(), available);
           if (catalogMatch && catalogMatch !== 'ambiguous') return true;
 
-          // If no catalog match, must have at least explicit unit, price, or quantity > 1
+          // If no catalog match, must have at least explicit unit, price, or valid quantity
           if (!hasExplicitQty && !hasExplicitUnit && !hasExplicitPrice) {
             return false;
           }
@@ -1522,7 +1522,7 @@ export class OrderParserService {
     tables: any[],
   ): {
     matched: { menuName: string; quantity: number; unit?: string | null }[];
-    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
+    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null; hasExplicitQuantity?: boolean }[];
     orderType: string;
     tableName: string | null;
   } | null {
@@ -1564,7 +1564,7 @@ export class OrderParserService {
     // product (see parseChatOrder), that new product is named after what
     // the customer actually typed, not the existing catalog product's name.
     const matched: { menuName: string; rawName: string; quantity: number; unit?: string | null }[] = [];
-    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
+    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null; hasExplicitQuantity?: boolean }[] = [];
 
     for (const segment of segments) {
       let item = this.parseSegment(segment);
@@ -1612,7 +1612,13 @@ export class OrderParserService {
         continue;
       }
 
-      unmatched.push({ name: item.name, quantity: item.quantity, unit: item.unit, price: item.price });
+      unmatched.push({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: item.price,
+        hasExplicitQuantity: (item as any).hasExplicitQuantity ?? false,
+      });
     }
 
     return { matched, unmatched, orderType, tableName };
@@ -2067,7 +2073,7 @@ export class OrderParserService {
    * normal "2kg rice" shape or misfire on a product whose own name happens
    * to end in a number.
    */
-  private parseTrailingQuantitySegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
+  private parseTrailingQuantitySegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null; hasExplicitQuantity?: boolean } | null {
     const { price, text } = this.stripTrailingPrice(segment.trim());
     if (!text) return null;
 
@@ -2084,11 +2090,12 @@ export class OrderParserService {
       quantity: Number(trailingQtyMatch[2].replace(/,/g, '')),
       unit: trailingQtyMatch[3] ? trailingQtyMatch[3].toLowerCase() : undefined,
       price,
+      hasExplicitQuantity: true,
     };
   }
 
   /** One "[qty][unit]? name [price]?" segment, e.g. "10kg mango 1000rs" or "2 rice". */
-  private parseSegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null } | null {
+  private parseSegment(segment: string): { name: string; quantity: number; unit?: string; price: number | null; hasExplicitQuantity?: boolean } | null {
     const stripped = this.stripTrailingPrice(segment.trim());
     const price = stripped.price;
     let text = stripped.text;
@@ -2096,6 +2103,7 @@ export class OrderParserService {
 
     let quantity = 1;
     let unit: string | undefined;
+    let hasExplicitQuantity = false;
     // The lookahead after the optional unit requires whatever follows the
     // digits to be whitespace, end-of-string, or a recognized unit word —
     // never an arbitrary letter run. Without it, a product name that starts
@@ -2120,10 +2128,12 @@ export class OrderParserService {
       quantity = Number(qtyMatch[1].replace(/,/g, ''));
       unit = qtyMatch[2] ? qtyMatch[2].toLowerCase() : undefined;
       text = text.slice(qtyMatch[0].length).trim();
+      hasExplicitQuantity = true;
     } else if (articleUnitMatch) {
       quantity = 1;
       unit = articleUnitMatch[1].toLowerCase();
       text = text.slice(articleUnitMatch[0].length).trim();
+      hasExplicitQuantity = true;
     } else {
       // No digit — try a spelled-out cardinal ("two rice", "a dozen eggs"),
       // which needs a following space rather than glueing straight to a unit
@@ -2139,6 +2149,7 @@ export class OrderParserService {
         quantity = OrderParserService.WORD_NUMBERS[wordQtyMatch[1].toLowerCase()];
         unit = wordQtyMatch[2] ? wordQtyMatch[2].toLowerCase() : undefined;
         text = articleStripped.slice(wordQtyMatch[0].length).trim();
+        hasExplicitQuantity = true;
       }
     }
 
@@ -2167,7 +2178,7 @@ export class OrderParserService {
       return null;
     }
 
-    return { name, quantity, unit, price };
+    return { name, quantity, unit, price, hasExplicitQuantity };
   }
 
   private levenshteinDistance(a: string, b: string): number {
@@ -2277,7 +2288,7 @@ export class OrderParserService {
     tables: any[],
   ): {
     matched: { menuName: string; quantity: number; unit?: string | null }[];
-    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[];
+    unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null; hasExplicitQuantity?: boolean }[];
     orderType: string;
     tableName: string | null;
   } {
@@ -2307,7 +2318,7 @@ export class OrderParserService {
       .filter(Boolean);
 
     const matched: { menuName: string; quantity: number; unit?: string | null }[] = [];
-    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null }[] = [];
+    const unmatched: { name: string; quantity?: number; unit?: string | null; price?: number | null; hasExplicitQuantity?: boolean }[] = [];
 
     for (const segment of segments) {
       // 1. Try matching against catalog products
@@ -2354,7 +2365,7 @@ export class OrderParserService {
   ]);
 
   /** Helper to parse free-text unmatched items with quantity, unit, and price locally. */
-  private parseFreeTextSegment(segment: string): { name: string; quantity: number; unit: string | null; price: number | null } | null {
+  private parseFreeTextSegment(segment: string): { name: string; quantity: number; unit: string | null; price: number | null; hasExplicitQuantity?: boolean } | null {
     let text = segment.trim();
     if (!text) return null;
 
@@ -2395,6 +2406,6 @@ export class OrderParserService {
       return null;
     }
 
-    return { name: text || segment, quantity, unit, price };
+    return { name: text || segment, quantity, unit, price, hasExplicitQuantity: hasExplicitQty };
   }
 }

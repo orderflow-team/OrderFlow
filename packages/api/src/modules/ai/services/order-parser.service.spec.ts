@@ -235,6 +235,25 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
       expect(result.reply).toMatch(/set its price/i);
     });
 
+    it('adds unlisted items with explicit quantity of 1 as draft products', async () => {
+      ordersService.create.mockResolvedValue({ id: 'order-multi-1', order_number: 'ORD-M1', token_number: 7, customer_name: 'Rahul' });
+
+      const result = await service.parseChatOrder('biz-1', '2 Margherita Pizza, 1 Garlic Bread, 1 Coke');
+
+      expect(ordersService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({ customProductName: 'Margherita Pizza', quantity: 2 }),
+            expect.objectContaining({ customProductName: 'Garlic Bread', quantity: 1 }),
+            expect.objectContaining({ customProductName: 'Coke', quantity: 1 }),
+          ]),
+        }),
+      );
+      expect(result.reply).toContain('2x Margherita Pizza');
+      expect(result.reply).toContain('1x Garlic Bread');
+      expect(result.reply).toContain('1x Coke');
+    });
+
     it('saves a bare customer contact when the message has no items at all', async () => {
       const result = await service.parseChatOrder('biz-1', 'order for Neel 9876543210');
 
