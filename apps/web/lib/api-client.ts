@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 // Ensure mobile app running in Capacitor WebView never uses localhost or relative proxy paths
 const resolveBaseUrl = (): string => {
@@ -15,6 +16,111 @@ const resolveBaseUrl = (): string => {
 };
 
 export const API_BASE_URL = resolveBaseUrl();
+
+/**
+ * Native Capacitor HTTP adapter for mobile Android/iOS.
+ * Bypasses Chromium WebView CORS preflight OPTIONS requests which Apache drops with 204.
+ */
+const capacitorAdapter: AxiosAdapter = async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+  let fullUrl = config.url || '';
+  if (config.baseURL && !fullUrl.startsWith('http://') && !fullUrl.startsWith('https://')) {
+    const base = config.baseURL.replace(/\/+$/, '');
+    const path = fullUrl.replace(/^\/+/, '');
+    fullUrl = `${base}/${path}`;
+  }
+
+  const params: Record<string, string> = {};
+  if (config.params) {
+    for (const [key, value] of Object.entries(config.params)) {
+      if (value !== undefined && value !== null) {
+        params[key] = String(value);
+      }
+    }
+  }
+
+  const headers: Record<string, string> = {};
+  if (config.headers) {
+    for (const [key, value] of Object.entries(config.headers)) {
+      if (value !== undefined && value !== null && typeof value !== 'function') {
+        headers[key] = String(value);
+      }
+    }
+  }
+
+  let data = config.data;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      // Keep as string
+    }
+  }
+
+  try {
+    const res = await CapacitorHttp.request({
+      url: fullUrl,
+      method: (config.method || 'GET').toUpperCase(),
+      headers,
+      data,
+      params,
+      responseType: config.responseType === 'blob' || config.responseType === 'arraybuffer' ? 'blob' : 'json',
+      connectTimeout: config.timeout || 30000,
+      readTimeout: config.timeout || 30000,
+    });
+
+    let resData = res.data;
+    if (typeof resData === 'string' && (resData.trim().startsWith('{') || resData.trim().startsWith('['))) {
+      try {
+        resData = JSON.parse(resData);
+      } catch {
+        // Keep string
+      }
+    }
+
+    const response: AxiosResponse = {
+      data: resData,
+      status: res.status,
+      statusText: String(res.status),
+      headers: res.headers || {},
+      config,
+      request: {},
+    };
+
+    if (res.status >= 200 && res.status < 300) {
+      return response;
+    }
+
+    const errorMsg =
+      (typeof resData === 'object' && resData && resData.message)
+        ? (Array.isArray(resData.message) ? resData.message.join(', ') : String(resData.message))
+        : `Request failed with status code ${res.status}`;
+
+    const error: any = new Error(errorMsg);
+    error.config = config;
+    error.response = response;
+    error.isAxiosError = true;
+    error.status = res.status;
+    return Promise.reject(error);
+  } catch (err: any) {
+    if (err.response) return Promise.reject(err);
+    const error: any = new Error(err.message || 'Network error');
+    error.config = config;
+    error.isAxiosError = true;
+    return Promise.reject(error);
+  }
+};
+
+const defaultAdapter: AxiosAdapter =
+  typeof axios.getAdapter === 'function' && axios.defaults?.adapter
+    ? axios.getAdapter(axios.defaults.adapter)
+    : (() => Promise.resolve({ data: {}, status: 200, statusText: 'OK', headers: {}, config: {} as any }));
+
+const resolveAdapter: AxiosAdapter = (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
+  if (typeof window !== 'undefined' && Capacitor?.isNativePlatform && Capacitor.isNativePlatform()) {
+    return capacitorAdapter(config);
+  }
+  return defaultAdapter(config);
+};
 
 /**
  * Uploaded-file paths from the backend (product images, business logos,
@@ -37,6 +143,7 @@ export function toAbsoluteFileUrl(url: string | null | undefined): string | null
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
+  adapter: resolveAdapter,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -69,7 +176,9 @@ async function refreshAccessToken(): Promise<string | null> {
   try {
     // Bare axios, not apiClient — a call through apiClient would re-enter
     // this same response interceptor if the refresh itself ever 401s.
-    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+    const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken }, {
+      adapter: resolveAdapter,
+    });
     localStorage.setItem('access_token', res.data.access_token);
     localStorage.setItem('refresh_token', res.data.refresh_token);
     // The refreshed token's businessId is re-derived server-side from the
