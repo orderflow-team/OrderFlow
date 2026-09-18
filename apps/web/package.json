@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "build:capacitor": "cross-env CAPACITOR_BUILD=1 next build",
+    "build:capacitor": "cross-env NODE_ENV=production CAPACITOR_BUILD=1 NEXT_PUBLIC_API_URL=https://obix360.com next build",
     "start": "next start",
     "android:live": "adb reverse tcp:4000 tcp:4000 && cap run android -l --port 3000 --forwardPorts 3000:3000",
     "release:ota": "node scripts/release-ota.mjs",
+    "release:ota:prod": "npm run build:capacitor && node scripts/publish-ota-prod.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

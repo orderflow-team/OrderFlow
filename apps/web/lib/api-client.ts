@@ -1,6 +1,20 @@
 import axios from 'axios';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
+// Ensure mobile app running in Capacitor WebView never uses localhost or relative proxy paths
+const resolveBaseUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined') {
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (isNative) {
+      if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1') || envUrl.startsWith('/')) {
+        return 'https://obix360.com';
+      }
+    }
+  }
+  return envUrl || 'https://obix360.com';
+};
+
+export const API_BASE_URL = resolveBaseUrl();
 
 /**
  * Uploaded-file paths from the backend (product images, business logos,
@@ -30,6 +44,12 @@ export const apiClient = axios.create({
 
 // Add token to all requests
 apiClient.interceptors.request.use((config) => {
+  // Mobile app safeguard: prevent any request in native Capacitor from hitting localhost or relative paths
+  if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
+    if (!config.baseURL || config.baseURL.includes('localhost') || config.baseURL.startsWith('/')) {
+      config.baseURL = 'https://obix360.com';
+    }
+  }
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

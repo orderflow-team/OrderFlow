@@ -12,7 +12,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: true,
-    exclude: ['node_modules', '.next', 'app-export', 'android'],
+    exclude: ['node_modules', '.next', 'app-export', 'android', 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

@@ -52,7 +52,7 @@ describe('api-client', () => {
     });
 
     it('resolves a bare root-relative path against the API origin', () => {
-      expect(toAbsoluteFileUrl('/uploads/logo.png')).toBe('http://localhost:4000/uploads/logo.png');
+      expect(toAbsoluteFileUrl('/uploads/logo.png')).toBe('https://obix360.com/uploads/logo.png');
     });
 
     it('passes through an already-absolute http(s) URL unchanged', () => {

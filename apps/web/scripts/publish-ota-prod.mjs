@@ -1,10 +1,10 @@
 import { ZipArchive } from 'archiver';
-import { createWriteStream, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
-const version = process.argv[2] || '1.22.0';
+const version = process.argv[2] || '1.29.0';
 
 async function run() {
   let token = process.env.ADMIN_TOKEN;
@@ -32,8 +32,44 @@ async function run() {
 
   const appExportDir = path.resolve(process.cwd(), 'app-export');
   if (!existsSync(appExportDir)) {
-    console.error(`${appExportDir} not found.`);
+    console.error(`\n❌ Error: ${appExportDir} not found.`);
+    console.error(`Please run: npm run build:capacitor before publishing.\n`);
     process.exit(1);
+  }
+
+  // Pre-release validation: Next.js inlines NEXT_PUBLIC_* variables into client chunks.
+  // If built without NEXT_PUBLIC_API_URL=https://obix360.com, it inlines localhost or dev proxies,
+  // causing "Network error: Unable to connect to server" on mobile devices after OTA update.
+  const chunksDir = path.join(appExportDir, '_next', 'static', 'chunks');
+  if (existsSync(chunksDir)) {
+    const chunkFiles = readdirSync(chunksDir).filter((f) => f.endsWith('.js'));
+    const offenders = chunkFiles.filter((f) => {
+      const content = readFileSync(path.join(chunksDir, f), 'utf8');
+      return content.includes('localhost:3000') || content.includes('localhost:4000') || content.includes('/api-proxy');
+    });
+
+    if (offenders.length > 0) {
+      console.error(
+        `\n❌ BLOCKED RELEASE: ${offenders.length} bundle file(s) reference localhost or /api-proxy!\n` +
+        `This will cause mobile app network errors ("Unable to connect to server").\n` +
+        `Rebuild properly by running:\n` +
+        `  npm run build:capacitor\n`
+      );
+      process.exit(1);
+    }
+
+    const hasProdUrl = chunkFiles.some((f) =>
+      readFileSync(path.join(chunksDir, f), 'utf8').includes('https://obix360.com')
+    );
+    if (!hasProdUrl) {
+      console.error(
+        `\n❌ BLOCKED RELEASE: No chunks reference production URL (https://obix360.com)!\n` +
+        `Please rebuild properly by running:\n` +
+        `  npm run build:capacitor\n`
+      );
+      process.exit(1);
+    }
+    console.log(`✅ Bundle verified: Production API URL (https://obix360.com) confirmed, 0 localhost leaks.`);
   }
 
   const tempDir = mkdtempSync(path.join(tmpdir(), 'ota-release-'));
@@ -54,7 +90,7 @@ async function run() {
   const form = new FormData();
   form.append('platform', 'android');
   form.append('version', version);
-  form.append('notes', 'Mobile top bar subscription badge and user subscription sync fixes');
+  form.append('notes', 'Fix network connection on native mobile app and prevent chat drawer auto-open on order details');
   form.append('file', new Blob([zipBuffer], { type: 'application/zip' }), `${version}.zip`);
 
   console.log(`Uploading OTA release ${version} (${(zipBuffer.length / 1024 / 1024).toFixed(1)} MB) to ${API_BASE_URL}/api/app-updates ...`);
