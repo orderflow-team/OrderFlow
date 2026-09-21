@@ -69,16 +69,17 @@ type DemoStep =
   | { type: 'order_confirmed' }
   | { type: 'clients' };
 
-const DEMO_SEQUENCE: { step: DemoStep; duration: number; label: string }[] = [
-  { step: { type: 'dashboard', highlight: 'neworder' },  duration: 2200, label: 'Dashboard' },
-  { step: { type: 'orders_list' },                        duration: 1800, label: 'Orders' },
-  { step: { type: 'new_order', voicePhase: 0 },           duration: 800,  label: 'New Order' },
-  { step: { type: 'new_order', voicePhase: 1 },           duration: 1800, label: 'Voice AI' },
-  { step: { type: 'new_order', voicePhase: 2 },           duration: 2000, label: 'Items Parsed' },
-  { step: { type: 'whatsapp_sent' },                      duration: 2200, label: 'WhatsApp Sent' },
-  { step: { type: 'order_confirmed' },                    duration: 2000, label: 'Order Created' },
-  { step: { type: 'dashboard', highlight: 'clients' },    duration: 1600, label: 'Dashboard' },
-  { step: { type: 'clients' },                            duration: 2800, label: 'Customer View' },
+// tapAt: % coords relative to phone screen (left%, top%) where the tap indicator appears
+const DEMO_SEQUENCE: { step: DemoStep; duration: number; label: string; tapAt?: { x: number; y: number } }[] = [
+  { step: { type: 'dashboard', highlight: 'neworder' },  duration: 2200, label: 'Dashboard',     tapAt: { x: 88, y: 71 } },  // mic button on New Order stripe
+  { step: { type: 'orders_list' },                        duration: 1800, label: 'Orders',        tapAt: { x: 30, y: 97 } },  // Orders bottom nav tab
+  { step: { type: 'new_order', voicePhase: 0 },           duration: 800,  label: 'New Order',     tapAt: { x: 50, y: 60 } },  // mic icon center
+  { step: { type: 'new_order', voicePhase: 1 },           duration: 1800, label: 'Voice AI' },                                // no tap — AI is listening
+  { step: { type: 'new_order', voicePhase: 2 },           duration: 2000, label: 'Items Parsed',  tapAt: { x: 76, y: 88 } },  // WhatsApp Bill button
+  { step: { type: 'whatsapp_sent' },                      duration: 2200, label: 'WhatsApp Sent' },                           // no tap — toast result
+  { step: { type: 'order_confirmed' },                    duration: 2000, label: 'Order Created' },                           // no tap — showing result
+  { step: { type: 'dashboard', highlight: 'clients' },    duration: 1600, label: 'Dashboard',     tapAt: { x: 25, y: 48 } },  // CLIENTS tile
+  { step: { type: 'clients' },                            duration: 2800, label: 'Customer View' },                           // no tap — viewing profile
 ];
 
 export function ObixAppMockup({
@@ -93,7 +94,9 @@ export function ObixAppMockup({
   // ── Auto-demo state ──────────────────────────────────────────────────────
   const [demoIndex, setDemoIndex]   = useState(0);
   const [isPlaying, setIsPlaying]   = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tapVisible, setTapVisible] = useState(false);
+  const timerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentDemoEntry = DEMO_SEQUENCE[demoIndex];
   const currentStep      = currentDemoEntry.step;
@@ -126,6 +129,22 @@ export function ObixAppMockup({
     }, currentDemoEntry.duration);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [demoIndex, isPlaying, currentDemoEntry.duration]);
+
+  // Show tap indicator when step changes (if step has a tapAt target)
+  useEffect(() => {
+    const entry = DEMO_SEQUENCE[demoIndex];
+    if (!entry.tapAt) return;
+    // Small delay so the screen has rendered before showing tap
+    const showDelay = setTimeout(() => {
+      setTapVisible(true);
+      tapTimerRef.current = setTimeout(() => setTapVisible(false), 750);
+    }, 120);
+    return () => {
+      clearTimeout(showDelay);
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      setTapVisible(false);
+    };
+  }, [demoIndex]);
 
   // External mode override (from hero switcher buttons)
   useEffect(() => {
@@ -718,14 +737,70 @@ export function ObixAppMockup({
             ))}
           </div>
 
+          {/* ── Tap pointer indicator ──────────────────────────────────── */}
+          {tapVisible && DEMO_SEQUENCE[demoIndex].tapAt && (
+            <div
+              className="pointer-events-none absolute z-[60]"
+              style={{
+                left:      `${DEMO_SEQUENCE[demoIndex].tapAt!.x}%`,
+                top:       `${DEMO_SEQUENCE[demoIndex].tapAt!.y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              {/* Outer ripple ring 1 */}
+              <div
+                className="absolute rounded-full bg-blue-400/25 border border-blue-400/40"
+                style={{
+                  width: 48, height: 48,
+                  top: '50%', left: '50%',
+                  transform: 'translate(-50%,-50%)',
+                  animation: 'tapRippleOuter 0.65s ease-out forwards',
+                }}
+              />
+              {/* Inner ripple ring 2 */}
+              <div
+                className="absolute rounded-full bg-blue-500/20"
+                style={{
+                  width: 32, height: 32,
+                  top: '50%', left: '50%',
+                  transform: 'translate(-50%,-50%)',
+                  animation: 'tapRippleInner 0.65s ease-out forwards',
+                }}
+              />
+              {/* Touch dot */}
+              <div
+                className="relative w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-xl shadow-blue-600/50 flex items-center justify-center"
+                style={{ animation: 'tapDot 0.65s ease-out forwards' }}
+              >
+                {/* Glossy inner shine */}
+                <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* Waveform animation keyframes */}
+      {/* Waveform + tap animation keyframes */}
       <style>{`
         @keyframes voiceBar {
           from { transform: scaleY(0.3); }
           to   { transform: scaleY(1);   }
+        }
+        @keyframes tapDot {
+          0%   { transform: scale(1.4);  opacity: 0.6; }
+          30%  { transform: scale(0.75); opacity: 1;   }
+          60%  { transform: scale(1.1);  opacity: 0.9; }
+          100% { transform: scale(1);   opacity: 0.7; }
+        }
+        @keyframes tapRippleOuter {
+          0%   { transform: translate(-50%,-50%) scale(0.4); opacity: 0.8; }
+          100% { transform: translate(-50%,-50%) scale(1.6); opacity: 0;   }
+        }
+        @keyframes tapRippleInner {
+          0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.6; }
+          70%  { transform: translate(-50%,-50%) scale(1.2); opacity: 0.2; }
+          100% { transform: translate(-50%,-50%) scale(1.4); opacity: 0;   }
         }
       `}</style>
     </div>
