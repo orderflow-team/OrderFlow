@@ -168,6 +168,21 @@ export function LandingPage() {
   const [printAnim, setPrintAnim] = useState(false);
   const [voiceSimulating, setVoiceSimulating] = useState(false);
 
+  // ── Social proof toast state ─────────────────────────────────────────────
+  const TOASTS = [
+    { name: "Ramesh Kirana",   city: "Surat",     action: "created an order",          amount: "₹2,340",  icon: "🛒" },
+    { name: "Meena Pharmacy", city: "Ahmedabad",  action: "added medicines via OCR",   amount: "48 items", icon: "💊" },
+    { name: "Shree Cafe",     city: "Vadodara",   action: "sent a WhatsApp invoice",   amount: "₹680",    icon: "☕" },
+    { name: "Raja Wholesale", city: "Mumbai",     action: "recorded a payment",        amount: "₹14,200", icon: "💰" },
+    { name: "Sunil Medicals", city: "Pune",       action: "printed a thermal bill",    amount: "₹920",    icon: "🖨️" },
+    // { name: "Priya Boutique", city: "Jaipur",     action: "billed via Voice AI",       amount: "₹3,100",  icon: "🎤" },
+  ];
+  const [toastIndex, setToastIndex]   = useState(0);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [statsVisible, setStatsVisible] = useState(false);
+  const [statCount, setStatCount]     = useState({ counters: 0, billed: 0, rating: 0, states: 0 });
+  const statsRef = useRef<HTMLDivElement>(null);
+
   const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
   const activeStepIndex = hoveredStep ?? scrollActiveStep;
 
@@ -205,6 +220,51 @@ export function LandingPage() {
       cancelAnimationFrame(raf);
     };
   }, []);
+
+  // ── Toast cycling ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const initial = setTimeout(() => {
+      setToastVisible(true);
+      const interval = setInterval(() => {
+        setToastVisible(false);
+        setTimeout(() => {
+          setToastIndex((i) => (i + 1) % TOASTS.length);
+          setToastVisible(true);
+        }, 600);
+      }, 5000);
+      return () => clearInterval(interval);
+    }, 3000);
+    return () => clearTimeout(initial);
+  }, []);
+
+  // ── Stats count-up when bar scrolls into view ────────────────────────────
+  useEffect(() => {
+    const el = statsRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || statsVisible) return;
+        setStatsVisible(true);
+        const duration = 1800;
+        const start = Date.now();
+        const tick = () => {
+          const p = Math.min(1, (Date.now() - start) / duration);
+          const ease = 1 - Math.pow(1 - p, 3);
+          setStatCount({
+            counters: Math.round(ease * 500),
+            billed:   Math.round(ease * 12),
+            rating:   parseFloat((ease * 4.9).toFixed(1)),
+            states:   Math.round(ease * 3),
+          });
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      },
+      { threshold: 0.4 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [statsVisible]);
 
   const triggerPrintTest = () => {
     setPrintAnim(true);
@@ -535,6 +595,60 @@ export function LandingPage() {
           </div>
         </div>
       </main>
+
+      {/* ── #1 Live Stats / Trust Numbers Bar ──────────────────────────── */}
+      <div
+        ref={statsRef}
+        className="relative z-10 border-t border-b border-slate-200/80 bg-white/70 backdrop-blur-md"
+      >
+        <div className="max-w-[100rem] mx-auto px-6 sm:px-10 py-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          {[
+            {
+              value: statCount.counters > 0 ? `${statCount.counters}+` : "—",
+              label: "Active Counters",
+              sub: "across India",
+              color: "text-blue-600",
+              bg: "bg-blue-50",
+              border: "border-blue-100",
+            },
+            {
+              value: statCount.billed > 0 ? `₹${statCount.billed}Cr+` : "—",
+              label: "Total Billed",
+              sub: "on platform",
+              color: "text-emerald-600",
+              bg: "bg-emerald-50",
+              border: "border-emerald-100",
+            },
+            {
+              value: statCount.rating > 0 ? `${statCount.rating}★` : "—",
+              label: "Play Store Rating",
+              sub: "by shop owners",
+              color: "text-amber-500",
+              bg: "bg-amber-50",
+              border: "border-amber-100",
+            },
+            {
+              value: statCount.states > 0 ? `${statCount.states}` : "—",
+              label: "States Active",
+              sub: "Gujarat · Rajasthan · Maharashtra",
+              color: "text-violet-600",
+              bg: "bg-violet-50",
+              border: "border-violet-100",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className={`flex flex-col items-center gap-1 p-4 rounded-2xl border ${stat.border} ${stat.bg} transition-all duration-300`}
+            >
+              <span className={`text-3xl sm:text-4xl font-extrabold tabular-nums tracking-tight ${stat.color}`}>
+                {stat.value}
+              </span>
+              <span className="text-sm font-bold text-slate-800">{stat.label}</span>
+              <span className="text-[11px] text-slate-400 font-medium">{stat.sub}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Simple Onboarding Roadmap Section - Immediately Below Hero */}
       <section
@@ -1022,6 +1136,44 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
+      {/* ── #2a Floating Social Proof Toasts ───────────────────────────── */}
+      <div
+        className={`fixed bottom-6 left-4 sm:left-6 z-[100] transition-all duration-500 ${
+          toastVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        }`}
+      >
+        <div className="bg-white/95 backdrop-blur-xl border border-slate-200 shadow-2xl rounded-2xl p-3.5 flex items-center gap-3 max-w-[270px] sm:max-w-[300px] ring-1 ring-white/80">
+          <div className="text-2xl shrink-0 leading-none">{TOASTS[toastIndex].icon}</div>
+          <div className="min-w-0">
+            <div className="text-xs font-extrabold text-slate-900 truncate">
+              {TOASTS[toastIndex].name}
+              <span className="text-slate-400 font-medium"> · {TOASTS[toastIndex].city}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {TOASTS[toastIndex].action}
+              <span className="ml-1 font-bold text-slate-700">{TOASTS[toastIndex].amount}</span>
+            </div>
+          </div>
+          <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        </div>
+      </div>
+
+      {/* ── #2b Floating WhatsApp CTA Button ───────────────────────────── */}
+      <a
+        href="https://wa.me/919876543210?text=Hi%2C%20I%20want%20to%20try%20OBIX%20for%20my%20shop"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-4 sm:right-6 z-[100] flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20c05c] text-white font-bold text-sm px-4 py-3 rounded-full shadow-xl shadow-emerald-600/30 hover:scale-105 transition-all duration-200 group"
+        aria-label="Chat with us on WhatsApp"
+      >
+        {/* WhatsApp SVG icon */}
+        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white shrink-0" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        <span className="hidden sm:inline">Chat on WhatsApp</span>
+        {/* Tooltip on mobile */}
+        <span className="sm:hidden text-[11px]">WhatsApp</span>
+      </a>
     </div>
   );
 }
