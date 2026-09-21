@@ -28,17 +28,33 @@ import {
   X,
   Play,
   Download,
+  Mic,
+  Volume2,
+  MessageSquare,
+  Phone,
+  Mail,
+  ShieldCheck,
+  Heart,
+  ArrowUpRight,
+  ChevronRight,
+  Headphones,
+  ArrowUp,
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "./reveal";
 import { TerminalPreview } from "./terminal-preview";
 import { BentoGrid } from "./bento-grid";
 import { HardwareBar } from "./hardware-bar";
+import { PricingSection } from "./pricing-section";
 import { FaqSection } from "./faq-section";
 import { StepVisualizer } from "./step-visualizer";
 import { ContactSection } from "./contact-section";
+import { KillerFeaturesShowcase } from "./killer-features-showcase";
+import { GooglePlayButton } from "./google-play-button";
+import { ObixAppMockup } from "./obix-app-mockup";
 import { ObixMark } from "@/components/obix-logo";
 import { API_BASE_URL } from "@/lib/api-client";
+import { TrendingUp } from "lucide-react";
 
 const OrbitScene = dynamic(
   () => import("./orbit-scene").then((m) => ({ default: m.OrbitScene })),
@@ -147,8 +163,10 @@ export function LandingPage() {
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
   const [scrollActiveStep, setScrollActiveStep] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [heroView, setHeroView] = useState<"pos" | "kot">("pos");
+  const [heroActiveMode, setHeroActiveMode] = useState<"pos" | "voice" | "whatsapp">("pos");
+  const [heroView, setHeroView] = useState<"pos" | "kot" | "voice">("pos");
   const [printAnim, setPrintAnim] = useState(false);
+  const [voiceSimulating, setVoiceSimulating] = useState(false);
 
   const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
   const activeStepIndex = hoveredStep ?? scrollActiveStep;
@@ -193,6 +211,11 @@ export function LandingPage() {
     setTimeout(() => setPrintAnim(false), 2500);
   };
 
+  const triggerVoiceSimulation = () => {
+    setVoiceSimulating(true);
+    setTimeout(() => setVoiceSimulating(false), 1200);
+  };
+
   return (
     <div className="bg-slate-50 relative overflow-x-hidden">
       {/* Background Ambient Blobs — echo the logo's blue-to-emerald gradient */}
@@ -203,70 +226,66 @@ export function LandingPage() {
       </div>
 
       {/* Header Bar */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-50/85 border-b border-white/60">
-        <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-[100rem] mx-auto">
-          <Link href="/" className="flex items-center gap-2.5">
-            <ObixMark className="w-10 h-10" />
-            <span className="flex flex-col leading-none">
-              <span className="text-xl font-bold text-slate-900 tracking-tight">
-                OBIX
-              </span>
-              <span className="text-[9px] tracking-[0.15em] text-slate-500 font-semibold uppercase mt-0.5">
-                Order Billing Inventory eXperience
-              </span>
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-50/90 border-b border-slate-200/80 shadow-2xs">
+        <div className="flex items-center justify-between px-6 sm:px-10 py-3.5 max-w-[100rem] mx-auto gap-4">
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <ObixMark className="w-9 h-9" />
+            <span className="text-xl font-bold text-slate-900 tracking-tight">
+              OBIX
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8 text-sm font-semibold text-slate-600">
+          {/* Desktop Navigation - Clean, user-friendly, no wrapping */}
+          <nav className="hidden lg:flex items-center gap-5 xl:gap-7 text-sm font-semibold text-slate-600">
             <a
               href="#onboarding"
-              className="hover:text-blue-700 transition-colors"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap"
             >
               Onboarding
             </a>
             <a
               href="#terminals"
-              className="hover:text-blue-700 transition-colors"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap"
             >
               Terminals
             </a>
             <a
-              href="#features"
-              className="hover:text-blue-700 transition-colors"
+              href="#exclusive-features"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap text-slate-800 font-bold"
             >
-              Features
+              Connect &amp; AI
             </a>
             <a
               href="#hardware"
-              className="hover:text-blue-700 transition-colors"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap"
             >
               Hardware
             </a>
-            <a href="#roles" className="hover:text-blue-700 transition-colors">
-              Staff Roles
-            </a>
-            <a href="#faq" className="hover:text-blue-700 transition-colors">
-              FAQ
+            <a
+              href="#pricing"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap"
+            >
+              Pricing
             </a>
             <a
-              href="#contact"
-              className="hover:text-blue-700 transition-colors"
+              href="#faq"
+              className="hover:text-blue-600 transition-colors whitespace-nowrap"
             >
-              Contact
+              FAQ
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <GooglePlayButton size="sm" variant="dark" className="hidden 2xl:inline-flex" />
             <Link
               href="/login"
-              className="hidden sm:inline-block text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              className="hidden sm:inline-block whitespace-nowrap text-sm font-semibold text-slate-700 hover:text-slate-950 px-3.5 py-2 rounded-xl hover:bg-slate-200/50 transition-colors"
             >
               Sign in
             </Link>
             <Link
               href="/signup"
-              className={`hidden sm:inline-block whitespace-nowrap text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 px-5 py-2.5 rounded-full transition-all ring-1 ring-white/10 ${GLASS_SHEEN}`}
+              className="hidden sm:inline-flex items-center justify-center whitespace-nowrap text-sm font-bold text-white bg-blue-600 hover:bg-blue-500 px-5 py-2.5 rounded-full transition-all shadow-sm shadow-blue-600/25 hover:scale-[1.02]"
             >
               Get started free
             </Link>
@@ -275,6 +294,7 @@ export function LandingPage() {
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
               className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-200/60 cursor-pointer"
+              aria-label="Toggle Navigation Menu"
             >
               {mobileNavOpen ? (
                 <X className="w-6 h-6" />
@@ -288,6 +308,13 @@ export function LandingPage() {
         {/* Mobile Navigation Drawer */}
         {mobileNavOpen && (
           <div className="lg:hidden bg-slate-900 text-white px-6 py-6 border-b border-slate-800 space-y-4 font-semibold text-sm animate-in slide-in-from-top duration-200">
+            <a
+              href="#exclusive-features"
+              onClick={() => setMobileNavOpen(false)}
+              className="block py-2 text-emerald-400 font-bold"
+            >
+              ⚡ AI Exclusives (Voice / WhatsApp / OCR)
+            </a>
             <a
               href="#terminals"
               onClick={() => setMobileNavOpen(false)}
@@ -317,19 +344,22 @@ export function LandingPage() {
               Staff Roles
             </a>
             <a
+              href="#pricing"
+              onClick={() => setMobileNavOpen(false)}
+              className="block py-2 text-emerald-400 font-bold"
+            >
+              Pricing Plans
+            </a>
+            <a
               href="#faq"
               onClick={() => setMobileNavOpen(false)}
               className="block py-2 hover:text-blue-400"
             >
               FAQ
             </a>
-            <a
-              href="#contact"
-              onClick={() => setMobileNavOpen(false)}
-              className="block py-2 hover:text-blue-400"
-            >
-              Contact
-            </a>
+            <div className="pt-2">
+              <GooglePlayButton variant="glass" size="sm" className="w-full justify-center" />
+            </div>
             <div className="pt-4 border-t border-slate-800 flex gap-4">
               <Link
                 href="/login"
@@ -354,64 +384,101 @@ export function LandingPage() {
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 grid lg:grid-cols-12 gap-8 items-center min-h-[calc(100vh-80px)] py-12"
       >
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 to-emerald-500/15 border border-blue-500/30 text-blue-800 text-xs font-extrabold uppercase tracking-wider shadow-sm">
-            <Sparkles className="w-4 h-4 text-blue-700" /> POS &amp; Counter
-            Management Platform
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 via-emerald-500/15 to-violet-500/15 border border-emerald-500/30 text-emerald-900 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+            <span className="relative flex h-2 w-2 mr-0.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            OBIX 2.0 • AI-Powered Counter POS &amp; WhatsApp Billing
           </div>
 
-          <h1
-            style={{ fontFamily: "var(--font-fraunces)" }}
-            className="text-5xl sm:text-6xl xl:text-7xl font-medium tracking-tight text-slate-900 leading-[1.04]"
-          >
-            Orders in.
+          <h1 className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
+            <span className="whitespace-nowrap">Orders in. Stock out.</span>
             <br />
-            Stock out.
-            <br />
-            <span className="italic bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
               Paid up.
             </span>
           </h1>
 
           <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-xl">
-            One screen for the whole counter — orders, real-time inventory, GST
-            billing, and customers, kept in sync live for grocery, restaurant,
-            pharmacy, and wholesale.
+            The all-in-one counter platform engineered with Voice-to-Bill AI, instant WhatsApp order parsing, and wholesale bill OCR. Real-time inventory and GST compliance for grocery, restaurant, pharmacy, and wholesale.
           </p>
+
+          {/* Interactive Feature Switcher that dynamically drives the live mobile phone mockup */}
+          <div className="pt-1">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-500" /> Test Live Counter In Screen:
+            </p>
+            <div className="inline-flex p-1.5 rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200/90 shadow-sm gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setHeroActiveMode("pos")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  heroActiveMode === "pos"
+                    ? "bg-slate-900 text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                }`}
+              >
+                <Store className="w-3.5 h-3.5 text-blue-400" /> Counter POS
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeroActiveMode("voice")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  heroActiveMode === "voice"
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                }`}
+              >
+                <Mic className="w-3.5 h-3.5 text-amber-300 animate-pulse" /> Voice-to-Bill AI
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeroActiveMode("whatsapp")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  heroActiveMode === "whatsapp"
+                    ? "bg-emerald-600 text-white shadow-md"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-200" /> WhatsApp Bills
+              </button>
+            </div>
+          </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-4">
             <Link
               href="/signup"
-              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-blue-600/25 ${GLASS_SHEEN}`}
+              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-gradient-to-r from-blue-600 to-emerald-500 hover:from-blue-500 hover:to-emerald-400 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-blue-600/25 hover:scale-[1.02] ${GLASS_SHEEN}`}
             >
               Get started free <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
             <Link
               href="/login"
-              className="inline-flex items-center justify-center h-14 px-8 rounded-full bg-white/70 hover:bg-white/90 backdrop-blur-md text-slate-800 font-semibold text-base ring-1 ring-white/80 transition-all shadow-sm"
+              className="inline-flex items-center justify-center h-14 px-8 rounded-full bg-white/80 hover:bg-white backdrop-blur-md text-slate-800 font-semibold text-base ring-1 ring-slate-200 transition-all shadow-sm hover:scale-[1.02]"
             >
               Sign in to Counter
             </Link>
-            <a
-              href={`${API_BASE_URL}/api/app-apk-releases/download?platform=android`}
-              className={`inline-flex items-center justify-center h-14 px-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-base transition-all ring-1 ring-white/20 shadow-lg shadow-emerald-600/25 ${GLASS_SHEEN}`}
-            >
-              <Download className="mr-2 w-5 h-5" /> Download APK
-            </a>
+            <GooglePlayButton />
           </div>
 
-          <div className="pt-4 flex flex-wrap items-center gap-6 text-xs text-slate-500 font-medium border-t border-slate-200/80">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> GST
-              Compliant
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Thermal
-              Printer Ready
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Offline Cash
-              Sync
-            </span>
+          <div className="pt-4 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-700 font-semibold border-t border-slate-200/80">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/60 backdrop-blur-xs border border-slate-100 shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>100% GST Compliant</span>
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/60 backdrop-blur-xs border border-slate-100 shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Thermal 2&quot; &amp; 3&quot; ESC/POS</span>
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/60 backdrop-blur-xs border border-slate-100 shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>AI Voice &amp; WhatsApp Bills</span>
+            </div>
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-white/60 backdrop-blur-xs border border-slate-100 shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Offline Cash &amp; Cloud Sync</span>
+            </div>
           </div>
         </div>
 
@@ -427,167 +494,99 @@ export function LandingPage() {
             <OrbitScene />
           </div>
 
-          {/* Interactive Hero POS Showcase Card */}
-          <div className="relative z-10 top-1/2 -translate-y-1/2 rounded-3xl bg-slate-900/95 text-white p-6 sm:p-7 shadow-2xl border border-slate-800 backdrop-blur-xl">
-            {/* Window Controls & View Toggle */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-rose-500" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                </div>
-                <span className="text-xs font-mono font-bold text-slate-200">
-                  RADHE SUPERMARKET • COUNTER #1
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-mono">
-                <button
-                  onClick={() => setHeroView("pos")}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    heroView === "pos"
-                      ? "bg-gradient-to-r from-blue-500 to-emerald-500 text-slate-950 font-bold"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  POS Billing
-                </button>
-                <button
-                  onClick={() => setHeroView("kot")}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    heroView === "kot"
-                      ? "bg-amber-500 text-slate-950 font-bold"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  Kitchen KOT
-                </button>
-              </div>
-            </div>
-
-            {/* Dynamic Content View */}
-            {heroView === "pos" ? (
-              <div className="mt-4 space-y-3 font-mono text-xs animate-in fade-in duration-200">
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <div>
-                    <div className="text-slate-200 font-semibold">
-                      Parle-G Gold 100g
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      10 x ₹12.00 • HSN 1905
-                    </div>
-                  </div>
-                  <div className="text-emerald-400 font-bold">₹120.00</div>
-                </div>
-
-                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
-                  <div>
-                    <div className="text-slate-200 font-semibold">
-                      Amul Taaza Milk 1L Pouch
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      2 x ₹68.00 • HSN 0401
-                    </div>
-                  </div>
-                  <div className="text-emerald-400 font-bold">₹136.00</div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3 font-mono text-xs animate-in fade-in duration-200">
-                <div className="bg-amber-500/10 p-3 rounded-xl border border-amber-500/30">
-                  <div className="text-amber-400 font-bold flex justify-between border-b border-amber-500/20 pb-1 mb-1">
-                    <span>🔥 KOT #108 (Table 4)</span>
-                    <span>02:15 mins ago</span>
-                  </div>
-                  <div className="text-slate-300 text-[11px] space-y-1">
-                    <div>• 2x Paneer Butter Masala (Medium Spicy)</div>
-                    <div>• 4x Butter Garlic Naan</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Controls */}
-            <div className="mt-5 pt-3 border-t border-slate-800 flex flex-wrap justify-between items-center gap-3">
-              <div>
-                <div className="text-[11px] text-slate-400 font-mono">
-                  Total Net Amount
-                </div>
-                <div className="text-xl font-bold text-emerald-400 font-mono">
-                  ₹256.00
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={triggerPrintTest}
-                  className="px-3.5 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 hover:bg-emerald-400 transition-all cursor-pointer shadow-md shadow-emerald-500/20"
-                >
-                  <Printer className="w-3.5 h-3.5" /> Thermal Print Test
-                </button>
-              </div>
-            </div>
-
-            {/* Simulated Receipt Pop-out Animation */}
-            {printAnim && (
-              <div className="mt-3 p-3 bg-emerald-500/20 text-emerald-300 rounded-xl text-xs font-mono border border-emerald-500/40 flex items-center gap-2 animate-in slide-in-from-top duration-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  Printing 2-inch ESC/POS thermal receipt to local printer...
-                </span>
-              </div>
-            )}
+          {/* Authentic Obix App Frame Replicating Real Mobile & Tablet UI */}
+          <div className="relative z-10 top-1/2 -translate-y-1/2 flex items-center justify-center">
+            <ObixAppMockup
+              defaultScreen="dashboard"
+              externalMode={heroActiveMode}
+              onModeChange={setHeroActiveMode}
+            />
           </div>
 
-          {/* Floating Live Badges */}
-          <div className="absolute top-6 -left-4 z-20 bg-slate-900/95 backdrop-blur-xl p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 text-xs font-semibold text-white flex items-center gap-3 animate-bounce duration-[3000ms] ring-1 ring-white/10">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-              <Zap className="w-4 h-4" />
+          {/* Floating Authentic Live Status Badges */}
+          <div className="hidden sm:flex absolute top-12 -left-2 sm:-left-6 z-20 bg-white/95 backdrop-blur-xl p-3.5 rounded-2xl shadow-xl border border-slate-200/90 text-xs font-semibold text-slate-800 items-center gap-3 ring-1 ring-white/80 hover:scale-105 transition-all">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+              <Receipt className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-slate-100 font-bold">KOT #108 Fired</div>
-              <div className="text-[10px] text-slate-400 font-normal">
-                Table 4 Kitchen Display Synced
+              <div className="text-slate-900 font-bold flex items-center gap-1.5">
+                <span>Order #ORD-1060</span>
+                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">Confirmed</span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-normal">
+                Pravinbhai • ₹188.40 (3 items)
               </div>
             </div>
           </div>
 
-          <div className="absolute -bottom-2 right-4 z-20 bg-slate-900/95 backdrop-blur-xl p-3.5 rounded-2xl shadow-2xl border border-slate-700/80 text-xs font-semibold text-white flex items-center gap-3 ring-1 ring-white/10">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <CheckCircle2 className="w-4 h-4" />
+          <div className="hidden sm:flex absolute -bottom-4 right-0 sm:-right-4 z-20 bg-white/95 backdrop-blur-xl p-3.5 rounded-2xl shadow-xl border border-slate-200/90 text-xs font-semibold text-slate-800 items-center gap-3 ring-1 ring-white/80 hover:scale-105 transition-all">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+              <TrendingUp className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-slate-100 font-bold">WhatsApp GST Bill</div>
-              <div className="text-[10px] text-slate-400 font-normal">
-                Sent to +91 98200XXXXX
+              <div className="text-slate-900 font-bold flex items-center gap-1.5">
+                <span>Stock Balance</span>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Optimal</span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-normal">
+                1,240 In Stock • 18 Low Stock
               </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Onboarding Roadmap Section */}
+      {/* Simple Onboarding Roadmap Section - Immediately Below Hero */}
       <section
         id="onboarding"
-        className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80"
+        className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-20 sm:py-24 border-t border-slate-200/80 bg-gradient-to-b from-slate-50/40 via-white to-transparent"
       >
         <Reveal>
-          <p className="text-xs font-bold tracking-[0.2em] text-blue-700 uppercase mb-3">
-            Simple Onboarding
-          </p>
-          <h2
-            style={{ fontFamily: "var(--font-fraunces)" }}
-            className="text-4xl font-medium text-slate-900 max-w-2xl"
-          >
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider mb-3 shadow-2xs">
+            <UserPlus className="w-3.5 h-3.5" /> Simple Onboarding • Ready in 2 Minutes
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950 max-w-2xl">
             From sign-up to your first sale.
           </h2>
-          <p className="mt-4 text-lg text-slate-600 max-w-xl">
-            This is the actual order things happen in — just what the next 10
-            minutes look like.
+          <p className="mt-3 text-base sm:text-lg text-slate-600 max-w-2xl">
+            Zero complicated setup. This is the exact order things happen — just what the next 10 minutes look like.
           </p>
+
+          {/* Quick 3-Step Express Boarding Strip */}
+          <div className="mt-8 mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-blue-100 shadow-sm flex items-start gap-3.5 hover:border-blue-300 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-blue-500/20">
+                1
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 text-sm">30-Second Instant Sign Up</div>
+                <p className="text-xs text-slate-500 mt-0.5">Mobile OTP or Google account. No credit card, no hardware purchase required.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-purple-100 shadow-sm flex items-start gap-3.5 hover:border-purple-300 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-purple-500/20">
+                2
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 text-sm">Pick Your Counter Type</div>
+                <p className="text-xs text-slate-500 mt-0.5">Kirana, Restaurant KOT, Pharmacy Rx, or Wholesale with auto-loaded catalogs.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-emerald-100 shadow-sm flex items-start gap-3.5 hover:border-emerald-300 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-emerald-500/20">
+                3
+              </div>
+              <div>
+                <div className="font-bold text-slate-900 text-sm">Ring 1st Bill &amp; Print ESC/POS</div>
+                <p className="text-xs text-slate-500 mt-0.5">1-click thermal receipt or WhatsApp invoice sent directly to customer phone.</p>
+              </div>
+            </div>
+          </div>
         </Reveal>
 
-        <div className="mt-14 grid lg:grid-cols-12 gap-8 items-start">
+        <div className="mt-8 grid lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 relative">
             <div
               className="absolute left-6 top-2 bottom-2 w-px bg-slate-200"
@@ -656,25 +655,27 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Killer Differentiators Exclusive to OBIX */}
+      <KillerFeaturesShowcase />
+
       {/* Terminal Showcase Section */}
       <section
         id="terminals"
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80"
       >
         <Reveal>
-          <div className="max-w-2xl mb-12">
-            <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">
-              Counter By Industry
-            </p>
-            <h2
-              style={{ fontFamily: "var(--font-fraunces)" }}
-              className="text-4xl font-medium text-slate-900"
-            >
-              Built for how your shop counter actually runs.
+          <div className="max-w-3xl mb-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider mb-4 shadow-2xs">
+              <Store className="w-3.5 h-3.5" /> Counter By Industry • Specialized POS Modes
+            </div>
+            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-950 leading-[1.12]">
+              Built for how your shop counter{" "}
+              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
+                actually runs.
+              </span>
             </h2>
-            <p className="mt-4 text-lg text-slate-600">
-              Select your business type below to test the live interactive
-              counter layout.
+            <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
+              Kirana barcode rush, restaurant kitchen KOTs, pharmacy batch expiry tracking, wholesale tiered credit, or field salesman van delivery — select your business type below to test the live interactive counter layout.
             </p>
           </div>
         </Reveal>
@@ -694,10 +695,7 @@ export function LandingPage() {
             <p className="text-xs font-bold tracking-[0.2em] text-blue-700 uppercase mb-3">
               Core Capabilities
             </p>
-            <h2
-              style={{ fontFamily: "var(--font-fraunces)" }}
-              className="text-4xl font-medium text-slate-900"
-            >
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
               Everything in one app. Zero guesswork.
             </h2>
           </div>
@@ -727,10 +725,7 @@ export function LandingPage() {
           <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">
             Scoped Role Security
           </p>
-          <h2
-            style={{ fontFamily: "var(--font-fraunces)" }}
-            className="text-4xl font-medium text-slate-900 max-w-2xl"
-          >
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950 max-w-2xl">
             Give the right person the right screen.
           </h2>
           <p className="mt-4 text-lg text-slate-600 max-w-2xl">
@@ -762,6 +757,16 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section
+        id="pricing"
+        className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80"
+      >
+        <Reveal>
+          <PricingSection />
+        </Reveal>
+      </section>
+
       {/* FAQ Section */}
       <section
         id="faq"
@@ -780,12 +785,9 @@ export function LandingPage() {
           >
             <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl" />
             <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl" />
-            <h2
-              style={{ fontFamily: "var(--font-fraunces)" }}
-              className="text-4xl sm:text-5xl font-medium text-white relative z-10"
-            >
+            <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white relative z-10">
               Run your shop from{" "}
-              <span className="italic bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
                 one screen
               </span>
               , starting today.
@@ -794,7 +796,7 @@ export function LandingPage() {
               Join hundreds of retail counters, cafes, pharmacies, and
               distributors streamlining their daily operations.
             </p>
-            <div className="mt-9 flex items-center justify-center gap-4 relative z-10">
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4 relative z-10">
               <Link
                 href="/signup"
                 className="inline-flex items-center justify-center h-14 px-8 rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-400 hover:to-emerald-400 text-slate-950 font-bold text-base transition-colors shadow-lg shadow-blue-500/25"
@@ -807,6 +809,7 @@ export function LandingPage() {
               >
                 Sign in
               </Link>
+              <GooglePlayButton variant="dark" />
             </div>
           </div>
         </Reveal>
@@ -823,46 +826,199 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-200 py-10 bg-slate-100/60">
-        <div className="max-w-[100rem] mx-auto px-6 sm:px-10 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-500">
-          <div className="flex items-center gap-3">
-            <ObixMark className="w-7 h-7" />
-            <span className="flex flex-col leading-none">
-              <span className="font-bold text-slate-700 text-sm">OBIX</span>
-              <span className="text-[8px] tracking-[0.1em] text-slate-400 font-semibold uppercase mt-0.5">
-                Order Billing Inventory eXperience
-              </span>
-            </span>
-            <span>
-              &copy; {new Date().getFullYear()} OBIX. All rights reserved.
-            </span>
+      <footer className="relative z-10 border-t border-slate-800 bg-slate-900 text-slate-400 py-16 sm:py-20">
+        <div className="max-w-[100rem] mx-auto px-6 sm:px-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-10 lg:gap-12 pb-14 border-b border-slate-800">
+            {/* Col 1: Brand (Span 2) */}
+            <div className="col-span-2 space-y-4">
+              <div className="flex items-center gap-3">
+                <ObixMark className="w-8 h-8 text-white" />
+                <span className="font-bold text-lg text-white tracking-tight">OBIX 360</span>
+              </div>
+              <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
+                All-in-one order billing, inventory management, and POS platform for modern Indian retail, restaurants, pharmacies, and wholesale distributors.
+              </p>
+              <div className="pt-2">
+                <GooglePlayButton size="sm" variant="dark" />
+              </div>
+            </div>
+
+            {/* Col 2: Terminals */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                Terminals
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href="#terminals" className="hover:text-white transition-colors">
+                    Grocery &amp; Kirana
+                  </a>
+                </li>
+                <li>
+                  <a href="#terminals" className="hover:text-white transition-colors">
+                    Restaurant &amp; Cafe
+                  </a>
+                </li>
+                <li>
+                  <a href="#terminals" className="hover:text-white transition-colors">
+                    Pharmacy &amp; Chemist
+                  </a>
+                </li>
+                <li>
+                  <a href="#terminals" className="hover:text-white transition-colors">
+                    Wholesale B2B
+                  </a>
+                </li>
+                <li>
+                  <Link href="/salesman" className="hover:text-white transition-colors">
+                    Field Salesman
+                  </Link>
+                </li>
+                <li>
+                  <a href="#terminals" className="hover:text-white transition-colors">
+                    Garments &amp; Apparel
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 3: Features */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                Features
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    OBIX Connect
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    Voice-to-Bill
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    WhatsApp Invoicing
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    Distributor Bill OCR
+                  </a>
+                </li>
+                <li>
+                  <a href="#hardware" className="hover:text-white transition-colors">
+                    ESC/POS Thermal Print
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-white transition-colors">
+                    Offline Mesh Sync
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 4: Platform */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                Platform
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <Link href="/login" className="hover:text-white transition-colors">
+                    Web Terminal
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/signup" className="hover:text-white transition-colors">
+                    Create Free Account
+                  </Link>
+                </li>
+                <li>
+                  <a href="#pricing" className="hover:text-white transition-colors">
+                    Pricing Plans
+                  </a>
+                </li>
+                <li>
+                  <a href="#hardware" className="hover:text-white transition-colors">
+                    Hardware Ecosystem
+                  </a>
+                </li>
+                <li>
+                  <a href="#roles" className="hover:text-white transition-colors">
+                    Staff Roles (RBAC)
+                  </a>
+                </li>
+                <li>
+                  <a href="#faq" className="hover:text-white transition-colors">
+                    Hardware &amp; FAQ
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Col 5: Company & Legal */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                Support &amp; Legal
+              </h4>
+              <ul className="space-y-2.5 text-sm">
+                <li>
+                  <a href="#contact" className="hover:text-white transition-colors">
+                    Contact &amp; Helpdesk
+                  </a>
+                </li>
+                <li>
+                  <Link href="/privacy-policy" className="hover:text-white transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="hover:text-white transition-colors">
+                    Data Sovereign Policy
+                  </Link>
+                </li>
+                <li>
+                  <a href="#contact" className="hover:text-white transition-colors">
+                    Terms of Service
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:support@obix360.com" className="hover:text-white transition-colors">
+                    support@obix360.com
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 font-semibold">
-            <a href="#terminals" className="hover:text-slate-900">
-              Terminals
-            </a>
-            <a href="#features" className="hover:text-slate-900">
-              Features
-            </a>
-            <a href="#hardware" className="hover:text-slate-900">
-              Hardware
-            </a>
-            <a href="#roles" className="hover:text-slate-900">
-              Roles
-            </a>
-            <a href="#faq" className="hover:text-slate-900">
-              FAQ
-            </a>
-            <a href="#contact" className="hover:text-slate-900">
-              Contact
-            </a>
-            <Link href="/login" className="hover:text-slate-900">
-              Sign in
-            </Link>
-            <Link href="/signup" className="text-blue-700 hover:underline">
-              Get Started
-            </Link>
+          {/* Bottom Bar */}
+          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div>
+              &copy; {new Date().getFullYear()} OBIX 360 Technologies Pvt Ltd. All rights reserved.
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6 font-medium">
+              <Link href="/privacy-policy" className="hover:text-slate-300 transition-colors">
+                Privacy
+              </Link>
+              <a href="#contact" className="hover:text-slate-300 transition-colors">
+                Terms
+              </a>
+              <a href="#contact" className="hover:text-slate-300 transition-colors">
+                Security
+              </a>
+              <button
+                type="button"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="hover:text-slate-300 transition-colors cursor-pointer"
+              >
+                Back to top ↑
+              </button>
+            </div>
           </div>
         </div>
       </footer>

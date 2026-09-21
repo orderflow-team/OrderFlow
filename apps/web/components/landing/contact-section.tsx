@@ -60,7 +60,7 @@ export function ContactSection() {
     <div className="grid lg:grid-cols-12 gap-8 items-start">
       <div className="lg:col-span-5">
         <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">Get In Touch</p>
-        <h2 style={{ fontFamily: 'var(--font-fraunces)' }} className="text-4xl font-medium text-slate-900 max-w-md">
+        <h2 className="text-4xl font-extrabold tracking-tight text-slate-950 max-w-md">
           Questions before you sign up?
         </h2>
         <p className="mt-4 text-lg text-slate-600 max-w-md">
