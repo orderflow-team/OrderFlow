@@ -1160,7 +1160,7 @@ export function LandingPage() {
 
       {/* ── #2b Floating WhatsApp CTA Button ───────────────────────────── */}
       <a
-        href="https://wa.me/919876543210?text=Hi%2C%20I%20want%20to%20try%20OBIX%20for%20my%20shop"
+        href="https://wa.me/918000702299?text=Hi%2C%20I%20want%20to%20try%20OBIX%20for%20my%20shop"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-4 sm:right-6 z-[100] flex items-center gap-2.5 bg-[#25D366] hover:bg-[#20c05c] text-white font-bold text-sm px-4 py-3 rounded-full shadow-xl shadow-emerald-600/30 hover:scale-105 transition-all duration-200 group"
