@@ -119,11 +119,11 @@ export default function AdminReleasesPage() {
       if (uploadType === 'ota') {
         formData.append('version', version);
         formData.append('notes', notes);
-        await apiClient.post('/api/app-updates', formData);
+        await apiClient.post('/api/app-updates', formData, { timeout: 300000 });
       } else {
         formData.append('versionName', version);
         formData.append('notes', notes);
-        await apiClient.post('/api/app-apk-releases', formData);
+        await apiClient.post('/api/app-apk-releases', formData, { timeout: 300000 });
       }
       setUploadModalOpen(false);
       setSelectedFile(null);
