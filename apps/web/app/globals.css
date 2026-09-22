@@ -185,6 +185,7 @@
     text-rendering: optimizeLegibility;
     font-optical-sizing: auto;
     scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
   }
   h1,
   h2,
@@ -205,15 +206,20 @@
     letter-spacing: -0.006em;
   }
 
-  /* Remove the grey tap-highlight flash on mobile and eliminate the 300 ms
-     click-delay that some mobile browsers still apply to interactive elements.
-     This makes every button, link and tappable label feel instant on touch. */
+  /* Ultra-snappy, tactile micro-interactions with Apple/Stripe-grade spring curve */
   a,
   button,
   label,
   [role="button"] {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  button:active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.98);
   }
 
   /* Prevent green/accent focus rings or tap-highlight boxes on dialog popups & tour cards */

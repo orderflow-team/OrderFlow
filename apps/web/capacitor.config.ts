@@ -4,6 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.obix.app',
   appName: 'OBIX',
   webDir: 'app-export',
+  server: {
+    url: 'http://192.168.29.237:3000',
+    cleartext: true,
+  },
   plugins: {
     // We check our own self-hosted /api/app-updates/latest endpoint manually
     // (see lib/ota-updater.ts) instead of the plugin's built-in auto-update,

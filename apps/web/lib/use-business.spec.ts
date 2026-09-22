@@ -5,7 +5,8 @@ const pushMock = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: pushMock }) }));
 
 const apiPostMock = vi.fn();
-vi.mock('@/lib/api-client', () => ({ default: { post: (...args: any[]) => apiPostMock(...args) } }));
+vi.mock('./api-client', () => ({ default: { post: (...args: any[]) => apiPostMock(...args) }, apiClient: { post: (...args: any[]) => apiPostMock(...args) } }));
+vi.mock('@/lib/api-client', () => ({ default: { post: (...args: any[]) => apiPostMock(...args) }, apiClient: { post: (...args: any[]) => apiPostMock(...args) } }));
 
 import { useBusiness } from './use-business';
 

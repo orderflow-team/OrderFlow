@@ -19,6 +19,7 @@
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@capacitor-community/file-opener": "^8.0.1",
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-mlkit/barcode-scanning": "^8.1.0",
     "@capacitor/android": "^8.5.0",
     "@capacitor/core": "^8.5.0",
@@ -37,6 +38,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "fuse.js": "^7.5.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
     "idb": "^8.0.3",

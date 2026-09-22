@@ -5,7 +5,9 @@ import {
   Inject,
   Optional,
   forwardRef,
+  Logger,
 } from "@nestjs/common";
+import * as fs from "fs";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   Repository,
@@ -42,6 +44,7 @@ import {
 } from "./dto/create-order.dto";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { InvoicesService } from "../billing/invoices.service";
+import { PdfService, invoiceFilenameStem } from "../billing/pdf.service";
 import { EvolutionApiService } from "../whatsapp/evolution-api.service";
 import { findOrCreateProductByName } from "../../common/utils/find-or-create-product.util";
 import {
@@ -54,6 +57,8 @@ const TABLE_SESSION_PLACEHOLDER_ITEM = "table session started";
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order) private ordersRepository: Repository<Order>,
     @InjectRepository(OrderItem)
@@ -67,6 +72,7 @@ export class OrdersService {
     private dataSource: DataSource,
     private invoicesService: InvoicesService,
     private evolutionApiService: EvolutionApiService,
+    @Optional() private pdfService?: PdfService,
   ) {}
 
   /**
@@ -304,7 +310,7 @@ export class OrdersService {
       }
     }
     try {
-      return await this.dataSource.transaction(async (manager) => {
+      const result = await this.dataSource.transaction(async (manager) => {
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
         const business = await manager.findOne(Business, {
           where: { id: dto.businessId },
@@ -533,6 +539,13 @@ export class OrdersService {
           }),
         };
       });
+
+      // Auto-dispatch official invoice PDF via WhatsApp from the business's connected instance
+      this.dispatchWhatsappInvoice(result, dto.businessId, dto.phone).catch((err) => {
+        this.logger.warn(`Failed in WhatsApp invoice auto-dispatch: ${err?.message}`);
+      });
+
+      return result;
     } catch (error) {
       // A delivery retry can overlap the original request after the client
       // loses its response. The database's unique index is the race-safe
@@ -559,6 +572,76 @@ export class OrdersService {
         }
       }
       throw error;
+    }
+  }
+
+  /**
+   * Automatically creates an official invoice, generates the PDF, and sends it directly
+   * to the customer's WhatsApp number via Evolution API (from the business's connected WhatsApp).
+   */
+  async dispatchWhatsappInvoice(order: any, businessId: string, rawPhone?: string) {
+    try {
+      let phone = rawPhone;
+      if (!phone && order.customer_id) {
+        const customer = await this.dataSource.getRepository(Customer).findOne({
+          where: { id: order.customer_id },
+        });
+        phone = customer?.phone;
+      }
+
+      if (!phone) {
+        return;
+      }
+
+      const business = await this.dataSource.getRepository(Business).findOne({
+        where: { id: businessId },
+      });
+
+      if (!business || !business.whatsapp_connected || !business.whatsapp_instance_name) {
+        return;
+      }
+
+      // Ensure an invoice entity exists for this order
+      let invoice = await this.dataSource.getRepository(Invoice).findOne({
+        where: { order_id: order.id, type: "invoice" },
+      });
+      if (!invoice) {
+        try {
+          invoice = await this.invoicesService.generateFromOrder(order.id, businessId);
+        } catch (genErr: any) {
+          invoice = await this.dataSource.getRepository(Invoice).findOne({
+            where: { order_id: order.id, type: "invoice" },
+          });
+        }
+      }
+
+      if (!invoice || !this.pdfService) {
+        return;
+      }
+
+      const filePath = await this.pdfService.getOrGeneratePdf(invoice.id, businessId);
+      if (!fs.existsSync(filePath)) {
+        this.logger.warn(`PDF file not found at ${filePath} for WhatsApp dispatch`);
+        return;
+      }
+
+      const pdfBase64 = fs.readFileSync(filePath).toString("base64");
+      const fileName = `${invoiceFilenameStem(invoice.invoice_number)}.pdf`;
+      const businessName = business.name || "Store";
+      const totalFormatted = Number(order.total_amount || invoice.total_amount || 0).toFixed(2);
+
+      const caption = `📄 *Invoice ${invoice.invoice_number}*\n\nThank you for shopping with *${businessName}*!\n💰 *Total Amount:* ₹${totalFormatted}\n\nYour official tax invoice PDF is attached below. Have a great day!`;
+
+      await this.evolutionApiService.sendMediaDocument(
+        business.whatsapp_instance_name,
+        phone,
+        pdfBase64,
+        fileName,
+        caption,
+      );
+      this.logger.log(`WhatsApp invoice PDF dispatched to ${phone} for order ${order.id}`);
+    } catch (err: any) {
+      this.logger.warn(`Failed to auto-dispatch WhatsApp invoice for order ${order?.id}: ${err?.message}`);
     }
   }
 

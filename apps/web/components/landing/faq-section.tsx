@@ -52,13 +52,6 @@ export function FaqSection() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="text-center">
-        <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">Clear Answers</p>
-        <h2 className="text-3xl sm:text-4xl font-medium text-slate-900 tracking-tight">
-          Everything you need to know before getting started.
-        </h2>
-      </div>
-
       {/* Search Input & Category Filter */}
       <div className="space-y-4">
         <div className="relative">
@@ -107,27 +100,36 @@ export function FaqSection() {
             return (
               <div
                 key={faq.question}
-                className="rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm overflow-hidden transition-all"
+                className={`rounded-2xl bg-white/70 backdrop-blur-xl border transition-all duration-200 overflow-hidden ${
+                  isOpen ? 'border-emerald-300 shadow-md ring-1 ring-emerald-200/50' : 'border-white/80 shadow-sm hover:border-slate-300'
+                }`}
               >
                 <button
+                  type="button"
                   onClick={() => setOpenIdx(isOpen ? null : idx)}
                   className="w-full p-6 text-left flex items-center justify-between gap-4 font-semibold text-slate-900 text-base sm:text-lg hover:text-emerald-700 transition-colors cursor-pointer"
                 >
                   <span className="flex items-center gap-3">
-                    <HelpCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <HelpCircle className={`w-5 h-5 shrink-0 transition-colors ${isOpen ? 'text-emerald-600' : 'text-slate-400'}`} />
                     {faq.question}
                   </span>
                   <ChevronDown
-                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                       isOpen ? 'rotate-180 text-emerald-600' : ''
                     }`}
                   />
                 </button>
-                {isOpen && (
-                  <div className="px-6 pb-6 pt-0 text-slate-600 text-sm leading-relaxed border-t border-slate-100/80 animate-in fade-in duration-200">
-                    {faq.answer}
+                <div
+                  className={`grid transition-[grid-template-rows,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                    isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-6 pb-6 pt-0 text-slate-600 text-sm leading-relaxed border-t border-slate-100/80">
+                      {faq.answer}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })

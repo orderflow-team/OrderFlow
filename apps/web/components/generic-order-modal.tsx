@@ -8,7 +8,7 @@ import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
-import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp, Camera, Grid2x2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp, Camera, Grid2x2, X } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
 import { CameraScannerView } from '@/components/camera-scanner-view';
@@ -18,6 +18,8 @@ import { vibrateScanSuccess } from '@/lib/haptics';
 import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
+import { VoiceOrderMicButton } from '@/components/voice-order-mic-button';
+import { type ParsedVoiceItem } from '@/lib/use-voice-order';
 
 interface Product {
   id: string;
@@ -56,13 +58,14 @@ export interface Customer {
 interface GenericOrderModalProps {
   businessId: string;
   isOpen: boolean;
+  autoStartVoice?: boolean;
   customers: Customer[];
   onClose: () => void;
   onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string) => Promise<void>;
   onCustomerCreated?: (customer: Customer) => void;
 }
 
-export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
+export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
   // A salesman's job is just to record what the customer wants — pricing is
   // the owner's concern, so price stays read-only (and unit-price management
@@ -394,6 +397,14 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
     });
   };
 
+  const handleVoiceItemsMatched = (items: ParsedVoiceItem[]) => {
+    items.forEach(({ product, quantity }) => {
+      const fullProd = products.find(p => p.id === product.id) || (product as Product);
+      const currentQty = cart[fullProd.id]?.quantity || 0;
+      setCartQuantity(fullProd, currentQty + quantity);
+    });
+  };
+
   const updateCartName = (productId: string, newName: string) => {
     setCart(prev => {
       const newCart = { ...prev };
@@ -639,7 +650,7 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="barcode-scanner-modal sm:max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
+      <DialogContent showCloseButton={false} className="barcode-scanner-modal sm:max-w-5xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col bg-transparent overflow-hidden rounded-3xl border-none shadow-none ring-0">
 
         {/* Barcode scan feedback (fixed overlay — no layout impact) */}
         {scanToast && (
@@ -664,6 +675,14 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                 {isHeaderCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
             </DialogTitle>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Collapsible Customer Fields Container */}
@@ -708,6 +727,13 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
                   </datalist>
                 </div>
               </div>
+
+              {phone && phone.replace(/\D/g, '').length === 10 && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 text-xs font-medium animate-in fade-in duration-150">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                  <span>Invoice PDF will be sent to customer's WhatsApp (+91 {phone.replace(/\D/g, '')})</span>
+                </div>
+              )}
 
               {isPharmacy && (
                 <div>
@@ -894,14 +920,21 @@ export function GenericOrderModal({ businessId, isOpen, customers, onClose, onSu
             />
           </div>
 
-          <div className="shrink-0 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input
-              ref={searchInputRef}
-              className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
-              placeholder={isPharmacy ? 'Search medicines...' : 'Search products...'}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                ref={searchInputRef}
+                className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
+                placeholder={isPharmacy ? 'Search medicines or speak...' : 'Search products or speak...'}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <VoiceOrderMicButton
+              catalog={products}
+              onItemsMatched={handleVoiceItemsMatched}
+              autoStart={autoStartVoice}
             />
           </div>
 

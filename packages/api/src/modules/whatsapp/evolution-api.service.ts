@@ -210,6 +210,43 @@ export class EvolutionApiService {
     return null;
   }
 
+  /** Sends an invoice document (PDF) directly to a customer's WhatsApp number. */
+  async sendMediaDocument(
+    instanceName: string,
+    number: string,
+    base64Data: string,
+    fileName: string,
+    caption?: string,
+  ) {
+    const formattedNumber = number.replace(/\D/g, '');
+    const cleanNumber = formattedNumber.length === 10 ? `91${formattedNumber}` : formattedNumber;
+    const payload = {
+      number: cleanNumber,
+      mediatype: 'document',
+      mimetype: 'application/pdf',
+      caption: caption || `Invoice ${fileName}`,
+      media: base64Data,
+      fileName: fileName,
+      options: {
+        delay: 1200,
+        presence: 'composing',
+      },
+    };
+
+    for (const url of this.candidateUrls) {
+      try {
+        const res = await axios.post(`${url}/message/sendMedia/${instanceName}`, payload, this.axiosConfig);
+        this.workingUrl = url;
+        this.logger.log(`Sent WhatsApp PDF document ${fileName} via ${instanceName} to ${cleanNumber}`);
+        return res.data;
+      } catch (err: any) {
+        // Try next url
+      }
+    }
+    this.logger.error(`Failed to send WhatsApp PDF document via ${instanceName} to ${number}`);
+    return null;
+  }
+
   /** Logs out and deletes an instance connection. */
   async logoutInstance(instanceName: string) {
     for (const url of this.candidateUrls) {

@@ -729,6 +729,17 @@ function RestaurantPageContent() {
             </div>
           )}
         </div>
+
+        {/* Floating + button on bottom left for New Order */}
+        <button
+          type="button"
+          onClick={() => setView('choice')}
+          className="fixed bottom-20 left-4 md:bottom-8 md:left-72 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 hover:brightness-105 active:scale-95 text-white shadow-[0_12px_28px_rgba(79,70,229,0.55),0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all ring-4 ring-white"
+          aria-label="New Order"
+          title="New Order"
+        >
+          <Plus className="w-8 h-8 text-white drop-shadow-sm" strokeWidth={2.75} />
+        </button>
       </AppShell>
     );
   }
@@ -877,6 +888,17 @@ function RestaurantPageContent() {
           </div>
         )}
       </div>
+
+      {/* Floating + button on bottom left for New Order */}
+      <button
+        type="button"
+        onClick={() => setView('choice')}
+        className="fixed bottom-20 left-4 md:bottom-8 md:left-72 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 hover:brightness-105 active:scale-95 text-white shadow-[0_12px_28px_rgba(79,70,229,0.55),0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all ring-4 ring-white"
+        aria-label="New Order"
+        title="New Order"
+      >
+        <Plus className="w-8 h-8 text-white drop-shadow-sm" strokeWidth={2.75} />
+      </button>
     </AppShell>
 
     {/* Table QR Code Modal */}

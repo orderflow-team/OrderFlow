@@ -87,6 +87,17 @@ export class OrdersController {
     return this.ordersService.create(dto, req.user?.userId);
   }
 
+  @Post(':id/send-whatsapp-invoice')
+  async sendWhatsappInvoice(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Body('phone') rawPhone?: string,
+  ) {
+    const order = await this.ordersService.findOne(id, businessId);
+    await this.ordersService.dispatchWhatsappInvoice(order, businessId, rawPhone);
+    return { success: true, message: 'Invoice PDF dispatched to WhatsApp' };
+  }
+
   @Get()
   async findAll(
     @Req() req: Request & { user?: { businessId?: string } },

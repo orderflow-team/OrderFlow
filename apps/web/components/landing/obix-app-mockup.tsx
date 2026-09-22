@@ -71,15 +71,15 @@ type DemoStep =
 
 // tapAt: % coords relative to phone screen (left%, top%) where the tap indicator appears
 const DEMO_SEQUENCE: { step: DemoStep; duration: number; label: string; tapAt?: { x: number; y: number } }[] = [
-  { step: { type: 'dashboard', highlight: 'neworder' },  duration: 2200, label: 'Dashboard',     tapAt: { x: 88, y: 71 } },  // mic button on New Order stripe
-  { step: { type: 'orders_list' },                        duration: 1800, label: 'Orders',        tapAt: { x: 30, y: 97 } },  // Orders bottom nav tab
-  { step: { type: 'new_order', voicePhase: 0 },           duration: 800,  label: 'New Order',     tapAt: { x: 50, y: 60 } },  // mic icon center
-  { step: { type: 'new_order', voicePhase: 1 },           duration: 1800, label: 'Voice AI' },                                // no tap — AI is listening
-  { step: { type: 'new_order', voicePhase: 2 },           duration: 2000, label: 'Items Parsed',  tapAt: { x: 76, y: 88 } },  // WhatsApp Bill button
-  { step: { type: 'whatsapp_sent' },                      duration: 2200, label: 'WhatsApp Sent' },                           // no tap — toast result
-  { step: { type: 'order_confirmed' },                    duration: 2000, label: 'Order Created' },                           // no tap — showing result
-  { step: { type: 'dashboard', highlight: 'clients' },    duration: 1600, label: 'Dashboard',     tapAt: { x: 25, y: 48 } },  // CLIENTS tile
-  { step: { type: 'clients' },                            duration: 2800, label: 'Customer View' },                           // no tap — viewing profile
+  { step: { type: 'dashboard', highlight: 'neworder' },  duration: 3200, label: 'Dashboard',     tapAt: { x: 88, y: 71 } },  // mic button on New Order stripe
+  { step: { type: 'orders_list' },                        duration: 3000, label: 'Orders',        tapAt: { x: 30, y: 97 } },  // Orders bottom nav tab
+  { step: { type: 'new_order', voicePhase: 0 },           duration: 1600, label: 'New Order',     tapAt: { x: 50, y: 60 } },  // mic icon center
+  { step: { type: 'new_order', voicePhase: 1 },           duration: 3200, label: 'Voice AI' },                                // no tap — AI is listening
+  { step: { type: 'new_order', voicePhase: 2 },           duration: 3500, label: 'Items Parsed',  tapAt: { x: 76, y: 88 } },  // WhatsApp Bill button
+  { step: { type: 'whatsapp_sent' },                      duration: 3500, label: 'WhatsApp Sent' },                           // no tap — toast result
+  { step: { type: 'order_confirmed' },                    duration: 3200, label: 'Order Created' },                           // no tap — showing result
+  { step: { type: 'dashboard', highlight: 'clients' },    duration: 2800, label: 'Dashboard',     tapAt: { x: 25, y: 48 } },  // CLIENTS tile
+  { step: { type: 'clients' },                            duration: 4200, label: 'Customer View' },                           // no tap — viewing profile
 ];
 
 export function ObixAppMockup({
@@ -134,11 +134,11 @@ export function ObixAppMockup({
   useEffect(() => {
     const entry = DEMO_SEQUENCE[demoIndex];
     if (!entry.tapAt) return;
-    // Small delay so the screen has rendered before showing tap
+    // Delay so screen has fully rendered before showing tap
     const showDelay = setTimeout(() => {
       setTapVisible(true);
-      tapTimerRef.current = setTimeout(() => setTapVisible(false), 750);
-    }, 120);
+      tapTimerRef.current = setTimeout(() => setTapVisible(false), 1100);
+    }, 300);
     return () => {
       clearTimeout(showDelay);
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
@@ -268,7 +268,7 @@ export function ObixAppMockup({
 
           {/* WhatsApp Toast */}
           {invoiceDispatched && (
-            <div className="absolute top-24 inset-x-3 z-50 bg-emerald-950/95 text-white p-3 rounded-2xl shadow-xl border border-emerald-500/40 backdrop-blur-xl animate-in slide-in-from-top duration-300">
+            <div className="absolute top-24 inset-x-3 z-50 bg-emerald-950/95 text-white p-3 rounded-2xl shadow-xl border border-emerald-500/40 backdrop-blur-xl animate-in slide-in-from-top duration-500">
               <div className="flex items-start gap-2.5">
                 <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0 mt-0.5 font-bold">
                   <Check className="w-3.5 h-3.5" strokeWidth={3} />
@@ -293,7 +293,7 @@ export function ObixAppMockup({
             {/* SCREEN: DASHBOARD                                           */}
             {/* ═══════════════════════════════════════════════════════════ */}
             {activeScreen === 'dashboard' && (
-              <div className="space-y-3.5 animate-in fade-in duration-200">
+              <div className="space-y-3.5 animate-in fade-in duration-500">
 
                 {/* Crown Banner */}
                 <div className="bg-[#1e1035] text-white p-3 rounded-2xl shadow-2xs flex items-center justify-between">
@@ -415,7 +415,7 @@ export function ObixAppMockup({
             {/* SCREEN: ORDERS LIST                                         */}
             {/* ═══════════════════════════════════════════════════════════ */}
             {activeScreen === 'orders' && !showNewOrderSheet && (
-              <div className="space-y-3 animate-in fade-in duration-200">
+              <div className="space-y-3 animate-in fade-in duration-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900 leading-tight">Orders</h3>
@@ -449,7 +449,7 @@ export function ObixAppMockup({
                     <div
                       key={order.id}
                       className={`bg-white p-3 rounded-2xl border shadow-2xs space-y-2 transition-all duration-500 ${
-                        'isNew' in order && order.isNew ? 'border-emerald-400 ring-1 ring-emerald-300 animate-in slide-in-from-top duration-500' : 'border-slate-200'
+                        'isNew' in order && order.isNew ? 'border-emerald-400 ring-1 ring-emerald-300 animate-in slide-in-from-top duration-700' : 'border-slate-200'
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -496,7 +496,7 @@ export function ObixAppMockup({
             {/* SCREEN: NEW ORDER SHEET (Voice phases 0-2)                  */}
             {/* ═══════════════════════════════════════════════════════════ */}
             {activeScreen === 'orders' && showNewOrderSheet && (
-              <div className="space-y-3 bg-white rounded-2xl p-3.5 border border-slate-200 shadow-md animate-in slide-in-from-bottom duration-200 text-xs">
+              <div className="space-y-3 bg-white rounded-2xl p-3.5 border border-slate-200 shadow-md animate-in slide-in-from-bottom duration-500 text-xs">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <span className="font-extrabold text-xs text-slate-900">New Order &amp; WhatsApp Bill</span>
                   <div className="flex items-center gap-2">
@@ -615,7 +615,7 @@ export function ObixAppMockup({
             {/* SCREEN: CLIENTS / CUSTOMER PROFILE                          */}
             {/* ═══════════════════════════════════════════════════════════ */}
             {activeScreen === 'clients' && (
-              <div className="space-y-3 animate-in fade-in duration-200 text-xs">
+              <div className="space-y-3 animate-in fade-in duration-500 text-xs">
 
                 {/* Customer Card */}
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-md flex items-center gap-3">
@@ -754,7 +754,7 @@ export function ObixAppMockup({
                   width: 48, height: 48,
                   top: '50%', left: '50%',
                   transform: 'translate(-50%,-50%)',
-                  animation: 'tapRippleOuter 0.65s ease-out forwards',
+                  animation: 'tapRippleOuter 1.0s ease-out forwards',
                 }}
               />
               {/* Inner ripple ring 2 */}
@@ -764,13 +764,13 @@ export function ObixAppMockup({
                   width: 32, height: 32,
                   top: '50%', left: '50%',
                   transform: 'translate(-50%,-50%)',
-                  animation: 'tapRippleInner 0.65s ease-out forwards',
+                  animation: 'tapRippleInner 1.0s ease-out forwards',
                 }}
               />
               {/* Touch dot */}
               <div
                 className="relative w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-xl shadow-blue-600/50 flex items-center justify-center"
-                style={{ animation: 'tapDot 0.65s ease-out forwards' }}
+                style={{ animation: 'tapDot 1.0s ease-out forwards' }}
               >
                 {/* Glossy inner shine */}
                 <div className="w-1.5 h-1.5 rounded-full bg-white/70" />
@@ -788,19 +788,19 @@ export function ObixAppMockup({
           to   { transform: scaleY(1);   }
         }
         @keyframes tapDot {
-          0%   { transform: scale(1.4);  opacity: 0.6; }
-          30%  { transform: scale(0.75); opacity: 1;   }
-          60%  { transform: scale(1.1);  opacity: 0.9; }
-          100% { transform: scale(1);   opacity: 0.7; }
+          0%   { transform: scale(1.3);  opacity: 0.5; }
+          25%  { transform: scale(0.8);  opacity: 1;   }
+          65%  { transform: scale(1.05); opacity: 0.9; }
+          100% { transform: scale(1);   opacity: 0.6; }
         }
         @keyframes tapRippleOuter {
-          0%   { transform: translate(-50%,-50%) scale(0.4); opacity: 0.8; }
-          100% { transform: translate(-50%,-50%) scale(1.6); opacity: 0;   }
+          0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.7; }
+          100% { transform: translate(-50%,-50%) scale(2.0); opacity: 0;   }
         }
         @keyframes tapRippleInner {
-          0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.6; }
-          70%  { transform: translate(-50%,-50%) scale(1.2); opacity: 0.2; }
-          100% { transform: translate(-50%,-50%) scale(1.4); opacity: 0;   }
+          0%   { transform: translate(-50%,-50%) scale(0.2); opacity: 0.5; }
+          60%  { transform: translate(-50%,-50%) scale(1.3); opacity: 0.2; }
+          100% { transform: translate(-50%,-50%) scale(1.6); opacity: 0;   }
         }
       `}</style>
     </div>

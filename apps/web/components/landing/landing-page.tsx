@@ -36,9 +36,9 @@ import {
   ShieldCheck,
   Heart,
   ArrowUpRight,
-  ChevronRight,
   Headphones,
   ArrowUp,
+  HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "./reveal";
@@ -159,7 +159,7 @@ const ROLES: RoleDef[] = [
 
 export function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const [heroFade, setHeroFade] = useState(0);
+  const heroShowcaseRef = useRef<HTMLDivElement>(null);
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
   const [scrollActiveStep, setScrollActiveStep] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -168,38 +168,76 @@ export function LandingPage() {
   const [printAnim, setPrintAnim] = useState(false);
   const [voiceSimulating, setVoiceSimulating] = useState(false);
 
-  // ── Social proof toast state ─────────────────────────────────────────────
-  const TOASTS = [
-    { name: "Ramesh Kirana",   city: "Surat",     action: "created an order",          amount: "₹2,340",  icon: "🛒" },
-    { name: "Meena Pharmacy", city: "Ahmedabad",  action: "added medicines via OCR",   amount: "48 items", icon: "💊" },
-    { name: "Shree Cafe",     city: "Vadodara",   action: "sent a WhatsApp invoice",   amount: "₹680",    icon: "☕" },
-    { name: "Raja Wholesale", city: "Mumbai",     action: "recorded a payment",        amount: "₹14,200", icon: "💰" },
-    { name: "Sunil Medicals", city: "Pune",       action: "printed a thermal bill",    amount: "₹920",    icon: "🖨️" },
-    // { name: "Priya Boutique", city: "Jaipur",     action: "billed via Voice AI",       amount: "₹3,100",  icon: "🎤" },
-  ];
-  const [toastIndex, setToastIndex]   = useState(0);
-  const [toastVisible, setToastVisible] = useState(false);
   const [statsVisible, setStatsVisible] = useState(false);
   const [statCount, setStatCount]     = useState({ counters: 0, billed: 0, rating: 0, states: 0 });
   const statsRef = useRef<HTMLDivElement>(null);
 
-  const stepRefs = useRef<(HTMLLIElement | null)[]>([]);
-  const activeStepIndex = hoveredStep ?? scrollActiveStep;
+  const [selectedStep, setSelectedStep] = useState(0);
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const leftStepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const walkthroughCardRef = useRef<HTMLDivElement>(null);
 
+  const handleSelectStep = (idx: number) => {
+    setSelectedStep(idx);
+    const container = leftScrollRef.current;
+    const targetEl = leftStepRefs.current[idx];
+    if (container && targetEl) {
+      // Center the selected step card inside the container
+      const targetTop =
+        targetEl.offsetTop -
+        container.offsetTop -
+        (container.clientHeight / 2 - targetEl.clientHeight / 2);
+      container.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    }
+  };
+
+  const handleLeftScroll = () => {
+    if (!leftScrollRef.current) return;
+    const container = leftScrollRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const focalY = containerRect.top + containerRect.height * 0.42;
+
+    // If scrolled to the very bottom of the container, activate the final step (Step 6)
+    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 20) {
+      setSelectedStep((prev) => (prev === STEPS.length - 1 ? prev : STEPS.length - 1));
+      return;
+    }
+
+    // Find the step whose center is closest to the container focal line
+    let closest = 0;
+    let minDiff = Infinity;
+    leftStepRefs.current.forEach((el, idx) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cardCenter = rect.top + rect.height / 2;
+      const diff = Math.abs(cardCenter - focalY);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = idx;
+      }
+    });
+    setSelectedStep((prev) => (prev === closest ? prev : closest));
+  };
+
+  // Delegate mouse wheel events over the entire walkthrough card to the steps scroll
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = stepRefs.current.findIndex((el) => el === entry.target);
-            if (idx !== -1) setScrollActiveStep(idx);
-          }
-        });
-      },
-      { rootMargin: "-20% 0px -20% 0px", threshold: 0.1 },
-    );
-    stepRefs.current.forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
+    const card = walkthroughCardRef.current;
+    const container = leftScrollRef.current;
+    if (!card || !container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      const atTop = container.scrollTop <= 2;
+      const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 8;
+
+      if ((e.deltaY > 0 && !atBottom) || (e.deltaY < 0 && !atTop)) {
+        e.preventDefault();
+        container.scrollTop += e.deltaY;
+        handleLeftScroll();
+      }
+    };
+
+    card.addEventListener("wheel", onWheel, { passive: false });
+    return () => card.removeEventListener("wheel", onWheel);
   }, []);
 
   useEffect(() => {
@@ -208,10 +246,12 @@ export function LandingPage() {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const el = heroRef.current;
-        if (!el) return;
+        const target = heroShowcaseRef.current;
+        if (!el || !target) return;
         const rect = el.getBoundingClientRect();
         const ratio = Math.min(1, Math.max(0, -rect.top / (rect.height * 0.7)));
-        setHeroFade(ratio);
+        target.style.opacity = `${1 - ratio * 0.9}`;
+        target.style.transform = `translate3d(0, ${ratio * 40}px, 0) scale(${1 - ratio * 0.08})`;
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -219,22 +259,6 @@ export function LandingPage() {
       window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(raf);
     };
-  }, []);
-
-  // ── Toast cycling ────────────────────────────────────────────────────────
-  useEffect(() => {
-    const initial = setTimeout(() => {
-      setToastVisible(true);
-      const interval = setInterval(() => {
-        setToastVisible(false);
-        setTimeout(() => {
-          setToastIndex((i) => (i + 1) % TOASTS.length);
-          setToastVisible(true);
-        }, 600);
-      }, 5000);
-      return () => clearInterval(interval);
-    }, 3000);
-    return () => clearTimeout(initial);
   }, []);
 
   // ── Stats count-up when bar scrolls into view ────────────────────────────
@@ -544,11 +568,8 @@ export function LandingPage() {
 
         {/* Hero Interactive App Showcase Frame */}
         <div
-          className="lg:col-span-6 relative h-[540px] sm:h-[620px]"
-          style={{
-            opacity: 1 - heroFade * 0.9,
-            transform: `translateY(${heroFade * 40}px) scale(${1 - heroFade * 0.08})`,
-          }}
+          ref={heroShowcaseRef}
+          className="lg:col-span-6 relative h-[540px] sm:h-[620px] will-change-transform"
         >
           <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
             <OrbitScene />
@@ -667,105 +688,221 @@ export function LandingPage() {
           </p>
 
           {/* Quick 3-Step Express Boarding Strip */}
-          <div className="mt-8 mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-blue-100 shadow-sm flex items-start gap-3.5 hover:border-blue-300 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-blue-500/20">
+          <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Link
+              href="/signup"
+              className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-blue-100 shadow-sm flex items-start gap-3.5 hover:border-blue-300 transition-all group cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
                 1
               </div>
               <div>
-                <div className="font-bold text-slate-900 text-sm">30-Second Instant Sign Up</div>
+                <div className="font-bold text-slate-900 text-sm group-hover:text-blue-700 transition-colors flex items-center gap-1.5">
+                  <span>30-Second Instant Sign Up</span>
+                  <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-blue-600" />
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">Mobile OTP or Google account. No credit card, no hardware purchase required.</p>
               </div>
-            </div>
+            </Link>
 
-            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-purple-100 shadow-sm flex items-start gap-3.5 hover:border-purple-300 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-purple-500/20">
+            <button
+              type="button"
+              onClick={() => handleSelectStep(1)}
+              className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-purple-100 shadow-sm flex items-start gap-3.5 hover:border-purple-300 transition-all text-left group cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
                 2
               </div>
               <div>
-                <div className="font-bold text-slate-900 text-sm">Pick Your Counter Type</div>
+                <div className="font-bold text-slate-900 text-sm group-hover:text-purple-700 transition-colors">Pick Your Counter Type</div>
                 <p className="text-xs text-slate-500 mt-0.5">Kirana, Restaurant KOT, Pharmacy Rx, or Wholesale with auto-loaded catalogs.</p>
               </div>
-            </div>
+            </button>
 
-            <div className="p-4 rounded-2xl bg-white/80 backdrop-blur-md border border-emerald-100 shadow-sm flex items-start gap-3.5 hover:border-emerald-300 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-emerald-500/20">
+            <button
+              type="button"
+              onClick={() => handleSelectStep(3)}
+              className="p-4 rounded-2xl bg-white/90 backdrop-blur-md border border-emerald-100 shadow-sm flex items-start gap-3.5 hover:border-emerald-300 transition-all text-left group cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
                 3
               </div>
               <div>
-                <div className="font-bold text-slate-900 text-sm">Ring 1st Bill &amp; Print ESC/POS</div>
+                <div className="font-bold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors">Ring 1st Bill &amp; Print ESC/POS</div>
                 <p className="text-xs text-slate-500 mt-0.5">1-click thermal receipt or WhatsApp invoice sent directly to customer phone.</p>
               </div>
-            </div>
+            </button>
           </div>
         </Reveal>
 
-        <div className="mt-8 grid lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-7 relative">
-            <div
-              className="absolute left-6 top-2 bottom-2 w-px bg-slate-200"
-              aria-hidden="true"
-            />
-            <ol className="space-y-10 pb-24">
-              {STEPS.map((step, i) => {
-                const Icon = step.icon;
-                const active = activeStepIndex === i;
-                return (
-                  <Reveal key={step.title} delay={i * 80}>
-                    <li
-                      ref={(el) => {
-                        stepRefs.current[i] = el;
-                      }}
-                      className="relative flex gap-6 pl-0 cursor-default"
-                      onMouseEnter={() => setHoveredStep(i)}
-                      onMouseLeave={() =>
-                        setHoveredStep((cur) => (cur === i ? null : cur))
-                      }
-                    >
-                      <div
-                        className={`relative z-10 shrink-0 w-12 h-12 rounded-2xl bg-white flex items-center justify-center ring-1 transition-all duration-300 ${
-                          active ? "ring-2 scale-110" : "ring-white/60"
-                        } ${GLASS_SHEEN}`}
-                        style={
-                          active
-                            ? {
-                                color: step.color,
-                                boxShadow: `0 0 0 2px ${step.color}55`,
-                              }
-                            : undefined
-                        }
-                      >
-                        <Icon
-                          className={`w-5 h-5 ${active ? "" : "text-blue-700"}`}
-                          strokeWidth={2.25}
-                        />
-                      </div>
-                      <div className="pt-1.5">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-extrabold text-blue-800 bg-blue-500/15 px-2 py-0.5 rounded-md border border-blue-500/30 tabular-nums font-mono">
-                            {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <h3 className="text-lg font-bold text-slate-900">
-                            {step.title}
-                          </h3>
-                        </div>
-                        <p className="mt-1.5 text-sm text-slate-600 leading-relaxed max-w-lg">
-                          {step.copy}
-                        </p>
-                      </div>
-                    </li>
-                  </Reveal>
-                );
-              })}
-            </ol>
+        {/* Custom scrollbar styling for independent scrolling columns */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          .onboarding-split-scrollbar::-webkit-scrollbar {
+            width: 5px;
+          }
+          .onboarding-split-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .onboarding-split-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.35);
+            border-radius: 9999px;
+          }
+          .onboarding-split-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.6);
+          }
+        `}} />
+
+        {/* Two-Part Split Container: Steps on Left, Live Preview on Right — Both scroll independently */}
+        <div
+          ref={walkthroughCardRef}
+          className="mt-4 rounded-3xl bg-white/70 backdrop-blur-xl border border-slate-200/90 shadow-xl overflow-hidden p-6 sm:p-8"
+        >
+          <div className="flex flex-wrap items-center justify-between pb-4 mb-6 border-b border-slate-200/80 gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Interactive Walkthrough
+              </span>
+              <span className="text-xs font-mono font-bold text-sky-700 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-200">
+                Step {selectedStep + 1} of 6: {STEPS[selectedStep]?.title}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
+              {STEPS.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSelectStep(idx)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    selectedStep === idx
+                      ? "bg-white text-sky-600 shadow-xs border border-sky-200"
+                      : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  Step {idx + 1}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <Reveal
-            delay={200}
-            className="hidden lg:block lg:col-span-5 sticky top-28 w-full"
-          >
-            <StepVisualizer activeIndex={activeStepIndex} />
-          </Reveal>
+          <div className="grid lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT PART: Steps list — scrolls independently */}
+            <div className="lg:col-span-5 relative">
+              <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3 px-1 flex items-center justify-between">
+                <span>Steps</span>
+                <span className="text-[11px] font-normal text-slate-400">Scroll or click</span>
+              </div>
+              <div
+                ref={leftScrollRef}
+                onScroll={handleLeftScroll}
+                className="h-[580px] sm:h-[620px] overflow-y-auto overscroll-contain p-2.5 pr-3.5 pb-28 space-y-4 onboarding-split-scrollbar scroll-smooth"
+              >
+                {STEPS.map((step, i) => {
+                  const Icon = step.icon;
+                  const active = selectedStep === i;
+                  return (
+                    <div
+                      key={step.title}
+                      ref={(el) => { leftStepRefs.current[i] = el; }}
+                      onClick={() => handleSelectStep(i)}
+                      className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer group ${
+                        active
+                          ? "bg-white/95 border-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.4),0_0_30px_rgba(14,165,233,0.18),inset_0_0_10px_rgba(56,189,248,0.08)] ring-1 ring-sky-300/60"
+                          : "bg-white/50 hover:bg-white/80 border-slate-200/70 hover:border-slate-300 hover:shadow-xs"
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
+                            active ? "shadow-md scale-105" : "bg-slate-100"
+                          }`}
+                          style={
+                            active
+                              ? {
+                                  backgroundColor: `${step.color}15`,
+                                  color: step.color,
+                                  boxShadow: `0 0 0 2px ${step.color}40`,
+                                }
+                              : { color: "#64748b" }
+                          }
+                        >
+                          <Icon className="w-5 h-5" strokeWidth={2.2} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="text-[10px] font-extrabold font-mono tracking-wider px-2 py-0.5 rounded-md"
+                              style={
+                                active
+                                  ? { backgroundColor: `${step.color}20`, color: step.color }
+                                  : { backgroundColor: "#f1f5f9", color: "#64748b" }
+                              }
+                            >
+                              STEP 0{i + 1}
+                            </span>
+                            {active && (
+                              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Live
+                              </span>
+                            )}
+                          </div>
+                          <h3
+                            className={`text-base font-bold transition-colors ${
+                              active ? "text-slate-900" : "text-slate-700"
+                            }`}
+                          >
+                            {step.title}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                            {step.copy}
+                          </p>
+                          {i === 0 && (
+                            <div className="mt-3">
+                              <Link
+                                href="/signup"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-sm transition-all hover:scale-105"
+                              >
+                                <span>Create Free Account</span> <ArrowRight className="w-3 h-3" />
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Milestone Card at the bottom of the left list */}
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-lg space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> All 6 Steps Ready
+                  </div>
+                  <h4 className="text-base font-bold text-white">Start your counter in 2 mins</h4>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Zero credit card required. Free 14-day trial with full GST billing.
+                  </p>
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center justify-center w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all hover:scale-102"
+                  >
+                    Get Started Free
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT PART: Single Live App Preview Screen (changes as left side scrolls) */}
+            <div className="lg:col-span-7 relative">
+              <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3 px-1 flex items-center justify-between">
+                <span>Live App Preview</span>
+                <span className="text-[11px] font-mono text-emerald-600 font-semibold">obix.io</span>
+              </div>
+
+              {/* Just ONE screen that updates dynamically */}
+              <div className="transition-all duration-300">
+                <StepVisualizer activeIndex={selectedStep} />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -877,6 +1014,17 @@ export function LandingPage() {
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80"
       >
         <Reveal>
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider mb-3 shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5" /> Simple, Transparent Pricing
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
+              Start free. Upgrade as you grow.
+            </h2>
+            <p className="mt-3 text-base sm:text-lg text-slate-600">
+              No credit card required. No hardware lock-in. 14-day free trial on all paid plans.
+            </p>
+          </div>
           <PricingSection />
         </Reveal>
       </section>
@@ -887,6 +1035,17 @@ export function LandingPage() {
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 py-24 border-t border-slate-200/80"
       >
         <Reveal>
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-3 shadow-2xs">
+              <HelpCircle className="w-3.5 h-3.5" /> Frequently Asked Questions
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-950">
+              Got questions? We&apos;ve got answers.
+            </h2>
+            <p className="mt-3 text-base sm:text-lg text-slate-600">
+              Everything you need to know about thermal printers, GST compliance, offline billing, and getting started with OBIX.
+            </p>
+          </div>
           <FaqSection />
         </Reveal>
       </section>
@@ -1136,27 +1295,6 @@ export function LandingPage() {
           </div>
         </div>
       </footer>
-      {/* ── #2a Floating Social Proof Toasts ───────────────────────────── */}
-      <div
-        className={`fixed bottom-6 left-4 sm:left-6 z-[100] transition-all duration-500 ${
-          toastVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-        }`}
-      >
-        <div className="bg-white/95 backdrop-blur-xl border border-slate-200 shadow-2xl rounded-2xl p-3.5 flex items-center gap-3 max-w-[270px] sm:max-w-[300px] ring-1 ring-white/80">
-          <div className="text-2xl shrink-0 leading-none">{TOASTS[toastIndex].icon}</div>
-          <div className="min-w-0">
-            <div className="text-xs font-extrabold text-slate-900 truncate">
-              {TOASTS[toastIndex].name}
-              <span className="text-slate-400 font-medium"> · {TOASTS[toastIndex].city}</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              {TOASTS[toastIndex].action}
-              <span className="ml-1 font-bold text-slate-700">{TOASTS[toastIndex].amount}</span>
-            </div>
-          </div>
-          <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        </div>
-      </div>
 
       {/* ── #2b Floating WhatsApp CTA Button ───────────────────────────── */}
       <a

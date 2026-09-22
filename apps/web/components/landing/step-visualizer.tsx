@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   Users,
   Package,
@@ -82,7 +83,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
       <div className="py-4 relative z-10">
         {/* STEP 01: AUTHENTIC SIGNUP / LOGIN SCREEN */}
         {activeIndex === 0 && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Create account</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -113,16 +114,19 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
                 </div>
               </div>
 
-              <div className="h-12 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-full flex items-center justify-center gap-2 shadow-md transition-all">
-                <span>Create Account</span> <ArrowRight className="w-4 h-4" />
-              </div>
+              <Link
+                href="/signup"
+                className="h-12 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs rounded-full flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+              >
+                <span>Create Free Account</span> <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         )}
 
         {/* STEP 02: AUTHENTIC SELECT BUSINESS SCREEN */}
         {activeIndex === 1 && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Add a new business</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -168,7 +172,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
 
         {/* STEP 03: AUTHENTIC PRODUCT CATALOG ENTRY */}
         {activeIndex === 2 && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Add Product Catalog</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -203,7 +207,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
 
         {/* STEP 04: AUTHENTIC POS BILLING SCREEN */}
         {activeIndex === 3 && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Counter POS &amp; Billing</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -240,7 +244,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
 
         {/* STEP 05: AUTHENTIC STAFF ROLES SCREEN */}
         {activeIndex === 5 ? null : activeIndex === 4 ? (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Bring in your team</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -270,7 +274,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
 
         {/* STEP 06: AUTHENTIC DASHBOARD ANALYTICS SCREEN */}
         {activeIndex === 5 && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+          <div className="space-y-4 animate-in fade-in-60 slide-in-from-right-2 duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Watch it add up</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
@@ -308,7 +312,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
           {[0, 1, 2, 3, 4, 5].map((idx) => (
             <div
               key={idx}
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`h-2 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                 idx === activeIndex ? 'w-7 bg-emerald-600' : 'w-2 bg-slate-200'
               }`}
             />

@@ -17,6 +17,6 @@ import { PdfService } from './pdf.service';
   imports: [TypeOrmModule.forFeature([Invoice, InvoiceItem, Order, OrderItem, Payment, Ledger, Customer, Business])],
   controllers: [BillingController],
   providers: [InvoicesService, PaymentsService, PdfService],
-  exports: [InvoicesService, PaymentsService],
+  exports: [InvoicesService, PaymentsService, PdfService],
 })
 export class BillingModule {}

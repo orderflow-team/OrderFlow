@@ -296,85 +296,132 @@ export function KillerFeaturesShowcase() {
             <div className="absolute -bottom-20 -left-20 w-[30rem] h-[30rem] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="relative z-10">
-              {/* Header Badge & Title */}
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-2 ring-blue-100">
-                    <Network className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono tracking-widest text-sky-700 font-extrabold uppercase">
-                        ⭐ The Best of OBIX • Flagship Ecosystem
-                      </span>
-                      <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full border border-sky-200">
-                        Zero Middlemen
-                      </span>
+              {/* Header Badge, Title & Live Telemetry Panel */}
+              <div className="grid lg:grid-cols-12 gap-8 items-start mb-8">
+                {/* Left Side: Title, Badges, Copy & Interactive Flow Switcher */}
+                <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-2 ring-blue-100 shrink-0">
+                      <Network className="w-7 h-7" />
                     </div>
-                    <h3 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 mt-1">
-                      OBIX Connect — The Connected B2B Commerce Ecosystem
-                    </h3>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-mono tracking-widest text-sky-700 font-extrabold uppercase">
+                          ⭐ The Best of OBIX • Flagship Ecosystem
+                        </span>
+                        <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full border border-sky-200">
+                          Zero Middlemen
+                        </span>
+                      </div>
+                      <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900 mt-1">
+                        OBIX Connect — The Connected B2B Commerce Ecosystem
+                      </h3>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
+                    Retail shops and wholesale distributors spend hours every day on messy WhatsApp chats, lost phone calls,
+                    and manual purchase orders. <strong>OBIX Connect</strong> bridges them into one unified, real-time supply chain:
+                    when retail shelf stock drops, purchase orders auto-dispatch to the distributor, prices stay synced live, and salesmen
+                    field bookings appear instantly on central depot dispatch screens.
+                  </p>
+
+                  {/* Interactive Flow Switcher Tabs */}
+                  <div className="pt-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2.5">
+                      Select a live workflow to test OBIX Connect in action:
+                    </span>
+                    <div className="flex flex-wrap gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSimulateConnect('auto_po')}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          connectFlow === 'auto_po'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                        }`}
+                      >
+                        <Boxes className="w-4 h-4" />
+                        <span>1. Retail POS ➔ Wholesaler Auto-PO</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSimulateConnect('salesman')}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          connectFlow === 'salesman'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                        }`}
+                      >
+                        <Truck className="w-4 h-4" />
+                        <span>2. Field Salesman Fleet &amp; Route Sync</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSimulateConnect('pricing')}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                          connectFlow === 'pricing'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                        }`}
+                      >
+                        <Repeat className="w-4 h-4" />
+                        <span>3. Live B2B Tiered Rates &amp; Udhar Ledger</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Status Indicator */}
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold font-mono">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                  B2B PIPE ACTIVE • &lt; 15ms CLOUD SYNC
-                </div>
-              </div>
+                {/* Right Side: Live Ecosystem Telemetry & Core Impact Card (Fills previously empty space) */}
+                <div className="lg:col-span-5 xl:col-span-4 bg-gradient-to-br from-slate-50/90 via-sky-50/50 to-blue-50/30 rounded-2xl border border-sky-200/80 p-5 shadow-sm space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 pb-3">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      Live Ecosystem Telemetry
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      &lt; 15ms SYNC
+                    </span>
+                  </div>
 
-              <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-3xl mb-8">
-                Retail shops and wholesale distributors spend hours every day on messy WhatsApp chats, lost phone calls,
-                and manual purchase orders. <strong>OBIX Connect</strong> bridges them into one unified, real-time supply chain:
-                when retail shelf stock drops, purchase orders auto-dispatch to the distributor, prices stay synced live, and salesmen
-                field bookings appear instantly on central depot dispatch screens.
-              </p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 bg-white/90 backdrop-blur-xs rounded-xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-semibold text-slate-500 block">Auto-PO Speed</span>
+                      <span className="text-sm font-extrabold text-blue-600 font-mono">Instant</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">POS ➔ Depot direct</span>
+                    </div>
 
-              {/* Interactive Flow Switcher Tabs */}
-              <div className="space-y-2.5 mb-6">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                  Select a live workflow to test OBIX Connect in action:
-                </span>
-                <div className="flex flex-wrap gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleSimulateConnect('auto_po')}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                      connectFlow === 'auto_po'
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
-                    }`}
-                  >
-                    <Boxes className="w-4 h-4" />
-                    <span>1. Retail POS ➔ Wholesaler Auto-PO</span>
-                  </button>
+                    <div className="p-3 bg-white/90 backdrop-blur-xs rounded-xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-semibold text-slate-500 block">Order Errors</span>
+                      <span className="text-sm font-extrabold text-emerald-600 font-mono">0%</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">No WhatsApp mistakes</span>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleSimulateConnect('salesman')}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                      connectFlow === 'salesman'
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
-                    }`}
-                  >
-                    <Truck className="w-4 h-4" />
-                    <span>2. Field Salesman Fleet &amp; Route Sync</span>
-                  </button>
+                    <div className="p-3 bg-white/90 backdrop-blur-xs rounded-xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-semibold text-slate-500 block">Salesmen Fleet</span>
+                      <span className="text-sm font-extrabold text-indigo-600 font-mono">Live Route</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">App booking sync</span>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleSimulateConnect('pricing')}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                      connectFlow === 'pricing'
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 scale-[1.01]'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80 border border-slate-200'
-                    }`}
-                  >
-                    <Repeat className="w-4 h-4" />
-                    <span>3. Live B2B Tiered Rates &amp; Udhar Ledger</span>
-                  </button>
+                    <div className="p-3 bg-white/90 backdrop-blur-xs rounded-xl border border-slate-200/80 shadow-2xs">
+                      <span className="text-[10px] font-semibold text-slate-500 block">B2B Ledger</span>
+                      <span className="text-sm font-extrabold text-purple-600 font-mono">Real-Time</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Auto Udhar balance</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-slate-700 bg-white/95 p-2.5 rounded-xl border border-sky-200/80 flex items-center justify-between shadow-2xs">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      Two-Way GST &amp; HSN Auto-Match
+                    </span>
+                    <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Verified
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1237,9 +1284,24 @@ export function KillerFeaturesShowcase() {
 
                 {/* Interactive Laser Scan Preview */}
                 <div className="bg-slate-50/95 rounded-2xl p-5 border border-slate-200/80 text-xs space-y-3.5 shadow-xs relative overflow-hidden">
-                  <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-violet-500 to-transparent shadow-[0_0_12px_rgba(139,92,246,0.9)] animate-[bounce_3s_infinite] pointer-events-none" />
+                  {/* Clean Top Accent Rim */}
+                  <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-violet-500 via-indigo-500 to-purple-500" />
 
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  {/* Laser Scan Beam across invoice items below header */}
+                  <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes invoice-laser-scan {
+                      0% { top: 3.25rem; opacity: 0; }
+                      15% { opacity: 0.85; }
+                      85% { opacity: 0.85; }
+                      100% { top: calc(100% - 2.5rem); opacity: 0; }
+                    }
+                    .animate-invoice-laser-scan {
+                      animation: invoice-laser-scan 3.5s ease-in-out infinite;
+                    }
+                  `}} />
+                  <div className="absolute inset-x-4 h-0.5 bg-gradient-to-r from-transparent via-violet-500 to-transparent shadow-[0_0_8px_rgba(139,92,246,0.6)] animate-invoice-laser-scan pointer-events-none" />
+
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2 relative z-10">
                     <span className="text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                       {ocrSample === 'pharma' ? 'DISTRIBUTOR: CIPLA PHARMA LTD' : 'DISTRIBUTOR: METRO CASH & CARRY'}
                     </span>

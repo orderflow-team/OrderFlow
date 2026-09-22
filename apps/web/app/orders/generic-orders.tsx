@@ -154,14 +154,32 @@ export function GenericOrders() {
   const discardOutboxItem = useOfflineStore((s) => s.discardItem);
   const isOnline = useOfflineStore((s) => s.isOnline);
 
+  const [startVoiceOnOpen, setStartVoiceOnOpen] = useState(false);
+
   useEffect(() => {
-    if (searchParams.get('new') === '1') setShowForm(true);
+    if (searchParams.get('new') === '1' || searchParams.get('voice') === '1') {
+      setShowForm(true);
+      if (searchParams.get('voice') === '1') {
+        setStartVoiceOnOpen(true);
+      }
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
   }, [searchParams]);
 
   useEffect(() => {
     const handleOpen = () => setShowForm(true);
+    const handleVoiceOpen = () => {
+      setShowForm(true);
+      setStartVoiceOnOpen(true);
+    };
     window.addEventListener('open-new-form', handleOpen);
-    return () => window.removeEventListener('open-new-form', handleOpen);
+    window.addEventListener('open-voice-order', handleVoiceOpen);
+    return () => {
+      window.removeEventListener('open-new-form', handleOpen);
+      window.removeEventListener('open-voice-order', handleVoiceOpen);
+    };
   }, []);
 
   // Drawer state
@@ -177,6 +195,8 @@ export function GenericOrders() {
   const [creditNoteId, setCreditNoteId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Credit'>('Cash');
+  const [whatsappNotice, setWhatsappNotice] = useState<string | null>(null);
+  const [whatsappSending, setWhatsappSending] = useState(false);
 
   // Return-selection state — lets the user pick how many units of each item to return
   const [returnMode, setReturnMode] = useState(false);
@@ -556,6 +576,21 @@ export function GenericOrders() {
     }
   };
 
+  const handleSendWhatsappInvoice = async () => {
+    if (!businessId || !drawerOrder) return;
+    setWhatsappSending(true);
+    setError('');
+    try {
+      await apiClient.post(`/api/orders/${drawerOrder.id}/send-whatsapp-invoice`, {}, { params: { businessId } });
+      setWhatsappNotice(`Official invoice PDF dispatched to customer's WhatsApp!`);
+      setTimeout(() => setWhatsappNotice(null), 6000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Could not send WhatsApp invoice. Make sure WhatsApp is connected in Settings.');
+    } finally {
+      setWhatsappSending(false);
+    }
+  };
+
   const handleThermalPrint = async () => {
     if (!businessId || !drawerOrder) return;
     try {
@@ -794,6 +829,11 @@ export function GenericOrders() {
       const res = await apiClient.post('/api/orders', orderPayload);
       setShowForm(false);
       load(businessId);
+      const cleanPhone = phone?.replace(/\D/g, '');
+      if (cleanPhone && cleanPhone.length === 10) {
+        setWhatsappNotice(`Order submitted! Official invoice PDF is being sent to WhatsApp (+91 ${cleanPhone})`);
+        setTimeout(() => setWhatsappNotice(null), 8000);
+      }
     } catch (err: any) {
       if (!err.response) {
         // Offline — queue the sale instead of losing it.
@@ -898,13 +938,32 @@ export function GenericOrders() {
         </div>
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
+        {whatsappNotice && (
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 text-xs font-semibold flex items-center justify-between animate-in fade-in duration-200 shadow-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{whatsappNotice}</span>
+            </div>
+            <button onClick={() => setWhatsappNotice(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {businessId && showForm && (
           <GenericOrderModal
             businessId={businessId}
             isOpen={showForm}
+            autoStartVoice={startVoiceOnOpen}
             customers={customers}
-            onClose={() => setShowForm(false)}
+            onClose={() => {
+              setShowForm(false);
+              setStartVoiceOnOpen(false);
+              if (typeof window !== 'undefined') {
+                window.history.replaceState({}, '', '/orders');
+              }
+              router.replace('/orders');
+            }}
             onSubmit={handleCreate}
             onCustomerCreated={(c) => setCustomers((prev) => (prev.some((existing) => existing.id === c.id) ? prev : [c, ...prev]))}
           />
@@ -1488,6 +1547,17 @@ export function GenericOrders() {
                 {invoiceLoading ? 'Generating…' : invoiceId ? 'View Invoice' : 'Invoice'}
               </Button>
 
+              {/* Send to WhatsApp */}
+              <Button
+                onClick={handleSendWhatsappInvoice}
+                disabled={whatsappSending}
+                variant="outline"
+                className="w-full h-11 gap-2 border-emerald-500/50 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                {whatsappSending ? 'Sending PDF to WhatsApp…' : 'Send Invoice to WhatsApp'}
+              </Button>
+
               {/* Delete */}
               {!deleteConfirm ? (
                 <button
@@ -1518,6 +1588,19 @@ export function GenericOrders() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Floating + button on bottom left for New Order */}
+      {!showForm && (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="fixed bottom-20 left-4 md:bottom-8 md:left-72 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 hover:brightness-105 active:scale-95 text-white shadow-[0_12px_28px_rgba(79,70,229,0.55),0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all ring-4 ring-white"
+          aria-label="New Order"
+          title="New Order (Press N)"
+        >
+          <Plus className="w-8 h-8 text-white drop-shadow-sm" strokeWidth={2.75} />
+        </button>
       )}
     </AppShell>
   );

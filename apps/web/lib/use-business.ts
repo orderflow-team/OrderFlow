@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
+import apiClient from './api-client';
 
 /** Shared guard: every module page needs a logged-in user with a businessId. */
 export function useBusiness() {
@@ -21,8 +22,7 @@ export function useBusiness() {
           const businessIdParam = new URLSearchParams(window.location.search).get('businessId');
           if (businessIdParam) {
             try {
-              const api = (await import('@/lib/api-client')).default;
-              const res = await api.post('/auth/takeaway-guest-login', { businessId: businessIdParam });
+              const res = await apiClient.post('/auth/takeaway-guest-login', { businessId: businessIdParam });
               localStorage.setItem('access_token', res.data.access_token);
               localStorage.setItem('refresh_token', res.data.refresh_token);
               localStorage.setItem('user', JSON.stringify(res.data.user));
@@ -37,8 +37,7 @@ export function useBusiness() {
           const tableId = new URLSearchParams(window.location.search).get('id');
           if (tableId) {
             try {
-              const api = (await import('@/lib/api-client')).default;
-              const res = await api.post('/auth/table-guest-login', { tableId });
+              const res = await apiClient.post('/auth/table-guest-login', { tableId });
               localStorage.setItem('access_token', res.data.access_token);
               localStorage.setItem('refresh_token', res.data.refresh_token);
               localStorage.setItem('user', JSON.stringify(res.data.user));

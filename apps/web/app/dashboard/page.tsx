@@ -73,7 +73,7 @@ function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: ReturnType<typeof
   );
 }
 
-function getQuickActions(isPharmacy: boolean, isSalesman: boolean) {
+function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: ReturnType<typeof useRouter>) {
   return [
     {
       href: '/orders?new=1',
@@ -83,7 +83,13 @@ function getQuickActions(isPharmacy: boolean, isSalesman: boolean) {
       iconBg: 'bg-tile-peach-icon',
       iconFg: 'text-tile-peach-fg',
       micBg: 'bg-accent-orange',
-      onMic: () => window.dispatchEvent(new CustomEvent('open-order-assistant')),
+      onMic: () => {
+        if (router) {
+          router.push('/orders?new=1&voice=1');
+        } else if (typeof window !== 'undefined') {
+          window.location.href = '/orders?new=1&voice=1';
+        }
+      },
     },
     isSalesman
       ? {
@@ -129,16 +135,13 @@ function QuickActionRow({ action }: { action: ReturnType<typeof getQuickActions>
           <p className="text-xs text-slate-400 uppercase tracking-wide truncate">{action.subtitle}</p>
         </div>
       </Link>
-      <button
-        type="button"
-        onClick={() => {
-          if ('onMic' in action && action.onMic) action.onMic();
-        }}
-        className={`${action.micBg} w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0 hover:brightness-95 active:scale-95 transition-all`}
-        aria-label={`Voice ${action.title}`}
+      <Link
+        href={action.href}
+        className={`${action.micBg} w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0 hover:brightness-95 active:scale-95 transition-all shadow-sm`}
+        aria-label={`Add ${action.title}`}
       >
-        <Mic className="w-5 h-5" />
-      </button>
+        <Plus className="w-5 h-5" strokeWidth={2.5} />
+      </Link>
     </div>
   );
 }
@@ -437,7 +440,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {getQuickActions(isPharmacy, isSalesman).map((action) => (
+          {getQuickActions(isPharmacy, isSalesman, router).map((action) => (
             <QuickActionRow key={action.href} action={action} />
           ))}
         </div>

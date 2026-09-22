@@ -27,18 +27,18 @@ export function Reveal({
           observer.disconnect();
         }
       },
-      { threshold: 0.2 },
+      { threshold: 0.05, rootMargin: '60px 0px -20px 0px' },
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
-  const hiddenTransform = from === 'left' ? '-translate-x-8' : from === 'right' ? 'translate-x-8' : 'translate-y-8';
+  const hiddenTransform = from === 'left' ? '-translate-x-4' : from === 'right' ? 'translate-x-4' : 'translate-y-4';
 
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${visible ? 'opacity-100 translate-x-0 translate-y-0' : `opacity-0 ${hiddenTransform}`} ${className}`}
+      className={`transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${visible ? 'opacity-100 translate-x-0 translate-y-0' : `opacity-0 ${hiddenTransform}`} ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
