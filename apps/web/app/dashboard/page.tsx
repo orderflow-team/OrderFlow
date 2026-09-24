@@ -17,6 +17,7 @@ import { CollapsibleList } from '@/components/collapsible-list';
 import { AppTour } from '@/components/app-tour';
 import { SimpleBarChart } from '../reports/simple-bar-chart';
 import { ProductPurchasersModal } from '../reports/product-purchasers-modal';
+import { DashboardQuickOrder } from '@/components/dashboard-quick-order';
 import Link from 'next/link';
 import { useSubscription } from '@/lib/use-subscription';
 import {
@@ -432,6 +433,11 @@ export default function DashboardPage() {
         )}
 
         <DraftReviewStack businessId={businessId} />
+
+        {/* ⚡ 2-Click Quick Order (Instant Counter POS) */}
+        {!isSalesman && (
+          <DashboardQuickOrder businessId={businessId} isPharmacy={isPharmacy} />
+        )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-md lg:max-w-none">
           {getHomeTiles(isPharmacy, isSalesman).map((tile) => (
