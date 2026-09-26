@@ -13,6 +13,8 @@
  */
 
 import { toAbsoluteFileUrl } from './api-client';
+import { Capacitor } from '@capacitor/core';
+import { ThermalPrint } from './thermal-print-plugin';
 
 export interface ReceiptBusiness {
   name?: string | null;
@@ -325,10 +327,50 @@ export function buildA4ReceiptHtml(data: ReceiptData): string {
 </html>`;
 }
 
+export async function instantPrintReceipt(html: string): Promise<boolean> {
+  // 1. Native mobile (Android APK): Use native ThermalPrint plugin to send directly to PrintManager / thermal printer
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await ThermalPrint.print({ html });
+      return true;
+    } catch (pluginErr) {
+      console.warn('[thermal print] native print error, fallback to hidden iframe', pluginErr);
+    }
+  }
+
+  // 2. Web / Browser: Use hidden iframe — NEVER open a new browser tab or popup
+  try {
+    let iframe = document.getElementById('obix-instant-print-frame') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'obix-instant-print-frame';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      return true;
+    }
+  } catch (err) {
+    console.error('Failed to trigger hidden iframe print', err);
+  }
+
+  return false;
+}
+
 export function printReceiptHtml(html: string): boolean {
-  const win = window.open('', '_blank');
-  if (!win) return false;
-  win.document.write(html);
-  win.document.close();
+  instantPrintReceipt(html);
   return true;
 }

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 0.0.0.0",
+    "dev": "next dev --webpack -H 0.0.0.0",
     "build": "next build",
     "build:capacitor": "cross-env NODE_ENV=production CAPACITOR_BUILD=1 NEXT_PUBLIC_API_URL=https://obix360.com next build",
     "start": "next start",

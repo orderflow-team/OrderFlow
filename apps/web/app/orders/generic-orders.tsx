@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
+import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { getCachedBusinessCategory } from '@/lib/auth';
@@ -159,7 +160,7 @@ export function GenericOrders() {
   useEffect(() => {
     if (searchParams.get('new') === '1' || searchParams.get('voice') === '1') {
       setShowForm(true);
-      if (searchParams.get('voice') === '1') {
+      if (searchParams.get('voice') === '1' && Capacitor.isNativePlatform()) {
         setStartVoiceOnOpen(true);
       }
       if (typeof window !== 'undefined') {
@@ -172,7 +173,9 @@ export function GenericOrders() {
     const handleOpen = () => setShowForm(true);
     const handleVoiceOpen = () => {
       setShowForm(true);
-      setStartVoiceOnOpen(true);
+      if (Capacitor.isNativePlatform()) {
+        setStartVoiceOnOpen(true);
+      }
     };
     window.addEventListener('open-new-form', handleOpen);
     window.addEventListener('open-voice-order', handleVoiceOpen);

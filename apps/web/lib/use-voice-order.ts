@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 import Fuse from 'fuse.js';
@@ -193,9 +193,6 @@ export function useVoiceOrder({
   const [lastParsedItems, setLastParsedItems] = useState<ParsedVoiceItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Browser Web Speech fallback ref
-  const browserRecognitionRef = useRef<any>(null);
-
   const processTranscript = useCallback(
     (text: string) => {
       setTranscript(text);
@@ -219,117 +216,72 @@ export function useVoiceOrder({
   );
 
   const startListening = useCallback(async () => {
+    // Voice ordering is strictly supported on native mobile (Capacitor Android/iOS) with SpeechRecognition plugin
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('SpeechRecognition')) {
+      return;
+    }
+
     setError(null);
     setTranscript('');
     setLastParsedItems([]);
 
-    const isNative = Capacitor.isNativePlatform();
-
-    if (isNative) {
-      try {
-        // Request & check microphone permission
-        const perm = await SpeechRecognition.checkPermissions();
-        if (perm.speechRecognition !== 'granted') {
-          const req = await SpeechRecognition.requestPermissions();
-          if (req.speechRecognition !== 'granted') {
-            setError('Microphone permission required for voice billing');
-            return;
-          }
-        }
-
-        setIsListening(true);
-
-        // Native Android / iOS Speech Engine
-        // Listen for live partial / final speech results
-        await SpeechRecognition.removeAllListeners();
-
-        await SpeechRecognition.addListener('listeningState', (state: { status: 'started' | 'stopped' }) => {
-          if (state.status === 'stopped') {
-            setIsListening(false);
-          }
-        });
-
-        await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
-          if (data.matches && data.matches.length > 0) {
-            setTranscript(data.matches[0]);
-          }
-        });
-
-        const res = await SpeechRecognition.start({
-          language: 'hi-IN', // Supports Indian English & Hindi code-mixing
-          maxResults: 2,
-          prompt: 'Speak items to bill (e.g. 2 Maggi, ek pouch doodh)...',
-          partialResults: false,
-          popup: false,
-        });
-
-        setIsListening(false);
-        if (res && res.matches && res.matches.length > 0) {
-          processTranscript(res.matches[0]);
-        }
-      } catch (err: any) {
-        setIsListening(false);
-        const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || '');
-        const isBenign = /no match|no speech|timeout|canceled|cancelled|client/i.test(errStr);
-        if (isBenign) {
-          // Normal silence timeout from Android SpeechRecognizer — do not log to console.error
-          setError(null);
-        } else {
-          setError(err?.message || errStr || 'Failed to start native microphone');
-        }
-      }
-    } else {
-      // Desktop / Browser Web Speech API fallback
-      const SpeechRecognitionAPI =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (!SpeechRecognitionAPI) {
-        setError('Speech recognition not supported in this browser. Please use Chrome or Android.');
+    try {
+      // Verify device has speech recognition engine available
+      const avail = await SpeechRecognition.available().catch(() => ({ available: false }));
+      if (!avail?.available) {
+        setError('Voice recognition is not available on this device');
         return;
       }
 
-      try {
-        const recognition = new SpeechRecognitionAPI();
-        recognition.lang = 'hi-IN';
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 2;
+      // Request & check microphone permission
+      const perm = await SpeechRecognition.checkPermissions();
+      if (perm.speechRecognition !== 'granted') {
+        const req = await SpeechRecognition.requestPermissions();
+        if (req.speechRecognition !== 'granted') {
+          setError('Microphone permission required for voice billing');
+          return;
+        }
+      }
 
-        recognition.onstart = () => {
-          setIsListening(true);
-        };
+      setIsListening(true);
 
-        recognition.onerror = (event: any) => {
+      // Native Android / iOS Speech Engine
+      // Listen for live partial / final speech results
+      await SpeechRecognition.removeAllListeners();
+
+      await SpeechRecognition.addListener('listeningState', (state: { status: 'started' | 'stopped' }) => {
+        if (state.status === 'stopped') {
           setIsListening(false);
-          const errType = event?.error || '';
-          if (errType === 'no-speech') {
-            setError(null);
-          } else {
-            setError(`Microphone notice: ${errType}`);
-          }
-        };
+        }
+      });
 
-        recognition.onend = () => {
-          setIsListening(false);
-        };
+      await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
+        if (data.matches && data.matches.length > 0) {
+          setTranscript(data.matches[0]);
+        }
+      });
 
-        recognition.onresult = (event: any) => {
-          let spoken = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            spoken += event.results[i][0].transcript;
-          }
-          setTranscript(spoken);
+      const res = await SpeechRecognition.start({
+        language: 'hi-IN', // Supports Indian English & Hindi code-mixing
+        maxResults: 2,
+        prompt: 'Speak items to bill (e.g. 2 Maggi, ek pouch doodh)...',
+        partialResults: false,
+        popup: false,
+      });
 
-          if (event.results[0].isFinal) {
-            setIsListening(false);
-            processTranscript(spoken);
-          }
-        };
-
-        browserRecognitionRef.current = recognition;
-        recognition.start();
-      } catch (err: any) {
-        setError('Failed to start browser microphone: ' + err?.message);
-        setIsListening(false);
+      setIsListening(false);
+      if (res && res.matches && res.matches.length > 0) {
+        processTranscript(res.matches[0]);
+      }
+    } catch (err: any) {
+      setIsListening(false);
+      const errStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || '');
+      const isBenign = /no match|no speech|timeout|canceled|cancelled|client/i.test(errStr);
+      if (isBenign) {
+        // Normal silence timeout from Android SpeechRecognizer — do not log to console.error
+        setError(null);
+      } else {
+        setError(err?.message || errStr || 'Failed to start native microphone');
       }
     }
   }, [processTranscript]);
@@ -340,12 +292,6 @@ export function useVoiceOrder({
       try {
         await SpeechRecognition.stop();
         await SpeechRecognition.removeAllListeners();
-      } catch {
-        // ignore
-      }
-    } else if (browserRecognitionRef.current) {
-      try {
-        browserRecognitionRef.current.stop();
       } catch {
         // ignore
       }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Mic, MicOff, Volume2, Sparkles, AlertCircle, X, CheckCircle2 } from 'lucide-react';
 import { useVoiceOrder, type VoiceOrderProduct, type ParsedVoiceItem } from '@/lib/use-voice-order';
 
@@ -17,6 +18,11 @@ export function VoiceOrderMicButton({
   autoStart = false,
   className = '',
 }: VoiceOrderMicButtonProps) {
+  // Voice order / counter mic is strictly supported on the native mobile application (Capacitor Android/iOS)
+  // where speech recognition runs reliably. It is hidden entirely on web and on native APKs where the plugin is not installed.
+  if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('SpeechRecognition')) {
+    return null;
+  }
   const {
     isListening,
     transcript,

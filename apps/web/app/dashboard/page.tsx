@@ -20,9 +20,10 @@ import { ProductPurchasersModal } from '../reports/product-purchasers-modal';
 import { DashboardQuickOrder } from '@/components/dashboard-quick-order';
 import Link from 'next/link';
 import { useSubscription } from '@/lib/use-subscription';
+import { vibrateScanSuccess } from '@/lib/haptics';
 import {
   ShoppingCart, IndianRupee, Clock, AlertTriangle, TrendingUp, Package, Sparkles, CalendarClock,
-  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, HelpCircle, Crown, ChevronRight,
+  Users, Receipt, Mic, UserPlus, Plus, Pill, UserRound, HelpCircle, Crown, ChevronRight, Zap,
 } from 'lucide-react';
 
 const TOUR_SEEN_KEY_PREFIX = 'obix_tour_seen_';
@@ -84,13 +85,6 @@ function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: Retu
       iconBg: 'bg-tile-peach-icon',
       iconFg: 'text-tile-peach-fg',
       micBg: 'bg-accent-orange',
-      onMic: () => {
-        if (router) {
-          router.push('/orders?new=1&voice=1');
-        } else if (typeof window !== 'undefined') {
-          window.location.href = '/orders?new=1&voice=1';
-        }
-      },
     },
     isSalesman
       ? {
@@ -207,6 +201,20 @@ export default function DashboardPage() {
   const [tourUserKey, setTourUserKey] = useState<string | null>(null);
   const [seedError, setSeedError] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
+  const [showQuickOrder, setShowQuickOrder] = useState(false);
+
+  // Lock background scroll when Quick Order is open so the dashboard never scrolls
+  useEffect(() => {
+    if (showQuickOrder) {
+      const scrollY = window.scrollY;
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        window.scrollTo({ top: scrollY, behavior: 'instant' });
+      };
+    }
+  }, [showQuickOrder]);
 
   const closeTour = (open: boolean) => {
     setShowTour(open);
@@ -434,15 +442,86 @@ export default function DashboardPage() {
 
         <DraftReviewStack businessId={businessId} />
 
-        {/* ⚡ 2-Click Quick Order (Instant Counter POS) */}
+        {/* ⚡ 2-Click Quick Order Modal Dialog */}
         {!isSalesman && (
-          <DashboardQuickOrder businessId={businessId} isPharmacy={isPharmacy} />
+          <DashboardQuickOrder 
+            open={showQuickOrder} 
+            onOpenChange={setShowQuickOrder} 
+            businessId={businessId} 
+            isPharmacy={isPharmacy} 
+          />
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-md lg:max-w-none">
-          {getHomeTiles(isPharmacy, isSalesman).map((tile) => (
-            <HomeTile key={tile.href} {...tile} />
-          ))}
+        {/* Primary Tiles Grid with Center Quick Order Button */}
+        <div className="relative max-w-md lg:max-w-none mx-auto">
+          {/* Grid: 2x2 on mobile, 5-col on desktop with center hero tile */}
+          <div className={`grid grid-cols-2 ${!isSalesman ? 'lg:grid-cols-5' : 'lg:grid-cols-3'} gap-3.5 sm:gap-4`}>
+            {(() => {
+              const tiles = getHomeTiles(isPharmacy, isSalesman);
+              if (isSalesman) {
+                return tiles.map((tile) => <HomeTile key={tile.href} {...tile} />);
+              }
+
+              const [clientsTile, productsTile, ordersTile, ledgerTile] = tiles;
+
+              return (
+                <>
+                  <HomeTile {...clientsTile} />
+                  <HomeTile {...productsTile} />
+
+                  {/* Desktop Centerpiece Hero Tile */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try { vibrateScanSuccess(); } catch (e) {}
+                      setShowQuickOrder(true);
+                    }}
+                    className="hidden lg:flex rounded-3xl p-5 flex-col items-center justify-center gap-4 aspect-square bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_10px_25px_-10px_rgba(249,115,22,0.35)] hover:brightness-[0.98] active:scale-[0.98] transition-all duration-150 relative overflow-hidden group cursor-pointer"
+                  >
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-sm group-hover:scale-105 transition">
+                      <Zap className="w-7 h-7 fill-white text-white" strokeWidth={2.25} />
+                    </div>
+                    <div className="text-center">
+                      <span className="font-bold tracking-wide uppercase text-sm block">Quick Order</span>
+                      <span className="text-[11px] font-medium text-amber-100 block mt-0.5">Instant POS</span>
+                    </div>
+                  </button>
+
+                  <HomeTile {...ordersTile} />
+                  <HomeTile {...ledgerTile} />
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Mobile Center Floating Action Button (Dead-center in 2x2 grid intersection - Prominent & Accessible) */}
+          {!isSalesman && (
+            <div className="lg:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-auto">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try { vibrateScanSuccess(); } catch (err) {}
+                  setShowQuickOrder(true);
+                }}
+                className="w-[58px] h-[58px] rounded-full bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_8px_20px_-3px_rgba(249,115,22,0.45),0_2px_6px_rgba(15,23,42,0.12)] flex flex-col items-center justify-center hover:brightness-105 active:scale-95 transition-all duration-150 group cursor-pointer relative touch-manipulation select-none border-0 ring-0 outline-none"
+                aria-label="Quick Order POS - Instant 2-Click Settlement"
+              >
+                {/* Zap Icon with glass backing */}
+                <div className="w-6 h-6 rounded-full bg-white/25 flex items-center justify-center mb-0.5 shadow-xs group-hover:scale-110 transition-transform">
+                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
+                </div>
+
+                <span className="text-[9px] font-black uppercase tracking-wider text-white leading-none">
+                  QUICK
+                </span>
+                <span className="text-[7.5px] font-bold text-amber-100 uppercase tracking-tight leading-none mt-0.5">
+                  ORDER
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

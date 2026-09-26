@@ -374,7 +374,7 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
                   </span>
                 </div>
                 <p className="text-[11px] text-white/80 leading-tight truncate mt-0.5">
-                  {mode === 'order' ? 'Voice & Text POS Ordering' : 'Live Supplier, Dues & Business Reports'}
+                  {mode === 'order' ? 'AI POS Ordering & Assistant' : 'Live Supplier, Dues & Business Reports'}
                 </p>
               </div>
             </div>

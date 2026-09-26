@@ -926,16 +926,22 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               <Input
                 ref={searchInputRef}
                 className="pl-10 h-12 rounded-full border border-transparent bg-white/35 backdrop-blur-md px-4 text-sm ring-1 ring-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)] focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:bg-white/55"
-                placeholder={isPharmacy ? 'Search medicines or speak...' : 'Search products or speak...'}
+                placeholder={
+                  canCameraScan
+                    ? (isPharmacy ? 'Search medicines or speak...' : 'Search products or speak...')
+                    : (isPharmacy ? 'Search medicines...' : 'Search products...')
+                }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <VoiceOrderMicButton
-              catalog={products}
-              onItemsMatched={handleVoiceItemsMatched}
-              autoStart={autoStartVoice}
-            />
+            {canCameraScan && (
+              <VoiceOrderMicButton
+                catalog={products}
+                onItemsMatched={handleVoiceItemsMatched}
+                autoStart={autoStartVoice}
+              />
+            )}
           </div>
 
           {/* Product list */}
