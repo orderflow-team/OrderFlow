@@ -963,12 +963,12 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               {isCustomerTab && showCenterQuickOrder && (
                 <>
                   {/* Ambient luminous glow behind Quick Order button */}
-                  <div className="absolute -top-[38px] left-1/2 -translate-x-1/2 w-[46px] h-[46px] rounded-full bg-orange-500/25 blur-xl pointer-events-none -z-10" />
+                  <div className="absolute -top-[42px] left-1/2 -translate-x-1/2 w-[46px] h-[46px] rounded-full bg-orange-500/25 blur-xl pointer-events-none -z-10" />
 
-                  {/* Organic S-curve sloping hill contour that smoothly blends into the navbar top edge */}
+                  {/* Organic S-curve with mathematically perfect circular top arc */}
                   <svg
-                    viewBox="0 0 150 50"
-                    className="absolute -top-[46px] left-1/2 -translate-x-1/2 w-[150px] h-[50px] pointer-events-none -z-10 overflow-visible"
+                    viewBox="0 0 160 62"
+                    className="absolute -top-[56px] left-1/2 -translate-x-1/2 w-[160px] h-[62px] pointer-events-none -z-10 overflow-visible"
                     fill="none"
                   >
                     <defs>
@@ -976,27 +976,28 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                         <feDropShadow dx="0" dy="-3" stdDeviation="4" floodColor="rgba(0, 0, 0, 0.04)" />
                       </filter>
                       <linearGradient id="slope-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.92)" />
-                        <stop offset="60%" stopColor="rgba(255, 255, 255, 0.82)" />
-                        <stop offset="100%" stopColor="rgba(255, 255, 255, 0.75)" />
+                        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.94)" />
+                        <stop offset="60%" stopColor="rgba(255, 255, 255, 0.84)" />
+                        <stop offset="100%" stopColor="rgba(255, 255, 255, 0.76)" />
                       </linearGradient>
                       <linearGradient id="slope-stroke" x1="0" y1="0" x2="1" y2="0">
                         <stop offset="0%" stopColor="rgba(255, 255, 255, 0.3)" />
                         <stop offset="15%" stopColor="rgba(255, 255, 255, 0.75)" />
+                        <stop offset="50%" stopColor="rgba(255, 255, 255, 0.9)" />
                         <stop offset="85%" stopColor="rgba(255, 255, 255, 0.75)" />
                         <stop offset="100%" stopColor="rgba(255, 255, 255, 0.3)" />
                       </linearGradient>
                     </defs>
 
-                    {/* Filled sloping dome matching navbar glassmorphism */}
+                    {/* Filled sloping dome with mathematically perfect circular top arc */}
                     <path
-                      d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46 L 150,50 L 0,50 Z"
+                      d="M 0,56 C 38,56 42.47,40.03 56.24,20.37 A 29 29 0 0 1 103.76,20.37 C 117.53,40.03 122,56 160,56 L 160,62 L 0,62 Z"
                       fill="url(#slope-fill)"
                       filter="url(#apple-dome-shadow)"
                     />
-                    {/* Feathered top stroke connecting seamlessly to the navbar border */}
+                    {/* Feathered top stroke with mathematically perfect circular top arc */}
                     <path
-                      d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46"
+                      d="M 0,56 C 38,56 42.47,40.03 56.24,20.37 A 29 29 0 0 1 103.76,20.37 C 117.53,40.03 122,56 160,56"
                       stroke="url(#slope-stroke)"
                       strokeWidth="1.2"
                       strokeLinecap="round"
@@ -1004,9 +1005,9 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                   </svg>
 
                   {/* Mask straight navbar border beneath the dome */}
-                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[92px] h-[3px] bg-white/90 pointer-events-none z-10" />
+                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[100px] h-[3px] bg-white/90 pointer-events-none z-10" />
 
-                  {/* Raised Apple-Style Circular Quick Order Action Button (Borderless Glass with Liquid Specular Shine) */}
+                  {/* Raised Apple-Style Circular Quick Order Action Button (Concentric to Arc) */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1021,7 +1022,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       try { vibrateScanSuccess(); } catch (err) {}
                       setQuickOrderOpen(true);
                     }}
-                    className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[48px] h-[48px] rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.25)] flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
+                    className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[46px] h-[46px] rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.25)] flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
                     aria-label="Quick Order POS"
                   >
                     <Zap className="w-5 h-5 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.25} />
