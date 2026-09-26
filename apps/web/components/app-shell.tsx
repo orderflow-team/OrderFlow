@@ -1027,7 +1027,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                     {/* Top liquid glass specular highlight */}
                     <div className="absolute top-1 inset-x-2.5 h-2 rounded-full bg-white/40 blur-[0.5px] pointer-events-none" />
 
-                    <Zap className="w-4 h-4 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.5} />
+                    <Zap className="w-5 h-5 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.25} />
                     <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-sm mt-0.5 relative z-10">
                       QUICK
                     </span>
@@ -1041,18 +1041,18 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               {/* Tab Link with rounded border div encircling the icon */}
               <Link
                 href={item.href}
-                className="w-full flex flex-col items-center justify-center gap-0.5 pt-3 pb-1 text-xs font-semibold min-w-0"
+                className="w-full flex flex-col items-center justify-center gap-0.5 pt-2 pb-1 text-xs font-semibold min-w-0"
               >
                 <div
-                  className={`w-8.5 h-8.5 rounded-2xl flex items-center justify-center transition-all border ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border shrink-0 ${
                     active
                       ? `${tint.chip} ${tint.fg} border-current/30 shadow-[0_2px_8px_rgba(0,0,0,0.08)]`
                       : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
                   }`}
                 >
-                  <Icon className="w-4.5 h-4.5" strokeWidth={active ? 2.5 : 2} />
+                  <Icon className="w-5 h-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
                 </div>
-                <span className={`text-[10px] truncate max-w-full px-0.5 ${active ? `${tint.fg} font-bold` : 'text-slate-400 font-medium'}`}>
+                <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 mt-0.5 ${active ? `${tint.fg} font-bold` : 'text-slate-400 font-medium'}`}>
                   {label}
                 </span>
               </Link>
@@ -1073,18 +1073,18 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 <div className="relative flex-1 flex flex-col items-center justify-center min-w-0">
                   <button
                     onClick={() => setMoreOpen(true)}
-                    className="w-full flex flex-col items-center justify-center gap-0.5 pt-3 pb-1 text-xs font-semibold min-w-0"
+                    className="w-full flex flex-col items-center justify-center gap-0.5 pt-2 pb-1 text-xs font-semibold min-w-0"
                   >
                     <div
-                      className={`w-8.5 h-8.5 rounded-2xl flex items-center justify-center transition-all border ${
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all border shrink-0 ${
                         isMoreActive
                           ? 'bg-slate-900/10 text-slate-700 border-slate-900/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
                           : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
                       }`}
                     >
-                      <MoreHorizontal className="w-4.5 h-4.5" />
+                      <MoreHorizontal className="w-5 h-5 shrink-0" strokeWidth={isMoreActive ? 2.25 : 1.75} />
                     </div>
-                    <span className={`text-[10px] truncate max-w-full px-0.5 ${isMoreActive ? 'text-slate-700 font-bold' : 'text-slate-400 font-medium'}`}>
+                    <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 mt-0.5 ${isMoreActive ? 'text-slate-700 font-bold' : 'text-slate-400 font-medium'}`}>
                       More
                     </span>
                   </button>
