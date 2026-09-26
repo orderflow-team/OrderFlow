@@ -1021,12 +1021,9 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       try { vibrateScanSuccess(); } catch (err) {}
                       setQuickOrderOpen(true);
                     }}
-                    className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[48px] h-[48px] rounded-full bg-gradient-to-b from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.3),inset_0_1px_1.5px_rgba(255,255,255,0.5)] border border-white/25 flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
+                    className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[48px] h-[48px] rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.25)] flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
                     aria-label="Quick Order POS"
                   >
-                    {/* Top liquid glass specular highlight */}
-                    <div className="absolute top-1 inset-x-2.5 h-2 rounded-full bg-white/40 blur-[0.5px] pointer-events-none" />
-
                     <Zap className="w-5 h-5 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.25} />
                     <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-sm mt-0.5 relative z-10">
                       QUICK
