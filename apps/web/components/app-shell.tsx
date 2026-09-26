@@ -31,6 +31,7 @@ import {
   Crown,
   Sparkles,
   ArrowRight,
+  Zap,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
 import { setCached } from '@/lib/offline-db';
@@ -45,6 +46,8 @@ import { PendingConnectionRequestAlert } from '@/components/pending-connection-r
 import { RequireBusinessPhoneAlert } from '@/components/require-business-phone-alert';
 import { SubscriptionPaywallDialog } from '@/components/subscription-paywall-dialog';
 import { ObixMark } from '@/components/obix-logo';
+import { vibrateScanSuccess } from '@/lib/haptics';
+import { DashboardQuickOrder } from '@/components/dashboard-quick-order';
 
 const CORE_PRIMARY_NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -167,6 +170,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const [businessMenuOpen, setBusinessMenuOpen] = useState(false);
   const [mobileBusinessMenuOpen, setMobileBusinessMenuOpen] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(true);
+  const [quickOrderOpen, setQuickOrderOpen] = useState(false);
+
+  // Allow opening Quick Order POS from anywhere in the app via custom event
+  useEffect(() => {
+    const handleOpenQuick = () => setQuickOrderOpen(true);
+    window.addEventListener('open-quick-order', handleOpenQuick);
+    return () => window.removeEventListener('open-quick-order', handleOpenQuick);
+  }, []);
 
   // localStorage isn't available during SSR, so getCurrentUser() would return
   // a different value on the server (null) vs. the client's first render
@@ -864,7 +875,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       </header>
       )}
 
-      <main className={`flex-1 min-w-0 ${hideNavigation ? 'pt-0 pb-0' : 'pt-[60px] pb-16 md:pt-0 md:pb-0'}`}>
+      <main className={`flex-1 min-w-0 ${hideNavigation ? 'pt-0 pb-0' : 'pt-[60px] pb-28 md:pt-0 md:pb-0'}`}>
         {sub && (sub.status === 'expired' || sub.status === 'past_due' || sub.status === 'canceled') && !pathname.includes('/settings/subscription') && (
           <div className="bg-gradient-to-r from-rose-950 via-slate-900 to-rose-950 text-white px-4 py-3 border-b border-rose-500/40 shadow-xl flex items-center justify-between gap-3 flex-wrap animate-in fade-in duration-200">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -931,9 +942,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       </main>
 
       {/* Mobile bottom tab bar */}
-      {!hideNavigation && (
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/25 backdrop-blur-2xl backdrop-saturate-150 border-t border-white/50 shadow-[0_-4px_30px_-5px_rgba(0,0,0,0.1)] flex px-1 py-1 pb-[env(safe-area-inset-bottom)]">
-        {primaryNavBase.map((item, index) => {
+      {!hideNavigation && (() => {
+        const showCenterQuickOrder = !isCookRole && !isSalesmanRole;
+
+        const renderTabItem = (item: (typeof primaryNavBase)[number], index: number) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
           const label =
@@ -943,46 +955,128 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 ? 'Medicines'
                 : item.label;
           const tint = NAV_TINTS[index % NAV_TINTS.length];
+          const isCustomerTab = item.href === '/customers';
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
-            >
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                  active
-                    ? `${tint.chip} ${tint.fg} shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]`
-                    : 'text-slate-400'
-                }`}
+            <div key={item.href} className="relative flex-1 flex flex-col items-center justify-center min-w-0">
+              {/* Apple-style Elevated Quick Order Dome with Perfect Organic Slope & Button directly above Customers icon */}
+              {isCustomerTab && showCenterQuickOrder && (
+                <>
+                  {/* Organic S-curve sloping hill contour that smoothly blends into the navbar top edge */}
+                  <svg
+                    viewBox="0 0 150 50"
+                    className="absolute -top-[46px] left-1/2 -translate-x-1/2 w-[150px] h-[50px] pointer-events-none -z-10 overflow-visible"
+                    fill="none"
+                  >
+                    <defs>
+                      <filter id="apple-dome-shadow" x="-20%" y="-30%" width="140%" height="160%">
+                        <feDropShadow dx="0" dy="-3" stdDeviation="4" floodColor="rgba(0, 0, 0, 0.04)" />
+                      </filter>
+                    </defs>
+
+                    {/* Filled sloping dome matching navbar glassmorphism */}
+                    <path
+                      d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46 L 150,50 L 0,50 Z"
+                      fill="rgba(255, 255, 255, 0.85)"
+                      filter="url(#apple-dome-shadow)"
+                    />
+                    {/* Blended top stroke connecting seamlessly to the navbar border */}
+                    <path
+                      d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46"
+                      stroke="rgba(255, 255, 255, 0.65)"
+                      strokeWidth="1"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+
+                  {/* Mask straight navbar border beneath the dome */}
+                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[90px] h-[3px] bg-white/85 pointer-events-none z-10" />
+
+                  {/* Raised Apple-Style Circular Quick Order Action Button (Borderless Glass) */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      try { vibrateScanSuccess(); } catch (err) {}
+                      setQuickOrderOpen(true);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      try { vibrateScanSuccess(); } catch (err) {}
+                      setQuickOrderOpen(true);
+                    }}
+                    className="absolute -top-[40px] left-1/2 -translate-x-1/2 z-30 w-[46px] h-[46px] rounded-full bg-gradient-to-b from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),inset_0_1px_1.5px_rgba(255,255,255,0.45)] border border-white/20 flex flex-col items-center justify-center active:scale-90 hover:scale-105 transition-all duration-200 cursor-pointer select-none group touch-manipulation pointer-events-auto"
+                    aria-label="Quick Order POS"
+                  >
+                    <Zap className="w-4 h-4 fill-white text-white drop-shadow-xs group-hover:scale-110 transition-transform" strokeWidth={2.5} />
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-xs mt-0.5">
+                      QUICK
+                    </span>
+                    <span className="text-[6.5px] font-bold text-amber-100 uppercase tracking-tight leading-none">
+                      ORDER
+                    </span>
+                  </button>
+                </>
+              )}
+
+              {/* Tab Link with rounded border div encircling the icon */}
+              <Link
+                href={item.href}
+                className="w-full flex flex-col items-center justify-center gap-0.5 pt-2.5 pb-1 text-xs font-semibold min-w-0"
               >
-                <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 2} />
-              </div>
-              <span className={active ? tint.fg : 'text-slate-400'}>{label}</span>
-            </Link>
-          );
-        })}
-        {moreNav.length > 0 && (
-          <button
-            onClick={() => setMoreOpen(true)}
-            className="flex-1 flex flex-col items-center justify-center gap-1 py-1.5 text-xs font-semibold"
-          >
-            <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                moreNav.some((item) => isActive(pathname, item.href))
-                  ? 'bg-slate-900/10 text-slate-700 shadow-[2px_2px_6px_rgba(148,163,184,0.25),-2px_-2px_6px_rgba(255,255,255,0.7)]'
-                  : 'text-slate-400'
-              }`}
-            >
-              <MoreHorizontal className="w-5 h-5" />
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${
+                    active
+                      ? `${tint.chip} ${tint.fg} border-current/30 shadow-[0_2px_8px_rgba(0,0,0,0.08)]`
+                      : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
+                  }`}
+                >
+                  <Icon className="w-4.5 h-4.5" strokeWidth={active ? 2.5 : 2} />
+                </div>
+                <span className={`text-[10px] truncate max-w-full px-0.5 ${active ? `${tint.fg} font-bold` : 'text-slate-400 font-medium'}`}>
+                  {label}
+                </span>
+              </Link>
             </div>
-            <span className={moreNav.some((item) => isActive(pathname, item.href)) ? 'text-slate-700' : 'text-slate-400'}>
-              More
-            </span>
-          </button>
-        )}
-      </nav>
-      )}
+          );
+        };
+
+        const isMoreActive = moreNav.some((item) => isActive(pathname, item.href));
+
+        return (
+          <div className="md:hidden fixed bottom-0 inset-x-0 z-30 pointer-events-none px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+            <nav className="pointer-events-auto relative bg-white/75 backdrop-blur-3xl backdrop-saturate-180 border border-white/60 shadow-[0_12px_36px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] rounded-full flex items-center justify-around px-2 py-1">
+              {/* Primary Tabs (Dashboard, Orders, Customers [with Quick Order above], Products) */}
+              {primaryNavBase.map((item, i) => renderTabItem(item, i))}
+
+              {/* More Tab */}
+              {moreNav.length > 0 && (
+                <div className="relative flex-1 flex flex-col items-center justify-center min-w-0">
+                  <button
+                    onClick={() => setMoreOpen(true)}
+                    className="w-full flex flex-col items-center justify-center gap-0.5 pt-2.5 pb-1 text-xs font-semibold min-w-0"
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${
+                        isMoreActive
+                          ? 'bg-slate-900/10 text-slate-700 border-slate-900/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                          : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
+                      }`}
+                    >
+                      <MoreHorizontal className="w-4.5 h-4.5" />
+                    </div>
+                    <span className={`text-[10px] truncate max-w-full px-0.5 ${isMoreActive ? 'text-slate-700 font-bold' : 'text-slate-400 font-medium'}`}>
+                      More
+                    </span>
+                  </button>
+                </div>
+              )}
+            </nav>
+          </div>
+        );
+      })()}
 
       {/* Mobile "More" sheet */}
       {moreOpen && (
@@ -1090,6 +1184,14 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           </button>
         )
       ))}
+      {!hideNavigation && businessId && (
+        <DashboardQuickOrder
+          businessId={businessId}
+          isPharmacy={businessCategory === 'pharmacy'}
+          open={quickOrderOpen}
+          onOpenChange={setQuickOrderOpen}
+        />
+      )}
       <PostLoginUpdateAlert />
       <PendingConnectionRequestAlert businessId={businessId} />
       <RequireBusinessPhoneAlert businessId={businessId} />
