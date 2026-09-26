@@ -90,7 +90,8 @@ async function run() {
   const form = new FormData();
   form.append('platform', 'android');
   form.append('version', version);
-  form.append('notes', 'Fix network connection on native mobile app and prevent chat drawer auto-open on order details');
+  const releaseNotes = process.argv[3] || 'Elevated Quick Order button in floating dock with perfect circular cradle and icon uniformity';
+  form.append('notes', releaseNotes);
   form.append('file', new Blob([zipBuffer], { type: 'application/zip' }), `${version}.zip`);
 
   console.log(`Uploading OTA release ${version} (${(zipBuffer.length / 1024 / 1024).toFixed(1)} MB) to ${API_BASE_URL}/api/app-updates ...`);
