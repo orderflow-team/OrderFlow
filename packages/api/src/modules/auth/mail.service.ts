@@ -2,24 +2,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * MailService proxies email sending to the Vercel frontend.
- * This bypasses Render's permanent hard firewall on SMTP ports (465, 587).
- * Vercel's Edge network allows port 465, so Vercel safely establishes the Nodemailer TCP socket.
+ * MailService proxies email sending through the web app's internal API route,
+ * which holds the actual SMTP credentials and sends via Nodemailer.
  */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    this.fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'noreply@example.com';
-    const host = this.configService.get<string>('SMTP_HOST');
-    if (!host) {
-      this.logger.warn('SMTP credentials not fully provided; emails will be logged instead of sent.');
+    const proxyUrl = this.configService.get<string>('INTERNAL_EMAIL_PROXY_URL');
+    if (!proxyUrl) {
+      this.logger.warn('INTERNAL_EMAIL_PROXY_URL not configured; emails will be logged instead of sent.');
     }
   }
 
-  /** Returns true if the OTP was actually emailed, false if it was only logged (no SMTP / send failure). */
+  /** Returns true if the OTP was actually emailed, false if it was only logged (no proxy / send failure). */
   async sendOtpEmail(email: string, code: string): Promise<boolean> {
     return this.sendEmail(
       email,
@@ -30,7 +27,7 @@ export class MailService {
     );
   }
 
-  /** Returns true if the reset code was actually emailed, false if it was only logged (no SMTP / send failure). */
+  /** Returns true if the reset code was actually emailed, false if it was only logged (no proxy / send failure). */
   async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
     return this.sendEmail(
       email,
@@ -42,30 +39,18 @@ export class MailService {
   }
 
   private async sendEmail(email: string, subject: string, text: string, html: string, logCode: string): Promise<boolean> {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASSWORD');
+    const proxyUrl = this.configService.get<string>('INTERNAL_EMAIL_PROXY_URL');
+    const proxySecret = this.configService.get<string>('INTERNAL_EMAIL_PROXY_SECRET');
 
-    if (host && port && user && pass) {
+    if (proxyUrl && proxySecret) {
       try {
         const payload = {
           email,
           subject,
           text,
           html,
-          secret: 'vrc_proxy_8f92a1_super_secure_internal',
-          smtp: {
-            host,
-            port,
-            user,
-            pass,
-            from: this.fromEmail,
-          },
+          secret: proxySecret,
         };
-
-        // The proxy URL deployed explicitly for email handling
-        const proxyUrl = `https://web-chi-beige-80.vercel.app/api/internal/send-email`;
 
         const response = await fetch(proxyUrl, {
           method: 'POST',
@@ -75,10 +60,10 @@ export class MailService {
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Vercel Proxy returned ${response.status}: ${errorText}`);
+          throw new Error(`Email proxy returned ${response.status}: ${errorText}`);
         }
 
-        this.logger.log(`Email securely proxied to Vercel and sent to ${email}`);
+        this.logger.log(`Email securely proxied and sent to ${email}`);
         return true;
       } catch (error) {
         this.logger.error(`Failed to send email to ${email} via proxy`, (error as Error).stack);
