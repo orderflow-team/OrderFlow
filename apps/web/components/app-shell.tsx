@@ -962,6 +962,9 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               {/* Apple-style Elevated Quick Order Dome with Perfect Organic Slope & Button directly above Customers icon */}
               {isCustomerTab && showCenterQuickOrder && (
                 <>
+                  {/* Ambient luminous glow behind Quick Order button */}
+                  <div className="absolute -top-[38px] left-1/2 -translate-x-1/2 w-[46px] h-[46px] rounded-full bg-orange-500/25 blur-xl pointer-events-none -z-10" />
+
                   {/* Organic S-curve sloping hill contour that smoothly blends into the navbar top edge */}
                   <svg
                     viewBox="0 0 150 50"
@@ -972,27 +975,38 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       <filter id="apple-dome-shadow" x="-20%" y="-30%" width="140%" height="160%">
                         <feDropShadow dx="0" dy="-3" stdDeviation="4" floodColor="rgba(0, 0, 0, 0.04)" />
                       </filter>
+                      <linearGradient id="slope-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.92)" />
+                        <stop offset="60%" stopColor="rgba(255, 255, 255, 0.82)" />
+                        <stop offset="100%" stopColor="rgba(255, 255, 255, 0.75)" />
+                      </linearGradient>
+                      <linearGradient id="slope-stroke" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="rgba(255, 255, 255, 0.3)" />
+                        <stop offset="15%" stopColor="rgba(255, 255, 255, 0.75)" />
+                        <stop offset="85%" stopColor="rgba(255, 255, 255, 0.75)" />
+                        <stop offset="100%" stopColor="rgba(255, 255, 255, 0.3)" />
+                      </linearGradient>
                     </defs>
 
                     {/* Filled sloping dome matching navbar glassmorphism */}
                     <path
                       d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46 L 150,50 L 0,50 Z"
-                      fill="rgba(255, 255, 255, 0.85)"
+                      fill="url(#slope-fill)"
                       filter="url(#apple-dome-shadow)"
                     />
-                    {/* Blended top stroke connecting seamlessly to the navbar border */}
+                    {/* Feathered top stroke connecting seamlessly to the navbar border */}
                     <path
                       d="M 0,46 C 28,46 40,30 50,14 C 58,2 66,2 75,2 C 84,2 92,2 100,14 C 110,30 122,46 150,46"
-                      stroke="rgba(255, 255, 255, 0.65)"
-                      strokeWidth="1"
+                      stroke="url(#slope-stroke)"
+                      strokeWidth="1.2"
                       strokeLinecap="round"
                     />
                   </svg>
 
                   {/* Mask straight navbar border beneath the dome */}
-                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[90px] h-[3px] bg-white/85 pointer-events-none z-10" />
+                  <div className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-[92px] h-[3px] bg-white/90 pointer-events-none z-10" />
 
-                  {/* Raised Apple-Style Circular Quick Order Action Button (Borderless Glass) */}
+                  {/* Raised Apple-Style Circular Quick Order Action Button (Borderless Glass with Liquid Specular Shine) */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1007,14 +1021,17 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       try { vibrateScanSuccess(); } catch (err) {}
                       setQuickOrderOpen(true);
                     }}
-                    className="absolute -top-[40px] left-1/2 -translate-x-1/2 z-30 w-[46px] h-[46px] rounded-full bg-gradient-to-b from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),inset_0_1px_1.5px_rgba(255,255,255,0.45)] border border-white/20 flex flex-col items-center justify-center active:scale-90 hover:scale-105 transition-all duration-200 cursor-pointer select-none group touch-manipulation pointer-events-auto"
+                    className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[48px] h-[48px] rounded-full bg-gradient-to-b from-amber-400 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.3),inset_0_1px_1.5px_rgba(255,255,255,0.5)] border border-white/25 flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
                     aria-label="Quick Order POS"
                   >
-                    <Zap className="w-4 h-4 fill-white text-white drop-shadow-xs group-hover:scale-110 transition-transform" strokeWidth={2.5} />
-                    <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-xs mt-0.5">
+                    {/* Top liquid glass specular highlight */}
+                    <div className="absolute top-1 inset-x-2.5 h-2 rounded-full bg-white/40 blur-[0.5px] pointer-events-none" />
+
+                    <Zap className="w-4 h-4 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.5} />
+                    <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-sm mt-0.5 relative z-10">
                       QUICK
                     </span>
-                    <span className="text-[6.5px] font-bold text-amber-100 uppercase tracking-tight leading-none">
+                    <span className="text-[6.5px] font-bold text-amber-100 uppercase tracking-tight leading-none relative z-10">
                       ORDER
                     </span>
                   </button>
@@ -1024,10 +1041,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               {/* Tab Link with rounded border div encircling the icon */}
               <Link
                 href={item.href}
-                className="w-full flex flex-col items-center justify-center gap-0.5 pt-2.5 pb-1 text-xs font-semibold min-w-0"
+                className="w-full flex flex-col items-center justify-center gap-0.5 pt-3 pb-1 text-xs font-semibold min-w-0"
               >
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${
+                  className={`w-8.5 h-8.5 rounded-2xl flex items-center justify-center transition-all border ${
                     active
                       ? `${tint.chip} ${tint.fg} border-current/30 shadow-[0_2px_8px_rgba(0,0,0,0.08)]`
                       : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
@@ -1056,10 +1073,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 <div className="relative flex-1 flex flex-col items-center justify-center min-w-0">
                   <button
                     onClick={() => setMoreOpen(true)}
-                    className="w-full flex flex-col items-center justify-center gap-0.5 pt-2.5 pb-1 text-xs font-semibold min-w-0"
+                    className="w-full flex flex-col items-center justify-center gap-0.5 pt-3 pb-1 text-xs font-semibold min-w-0"
                   >
                     <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all border ${
+                      className={`w-8.5 h-8.5 rounded-2xl flex items-center justify-center transition-all border ${
                         isMoreActive
                           ? 'bg-slate-900/10 text-slate-700 border-slate-900/20 shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
                           : 'bg-white/60 border-slate-200/70 text-slate-400 shadow-xs'
