@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
+import { nativeGoogleSignIn } from '@/lib/native-google-auth';
 
 interface GoogleAuthButtonProps {
   mode?: 'signin' | 'signup';
@@ -25,6 +27,10 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
   const router = useRouter();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  // Google Identity Services' popup can't run inside the Capacitor WebView:
+  // accounts.google.com gets handed to the external browser and the result
+  // never returns to the app. Native builds use the platform sign-in instead.
+  const isNative = Capacitor.isNativePlatform();
 
   const handleSuccess = async (authPayload: { idToken?: string; accessToken?: string }) => {
     setLoading(true);
@@ -49,7 +55,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || isNative || !clientId) return;
 
     const initGoogle = () => {
       if (!window.google?.accounts) return;
@@ -58,7 +64,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
         // 1. Initialize Google Identity Services for ID Token authentication
         if (window.google.accounts.id) {
           window.google.accounts.id.initialize({
-            client_id: clientId || 'demo-client-id.apps.googleusercontent.com',
+            client_id: clientId,
             callback: (res: any) => {
               if (res?.credential) {
                 handleSuccess({ idToken: res.credential });
@@ -85,7 +91,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
         }
 
         // 2. Also initialize OAuth2 Token Client for direct popup fallback
-        if (window.google.accounts.oauth2 && clientId) {
+        if (window.google.accounts.oauth2) {
           tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
             client_id: clientId,
             scope: 'openid email profile',
@@ -132,13 +138,23 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
     };
 
     loadScript();
-  }, [clientId, mode]);
+  }, [clientId, mode, isNative]);
 
-  const triggerGooglePrompt = () => {
+  const triggerGooglePrompt = async () => {
     if (loading) return;
 
     if (!clientId) {
       onError?.('Google Client ID is not configured yet (NEXT_PUBLIC_GOOGLE_CLIENT_ID).');
+      return;
+    }
+
+    if (isNative) {
+      try {
+        const idToken = await nativeGoogleSignIn(clientId);
+        if (idToken) await handleSuccess({ idToken });
+      } catch (e: any) {
+        onError?.(e?.message || 'Google sign-in failed. Please try again.');
+      }
       return;
     }
 
@@ -162,11 +178,11 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
     <div className={`w-full relative overflow-hidden rounded-full ${className}`}>
       {/* Invisible overlay of Google's native button:
           Any tap or click lands directly on Google's iframe for immediate popup response */}
-      <div
+      {!isNative && <div
         ref={overlayBtnRef}
         className="absolute inset-0 w-full h-full opacity-0 hover:opacity-[0.01] z-20 cursor-pointer flex items-center justify-center overflow-hidden scale-110 pointer-events-auto"
         aria-hidden="true"
-      />
+      />}
 
       {/* Styled custom button visible underneath */}
       <button

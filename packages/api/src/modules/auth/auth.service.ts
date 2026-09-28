@@ -205,41 +205,51 @@ export class AuthService {
       throw new BadRequestException("Google authentication token is required");
     }
 
+    // Only accept tokens Google issued to *our* OAuth client. Without this, a
+    // token a user granted to any other app or site using Google sign-in could
+    // be replayed here to log in as them.
+    const configuredClientId =
+      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!configuredClientId) {
+      Logger.error("GOOGLE_CLIENT_ID is not configured", "AuthService");
+      throw new UnauthorizedException("Google sign-in is not configured");
+    }
+
+    const fetchJson = async (url: string, init?: RequestInit) => {
+      try {
+        const res = await fetch(url, init);
+        return res.ok ? await res.json() : null;
+      } catch {
+        return null;
+      }
+    };
+
     let payload: {
       sub: string;
       email: string;
       email_verified?: string | boolean;
       name?: string;
       picture?: string;
-      aud?: string;
     } | null = null;
 
-    // 1. Try validating as Google ID Token (JWT)
     if (dto.idToken) {
-      try {
-        const googleRes = await fetch(
-          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
-        );
-        if (googleRes.ok) {
-          payload = await googleRes.json();
-        }
-      } catch {
-        // Fall back to userinfo check
+      // tokeninfo verifies the JWT signature and expiry; we check the audience.
+      const info = await fetchJson(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`,
+      );
+      if (info && info.aud === configuredClientId) {
+        payload = info;
       }
-    }
-
-    // 2. If ID token wasn't valid or accessToken was passed, validate via Google UserInfo API
-    const tokenForUserInfo = dto.accessToken || (!payload ? dto.idToken : null);
-    if (!payload && tokenForUserInfo) {
-      try {
-        const userinfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: { Authorization: `Bearer ${tokenForUserInfo}` },
+    } else if (dto.accessToken) {
+      // Access tokens carry no audience of their own — ask Google which client
+      // it was issued to before trusting the profile it unlocks.
+      const info = await fetchJson(
+        `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(dto.accessToken)}`,
+      );
+      if (info && (info.aud === configuredClientId || info.azp === configuredClientId)) {
+        payload = await fetchJson("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${dto.accessToken}` },
         });
-        if (userinfoRes.ok) {
-          payload = await userinfoRes.json();
-        }
-      } catch {
-        // Handled below
       }
     }
 
@@ -248,21 +258,8 @@ export class AuthService {
     }
 
     const email = payload.email.toLowerCase().trim();
-    const isEmailVerified =
-      payload.email_verified === true ||
-      payload.email_verified === "true" ||
-      payload.email_verified === undefined;
-    if (!isEmailVerified) {
+    if (payload.email_verified !== true && payload.email_verified !== "true") {
       throw new UnauthorizedException("Google email address is not verified");
-    }
-
-    const configuredClientId =
-      process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (configuredClientId && payload.aud && payload.aud !== configuredClientId) {
-      Logger.warn(
-        `Google token audience mismatch: ${payload.aud} vs ${configuredClientId}`,
-        "AuthService",
-      );
     }
 
     let user = await this.usersRepository.findOne({
