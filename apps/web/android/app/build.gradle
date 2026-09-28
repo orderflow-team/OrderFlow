@@ -77,6 +77,12 @@ tasks.matching { it.name ==~ /pre\w*ReleaseBuild/ }.configureEach {
         if (cfg.exists() && new groovy.json.JsonSlurper().parse(cfg).server?.url) {
             throw new GradleException("capacitor.config.json has server.url set — remove it from capacitor.config.ts and run `npx cap sync android` before building a release.")
         }
+        // Windows `next build` writes segment payloads as nested __next.* dirs,
+        // which crashes in-app navigation; build:capacitor flattens them.
+        def nested = fileTree('src/main/assets/public').matching { include '**/__next.*/**' }.files
+        if (!nested.isEmpty()) {
+            throw new GradleException("app-export has nested __next.* segment dirs (e.g. ${nested.first()}) — rebuild with `npm run build:capacitor` and `npx cap sync android`.")
+        }
     }
 }
 

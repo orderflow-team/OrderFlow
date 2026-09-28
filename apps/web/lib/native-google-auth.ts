@@ -56,7 +56,16 @@ export async function browserGoogleSignIn(opts: {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
   const secretHash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 
-  const { data } = await apiClient.post('/auth/google/app-session', { secretHash });
+  let data;
+  try {
+    ({ data } = await apiClient.post('/auth/google/app-session', { secretHash }));
+  } catch (err: any) {
+    // The backend half of this flow ships in a separate (VPS) deploy.
+    if (err?.response?.status === 404) {
+      throw new Error('Google sign-in in the app is being updated. Please sign in with email for now.');
+    }
+    throw err;
+  }
   const { sessionId, code, expiresInSeconds } = data as { sessionId: string; code: string; expiresInSeconds: number };
   opts.onCode(code);
 

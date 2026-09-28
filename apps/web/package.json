@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
     "build": "next build",
-    "build:capacitor": "cross-env NODE_ENV=production CAPACITOR_BUILD=1 NEXT_PUBLIC_API_URL=https://obix360.com next build",
+    "build:capacitor": "cross-env NODE_ENV=production CAPACITOR_BUILD=1 NEXT_PUBLIC_API_URL=https://obix360.com next build && node scripts/fix-export-segments.mjs",
     "start": "next start",
     "android:live": "adb reverse tcp:4000 tcp:4000 && cap run android -l --port 3000 --forwardPorts 3000:3000",
     "release:ota": "node scripts/release-ota.mjs",

@@ -72,6 +72,24 @@ async function run() {
     console.log(`✅ Bundle verified: Production API URL (https://obix360.com) confirmed, 0 localhost leaks.`);
   }
 
+  // Every client-side navigation fetches `__next.<segment.path>.txt`; a Windows
+  // `next build` writes those as nested `__next.*` directories instead, which
+  // crashes navigation in the app ("A server error occurred"). build:capacitor
+  // fixes that (scripts/fix-export-segments.mjs) — refuse anything it missed.
+  const findNestedSegmentDirs = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      !e.isDirectory() ? [] : e.name.startsWith('__next.') ? [path.join(dir, e.name)] : findNestedSegmentDirs(path.join(dir, e.name)),
+    );
+  const nestedSegmentDirs = findNestedSegmentDirs(appExportDir);
+  if (nestedSegmentDirs.length > 0) {
+    console.error(
+      `Refusing to publish: ${nestedSegmentDirs.length} nested __next.* segment dir(s) in app-export (e.g. ${nestedSegmentDirs[0]}).
+  ` +
+      `Rebuild with: npm run build:capacitor`,
+    );
+    process.exit(1);
+  }
+
   const tempDir = mkdtempSync(path.join(tmpdir(), 'ota-release-'));
   const zipPath = path.join(tempDir, `${version}.zip`);
 
