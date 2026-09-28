@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 import { GoogleAuthButton } from '@/components/google-auth-button';
+import { forwardAppSignInResponse } from '@/lib/google-app-signin';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -28,6 +29,12 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'password' | 'otp'>('password');
   const [oauthError, setOauthError] = useState('');
   const router = useRouter();
+
+  // Google returns here after the app's browser sign-in (the only registered
+  // redirect URI) — send that response on to /google-app-signin.
+  useEffect(() => {
+    forwardAppSignInResponse();
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4 selection:bg-sky-500/30 relative overflow-hidden">
