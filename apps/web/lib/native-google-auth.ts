@@ -48,7 +48,7 @@ const POLL_MS = 2000;
  * See AppGoogleHandoffService in the API.
  */
 export async function browserGoogleSignIn(opts: {
-  onCode: (code: string) => void;
+  onStarted?: () => void;
   signal: AbortSignal;
 }): Promise<GoogleLoginResult | null> {
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -66,15 +66,27 @@ export async function browserGoogleSignIn(opts: {
     }
     throw err;
   }
-  const { sessionId, code, expiresInSeconds } = data as { sessionId: string; code: string; expiresInSeconds: number };
-  opts.onCode(code);
+  const { sessionId, expiresInSeconds } = data as { sessionId: string; expiresInSeconds: number };
+  opts.onStarted?.();
 
   // The website is served from the same origin as the API (see VPS routing).
   window.open(`${API_BASE_URL.replace(/\/+$/, '')}/google-app-signin?session=${sessionId}`, '_system');
 
   const deadline = Date.now() + expiresInSeconds * 1000;
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    // Also check the moment the user returns to the app from the browser.
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        document.removeEventListener('visibilitychange', onVisible);
+        resolve();
+      };
+      const onVisible = () => {
+        if (document.visibilityState === 'visible') done();
+      };
+      const timer = setTimeout(done, POLL_MS);
+      document.addEventListener('visibilitychange', onVisible);
+    });
     if (opts.signal.aborted) return null;
     try {
       const res = await apiClient.post(`/auth/google/app-session/${sessionId}/claim`, { secret });

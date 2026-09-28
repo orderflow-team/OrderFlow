@@ -18,6 +18,8 @@ interface GoogleAuthButtonProps {
   onError?: (err: string) => void;
   /** Receives the Google token instead of logging in here (used by /google-app-signin). */
   onCredential?: (authPayload: { idToken?: string; accessToken?: string }) => Promise<void>;
+  /** Show Google's account chooser as soon as the page loads (used by /google-app-signin). */
+  autoPrompt?: boolean;
 }
 
 declare global {
@@ -26,12 +28,12 @@ declare global {
   }
 }
 
-export function GoogleAuthButton({ mode = 'signin', className = '', onError, onCredential }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ mode = 'signin', className = '', onError, onCredential, autoPrompt = false }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const overlayBtnRef = useRef<HTMLDivElement>(null);
   const tokenClientRef = useRef<any>(null);
   const handoffAbortRef = useRef<AbortController | null>(null);
-  const [handoffCode, setHandoffCode] = useState<string | null>(null);
+  const [waitingForBrowser, setWaitingForBrowser] = useState(false);
   const router = useRouter();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
@@ -109,6 +111,12 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
           }
         }
 
+        // Open Google's account chooser straight away (One Tap) where the
+        // page exists only to sign in; the button stays as a fallback.
+        if (autoPrompt && window.google.accounts.id) {
+          window.google.accounts.id.prompt();
+        }
+
         // 2. Also initialize OAuth2 Token Client for direct popup fallback
         if (window.google.accounts.oauth2) {
           tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
@@ -157,7 +165,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
     };
 
     loadScript();
-  }, [clientId, mode, isNative]);
+  }, [clientId, mode, isNative, autoPrompt]);
 
   const triggerGooglePrompt = async () => {
     if (loading) return;
@@ -186,13 +194,13 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
       handoffAbortRef.current = abort;
       setLoading(true);
       try {
-        const result = await browserGoogleSignIn({ onCode: setHandoffCode, signal: abort.signal });
+        const result = await browserGoogleSignIn({ onStarted: () => setWaitingForBrowser(true), signal: abort.signal });
         if (result) finishLogin(result);
       } catch (e: any) {
         onError?.(e?.response?.data?.message || e?.message || 'Google sign-in failed. Please try again.');
       } finally {
         if (handoffAbortRef.current === abort) {
-          setHandoffCode(null);
+          setWaitingForBrowser(false);
           setLoading(false);
         }
       }
@@ -259,21 +267,15 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
         </button>
       </div>
 
-      {handoffCode && (
+      {waitingForBrowser && (
         <div className="mt-3 text-center text-sm text-slate-600">
-          <p>Finish signing in with Google in your browser, then come back here.</p>
-          <p className="mt-1">
-            Code:{' '}
-            <span className="font-mono font-semibold tracking-widest text-slate-800">
-              {handoffCode.slice(0, 3)} {handoffCode.slice(3)}
-            </span>
-          </p>
+          <p>Choose your Google account in the browser — you'll be brought back here.</p>
           <button
             type="button"
             onClick={() => {
               handoffAbortRef.current?.abort();
               handoffAbortRef.current = null;
-              setHandoffCode(null);
+              setWaitingForBrowser(false);
               setLoading(false);
             }}
             className="mt-1 font-semibold text-orange-600 hover:text-orange-700"
