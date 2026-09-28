@@ -38,6 +38,8 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       EMAIL_PROXY_URL: ${EMAIL_PROXY_URL:-}
       EMAIL_PROXY_SECRET: ${EMAIL_PROXY_SECRET:-}
+      # Google sign-in rejects tokens not issued to this client (auth.service.ts googleAuth).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com}
     ports:
       - "3001:3001"
     depends_on:
