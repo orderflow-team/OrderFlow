@@ -1,7 +1,26 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "ota-fixed", "runtimeExecutable": "node", "runtimeArgs": ["C:/Users/neel0/AppData/Local/Temp/claude/C--Users-neel0-Projects-orderflow--claude-worktrees-busy-turing-490fb0/98d37138-a610-402d-aacb-1421717acfe1/scratchpad/serve.mjs", "C:/Users/neel0/Projects/orderflow/apps/web/app-export", "8765"], "port": 8765 },
-    { "name": "ota-132-broken", "runtimeExecutable": "node", "runtimeArgs": ["C:/Users/neel0/AppData/Local/Temp/claude/C--Users-neel0-Projects-orderflow--claude-worktrees-busy-turing-490fb0/98d37138-a610-402d-aacb-1421717acfe1/scratchpad/serve.mjs", "C:/Users/neel0/AppData/Local/Temp/claude/C--Users-neel0-Projects-orderflow--claude-worktrees-busy-turing-490fb0/98d37138-a610-402d-aacb-1421717acfe1/scratchpad/o132x", "8766"], "port": 8766 }
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:dev", "--prefix", "packages/api"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "apps/web"],
+      "port": 3001,
+      "autoPort": true
+    },
+    {
+      "name": "wholesale-admin-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web", "--prefix", "C:\\Users\\neel0\\Desktop\\wholesale-expo\\wholesale-expo\\wholesale-expo\\wholesale-admin", "--", "--port", "8090"],
+      "port": 8090,
+      "autoPort": true
+    }
   ]
 }
