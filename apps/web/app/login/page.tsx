@@ -10,6 +10,7 @@ import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 import { GoogleAuthButton } from '@/components/google-auth-button';
+import { useGoogleSignInSupport } from '@/lib/native-google-auth';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -25,6 +26,7 @@ const GLASS_SHEEN =
   'shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(255,255,255,0.15),0_20px_45px_-15px_rgba(15,23,42,0.25)]';
 
 export default function LoginPage() {
+  const { supported: googleSupported } = useGoogleSignInSupport();
   const [mode, setMode] = useState<'password' | 'otp'>('password');
   const [oauthError, setOauthError] = useState('');
   const router = useRouter();
@@ -99,18 +101,22 @@ export default function LoginPage() {
 
           {mode === 'password' ? <PasswordLoginForm /> : <OtpLoginForm />}
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-300/60" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
-                Or continue with
-              </span>
-            </div>
-          </div>
+          {googleSupported && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-300/60" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
+                    Or continue with
+                  </span>
+                </div>
+              </div>
 
-          <GoogleAuthButton mode="signin" onError={(err) => setOauthError(err)} />
+              <GoogleAuthButton mode="signin" onError={(err) => setOauthError(err)} />
+            </>
+          )}
 
           <p className="text-center text-sm text-slate-600 mt-6">
             Don't have an account?{' '}

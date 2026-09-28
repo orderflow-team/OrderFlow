@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
-import { nativeGoogleSignIn } from '@/lib/native-google-auth';
+import { nativeGoogleSignIn, useGoogleSignInSupport } from '@/lib/native-google-auth';
 
 interface GoogleAuthButtonProps {
   mode?: 'signin' | 'signup';
@@ -30,7 +29,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
   // Google Identity Services' popup can't run inside the Capacitor WebView:
   // accounts.google.com gets handed to the external browser and the result
   // never returns to the app. Native builds use the platform sign-in instead.
-  const isNative = Capacitor.isNativePlatform();
+  const { isNative } = useGoogleSignInSupport();
 
   const handleSuccess = async (authPayload: { idToken?: string; accessToken?: string }) => {
     setLoading(true);

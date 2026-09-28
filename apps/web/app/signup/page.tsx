@@ -9,6 +9,7 @@ import apiClient from '@/lib/api-client';
 import { setCurrentUser } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
 import { GoogleAuthButton } from '@/components/google-auth-button';
+import { useGoogleSignInSupport } from '@/lib/native-google-auth';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -27,6 +28,7 @@ const GLASS_INPUT =
   'bg-white/35 backdrop-blur-md border-transparent text-slate-800 font-medium placeholder:text-slate-500 h-14 rounded-full px-5 transition-all shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)]';
 
 export default function SignupPage() {
+  const { supported: googleSupported } = useGoogleSignInSupport();
   const [step, setStep] = useState<'details' | 'verify'>('details');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -225,18 +227,22 @@ export default function SignupPage() {
                 </Button>
               </form>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-300/60" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
-                    Or sign up with
-                  </span>
-                </div>
-              </div>
+              {googleSupported && (
+                <>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-300/60" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
+                        Or sign up with
+                      </span>
+                    </div>
+                  </div>
 
-              <GoogleAuthButton mode="signup" onError={(err) => setError(err)} />
+                  <GoogleAuthButton mode="signup" onError={(err) => setError(err)} />
+                </>
+              )}
             </>
           ) : (
             <form onSubmit={handleVerifySignup} className="space-y-4">
