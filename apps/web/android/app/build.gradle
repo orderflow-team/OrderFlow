@@ -13,8 +13,8 @@ android {
         applicationId "com.obix.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 18
-        versionName "1.18"
+        versionCode 19
+        versionName "1.19"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -64,6 +64,18 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
+        }
+    }
+}
+
+// Refuse to package a release whose synced Capacitor config points the WebView
+// at a dev server (capacitor.config.ts `server.url`) — the app would load that
+// URL instead of its bundled/OTA web code, as versionCode 18 did.
+tasks.matching { it.name ==~ /pre\w*ReleaseBuild/ }.configureEach {
+    doFirst {
+        def cfg = file('src/main/assets/capacitor.config.json')
+        if (cfg.exists() && new groovy.json.JsonSlurper().parse(cfg).server?.url) {
+            throw new GradleException("capacitor.config.json has server.url set — remove it from capacitor.config.ts and run `npx cap sync android` before building a release.")
         }
     }
 }
