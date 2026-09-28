@@ -22,7 +22,7 @@ describe('useNativeAppUpdate', () => {
   beforeEach(() => {
     isNativePlatformMock.mockReset();
     currentMock.mockReset();
-    delete process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL;
+    process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL = 'direct';
   });
 
   afterEach(() => {
@@ -43,6 +43,17 @@ describe('useNativeAppUpdate', () => {
   it('is a no-op on the playstore distribution channel (Play Store forbids self-updating)', async () => {
     isNativePlatformMock.mockReturnValue(true);
     process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL = 'playstore';
+    global.fetch = vi.fn();
+
+    renderHook(() => useNativeAppUpdate());
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when no channel is baked in (shared OTA bundles may reach Play Store installs)', async () => {
+    isNativePlatformMock.mockReturnValue(true);
+    delete process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL;
     global.fetch = vi.fn();
 
     renderHook(() => useNativeAppUpdate());

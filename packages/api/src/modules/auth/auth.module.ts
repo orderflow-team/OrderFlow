@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MailService } from './mail.service';
 import { JwtStrategy } from './jwt.strategy';
+import { AppGoogleHandoffService } from './app-google-handoff.service';
 import { User } from '../../database/entities/user.entity';
 import { OtpCode } from '../../database/entities/otp-code.entity';
 import { PlatformSetting } from '../../database/entities/platform-setting.entity';
@@ -24,7 +25,7 @@ import { PlatformSetting } from '../../database/entities/platform-setting.entity
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService, JwtStrategy],
+  providers: [AuthService, MailService, JwtStrategy, AppGoogleHandoffService],
   exports: [AuthService],
 })
 export class AuthModule {}

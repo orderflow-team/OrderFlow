@@ -5,12 +5,19 @@ import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
-import { nativeGoogleSignIn, useGoogleSignInSupport } from '@/lib/native-google-auth';
+import {
+  browserGoogleSignIn,
+  nativeGoogleSignIn,
+  useGoogleSignInMode,
+  type GoogleLoginResult,
+} from '@/lib/native-google-auth';
 
 interface GoogleAuthButtonProps {
   mode?: 'signin' | 'signup';
   className?: string;
   onError?: (err: string) => void;
+  /** Receives the Google token instead of logging in here (used by /google-app-signin). */
+  onCredential?: (authPayload: { idToken?: string; accessToken?: string }) => Promise<void>;
 }
 
 declare global {
@@ -19,32 +26,45 @@ declare global {
   }
 }
 
-export function GoogleAuthButton({ mode = 'signin', className = '', onError }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ mode = 'signin', className = '', onError, onCredential }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const overlayBtnRef = useRef<HTMLDivElement>(null);
   const tokenClientRef = useRef<any>(null);
+  const handoffAbortRef = useRef<AbortController | null>(null);
+  const [handoffCode, setHandoffCode] = useState<string | null>(null);
   const router = useRouter();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   // Google Identity Services' popup can't run inside the Capacitor WebView:
   // accounts.google.com gets handed to the external browser and the result
-  // never returns to the app. Native builds use the platform sign-in instead.
-  const { isNative } = useGoogleSignInSupport();
+  // never returns to the app. Native builds use the platform sign-in (1.19+)
+  // or the browser handoff (older builds) instead.
+  const signInMode = useGoogleSignInMode();
+  const isNative = signInMode !== 'web';
+
+  useEffect(() => () => handoffAbortRef.current?.abort(), []);
+
+  const finishLogin = (data: GoogleLoginResult) => {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    setCurrentUser(data.user);
+
+    if (data.isNewUser || !data.user?.businessId) {
+      router.push('/select-business');
+    } else {
+      router.push(getPostLoginPath(data.user.role, data.user.email));
+    }
+  };
 
   const handleSuccess = async (authPayload: { idToken?: string; accessToken?: string }) => {
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/google', authPayload);
-
-      localStorage.setItem('access_token', res.data.access_token);
-      localStorage.setItem('refresh_token', res.data.refresh_token);
-      setCurrentUser(res.data.user);
-
-      if (res.data.isNewUser || !res.data.user?.businessId) {
-        router.push('/select-business');
-      } else {
-        router.push(getPostLoginPath(res.data.user.role, res.data.user.email));
+      if (onCredential) {
+        await onCredential(authPayload);
+        return;
       }
+      const res = await apiClient.post('/auth/google', authPayload);
+      finishLogin(res.data);
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Google sign-in failed. Please try again.';
       onError?.(msg);
@@ -147,12 +167,34 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
       return;
     }
 
-    if (isNative) {
+    if (signInMode === 'native') {
       try {
         const idToken = await nativeGoogleSignIn(clientId);
         if (idToken) await handleSuccess({ idToken });
+        return;
       } catch (e: any) {
-        onError?.(e?.message || 'Google sign-in failed. Please try again.');
+        if (/cancel/i.test(e?.message || '')) return;
+        // Most likely the Android OAuth client isn't set up for this build's
+        // signing key yet; the browser handoff doesn't depend on it.
+        console.warn('Native Google sign-in failed, using browser handoff:', e);
+      }
+    }
+
+    if (isNative) {
+      handoffAbortRef.current?.abort();
+      const abort = new AbortController();
+      handoffAbortRef.current = abort;
+      setLoading(true);
+      try {
+        const result = await browserGoogleSignIn({ onCode: setHandoffCode, signal: abort.signal });
+        if (result) finishLogin(result);
+      } catch (e: any) {
+        onError?.(e?.response?.data?.message || e?.message || 'Google sign-in failed. Please try again.');
+      } finally {
+        if (handoffAbortRef.current === abort) {
+          setHandoffCode(null);
+          setLoading(false);
+        }
       }
       return;
     }
@@ -174,46 +216,72 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError }: G
   };
 
   return (
-    <div className={`w-full relative overflow-hidden rounded-full ${className}`}>
-      {/* Invisible overlay of Google's native button:
-          Any tap or click lands directly on Google's iframe for immediate popup response */}
-      {!isNative && <div
-        ref={overlayBtnRef}
-        className="absolute inset-0 w-full h-full opacity-0 hover:opacity-[0.01] z-20 cursor-pointer flex items-center justify-center overflow-hidden scale-110 pointer-events-auto"
-        aria-hidden="true"
-      />}
+    <div className={`w-full ${className}`}>
+      <div className="w-full relative overflow-hidden rounded-full">
+        {/* Invisible overlay of Google's native button:
+            Any tap or click lands directly on Google's iframe for immediate popup response */}
+        {!isNative && <div
+          ref={overlayBtnRef}
+          className="absolute inset-0 w-full h-full opacity-0 hover:opacity-[0.01] z-20 cursor-pointer flex items-center justify-center overflow-hidden scale-110 pointer-events-auto"
+          aria-hidden="true"
+        />}
 
-      {/* Styled custom button visible underneath */}
-      <button
-        type="button"
-        onClick={triggerGooglePrompt}
-        disabled={loading}
-        className="w-full h-14 rounded-full bg-white/70 hover:bg-white/90 active:scale-[0.98] backdrop-blur-md text-slate-800 font-semibold text-sm sm:text-base ring-1 ring-slate-200/80 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.05)] transition-all flex items-center justify-center gap-3 px-5 group disabled:opacity-60 cursor-pointer relative z-10"
-      >
-        {loading ? (
-          <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
-        ) : (
-          <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-105" viewBox="0 0 24 24">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-            />
-          </svg>
-        )}
-        <span>{mode === 'signup' ? 'Sign up with Google' : 'Continue with Google'}</span>
-      </button>
+        {/* Styled custom button visible underneath */}
+        <button
+          type="button"
+          onClick={triggerGooglePrompt}
+          disabled={loading}
+          className="w-full h-14 rounded-full bg-white/70 hover:bg-white/90 active:scale-[0.98] backdrop-blur-md text-slate-800 font-semibold text-sm sm:text-base ring-1 ring-slate-200/80 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.05)] transition-all flex items-center justify-center gap-3 px-5 group disabled:opacity-60 cursor-pointer relative z-10"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-slate-600" />
+          ) : (
+            <svg className="w-5 h-5 shrink-0 transition-transform group-hover:scale-105" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+          )}
+          <span>{mode === 'signup' ? 'Sign up with Google' : 'Continue with Google'}</span>
+        </button>
+      </div>
+
+      {handoffCode && (
+        <div className="mt-3 text-center text-sm text-slate-600">
+          <p>Finish signing in with Google in your browser, then come back here.</p>
+          <p className="mt-1">
+            Code:{' '}
+            <span className="font-mono font-semibold tracking-widest text-slate-800">
+              {handoffCode.slice(0, 3)} {handoffCode.slice(3)}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              handoffAbortRef.current?.abort();
+              handoffAbortRef.current = null;
+              setHandoffCode(null);
+              setLoading(false);
+            }}
+            className="mt-1 font-semibold text-orange-600 hover:text-orange-700"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   );
 }

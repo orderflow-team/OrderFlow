@@ -81,7 +81,11 @@ export function useNativeAppUpdate() {
     // from that build's manifest, so this is defense in depth, not the only
     // thing preventing it — but keeps this hook a true no-op (no network
     // call, no download, nothing to disable per-consumer) for that channel.
-    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL === 'playstore') return;
+    //
+    // Opt-in on 'direct' rather than opt-out on 'playstore': one OTA bundle is
+    // shared by every channel and may be built with no channel at all
+    // (publish-ota-prod.mjs), and it must never prompt a Play Store install.
+    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL !== 'direct') return;
     (async () => {
       try {
         const { native, bundle } = await CapacitorUpdater.current();
@@ -107,7 +111,7 @@ export function useNativeAppUpdate() {
     // never gets set on the playstore channel, so this is normally
     // unreachable, but never attempt a self-install on that channel even if
     // called directly.
-    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL === 'playstore') return;
+    if (process.env.NEXT_PUBLIC_DISTRIBUTION_CHANNEL !== 'direct') return;
     if (!latest || installing) return;
     setInstalling(true);
     setError('');

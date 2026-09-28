@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -11,15 +11,46 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { ClaimAppGoogleHandoffDto, CreateAppGoogleHandoffDto } from './dto/app-google-handoff.dto';
+import { AppGoogleHandoffService } from './app-google-handoff.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private appGoogleHandoff: AppGoogleHandoffService,
+  ) {}
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('google')
   async googleAuth(@Body() dto: GoogleAuthDto) {
     return this.authService.googleAuth(dto);
+  }
+
+  // Browser handoff for app builds without native Google sign-in — see
+  // AppGoogleHandoffService. create/complete are as sensitive as /auth/google;
+  // claim is polled every ~2s by the waiting app, so it gets more headroom.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('google/app-session')
+  createAppGoogleSession(@Body() dto: CreateAppGoogleHandoffDto) {
+    return this.appGoogleHandoff.create(dto.secretHash);
+  }
+
+  @Get('google/app-session/:id')
+  describeAppGoogleSession(@Param('id') id: string) {
+    return this.appGoogleHandoff.describe(id);
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('google/app-session/:id/complete')
+  completeAppGoogleSession(@Param('id') id: string, @Body() dto: GoogleAuthDto) {
+    return this.appGoogleHandoff.complete(id, dto);
+  }
+
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Post('google/app-session/:id/claim')
+  claimAppGoogleSession(@Param('id') id: string, @Body() dto: ClaimAppGoogleHandoffDto) {
+    return this.appGoogleHandoff.claim(id, dto.secret);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
