@@ -79,7 +79,11 @@ tasks.matching { it.name ==~ /pre\w*ReleaseBuild/ }.configureEach {
         }
         // Windows `next build` writes segment payloads as nested __next.* dirs,
         // which crashes in-app navigation; build:capacitor flattens them.
-        def nested = fileTree('src/main/assets/public').matching { include '**/__next.*/**' }.files
+        def nested = []
+        def publicDir = file('src/main/assets/public')
+        if (publicDir.exists()) {
+            publicDir.eachDirRecurse { if (it.name.startsWith('__next.')) nested << it }
+        }
         if (!nested.isEmpty()) {
             throw new GradleException("app-export has nested __next.* segment dirs (e.g. ${nested.first()}) — rebuild with `npm run build:capacitor` and `npx cap sync android`.")
         }
