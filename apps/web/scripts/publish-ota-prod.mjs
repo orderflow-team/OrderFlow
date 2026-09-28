@@ -10,8 +10,12 @@ async function run() {
   let token = process.env.ADMIN_TOKEN;
 
   if (!token) {
-    const email = process.env.ADMIN_EMAIL || 'admin@orderflow.com';
-    const password = process.env.ADMIN_PASSWORD || 'admin123';
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!email || !password) {
+      console.error('Set ADMIN_TOKEN, or ADMIN_EMAIL and ADMIN_PASSWORD, to publish.');
+      process.exit(1);
+    }
     console.log(`Logging in as super admin (${email}) to ${API_BASE_URL}...`);
     const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',

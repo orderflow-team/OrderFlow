@@ -61,6 +61,9 @@ jobs:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_DISTRIBUTION_CHANNEL: direct
+          # Public OAuth client ID (not a secret). Without it Google sign-in
+          # falls back to an invalid client, as Play Store 1.18 shipped.
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: 17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com
         run: npm run build:capacitor
 
       - name: Sync Capacitor to Android

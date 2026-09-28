@@ -53,12 +53,14 @@ jobs:
         env:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          # Only the android-playstore channel needs the native-updater JS
-          # disabled — the default "android" bucket is also what playstore
-          # installs fall back to before any playstore-specific release
-          # exists, but every release published under it so far (and by
-          # default) is the direct flavor's normal build.
-          NEXT_PUBLIC_DISTRIBUTION_CHANNEL: ${{ inputs.platform == 'android-playstore' && 'playstore' || 'direct' }}
+          # The shared "android" bucket also reaches Play Store installs, so it
+          # is built with no channel: the in-app APK updater is opt-in to
+          # 'direct' (use-native-app-update.ts) and must never prompt a Play
+          # install to self-update.
+          NEXT_PUBLIC_DISTRIBUTION_CHANNEL: ${{ inputs.platform == 'android-playstore' && 'playstore' || '' }}
+          # Public OAuth client ID (not a secret). Without it Google sign-in
+          # falls back to an invalid client, as Play Store 1.18 shipped.
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: 17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com
         run: npm run build:capacitor
 
       - name: Publish OTA bundle
