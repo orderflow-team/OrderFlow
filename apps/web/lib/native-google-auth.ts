@@ -92,16 +92,42 @@ export async function browserGoogleSignIn(opts: {
 }
 
 /**
+ * Whether the backend half of the browser handoff is deployed. An unknown
+ * session id gets our own "expired" 404 from the new API, versus Nest's
+ * generic "Cannot GET" 404 from a backend that predates it.
+ */
+async function handoffBackendAvailable(): Promise<boolean> {
+  try {
+    await apiClient.get('/auth/google/app-session/availability-check');
+    return true;
+  } catch (err: any) {
+    const message = String(err?.response?.data?.message ?? err?.message ?? '');
+    return err?.response?.status === 404 && !/Cannot GET/i.test(message);
+  }
+}
+
+/**
  * How Google sign-in works on this install: the website's own popup flow on
  * web, the native plugin on native 1.19+, and the browser handoff on older
- * native builds. Resolved after mount so the static-exported HTML hydrates
- * without a mismatch.
+ * native builds once the backend supports it. Until then those builds keep
+ * the original web flow, exactly as before the handoff existed. Resolved
+ * after mount so the static-exported HTML hydrates without a mismatch.
  */
 export function useGoogleSignInMode(): 'web' | 'native' | 'browser' {
   const [mode, setMode] = useState<'web' | 'native' | 'browser'>('web');
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    setMode(Capacitor.isPluginAvailable('SocialLogin') ? 'native' : 'browser');
+    if (Capacitor.isPluginAvailable('SocialLogin')) {
+      setMode('native');
+      return;
+    }
+    let cancelled = false;
+    handoffBackendAvailable().then((available) => {
+      if (!cancelled && available) setMode('browser');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return mode;
 }
