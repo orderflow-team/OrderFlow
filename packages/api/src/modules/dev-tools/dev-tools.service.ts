@@ -460,7 +460,7 @@ private getCatalog(category: CategoryKey): SeedProduct[] {
         this.dataSource.getRepository(Notification).create({
           business_id: businessId,
           type: 'low_stock',
-          message: `${lowStockItem.name} is low on stock (${lowStockItem.stock_quantity} left)`,
+          message: `${lowStockItem.name} is low on inventory (${lowStockItem.stock_quantity} left)`,
         }),
         this.dataSource.getRepository(Notification).create({
           business_id: businessId,

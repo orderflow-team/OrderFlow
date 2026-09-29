@@ -31,7 +31,7 @@ export function ActionItemsWidget({ items }: { items: AnalyticsPayload['actionIt
           <ListChecks className="w-4 h-4 text-indigo-600" />
           <CardTitle className="text-base">Today's Priorities</CardTitle>
         </div>
-        <CardDescription>Reorder risk, near-expiry stock, dead stock, and overdue credit — ranked by urgency.</CardDescription>
+        <CardDescription>Reorder risk, near-expiry inventory, dead inventory, and overdue credit — ranked by urgency.</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         {items.length === 0 ? (

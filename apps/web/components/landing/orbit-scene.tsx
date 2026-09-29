@@ -19,7 +19,7 @@ interface TokenDef {
 // tiles and the dashboard's four home cards, just rendered in glass instead of flat color.
 const TOKENS: TokenDef[] = [
   { label: 'Orders', sub: 'Dine-in, takeaway, delivery', icon: ShoppingCart, color: '#38bdf8', angle: 0 },
-  { label: 'Inventory', sub: 'Stock, batches, purchase orders', icon: Package, color: '#a78bfa', angle: Math.PI / 2 },
+  { label: 'Inventory', sub: 'Inventory, batches, purchase orders', icon: Package, color: '#a78bfa', angle: Math.PI / 2 },
   { label: 'Billing', sub: 'Invoices, GST, payments', icon: Receipt, color: '#34d399', angle: Math.PI },
   { label: 'Clients', sub: 'Customers & suppliers', icon: Users, color: '#fb923c', angle: (3 * Math.PI) / 2 },
 ];

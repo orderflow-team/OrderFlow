@@ -429,7 +429,7 @@ export function DashboardQuickOrder({
           <div>
             <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
               <span>{search ? 'Search Results' : '🔥 Fast-Picks (1-Tap Add)'}</span>
-              <span>{products.length} products in stock</span>
+              <span>{products.length} products in inventory</span>
             </div>
 
             {loading ? (

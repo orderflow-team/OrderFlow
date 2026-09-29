@@ -143,12 +143,12 @@ export function OverviewTab({ analytics, days, inventoryEnabled, showExpiry, isP
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <CardTitle className="text-base">Low Stock</CardTitle>
+                  <CardTitle className="text-base">Low Inventory</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 {(analytics?.lowStockProducts.length || 0) === 0 ? (
-                  <p className="text-sm text-slate-400">Nothing low on stock.</p>
+                  <p className="text-sm text-slate-400">Nothing low on inventory.</p>
                 ) : (
                   <CollapsibleList
                     items={analytics!.lowStockProducts}

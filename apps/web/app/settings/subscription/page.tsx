@@ -462,7 +462,7 @@ export default function SubscriptionSettingsPage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span>Inter-Store Stock Transfer</span>
+                  <span>Inter-Store Inventory Transfer</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -698,7 +698,7 @@ export default function SubscriptionSettingsPage() {
               </div>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Inter-Store Stock Transfer</span>
+                <span>Inter-Store Inventory Transfer</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />

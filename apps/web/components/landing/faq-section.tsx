@@ -23,12 +23,12 @@ const FAQS: FAQItem[] = [
   {
     category: 'offline',
     question: 'What happens if my internet connection drops at the counter?',
-    answer: 'OBIX features offline-first local database caching. You can continue taking orders and printing thermal receipts even during an internet outage. Your sales and stock updates automatically sync to the cloud once reconnected.',
+    answer: 'OBIX features offline-first local database caching. You can continue taking orders and printing thermal receipts even during an internet outage. Your sales and inventory updates automatically sync to the cloud once reconnected.',
   },
   {
     category: 'general',
     question: 'Can I import my existing product catalog from Excel or Tally?',
-    answer: 'Yes! You can bulk upload your entire product catalog, pricing, batch numbers, and stock levels using a standard CSV/Excel template in less than 2 minutes.',
+    answer: 'Yes! You can bulk upload your entire product catalog, pricing, batch numbers, and inventory levels using a standard CSV/Excel template in less than 2 minutes.',
   },
   {
     category: 'general',

@@ -36,14 +36,14 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
                 icon={PackageSearch}
                 label="Slow-Moving Items"
                 value={String(products?.slowMoving.length || 0)}
-                sub={`In stock, zero sales in ${days}d`}
+                sub={`In inventory, zero sales in ${days}d`}
                 tint="bg-amber-500/10 text-amber-600"
               />
               <KpiCard
                 icon={TrendingUp}
                 label="Tied-Up Value at Risk"
                 value={formatCurrency((products?.slowMoving || []).reduce((sum, p) => sum + p.tiedUpValue, 0))}
-                sub="Slow-moving stock, current cost"
+                sub="Slow-moving inventory, current cost"
                 tint="bg-rose-500/10 text-rose-600"
               />
             </>
@@ -51,7 +51,7 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
           {showExpiry && (
             <KpiCard
               icon={CalendarClock}
-              label="Expiring Stock Value"
+              label="Expiring Inventory Value"
               value={formatCurrency(products?.expiryValueAtRisk || 0)}
               sub="Expiring in 3–6 months, current cost"
               tint="bg-violet-500/10 text-violet-600"
@@ -125,11 +125,11 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
               <RefreshCw className="w-4 h-4 text-blue-600" />
               <CardTitle className="text-base">Reorder Suggestions</CardTitle>
             </div>
-            <CardDescription>Low stock with real demand — ranked by soonest estimated stockout.</CardDescription>
+            <CardDescription>Low inventory with real demand — ranked by soonest estimated stockout.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {(products?.reorderSuggestions.length || 0) === 0 ? (
-              <p className="p-10 text-center text-slate-400 text-sm">No low-stock items with recent sales velocity.</p>
+              <p className="p-10 text-center text-slate-400 text-sm">No low-inventory items with recent sales velocity.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {products?.reorderSuggestions.map((p) => (
@@ -141,7 +141,7 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold shrink-0 ${
                       p.daysLeft <= 3 ? 'bg-rose-500/10 text-rose-700 ring-1 ring-rose-500/20' : 'bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20'
                     }`}>
-                      {p.daysLeft <= 0 ? 'Out of stock' : `${Math.round(p.daysLeft)}d left`}
+                      {p.daysLeft <= 0 ? 'Out of inventory' : `${Math.round(p.daysLeft)}d left`}
                     </span>
                   </div>
                 ))}
@@ -196,8 +196,8 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
         {inventoryEnabled && (
           <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
-              <CardTitle className="text-base">Slow-Moving / Dead Stock</CardTitle>
-              <CardDescription>In stock, zero units sold in {days} day{days !== 1 ? 's' : ''} — ranked by ₹ tied up.</CardDescription>
+              <CardTitle className="text-base">Slow-Moving / Dead Inventory</CardTitle>
+              <CardDescription>In inventory, zero units sold in {days} day{days !== 1 ? 's' : ''} — ranked by ₹ tied up.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {(products?.slowMoving.length || 0) === 0 ? (
@@ -208,7 +208,7 @@ export function ProductsTab({ analytics, isPharmacy, days, inventoryEnabled, sho
                     <div key={p.id} className="flex items-center justify-between px-4 py-3 gap-4">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-800 truncate">{p.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{p.stockQuantity} units in stock</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{p.stockQuantity} units in inventory</p>
                       </div>
                       <p className="font-bold text-rose-600 shrink-0">{formatCurrency(p.tiedUpValue)}</p>
                     </div>

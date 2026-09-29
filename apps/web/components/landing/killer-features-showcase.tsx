@@ -179,7 +179,7 @@ export function KillerFeaturesShowcase() {
   const [connectFlow, setConnectFlow] = useState<'auto_po' | 'salesman' | 'pricing'>('auto_po');
   const [connectSimulating, setConnectSimulating] = useState(false);
   const [connectNotification, setConnectNotification] = useState<string | null>(
-    'Low stock alert! PO #OBX-4091 auto-sent to Anand FMCG Wholesale Depot'
+    'Low inventory alert! PO #OBX-4091 auto-sent to Anand FMCG Wholesale Depot'
   );
 
   // Voice feature state
@@ -207,7 +207,7 @@ export function KillerFeaturesShowcase() {
     setTimeout(() => {
       setConnectSimulating(false);
       if (flow === 'auto_po') {
-        setConnectNotification('✓ PO #OBX-4091 accepted by Distributor. Stock dispatch ready for delivery!');
+        setConnectNotification('✓ PO #OBX-4091 accepted by Distributor. Inventory dispatch ready for delivery!');
       } else if (flow === 'salesman') {
         setConnectNotification('✓ Field Salesman Vikram logged visit at Shreeji Mart. 20 Cartons order landed in Central Dispatch queue with GPS tag.');
       } else {
@@ -322,7 +322,7 @@ export function KillerFeaturesShowcase() {
                   <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
                     Retail shops and wholesale distributors spend hours every day on messy WhatsApp chats, lost phone calls,
                     and manual purchase orders. <strong>OBIX Connect</strong> bridges them into one unified, real-time supply chain:
-                    when retail shelf stock drops, purchase orders auto-dispatch to the distributor, prices stay synced live, and salesmen
+                    when retail shelf inventory drops, purchase orders auto-dispatch to the distributor, prices stay synced live, and salesmen
                     field bookings appear instantly on central depot dispatch screens.
                   </p>
 
@@ -474,7 +474,7 @@ export function KillerFeaturesShowcase() {
                           <div className="flex items-center justify-between text-[11px] text-slate-600">
                             <span>Qty: 2 Pkts × ₹145.00</span>
                             <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                              Shelf Stock: 2 left (Min: 5)
+                              Shelf Inventory: 2 left (Min: 5)
                             </span>
                           </div>
                           {/* In-App Auto-PO Trigger Badge */}
@@ -908,7 +908,7 @@ export function KillerFeaturesShowcase() {
                     <Check className="w-4 h-4 text-blue-600" /> 100% Zero Manual POs
                   </div>
                   <p className="text-slate-500 text-[11px] leading-relaxed">
-                    Retail counters never run dry. Low-stock triggers electronic PO straight to distributor dispatch screens.
+                    Retail counters never run dry. Low-inventory triggers electronic PO straight to distributor dispatch screens.
                   </p>
                 </div>
 
@@ -1350,9 +1350,9 @@ export function KillerFeaturesShowcase() {
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
-                    <span className="text-slate-500 font-medium">Inventory Stock Added:</span>
+                    <span className="text-slate-500 font-medium">Inventory Added:</span>
                     <span className="text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> +240 Units Auto-Synced to Stock
+                      <CheckCircle2 className="w-3.5 h-3.5" /> +240 Units Auto-Synced to Inventory
                     </span>
                   </div>
                 </div>

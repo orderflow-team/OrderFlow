@@ -956,7 +956,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               const metaBits = [
                 hasPreviousPrice ? 'Last purchased price' : null,
                 p.batch_number ? `Batch ${p.batch_number}` : null,
-                atMax ? `Only ${maxQty} in stock — max added` : null,
+                atMax ? `Only ${maxQty} in inventory — max added` : null,
               ].filter(Boolean);
               return (
                 <div

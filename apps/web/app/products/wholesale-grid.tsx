@@ -399,7 +399,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '1620' },
     { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
     { key: 'hsnCode', label: 'HSN Code', aliases: ['hsn'], width: 'w-20', example: '1701' },
-    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '500' },
+    { key: 'stockQuantity', label: 'Inventory', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '500' },
     { key: 'moq', label: 'MOQ', aliases: ['minimumorderquantity'], type: 'number', width: 'w-14', example: '10' },
     { key: 'batchNumber', label: 'Batch / Lot #', aliases: ['batch', 'lot'], width: 'w-24', example: 'BATCH-2026-X9' },
   ];
@@ -542,7 +542,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                 </div>
                 {inventoryEnabled && (
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Bulk Stock Quantity ({form.unit || 'units'})</label>
+                    <label className="text-xs font-semibold text-slate-700">Bulk Inventory Quantity ({form.unit || 'units'})</label>
                     <Input type="number" placeholder="e.g. 500" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
                   </div>
                 )}
@@ -707,7 +707,7 @@ export function WholesaleGrid({ businessId }: { businessId: string }) {
                   {inventoryEnabled && (
                     <div className="flex items-center justify-end text-xs">
                       <div className="text-right">
-                        <span className="text-slate-400 block text-[10px] uppercase">Stock</span>
+                        <span className="text-slate-400 block text-[10px] uppercase">Inventory</span>
                         <span className={`font-bold text-sm ${p.stock_quantity <= (p.reorder_point ?? 10) ? 'text-rose-600' : 'text-emerald-700'}`}>
                           {p.stock_quantity} {p.unit}s
                         </span>

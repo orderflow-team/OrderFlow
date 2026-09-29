@@ -106,8 +106,8 @@ export default function StaffPage() {
 
   const loadBusinessConfig = async (bizId: string) => {
     try {
-      const res = await apiClient.get<{ category?: string; customSettings?: any }>(`/api/businesses/${bizId}`);
-      const settings = res.data?.customSettings?.modules;
+      const res = await apiClient.get<{ category?: string; custom_settings?: any }>(`/api/businesses/${bizId}`);
+      const settings = res.data?.custom_settings?.modules;
       const category = res.data?.category;
 
       // Attendance & Commissions are visible if category is 'others' with custom settings OR if explicitly enabled in modules

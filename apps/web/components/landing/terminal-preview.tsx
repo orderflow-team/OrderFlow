@@ -255,7 +255,7 @@ export function TerminalPreview() {
                           ₹{(item.price * item.qty).toFixed(2)}
                         </div>
                         <div className={`text-[10px] font-semibold ${item.stock < 10 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          Shelf Stock: {item.stock - item.qty} left
+                          Shelf Inventory: {item.stock - item.qty} left
                         </div>
                       </div>
                       <button
@@ -450,7 +450,7 @@ export function TerminalPreview() {
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                 }`}
               >
-                {showNearExpiryOnly ? '⚠️ Filter: Near Expiry Only (Active)' : 'Filter Expiry Stock'}
+                {showNearExpiryOnly ? '⚠️ Filter: Near Expiry Only (Active)' : 'Filter Expiry Inventory'}
               </button>
             </div>
 

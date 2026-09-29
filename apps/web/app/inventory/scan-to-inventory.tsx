@@ -313,7 +313,7 @@ export function ScanToInventoryDialog({
                             {item.is_duplicate && (
                               <span className="mt-1 inline-block text-[10px] text-amber-600 font-medium">
                                 Already in inventory{item.matched_product ? ` (${item.matched_product.name})` : ''}
-                                {item.matched_product && item.matched_product.stock_quantity <= 0 ? ' - Out of stock' : ''}
+                                {item.matched_product && item.matched_product.stock_quantity <= 0 ? ' - Out of inventory' : ''}
                               </span>
                             )}
                           </td>
@@ -394,7 +394,7 @@ export function ScanToInventoryDialog({
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-slate-800">Inventory updated!</p>
-                <p className="text-sm text-slate-500 mt-1">{addedCount} item{addedCount === 1 ? '' : 's'} added to stock.</p>
+                <p className="text-sm text-slate-500 mt-1">{addedCount} item{addedCount === 1 ? '' : 's'} added to inventory.</p>
               </div>
               <Button onClick={() => handleOpenChange(false)} className="px-8">Done</Button>
             </div>

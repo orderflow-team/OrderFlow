@@ -465,8 +465,8 @@ export function GenericOrders() {
     const isFull = returnUnitsSelected >= totalRemaining;
     if (!confirm(
       isFull
-        ? 'Are you sure you want to return this order and process the refund? This will restore stock and adjust customer ledger.'
-        : `Return ${returnUnitsSelected} unit(s) and process the refund? This will restore stock and adjust customer ledger.`
+        ? 'Are you sure you want to return this order and process the refund? This will restore inventory and adjust customer ledger.'
+        : `Return ${returnUnitsSelected} unit(s) and process the refund? This will restore inventory and adjust customer ledger.`
     )) {
       return;
     }

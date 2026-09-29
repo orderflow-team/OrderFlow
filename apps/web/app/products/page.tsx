@@ -93,7 +93,7 @@ function ProductsPageContent() {
   const isPharmacy = category === 'pharmacy';
   const isWholesale = category === 'wholesale';
   const [inventoryEnabled, setInventoryEnabled] = useState(true);
-  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
+  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string; options?: string[] }[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -103,11 +103,11 @@ function ProductsPageContent() {
       setInventoryEnabled(cached);
     }
     apiClient
-      .get<{ category: string | null; inventory_enabled: boolean; customSettings?: any }>(`/api/businesses/${businessId}`)
+      .get<{ category: string | null; inventory_enabled: boolean; custom_settings?: any }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setInventoryEnabled(res.data.inventory_enabled);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
-        const settings = res.data.customSettings;
+        const settings = res.data.custom_settings;
         const schema = settings?.productCustomFields || settings?.customFields || [];
         setCustomFieldSchema(schema);
       })
@@ -411,7 +411,7 @@ function ProductsPageContent() {
     { key: 'sellingPrice', label: 'Price', aliases: ['price', 'mrp', 'rate'], type: 'number', required: true, width: 'w-16', example: '60' },
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '50' },
     { key: 'taxPercentage', label: 'Tax %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '5' },
-    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity', 'openingstock'], type: 'number', width: 'w-14', example: '100' },
+    { key: 'stockQuantity', label: 'Inventory', aliases: ['stock', 'quantity', 'openingstock'], type: 'number', width: 'w-14', example: '100' },
     { key: 'description', label: 'Description', width: 'w-32', example: 'Farm fresh toned milk' },
   ];
 
@@ -581,7 +581,7 @@ function ProductsPageContent() {
                 />
                 {inventoryEnabled && (
                   <Input
-                    placeholder="Opening stock"
+                    placeholder="Opening inventory"
                     type="number"
                     value={form.stockQuantity}
                     onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
@@ -670,6 +670,19 @@ function ProductsPageContent() {
                             >
                               <option value="false">No</option>
                               <option value="true">Yes</option>
+                            </select>
+                          ) : field.type === 'options' && field.options?.length ? (
+                            <select
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
+                              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none"
+                            >
+                              <option value="">Select…</option>
+                              {field.options.map((o: string) => (
+                                <option key={o} value={o}>
+                                  {o}
+                                </option>
+                              ))}
                             </select>
                           ) : (
                             <Input

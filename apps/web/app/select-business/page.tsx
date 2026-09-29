@@ -23,7 +23,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pharmacy: 'Pharmacy',
   wholesale: 'Wholesale',
   salesman: 'Salesman Order Collection',
-  others: 'Others (Customized Stepwise)',
+  others: 'Other (set up your own)',
 };
 
 function categoryLabel(category: string | null) {
@@ -94,6 +94,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     return (
       <CustomBusinessWizard
         initialName={name}
+        initialPhone={phone}
         onComplete={handleWizardComplete}
         onCancel={() => {
           setShowCustomWizard(false);
@@ -139,7 +140,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           {category === 'others' ? (
             <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5">
               <Sliders className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              <span>Selecting <strong>Others</strong> opens the Stepwise Custom Builder to customize every module & term from scratch.</span>
+              <span>Choosing <strong>Other</strong> lets you pick your business type and features in a quick 3-step setup.</span>
             </div>
           ) : (
             <label className="flex items-center gap-2.5 px-4 py-3 bg-white/35 backdrop-blur-md rounded-2xl border border-transparent ring-1 ring-white/50 cursor-pointer hover:bg-white/45 transition-colors">
@@ -151,7 +152,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
               />
               <span className="text-sm font-medium text-slate-700">
                 Enable Inventory module
-                <span className="block text-xs font-normal text-slate-500">Track stock, purchase orders, and low-stock alerts</span>
+                <span className="block text-xs font-normal text-slate-500">Track inventory, purchase orders, and low-inventory alerts</span>
               </span>
             </label>
           )}
@@ -169,7 +170,7 @@ function NewBusinessForm({ onCreated, onCancel }: { onCreated: () => void; onCan
               Cancel
             </Button>
             <Button type="submit" className="flex-1 h-11 rounded-xl" disabled={loading}>
-              {loading ? 'Creating...' : category === 'others' ? 'Configure Stepwise Wizard' : 'Create Business'}
+              {loading ? 'Creating...' : category === 'others' ? 'Continue' : 'Create Business'}
             </Button>
           </div>
         </form>

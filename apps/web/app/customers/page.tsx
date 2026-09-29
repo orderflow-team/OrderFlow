@@ -340,17 +340,17 @@ function CustomersPageContent() {
     return () => clearTimeout(t);
   }, [error]);
 
-  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string }[]>([]);
+  const [customFieldSchema, setCustomFieldSchema] = useState<{ name: string; type: string; options?: string[] }[]>([]);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
   const [businessName, setBusinessName] = useState('');
 
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
-      .get<{ name?: string; customSettings?: any }>(`/api/businesses/${businessId}`)
+      .get<{ name?: string; custom_settings?: any }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
-        const settings = res.data.customSettings;
+        const settings = res.data.custom_settings;
         const schema = settings?.customerCustomFields || settings?.customFields || [];
         setCustomFieldSchema(schema);
       })
@@ -622,6 +622,19 @@ function CustomersPageContent() {
                             >
                               <option value="false">No</option>
                               <option value="true">Yes</option>
+                            </select>
+                          ) : field.type === 'options' && field.options?.length ? (
+                            <select
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => setCustomFieldValues({ ...customFieldValues, [field.name]: e.target.value })}
+                              className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-xs outline-none"
+                            >
+                              <option value="">Select…</option>
+                              {field.options.map((o: string) => (
+                                <option key={o} value={o}>
+                                  {o}
+                                </option>
+                              ))}
                             </select>
                           ) : (
                             <Input

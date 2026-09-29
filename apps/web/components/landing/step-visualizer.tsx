@@ -159,7 +159,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
                 </div>
                 <div className="text-xs">
                   <span className="font-bold text-slate-800 block">Enable Inventory Module</span>
-                  <span className="text-[11px] text-slate-500 font-medium">Track stock, purchase orders, and low-stock alerts</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Track inventory, purchase orders, and low-inventory alerts</span>
                 </div>
               </div>
 
@@ -176,7 +176,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Add Product Catalog</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
-                Set item pricing, HSN codes, and initial stock.
+                Set item pricing, HSN codes, and initial inventory.
               </p>
             </div>
 
@@ -193,7 +193,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[11px] font-medium">
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">Opening Stock: 150 Bags</div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">Opening Inventory: 150 Bags</div>
                 <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80">Reorder Alert: &lt; 15 Bags</div>
               </div>
 
@@ -278,7 +278,7 @@ export function StepVisualizer({ activeIndex }: StepVisualizerProps) {
             <div>
               <h4 className="text-xl font-bold tracking-tight text-slate-900">Watch it add up</h4>
               <p className="text-xs font-medium text-slate-600 mt-0.5">
-                Live sales, stock turnover, and GST reports.
+                Live sales, inventory turnover, and GST reports.
               </p>
             </div>
 

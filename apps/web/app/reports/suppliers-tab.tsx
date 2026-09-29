@@ -112,7 +112,7 @@ export function SuppliersTab({ analytics, days, businessId }: { analytics: Analy
             <CardTitle className="text-base">Supplier Returns</CardTitle>
           </div>
           <CardDescription>
-            Expired/damaged/wrong-item stock sent back to a supplier, from Medicines &rarr; batch &rarr; Return to Supplier.
+            Expired/damaged/wrong-item inventory sent back to a supplier, from Medicines &rarr; batch &rarr; Return to Supplier.
             {pendingTotal > 0 && ` ${formatCurrency(pendingTotal)} still pending credit.`}
           </CardDescription>
         </CardHeader>

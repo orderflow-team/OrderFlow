@@ -591,7 +591,7 @@ export class InventoryService {
     if (!product) return;
     const newStock = Number(product.stock_quantity) + delta;
     if (newStock < 0) {
-      throw new BadRequestException(`Editing this purchase order would reduce "${product.name}" stock below zero`);
+      throw new BadRequestException(`Editing this purchase order would reduce "${product.name}" inventory below zero`);
     }
     await manager.increment(Product, { id: productId }, 'stock_quantity', delta);
     await manager.update(Product, { id: productId }, { is_available: newStock > 0 });
@@ -617,7 +617,7 @@ export class InventoryService {
 
       const delta = dto.type === 'IN' ? dto.quantity : -dto.quantity;
       if (dto.type === 'OUT' && Number(product.stock_quantity) < dto.quantity) {
-        throw new BadRequestException('Insufficient stock for this adjustment');
+        throw new BadRequestException('Insufficient inventory for this adjustment');
       }
 
       await manager.increment(Product, { id: product.id }, 'stock_quantity', delta);
@@ -676,7 +676,7 @@ export class InventoryService {
         throw new NotFoundException('Product not found');
       }
       if (Number(product.stock_quantity) < dto.quantity) {
-        throw new BadRequestException('Insufficient stock for this return');
+        throw new BadRequestException('Insufficient inventory for this return');
       }
 
       await manager.increment(Product, { id: product.id }, 'stock_quantity', -dto.quantity);

@@ -57,7 +57,7 @@ const REPORT_GREETING =
   `• 💰 **Profit & Loss:** "Profit report", "Net margins", or "Top profit products"\n` +
   `• 💸 **Expenses:** "Expense breakdown" or "Recent purchase expenses"\n` +
   `• 🧾 **GST & Tax:** "GST report" or "GSTR 1 summary"\n` +
-  `• 📦 **Inventory Health:** "Low stock alert", "Stock valuation", or "Dead stock"`;
+  `• 📦 **Inventory Health:** "Low inventory alert", "Inventory valuation", or "Dead inventory"`;
 
 interface EditingOrderInfo {
   id: string;
@@ -302,8 +302,8 @@ export function ChatOrderWidget({ businessId, businessCategory }: { businessId: 
     { label: '💰 Profit Report', icon: Wallet, query: 'profit report' },
     { label: '🧾 GST Report', icon: Receipt, query: 'gst report' },
     { label: '💸 Expenses', icon: Wallet, query: 'expense report' },
-    { label: '⚠️ Low Stock', icon: AlertTriangle, query: 'low stock report' },
-    { label: '📦 Stock Valuation', icon: Package, query: 'inventory valuation' },
+    { label: '⚠️ Low Inventory', icon: AlertTriangle, query: 'low inventory report' },
+    { label: '📦 Inventory Valuation', icon: Package, query: 'inventory valuation' },
     { label: '🔥 Top Products', icon: Layers, query: 'top products' },
     { label: '📋 All Reports', icon: FileSpreadsheet, query: 'all reports' },
   ];

@@ -91,7 +91,7 @@ const STEPS: StepDef[] = [
     title: "Add what you sell",
     icon: PackagePlus,
     color: "#10b981",
-    copy: "Products, menu items, or medicines, with pricing, stock, and categories set up in minutes.",
+    copy: "Products, menu items, or medicines, with pricing, inventory, and categories set up in minutes.",
   },
   {
     title: "Take orders, send bills",
@@ -109,7 +109,7 @@ const STEPS: StepDef[] = [
     title: "Watch it add up",
     icon: BarChart3,
     color: "#f43f5e",
-    copy: "Sales, stock, and dues, tracked live on a dashboard built around how you actually run the counter.",
+    copy: "Sales, inventory, and dues, tracked live on a dashboard built around how you actually run the counter.",
   },
 ];
 
@@ -143,7 +143,7 @@ const ROLES: RoleDef[] = [
   {
     label: "Accountant",
     icon: Calculator,
-    copy: "GST reports, supplier dues, and billing ledgers without stock management clutter.",
+    copy: "GST reports, supplier dues, and billing ledgers without inventory management clutter.",
   },
   {
     label: "Delivery",
@@ -477,7 +477,7 @@ export function LandingPage() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
-            <span className="whitespace-nowrap">Orders in. Stock out.</span>
+            <span className="whitespace-nowrap">Orders in. Inventory out.</span>
             <br />
             <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
               Paid up.
@@ -606,11 +606,11 @@ export function LandingPage() {
             </div>
             <div>
               <div className="text-slate-900 font-bold flex items-center gap-1.5">
-                <span>Stock Balance</span>
+                <span>Inventory Balance</span>
                 <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Optimal</span>
               </div>
               <div className="text-[11px] text-slate-500 font-normal">
-                1,240 In Stock • 18 Low Stock
+                1,240 In Inventory • 18 Low Inventory
               </div>
             </div>
           </div>

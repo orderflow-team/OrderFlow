@@ -1095,8 +1095,8 @@ export class OrdersService {
     if (!allowBeyondStock && clamped < requestedQuantity) {
       throw new BadRequestException(
         clamped === 0
-          ? `${product.name} is out of stock`
-          : `Only ${clamped} ${product.name} in stock (requested ${requestedQuantity})`,
+          ? `${product.name} is out of inventory`
+          : `Only ${clamped} ${product.name} in inventory (requested ${requestedQuantity})`,
       );
     }
     const fulfilled = allowBeyondStock ? requestedQuantity : clamped;

@@ -729,7 +729,7 @@ export default function AdminStoresPage() {
                     <th className="px-4 py-3">Category</th>
                     <th className="px-4 py-3">Selling Price</th>
                     <th className="px-4 py-3">Cost Price</th>
-                    <th className="px-4 py-3 text-right">Stock Level</th>
+                    <th className="px-4 py-3 text-right">Inventory Level</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -766,7 +766,7 @@ export default function AdminStoresPage() {
                               ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                           }`}>
-                            {p.current_stock ?? 0} in stock
+                            {p.current_stock ?? 0} in inventory
                           </span>
                         </td>
                       </tr>

@@ -487,7 +487,7 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     it('returns low stock / inventory alert report', async () => {
       const res = await service.parseChatOrder('biz-1', 'low stock report');
       expect(res.order).toBeNull();
-      expect(res.reply).toContain('Low Stock Alert');
+      expect(res.reply).toContain('Low Inventory Alert');
       expect(res.reply).toContain('Sugar');
       expect(reportsService.dashboard).toHaveBeenCalled();
     });
@@ -530,7 +530,7 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     it('returns inventory & stock valuation report', async () => {
       const res = await service.parseChatOrder('biz-1', 'stock valuation report');
       expect(res.order).toBeNull();
-      expect(res.reply).toContain('Inventory Valuation & Stock Summary');
+      expect(res.reply).toContain('Inventory Valuation & Summary');
       expect(res.reply).toContain('180000.00');
       expect(res.reply).toContain('240000.00');
       expect(reportsService.analyticsDashboard).toHaveBeenCalledWith('biz-1', 30);

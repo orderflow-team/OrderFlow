@@ -19,7 +19,7 @@ import { AppVersionInfo } from '@/components/app-version-info';
 const NOTIFICATION_TYPES: { key: string; label: string; description: string }[] = [
   { key: 'order_reminder', label: 'Order reminders', description: 'An order has sat confirmed/packed/dispatched for over 24h without moving.' },
   { key: 'payment_reminder', label: 'Payment reminders', description: "A customer's outstanding balance hasn't been chased in over 7 days." },
-  { key: 'low_stock', label: 'Low stock alerts', description: 'A product has dropped to or below its reorder point.' },
+  { key: 'low_stock', label: 'Low inventory alerts', description: 'A product has dropped to or below its reorder point.' },
   { key: 'expiry_alert', label: 'Expiry alerts', description: 'A batch is expiring within 30 days.' },
 ];
 
@@ -113,8 +113,11 @@ export default function SettingsPage() {
         address: wizardData.address,
         phone: wizardData.phone,
         gstNumber: wizardData.gstNumber,
-        customSettings: wizardData.customSettings,
+        // The API replaces custom_settings wholesale — keep receipt terms, invoice columns, etc.
+        customSettings: { ...(customSettings ?? {}), ...wizardData.customSettings },
       });
+      setCustomSettings({ ...(customSettings ?? {}), ...wizardData.customSettings });
+      setForm((f) => ({ ...f, name: wizardData.name, phone: wizardData.phone ?? f.phone, address: wizardData.address ?? f.address, gstNumber: wizardData.gstNumber ?? f.gstNumber, inventoryEnabled: wizardData.inventoryEnabled }));
       setShowCustomWizard(false);
       window.dispatchEvent(new Event('business-profile-updated'));
     } catch (err: any) {
@@ -452,14 +455,19 @@ export default function SettingsPage() {
           <p className="text-sm text-slate-400">Loading...</p>
         ) : showCustomWizard ? (
           <CustomBusinessWizard
+            mode="edit"
             initialName={form.name}
+            initialPhone={form.phone}
+            initialAddress={form.address}
+            initialGstNumber={form.gstNumber}
+            initialSettings={customSettings}
             onComplete={handleWizardComplete}
             onCancel={() => setShowCustomWizard(false)}
             loading={saving}
           />
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Others Category 6-Step Builder Launcher Card */}
+            {/* Others Category setup launcher */}
             {form.category === 'others' && (
               <Card className="ring-emerald-400/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 border border-emerald-300/50 shadow-md">
                 <CardContent className="p-5 flex items-center justify-between gap-4">
@@ -468,8 +476,8 @@ export default function SettingsPage() {
                       <Sliders className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">Others Category 6-Step Workspace Builder</h4>
-                      <p className="text-xs text-slate-600">Re-configure all 6 steps: Identity, Modules, Security, Thermal Receipts, 20 Presets & Attributes</p>
+                      <h4 className="text-sm font-bold text-slate-800">Business type & features</h4>
+                      <p className="text-xs text-slate-600">Change your business type, which tabs are on, what things are called and extra fields.</p>
                     </div>
                   </div>
                   <Button
@@ -477,7 +485,7 @@ export default function SettingsPage() {
                     onClick={() => setShowCustomWizard(true)}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 h-10 rounded-xl shrink-0 shadow-sm"
                   >
-                    Launch 6-Step Wizard
+                    Customize
                   </Button>
                 </CardContent>
               </Card>
@@ -771,7 +779,7 @@ export default function SettingsPage() {
                       <span className="text-sm font-medium text-slate-700">
                         Enable Inventory module
                         <span className="block text-xs font-normal text-slate-500">
-                          Track stock, purchase orders, and low-stock alerts. Turning this off hides the Inventory tab and dashboard stock widgets.
+                          Track inventory, purchase orders, and low-inventory alerts. Turning this off hides the Inventory tab and dashboard inventory widgets.
                         </span>
                       </span>
                     </label>
@@ -784,9 +792,9 @@ export default function SettingsPage() {
                         className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                       />
                       <span className="text-sm font-medium text-slate-700">
-                        Allow orders beyond stock
+                        Allow orders beyond inventory
                         <span className="block text-xs font-normal text-slate-500">
-                          Anyone taking an order — owner or staff — can exceed what&apos;s in stock (sells whatever&apos;s available). Turn this off to block orders that exceed stock on hand for everyone.
+                          Anyone taking an order — owner or staff — can exceed what&apos;s in inventory (sells whatever&apos;s available). Turn this off to block orders that exceed inventory on hand for everyone.
                         </span>
                       </span>
                     </label>
@@ -889,7 +897,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-slate-600">
-                Order/payment reminders, low-stock and expiry alerts push straight to the native app.
+                Order/payment reminders, low-inventory and expiry alerts push straight to the native app.
               </p>
 
               <div>

@@ -428,7 +428,7 @@ export function PurchaseOrderForm({
           {(editingPo?.status === 'received' || editingPo?.status === 'paid') && (
             <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl px-3 py-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              This order was already received{editingPo.status === 'paid' ? ' and paid' : ''} — changing quantities will adjust stock by the difference and log it in stock history.
+              This order was already received{editingPo.status === 'paid' ? ' and paid' : ''} — changing quantities will adjust inventory by the difference and log it in inventory history.
             </div>
           )}
 

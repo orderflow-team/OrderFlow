@@ -100,7 +100,7 @@ export default function PrivacyPolicyPage() {
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/60">
                 <h3 className="font-bold text-slate-900 text-sm mb-1">Hardware Permissions</h3>
                 <p className="text-xs text-slate-600 leading-normal text-justify">
-                  Camera permission (solely used for in-app barcode and product scanning) and Push Notifications (order & low-stock alerts).
+                  Camera permission (solely used for in-app barcode and product scanning) and Push Notifications (order & low-inventory alerts).
                 </p>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc list-inside text-slate-600 text-sm space-y-2 leading-relaxed text-justify">
               <li>To operate, sync, and deliver Point-of-Sale (POS) order fulfillment and inventory tracking services.</li>
               <li>To synchronize real-time store transactions across authorized staff devices.</li>
-              <li>To send critical system alerts, low-stock warnings, and over-the-air (OTA) application updates.</li>
+              <li>To send critical system alerts, low-inventory warnings, and over-the-air (OTA) application updates.</li>
               <li>To protect against unauthorized access, fraudulent billing transactions, and system abuse.</li>
               <li>To generate analytics reports for store managers to optimize inventory and sales.</li>
             </ul>

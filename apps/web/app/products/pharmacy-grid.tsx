@@ -584,7 +584,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
     { key: 'purchasePrice', label: 'Cost', aliases: ['cost', 'costprice'], type: 'number', width: 'w-16', example: '28' },
     { key: 'taxPercentage', label: 'GST %', aliases: ['tax', 'gst'], type: 'number', width: 'w-14', example: '12' },
     { key: 'hsnCode', label: 'HSN Code', aliases: ['hsn'], width: 'w-20', example: '3004' },
-    { key: 'stockQuantity', label: 'Stock', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '200' },
+    { key: 'stockQuantity', label: 'Inventory', aliases: ['stock', 'quantity'], type: 'number', width: 'w-16', example: '200' },
     { key: 'batchNumber', label: 'Batch #', aliases: ['batch'], width: 'w-20', example: 'CR2024A' },
     { key: 'expiryDate', label: 'Expiry', aliases: ['expiry', 'expirydate'], type: 'date', width: 'w-32' },
     { key: 'barcode', label: 'Barcode', aliases: ['sku', 'skucode', 'code'], width: 'w-24' },
@@ -733,7 +733,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
               </div>
               {inventoryEnabled && (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">Stock Quantity</label>
+                  <label className="text-sm font-medium text-slate-700">Inventory Quantity</label>
                   <Input className="h-11" type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} />
                 </div>
               )}
@@ -757,7 +757,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
               ) : (
                 <div className="space-y-1.5 md:col-span-2 text-xs text-slate-500 bg-slate-50 rounded-xl p-3 ring-1 ring-slate-100">
                   Batch &amp; expiry are managed per-batch now — receive a Purchase Order or use the batch list on this
-                  medicine's card to add stock, and the write-off action there to remove expired/damaged units.
+                  medicine's card to add inventory, and the write-off action there to remove expired/damaged units.
                 </div>
               )}
               <div className="space-y-1.5 md:col-span-2">
@@ -873,7 +873,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                       )}
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Stock</p>
+                      <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Inventory</p>
                       <p className="font-semibold text-slate-700 text-sm">{p.stock_quantity} units</p>
                     </div>
                     <button type="button" className="text-left" onClick={() => toggleBatches(p.id)}>
@@ -936,7 +936,7 @@ export function PharmacyGrid({ businessId }: { businessId: string }) {
                                             type="button"
                                             onClick={() => { setWriteOffFor(writeOffFor === b.id ? null : b.id); setWriteOffQty(''); }}
                                             className="text-rose-500 hover:text-rose-700"
-                                            title="Write off damaged/expired stock"
+                                            title="Write off damaged/expired inventory"
                                           >
                                             <PackageMinus className="w-3.5 h-3.5" />
                                           </button>

@@ -48,16 +48,16 @@ export function BentoGrid() {
           </div>
 
           <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3 tracking-tight">
-            Stock levels that adjust the millisecond a bill is printed.
+            Inventory levels that adjust the millisecond a bill is printed.
           </h3>
           <p className="text-slate-600 leading-relaxed max-w-xl text-sm sm:text-base mb-6">
-            Whether it&apos;s a dine-in order, walk-in grocery item, or field salesman collection — every transaction instantly updates stock balances across all counters and triggers low-stock alerts.
+            Whether it&apos;s a dine-in order, walk-in grocery item, or field salesman collection — every transaction instantly updates inventory balances across all counters and triggers low-inventory alerts.
           </p>
 
           {/* Authentic Obix Stock Summary Card matching Play Store UI */}
           <div className="bg-slate-50/90 rounded-2xl p-5 border border-slate-200/80 space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Inventory Stock Summary</span>
+              <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Inventory Summary</span>
               <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold text-[10px] flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Sync
               </span>
@@ -66,15 +66,15 @@ export function BentoGrid() {
             {/* 3 Metrics matching real app */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/70 shadow-2xs">
-                <div className="text-[10px] text-slate-400 font-medium">In Stock</div>
+                <div className="text-[10px] text-slate-400 font-medium">In Inventory</div>
                 <div className="text-sm font-extrabold text-slate-900 mt-0.5">1,240</div>
               </div>
               <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/60 shadow-2xs">
-                <div className="text-[10px] text-amber-700 font-medium">Low Stock</div>
+                <div className="text-[10px] text-amber-700 font-medium">Low Inventory</div>
                 <div className="text-sm font-extrabold text-amber-700 mt-0.5">18</div>
               </div>
               <div className="p-2.5 bg-rose-50/70 rounded-xl border border-rose-200/60 shadow-2xs">
-                <div className="text-[10px] text-rose-700 font-medium">Out of Stock</div>
+                <div className="text-[10px] text-rose-700 font-medium">Out of Inventory</div>
                 <div className="text-sm font-extrabold text-rose-700 mt-0.5">6</div>
               </div>
             </div>
@@ -249,7 +249,7 @@ export function BentoGrid() {
                 ? 'Access restricted to active KOT list & kitchen timers'
                 : activeRole === 'waiter'
                 ? 'Access restricted to dining floor plan & table punch'
-                : 'Full admin access to P&L, stock, and staff management'}
+                : 'Full admin access to P&L, inventory, and staff management'}
             </span>
           </div>
         </div>

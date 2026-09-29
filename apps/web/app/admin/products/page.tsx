@@ -141,7 +141,7 @@ export default function AdminProductsPage() {
         return;
       }
 
-      const headers = ['ID', 'Product Name', 'SKU / Code', 'Barcode', 'Store Name', 'Category', 'Selling Price (INR)', 'Cost Price (INR)', 'Stock Quantity', 'Created Date'];
+      const headers = ['ID', 'Product Name', 'SKU / Code', 'Barcode', 'Store Name', 'Category', 'Selling Price (INR)', 'Cost Price (INR)', 'Inventory Quantity', 'Created Date'];
       const csvRows = [headers.join(',')];
 
       exportData.forEach((p) => {
@@ -302,7 +302,7 @@ export default function AdminProductsPage() {
                 <th className="px-6 py-4">Store / Shop Name</th>
                 <th className="px-6 py-4">Category</th>
                 <th className="px-6 py-4">Selling Price</th>
-                <th className="px-6 py-4">Stock Level</th>
+                <th className="px-6 py-4">Inventory Level</th>
                 <th className="px-6 py-4 text-right">Created</th>
               </tr>
             </thead>
@@ -361,7 +361,7 @@ export default function AdminProductsPage() {
                           ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                           : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                       }`}>
-                        {Number(p.current_stock || 0)} in stock
+                        {Number(p.current_stock || 0)} in inventory
                       </span>
                     </td>
 

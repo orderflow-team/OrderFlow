@@ -1490,8 +1490,8 @@ export class ReportsService {
         severity: p.daysLeft <= 3 ? 'high' : 'medium',
         title: p.name,
         subtitle: p.daysLeft <= 0
-          ? `Out of stock · was selling ${p.velocityPerDay.toFixed(2)}/day`
-          : `${p.stockQuantity} left · ~${Math.round(p.daysLeft)} days of stock at current pace`,
+          ? `Out of inventory · was selling ${p.velocityPerDay.toFixed(2)}/day`
+          : `${p.stockQuantity} left · ~${Math.round(p.daysLeft)} days of inventory at current pace`,
         value: null,
       });
     }
@@ -1516,7 +1516,7 @@ export class ReportsService {
         type: 'slow-moving',
         severity: idx === 0 ? 'high' : 'medium',
         title: p.name,
-        subtitle: `${p.stockQuantity} units in stock, zero sold this period`,
+        subtitle: `${p.stockQuantity} units in inventory, zero sold this period`,
         value: p.tiedUpValue,
       });
     });

@@ -70,8 +70,8 @@ export default function InventoryPage() {
   useEffect(() => {
     if (!businessId) return;
     apiClient
-      .get<{ customSettings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
-      .then((res) => setCustomSettings(res.data.customSettings))
+      .get<{ custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
+      .then((res) => setCustomSettings(res.data.custom_settings))
       .catch(() => {});
   }, [businessId]);
 
@@ -195,7 +195,7 @@ export default function InventoryPage() {
       <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
         <PageHeader
           title="Inventory"
-          description="Suppliers, purchase orders, and stock levels."
+          description="Suppliers, purchase orders, and inventory levels."
           action={businessId && <ClearModuleButton module="inventory" businessId={businessId} onCleared={() => load(businessId)} />}
         />
 
@@ -208,7 +208,7 @@ export default function InventoryPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <CardTitle className="text-base">{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
+                <CardTitle className="text-base">{isPharmacy ? 'Low Inventory Medicines' : 'Low Inventory'}</CardTitle>
               </div>
               {lowStock.length > 0 && (
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={openCreateFromLowStock}>
@@ -219,7 +219,7 @@ export default function InventoryPage() {
           </CardHeader>
           <CardContent>
             {lowStock.length === 0 ? (
-              <p className="text-sm text-slate-400">Nothing low on stock.</p>
+              <p className="text-sm text-slate-400">Nothing low on inventory.</p>
             ) : (
               <CollapsibleList
                 items={lowStock}

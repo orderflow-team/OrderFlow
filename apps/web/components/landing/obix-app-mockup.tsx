@@ -378,7 +378,7 @@ export function ObixAppMockup({
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-900 leading-tight">Add Medicine</div>
-                        <div className="text-[9px] text-slate-400 uppercase font-semibold">Add to Pharmacy Stock</div>
+                        <div className="text-[9px] text-slate-400 uppercase font-semibold">Add to Pharmacy Inventory</div>
                       </div>
                     </div>
                     <div className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center shadow-xs">
@@ -715,7 +715,7 @@ export function ObixAppMockup({
               { screen: 'dashboard', icon: Home,         label: 'Home'   },
               { screen: 'orders',    icon: ShoppingCart, label: 'Orders' },
               { screen: 'billing',   icon: Receipt,      label: 'Billing'},
-              { screen: 'inventory', icon: Warehouse,    label: 'Stock'  },
+              { screen: 'inventory', icon: Warehouse,    label: 'Inventory'  },
               { screen: 'clients',   icon: Users,        label: 'Clients'},
             ] as const).map(({ screen, icon: Icon, label }) => (
               <button

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
-import { getOptionalModulesForCategory } from '@/lib/business-modules';
+import { CustomBusinessSettings, getBusinessTerminology, getOptionalModulesForCategory } from '@/lib/business-modules';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
@@ -44,7 +44,12 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 }
 
-function getHomeTiles(isPharmacy: boolean, isSalesman: boolean) {
+type Terms = ReturnType<typeof getBusinessTerminology>;
+
+/** "Memberships" -> "Membership"; multi-word labels ("Parts & Services") are left as-is. */
+const singular = (label: string) => (/[\s&/]/.test(label) || !/[^s]s$/i.test(label) ? label : label.slice(0, -1));
+
+function getHomeTiles(isPharmacy: boolean, isSalesman: boolean, terms?: Terms | null) {
   if (isSalesman) {
     return [
       { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
@@ -53,9 +58,9 @@ function getHomeTiles(isPharmacy: boolean, isSalesman: boolean) {
     ];
   }
   return [
-    { href: '/customers', label: 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
-    { href: '/products', label: isPharmacy ? 'Medicines' : 'Products', icon: isPharmacy ? Pill : Package, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
-    { href: '/orders', label: 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
+    { href: '/customers', label: terms?.customersLabel ?? 'Clients', icon: Users, bg: 'bg-tile-peach', iconBg: 'bg-tile-peach-icon', fg: 'text-tile-peach-fg' },
+    { href: '/products', label: terms?.productsLabel ?? (isPharmacy ? 'Medicines' : 'Products'), icon: isPharmacy ? Pill : Package, bg: 'bg-tile-lavender', iconBg: 'bg-tile-lavender-icon', fg: 'text-tile-lavender-fg' },
+    { href: '/orders', label: terms?.ordersLabel ?? 'Orders', icon: ShoppingCart, bg: 'bg-tile-sky', iconBg: 'bg-tile-sky-icon', fg: 'text-tile-sky-fg' },
     { href: '/billing', label: 'Ledger', icon: Receipt, bg: 'bg-tile-mint', iconBg: 'bg-tile-mint-icon', fg: 'text-tile-mint-fg' },
   ];
 }
@@ -74,11 +79,11 @@ function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: ReturnType<typeof
   );
 }
 
-function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: ReturnType<typeof useRouter>) {
+function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: ReturnType<typeof useRouter>, terms?: Terms | null) {
   return [
     {
       href: '/orders?new=1',
-      title: 'New Order',
+      title: terms ? `New ${singular(terms.ordersLabel)}` : 'New Order',
       subtitle: 'Record a sale',
       icon: Plus,
       iconBg: 'bg-tile-peach-icon',
@@ -97,8 +102,8 @@ function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: Retu
         }
       : {
           href: '/products?new=1',
-          title: isPharmacy ? 'Add Medicine' : 'Add Product',
-          subtitle: isPharmacy ? 'Add to pharmacy stock' : 'Add to inventory',
+          title: terms ? `Add ${singular(terms.productsLabel)}` : isPharmacy ? 'Add Medicine' : 'Add Product',
+          subtitle: terms ? `Add to your ${terms.productsLabel.toLowerCase()}` : isPharmacy ? 'Add to pharmacy inventory' : 'Add to inventory',
           icon: isPharmacy ? Pill : Package,
           iconBg: 'bg-tile-lavender-icon',
           iconFg: 'text-tile-lavender-fg',
@@ -106,8 +111,8 @@ function getQuickActions(isPharmacy: boolean, isSalesman: boolean, router?: Retu
         },
     {
       href: '/customers?new=1',
-      title: 'Add Client',
-      subtitle: 'Register shop owner',
+      title: terms ? `Add ${singular(terms.customersLabel)}` : 'Add Client',
+      subtitle: terms ? 'Save their details' : 'Register shop owner',
       icon: UserPlus,
       iconBg: 'bg-tile-sky-icon',
       iconFg: 'text-tile-sky-fg',
@@ -195,6 +200,8 @@ export default function DashboardPage() {
   const [showSeedConfirm, setShowSeedConfirm] = useState(false);
   const [hasInventory, setHasInventory] = useState(false);
   const [isPharmacy, setIsPharmacy] = useState(false);
+  // Custom wording ("Members", "Plans"…) for businesses set up through the Others wizard.
+  const [terms, setTerms] = useState<Terms | null>(null);
   const [isSalesman, setIsSalesman] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourUserKey, setTourUserKey] = useState<string | null>(null);
@@ -301,11 +308,12 @@ export default function DashboardPage() {
       setIsPharmacy(cachedCategory === 'pharmacy');
     }
     apiClient
-      .get<{ category: string | null; inventory_enabled: boolean }>(`/api/businesses/${user.businessId}`)
+      .get<{ category: string | null; inventory_enabled: boolean; custom_settings?: CustomBusinessSettings | null }>(`/api/businesses/${user.businessId}`)
       .then((res) => {
         setCachedBusinessCategory(user.businessId!, res.data.category);
         setCachedInventoryEnabled(user.businessId!, res.data.inventory_enabled);
-        setHasInventory(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled).includes('inventory'));
+        setHasInventory(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings).includes('inventory'));
+        setTerms(res.data.custom_settings?.terminology ? getBusinessTerminology(res.data.custom_settings) : null);
         setIsPharmacy(res.data.category === 'pharmacy');
       })
       .catch(() => {});
@@ -432,7 +440,7 @@ export default function DashboardPage() {
           {/* Grid: 2x2 on mobile, 5-col on desktop with center hero tile */}
           <div className={`grid grid-cols-2 ${!isSalesman ? 'lg:grid-cols-5' : 'lg:grid-cols-3'} gap-3.5 sm:gap-4`}>
             {(() => {
-              const tiles = getHomeTiles(isPharmacy, isSalesman);
+              const tiles = getHomeTiles(isPharmacy, isSalesman, terms);
               if (isSalesman) {
                 return tiles.map((tile) => <HomeTile key={tile.href} {...tile} />);
               }
@@ -471,7 +479,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {getQuickActions(isPharmacy, isSalesman, router).map((action) => (
+          {getQuickActions(isPharmacy, isSalesman, router, terms).map((action) => (
             <QuickActionRow key={action.href} action={action} />
           ))}
         </div>
@@ -504,13 +512,13 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <CardTitle>{isPharmacy ? 'Low Stock Medicines' : 'Low Stock'}</CardTitle>
+                  <CardTitle>{isPharmacy ? 'Low Inventory Medicines' : 'Low Inventory'}</CardTitle>
                 </div>
                 <CardDescription>{isPharmacy ? 'Medicines at or below their reorder point' : 'Products at or below their reorder point'}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.lowStockProducts.length === 0 ? (
-                  <p className="text-sm text-slate-400">Nothing low on stock.</p>
+                  <p className="text-sm text-slate-400">Nothing low on inventory.</p>
                 ) : (
                   <CollapsibleList
                     items={data.lowStockProducts}

@@ -21,7 +21,7 @@ const INVENTORY_NOTIFICATION_TYPES = ['low_stock', 'expiry_alert'];
 const PUSH_TITLES: Record<string, string> = {
   order_reminder: 'Order reminder',
   payment_reminder: 'Payment reminder',
-  low_stock: 'Low stock alert',
+  low_stock: 'Low inventory alert',
   expiry_alert: 'Expiry alert',
 };
 
@@ -296,7 +296,7 @@ export class NotificationsService {
       .getMany();
 
     for (const product of lowStockProducts) {
-      const prefix = `${product.name} is low on stock`;
+      const prefix = `${product.name} is low on inventory`;
       const message = `${prefix} (${product.stock_quantity} ${product.unit || 'units'} left)`;
 
       const alreadyNotified = await this.notificationsRepository
@@ -311,7 +311,7 @@ export class NotificationsService {
       await this.createNotification(product.business_id, 'low_stock', message);
     }
 
-    this.logger.log(`Low stock sweep: ${lowStockProducts.length} product(s) checked`);
+    this.logger.log(`Low inventory sweep: ${lowStockProducts.length} product(s) checked`);
   }
 
   private async checkExpiryAlerts() {

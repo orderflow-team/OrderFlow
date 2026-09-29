@@ -66,7 +66,7 @@ function getCards(isPharmacy: boolean, isSalesman: boolean, hasInventory: boolea
     {
       bg: 'bg-tile-lavender', fg: 'text-tile-lavender-fg', accentBg: 'bg-tile-lavender-fg', icon: isPharmacy ? Pill : Package,
       eyebrow: catalogWord, headline: 'Your whole catalog', body: hasInventory
-        ? `Every ${itemWord}, its price, and its stock — always current.`
+        ? `Every ${itemWord}, its price, and its inventory — always current.`
         : `Every ${itemWord} and its price, ready to sell.`,
     },
     {
@@ -82,7 +82,7 @@ function getCards(isPharmacy: boolean, isSalesman: boolean, hasInventory: boolea
     ...(hasInventory
       ? [{
           bg: 'bg-tile-peach', fg: 'text-tile-peach-fg', accentBg: 'bg-tile-peach-fg', icon: Warehouse,
-          eyebrow: 'Inventory', headline: 'Never run dry', body: 'Stock levels, purchase orders, and low-stock alerts — handled.',
+          eyebrow: 'Inventory', headline: 'Never run dry', body: 'Inventory levels, purchase orders, and low-inventory alerts — handled.',
           flow: [Warehouse, Truck, BellRing] as [typeof Sparkles, typeof Sparkles, typeof Sparkles],
         }]
       : []),

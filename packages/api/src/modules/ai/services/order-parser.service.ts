@@ -824,11 +824,11 @@ export class OrderParserService {
   ];
 
   private static readonly INVENTORY_REPORT_PATTERNS = [
-    /\b(?:low\s*stock|out\s+of\s+stock|inventory\s+alert|stock\s+alert|inventory\s+reports?|stock\s+reports?|low\s+inventory)\b/i,
-    /\bwhich\s+items\s+are\s+(?:low|out\s+of\s+stock|empty)\b/i,
-    /\b(?:inventory\s+valuation|stock\s+valuation|total\s+stock\s+value|stock\s+worth|inventory\s+worth)\b/i,
-    /\b(?:slow\s+moving|dead\s+stock|unsold\s+stock|idle\s+inventory)\b/i,
-    /\b(?:expiring\s+soon|near\s+expiry|expiry\s+reports?|expired\s+stock)\b/i,
+    /\b(?:low\s*stock|out\s+of\s+stock|out\s+of\s+inventory|inventory\s+alert|stock\s+alert|inventory\s+reports?|stock\s+reports?|low\s+inventory|inventory\s+levels?)\b/i,
+    /\bwhich\s+items\s+are\s+(?:low|out\s+of\s+(?:stock|inventory)|empty)\b/i,
+    /\b(?:inventory\s+valuation|stock\s+valuation|total\s+stock\s+value|total\s+inventory\s+value|stock\s+worth|inventory\s+worth)\b/i,
+    /\b(?:slow\s+moving|dead\s+stock|dead\s+inventory|unsold\s+stock|unsold\s+inventory|idle\s+stock|idle\s+inventory)\b/i,
+    /\b(?:expiring\s+soon|expiring\s+(?:stock|inventory)|near\s+expiry|expiry\s+reports?|expired\s+(?:stock|inventory))\b/i,
     /\b(?:reorder\s+suggestions?|reorder\s+list|what\s+to\s+reorder)\b/i,
   ];
 
@@ -872,7 +872,7 @@ export class OrderParserService {
       OrderParserService.CONVERSATION_PATTERNS.some((re) => re.test(trimmed))
     ) {
       return {
-        reply: `Hi! I am Obix, your store ordering & business reports assistant. You can place orders ("2kg rice, 1 dozen eggs"), or ask for reports like "remaining payment of supplier", "customer dues", "today's sales", "low stock report", or "menu".`,
+        reply: `Hi! I am Obix, your store ordering & business reports assistant. You can place orders ("2kg rice, 1 dozen eggs"), or ask for reports like "remaining payment of supplier", "customer dues", "today's sales", "low inventory report", or "menu".`,
         order: null,
       };
     }
@@ -884,7 +884,7 @@ export class OrderParserService {
     }
     if (OrderParserService.HELP_MESSAGES.has(lower) || OrderParserService.QUESTION_PATTERNS.some((re) => re.test(trimmed))) {
       return {
-        reply: `I can help you place/edit orders ("2kg rice, 1 dozen eggs", "add 2 cokes to table 3"), or fetch live business reports ("remaining payment of supplier", "customer dues", "today's sales", "low stock report", "menu").`,
+        reply: `I can help you place/edit orders ("2kg rice, 1 dozen eggs", "add 2 cokes to table 3"), or fetch live business reports ("remaining payment of supplier", "customer dues", "today's sales", "low inventory report", "menu").`,
         order: null,
       };
     }
@@ -900,7 +900,7 @@ export class OrderParserService {
           `💰 *Profit & Loss:* "Profit report", "Top margin products", "Financial summary"\n` +
           `💸 *Expenses:* "Expense report", "Expenses by category", "Recent expenses"\n` +
           `🧾 *GST & Tax:* "GST report", "GSTR 1 summary", "Tax collected"\n` +
-          `📦 *Inventory:* "Low stock report", "Stock valuation", "Dead stock", "Expiring stock", "Reorder suggestions"\n` +
+          `📦 *Inventory:* "Low inventory report", "Inventory valuation", "Dead inventory", "Expiring inventory", "Reorder suggestions"\n` +
           `🏷️ *Catalog:* "Top products", "Category report", "Brand report"\n` +
           `👔 *Operations:* "Order status report", "Salesman report"\n\n` +
           `💡 *Tip:* You can type or tap any query above to generate the live report instantly!`,
@@ -1098,37 +1098,37 @@ export class OrderParserService {
     if (this.reportsService && OrderParserService.INVENTORY_REPORT_PATTERNS.some((re) => re.test(trimmed))) {
       const analytics = (await this.reportsService.analyticsDashboard(businessId, 30)) as any;
 
-      if (/\b(?:inventory\s+valuation|stock\s+valuation|stock\s+worth|total\s+stock|inventory\s+worth)\b/i.test(trimmed)) {
+      if (/\b(?:inventory\s+valuation|stock\s+valuation|stock\s+worth|total\s+stock|total\s+inventory|inventory\s+worth)\b/i.test(trimmed)) {
         const val = analytics.products?.inventoryValuation || analytics.inventoryValuation || { totalPurchaseValue: 0, totalRetailValue: 0, totalStockUnits: 0, trackedItemsCount: 0 };
         return {
           reply:
-            `📦 *Inventory Valuation & Stock Summary:*\n` +
+            `📦 *Inventory Valuation & Summary:*\n` +
             `• *Total Inventory Value (Cost):* ₹${Number(val.totalPurchaseValue ?? val.totalValue ?? 0).toFixed(2)}\n` +
             `• *Total Retail Valuation:* ₹${Number(val.totalRetailValue ?? 0).toFixed(2)}\n` +
             `• *Total Tracked SKUs:* ${val.trackedItemsCount ?? val.skuCount ?? 0}\n` +
-            `• *Total Units in Stock:* ${val.totalStockUnits ?? val.totalUnits ?? 0}`,
+            `• *Total Units in Inventory:* ${val.totalStockUnits ?? val.totalUnits ?? 0}`,
           order: null,
         };
       }
 
-      if (/\b(?:slow\s+moving|dead\s+stock|unsold)\b/i.test(trimmed)) {
+      if (/\b(?:slow\s+moving|dead\s+stock|dead\s+inventory|unsold)\b/i.test(trimmed)) {
         const slow = analytics.products?.slowMoving || analytics.deadStock || [];
-        if (slow.length === 0) return { reply: `✅ No dead stock identified! All products are moving.`, order: null };
+        if (slow.length === 0) return { reply: `✅ No dead inventory identified! All products are moving.`, order: null };
         const list = slow.slice(0, 5).map((s: any) => `• *${s.name}*: ${s.stockQuantity} units (₹${Number(s.tiedUpValue ?? 0).toFixed(2)} capital tied up)`).join('\n');
-        return { reply: `⏳ *Slow-Moving & Dead Stock Alert:*\n${list}`, order: null };
+        return { reply: `⏳ *Slow-Moving & Dead Inventory Alert:*\n${list}`, order: null };
       }
 
       if (/\b(?:expiring|expiry|expired)\b/i.test(trimmed)) {
         const expiring = analytics.expiringSoon || analytics.nearExpiry || [];
         if (expiring.length === 0) return { reply: `✅ No products expiring in the next 90-180 days!`, order: null };
         const list = expiring.slice(0, 5).map((e: any) => `• *${e.name ?? e.productName}*: Batch ${e.batch_number ?? e.batchNumber ?? '—'} (Expires ${e.expiry_date ?? e.expiryDate})`).join('\n');
-        return { reply: `⚠️ *Near-Expiry Stock (At Risk: ₹${Number(analytics.products?.expiryValueAtRisk || 0).toFixed(2)}):*\n${list}`, order: null };
+        return { reply: `⚠️ *Near-Expiry Inventory (At Risk: ₹${Number(analytics.products?.expiryValueAtRisk || 0).toFixed(2)}):*\n${list}`, order: null };
       }
 
       if (/\b(?:reorder\s+suggestions?|reorder\s+list|what\s+to\s+reorder)\b/i.test(trimmed)) {
         const reorder = analytics.products?.reorderSuggestions || [];
-        if (reorder.length === 0) return { reply: `✅ All products have sufficient stock! No urgent reorders needed.`, order: null };
-        const list = reorder.slice(0, 5).map((r: any) => `• *${r.name}*: ${r.stockQuantity} left (~${Math.round(r.daysLeft || 0)} days stock at current pace)`).join('\n');
+        if (reorder.length === 0) return { reply: `✅ All products have sufficient inventory! No urgent reorders needed.`, order: null };
+        const list = reorder.slice(0, 5).map((r: any) => `• *${r.name}*: ${r.stockQuantity} left (~${Math.round(r.daysLeft || 0)} days inventory at current pace)`).join('\n');
         return { reply: `🔄 *Reorder Shortlist:*\n${list}`, order: null };
       }
 
@@ -1142,14 +1142,14 @@ export class OrderParserService {
         .slice(0, 10)
         .map((p: any) => {
           const qty = Number(p.stock_quantity || 0);
-          const status = qty <= 0 ? '❌ Out of stock!' : `remaining: ${qty} ${p.unit || 'units'}`;
+          const status = qty <= 0 ? '❌ Out of inventory!' : `remaining: ${qty} ${p.unit || 'units'}`;
           return `• *${p.name}*: ${status} (reorder level: ${p.reorder_point || 10})`;
         })
         .join('\n');
       const more = lowStock.length > 10 ? `\n...and ${lowStock.length - 10} more.` : '';
 
       return {
-        reply: `⚠️ *Low Stock Alert (${lowStock.length} item${lowStock.length > 1 ? 's' : ''}):*\n${list}${more}`,
+        reply: `⚠️ *Low Inventory Alert (${lowStock.length} item${lowStock.length > 1 ? 's' : ''}):*\n${list}${more}`,
         order: null,
       };
     }
