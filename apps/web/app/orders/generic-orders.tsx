@@ -10,6 +10,7 @@ import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
 import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { useBusinessTerminology } from '@/lib/use-business-terminology';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
@@ -128,6 +129,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function GenericOrders() {
   const { businessId, ready } = useBusiness();
+  const terms = useBusinessTerminology();
   const isPharmacy = businessId ? getCachedBusinessCategory(businessId) === 'pharmacy' : false;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -890,7 +892,7 @@ export function GenericOrders() {
       <div className="lg:flex lg:gap-6 lg:items-start">
       <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Orders</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">{terms?.ordersLabel ?? 'Orders'}</h1>
           <div className="flex items-center gap-2">
             <Button
               type="button"

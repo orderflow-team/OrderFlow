@@ -9,6 +9,7 @@ import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { useBusinessTerminology } from '@/lib/use-business-terminology';
 import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -50,6 +51,7 @@ interface CustomerStats {
 function CustomersPageContent() {
   const searchParams = useSearchParams();
   const { businessId, ready } = useBusiness();
+  const terms = useBusinessTerminology();
   const [customers, setCustomers] = useState<Customer[]>([]);
   // The real total (from X-Total-Count), distinct from customers.length once
   // pagination means customers only holds however much has been loaded so
@@ -476,7 +478,7 @@ function CustomersPageContent() {
       <div className="lg:flex lg:gap-6 lg:items-start">
       <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Clients</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">{terms?.customersLabel ?? 'Clients'}</h1>
           {!showForm && (
             <Button onClick={openCreateForm} className="gap-1.5 bg-tile-sky-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add Customer

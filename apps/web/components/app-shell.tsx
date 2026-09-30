@@ -34,7 +34,7 @@ import {
   Zap,
 } from 'lucide-react';
 import apiClient, { toAbsoluteFileUrl } from '@/lib/api-client';
-import { setCached } from '@/lib/offline-db';
+import { getCached, setCached } from '@/lib/offline-db';
 import { useOfflineStore, useOfflineSync } from '@/lib/offline-store';
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { usePushNotifications } from '@/lib/use-push-notifications';
@@ -242,7 +242,22 @@ export function AppShell({ children, hideNavigation = false }: { children: React
     const cached = getCachedBusinessCategory(businessId);
     const cachedInventoryEnabled = getCachedInventoryEnabled(businessId);
     const cachedChatEnabled = getCachedChatEnabled(businessId);
-    setOptionalModules(getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined));
+    if (cached === 'others') {
+      // A custom business's tabs come from its own module switches, which the
+      // category alone can't tell us — guessing from it would make the
+      // "hidden module" safety net below bounce Kitchen/Field/Inventory back
+      // to the dashboard. Use the last saved profile (also covers offline);
+      // otherwise stay null until the fetch below lands.
+      getCached<{ custom_settings?: CustomBusinessSettings }>(businessId, 'business-profile')
+        .then((profile) => {
+          if (profile?.custom_settings) {
+            setOptionalModules((prev) => prev ?? getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined, profile.custom_settings));
+          }
+        })
+        .catch(() => {});
+    } else {
+      setOptionalModules(getOptionalModulesForCategory(cached, cachedInventoryEnabled ?? undefined));
+    }
     setChatEnabled(cachedChatEnabled ?? true);
 
     // Named so it can be re-run from the event listener below, not just on
@@ -377,7 +392,13 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   const moreNav = (isSalesmanRole || isCookRole || isWaiterRole || isDeliveryRole || isCashierRole || isAccountantRole)
     ? []
     : optionalModules
-      ? [...optionalModules.map((m) => OPTIONAL_NAV[m]), ...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])]
+      ? [
+          // 'expenses' lives on the core Billing page (already in CORE_MORE_NAV) —
+          // listing it here too made that tab show up as "Purchases" instead of "Billing".
+          ...optionalModules.filter((m) => m !== 'expenses').map((m) => OPTIONAL_NAV[m]),
+          ...CORE_MORE_NAV,
+          ...(canManageStaff ? [STAFF_NAV] : []),
+        ]
       : [...CORE_MORE_NAV, ...(canManageStaff ? [STAFF_NAV] : [])];
 
   const terminology = getBusinessTerminology(customSettings);
@@ -422,12 +443,15 @@ export function AppShell({ children, hideNavigation = false }: { children: React
       return item;
     }),
     ...moreNav.map((item) => {
+      if (item.href === '/billing' && customSettings?.modules?.billing === false && customSettings.modules.expenses) {
+        return { ...item, label: 'Purchases' };
+      }
       if (item.href === '/staff' && customSettings?.terminology?.staffLabel) {
         return { ...item, label: customSettings.terminology.staffLabel };
       }
       if (item.href === '/salesman') {
-        if (customSettings?.terminology?.staffLabel) {
-          return { ...item, label: `${customSettings.terminology.staffLabel} Field` };
+        if (customSettings?.terminology) {
+          return { ...item, label: 'Field Sales' };
         }
         return { ...item, label: 'Field Mode' };
       }
