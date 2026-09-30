@@ -225,9 +225,18 @@ function ProductsPageContent() {
       
       if (catRes.data.length === 0 && !isSeedingCategories.current) {
         isSeedingCategories.current = true;
-        const defaults = getDefaultItemCategories(getCachedBusinessCategory(bizId));
+        const businessCategory = getCachedBusinessCategory(bizId);
+        // "Other" businesses pick their own starter categories in the setup wizard.
+        const customSettings =
+          businessCategory === 'others'
+            ? await apiClient.get<{ custom_settings?: any }>(`/api/businesses/${bizId}`).then((r) => r.data.custom_settings).catch(() => null)
+            : null;
+        const defaults = getDefaultItemCategories(businessCategory, customSettings);
         if (defaults.length > 0) {
-          await Promise.all(defaults.map((name) => apiClient.post('/api/categories', { businessId: bizId, name }).catch(() => null)));
+          // One at a time so they're created (and listed) in the order the owner set.
+          for (const name of defaults) {
+            await apiClient.post('/api/categories', { businessId: bizId, name }).catch(() => null);
+          }
           const seeded = await apiClient.get<Category[]>('/api/categories', { params: { businessId: bizId } });
           setCategories(extractCategories(seeded.data, currentProducts));
           return;
