@@ -34,6 +34,7 @@ interface Product {
   id: string;
   name: string;
   selling_price: string | number;
+  tax_percentage?: string | number | null;
   category?: string | null;
   is_available?: boolean;
   unit?: string;
@@ -163,10 +164,15 @@ export function DashboardQuickOrder({
   const clearCart = () => setCart({});
 
   const cartItems = Object.values(cart);
-  const cartTotal = cartItems.reduce(
-    (sum, item) => sum + Number(item.product.selling_price) * item.quantity,
-    0
-  );
+  // Same maths as the server's order total (price × qty + GST per line), so the
+  // amount collected and the UPI QR match the bill — not the pre-GST price.
+  const cartTotal =
+    Math.round(
+      cartItems.reduce((sum, item) => {
+        const subtotal = Number(item.product.selling_price) * item.quantity;
+        return sum + subtotal * (1 + Number(item.product.tax_percentage || 0) / 100);
+      }, 0) * 100,
+    ) / 100;
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Filter products for fast selection
@@ -209,13 +215,29 @@ export function DashboardQuickOrder({
       const orderId = res.data.id;
       const orderNum = res.data.order_number;
 
-      // If Cash or UPI, immediately mark as paid
+      const orderTotal = Number(res.data.total_amount) || cartTotal;
       if (paymentMode === 'cash' || paymentMode === 'upi') {
+        // Record the money received (not just a "paid" status), so it lands in
+        // the payments ledger and a named customer isn't left owing the amount.
         try {
-          await apiClient.patch(`/api/orders/${orderId}/status`, { status: 'paid' }, { params: { businessId } });
+          await apiClient.post('/api/billing/payments', {
+            businessId,
+            orderId,
+            customerId: customerId || undefined,
+            amount: orderTotal,
+            paymentMethod: paymentMode === 'cash' ? 'Cash' : 'UPI',
+          });
         } catch (e) {
-          console.warn('Status patch warning', e);
+          console.warn('Quick order payment warning', e);
+          await apiClient
+            .patch(`/api/orders/${orderId}/status`, { status: 'paid' }, { params: { businessId } })
+            .catch(() => {});
         }
+      } else {
+        // Credit / Due: bill it so the amount shows in the customer's dues.
+        await apiClient
+          .patch(`/api/orders/${orderId}/status`, { status: 'confirmed' }, { params: { businessId } })
+          .catch((e) => console.warn('Quick order confirm warning', e));
       }
 
       // Play success haptic
@@ -229,7 +251,7 @@ export function DashboardQuickOrder({
       setSuccessOrder({
         id: orderId,
         orderNumber: orderNum,
-        total: cartTotal,
+        total: orderTotal,
         method: paymentMode.toUpperCase(),
         items: [...cartItems],
         customerName: customerName.trim() || 'Walk-in',
