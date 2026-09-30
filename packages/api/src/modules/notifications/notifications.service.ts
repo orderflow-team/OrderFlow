@@ -304,7 +304,12 @@ export class NotificationsService {
         .where('n.business_id = :businessId', { businessId: product.business_id })
         .andWhere('n.type = :type', { type: 'low_stock' })
         .andWhere('n.is_read = false')
-        .andWhere('n.message LIKE :prefix', { prefix: `${prefix} %` })
+        // Unread alerts written before the Stock→Inventory rename still say
+        // "low on stock" — match them too so they aren't sent again.
+        .andWhere('(n.message LIKE :prefix OR n.message LIKE :legacyPrefix)', {
+          prefix: `${prefix} %`,
+          legacyPrefix: `${product.name} is low on stock %`,
+        })
         .getOne();
       if (alreadyNotified) continue;
 
