@@ -281,9 +281,9 @@ export default function InventoryPage() {
           </CardContent>
         </Card>
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-800">Purchase Orders</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {businessId && (
               <ScanToInventoryDialog businessId={businessId} suppliers={suppliers} onConfirmed={() => load(businessId)} />
             )}

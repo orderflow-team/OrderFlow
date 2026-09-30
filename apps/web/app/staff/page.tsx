@@ -107,8 +107,8 @@ export default function StaffPage() {
   const loadBusinessConfig = async (bizId: string) => {
     try {
       const res = await apiClient.get<{ category?: string; custom_settings?: any }>(`/api/businesses/${bizId}`);
-      const settings = res.data?.custom_settings?.modules;
       const category = res.data?.category;
+      const settings = category === 'others' ? res.data?.custom_settings?.modules : undefined;
 
       // Attendance & Commissions are visible if category is 'others' with custom settings OR if explicitly enabled in modules
       const isCustomCategory = category === 'others';
@@ -321,10 +321,10 @@ export default function StaffPage() {
 
         {/* Tab Switcher (Attendance & Commissions only visible if enabled in Custom/Stepwise options) */}
         {(hasAttendanceModule || hasCommissionsModule) && (
-          <div className="flex items-center gap-2 p-1.5 bg-slate-200/50 backdrop-blur-md rounded-2xl w-fit border border-slate-200">
+          <div className="flex items-center gap-2 p-1.5 bg-slate-200/50 backdrop-blur-md rounded-2xl w-fit max-w-full overflow-x-auto border border-slate-200">
             <button
               onClick={() => setActiveTab('roster')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex shrink-0 whitespace-nowrap items-center gap-2 ${
                 activeTab === 'roster' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -333,7 +333,7 @@ export default function StaffPage() {
             {hasAttendanceModule && (
               <button
                 onClick={() => setActiveTab('attendance')}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex shrink-0 whitespace-nowrap items-center gap-2 ${
                   activeTab === 'attendance' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -343,7 +343,7 @@ export default function StaffPage() {
             {hasCommissionsModule && (
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex shrink-0 whitespace-nowrap items-center gap-2 ${
                   activeTab === 'commissions' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >

@@ -10,6 +10,7 @@ import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { CustomBusinessSettings, getBusinessTerminology, getOptionalModulesForCategory } from '@/lib/business-modules';
+import { singularLabel } from '@/lib/use-business-terminology';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { DraftReviewStack } from '@/components/draft-review-stack';
@@ -46,8 +47,7 @@ function formatCurrency(value: number) {
 
 type Terms = ReturnType<typeof getBusinessTerminology>;
 
-/** "Memberships" -> "Membership"; multi-word labels ("Parts & Services") are left as-is. */
-const singular = (label: string) => (/[\s&/]/.test(label) || !/[^s]s$/i.test(label) ? label : label.slice(0, -1));
+const singular = singularLabel;
 
 function getHomeTiles(isPharmacy: boolean, isSalesman: boolean, terms?: Terms | null) {
   if (isSalesman) {
@@ -307,13 +307,25 @@ export default function DashboardPage() {
       setHasInventory(getOptionalModulesForCategory(cachedCategory, cachedInventoryEnabled ?? undefined).includes('inventory'));
       setIsPharmacy(cachedCategory === 'pharmacy');
     }
+    // Show the saved custom wording straight away instead of flashing the
+    // defaults ("Clients", "Products") until the request below comes back.
+    let fresh = false; // the API answered — the saved copy must not overwrite it
+    getCached<{ custom_settings?: CustomBusinessSettings | null }>(user.businessId, 'business-profile')
+      .then((profile) => {
+        const settings = profile?.custom_settings;
+        if (fresh || !settings || cachedCategory !== 'others') return;
+        if (settings.terminology) setTerms((prev) => prev ?? getBusinessTerminology(settings));
+        setHasInventory(getOptionalModulesForCategory(cachedCategory, cachedInventoryEnabled ?? undefined, settings).includes('inventory'));
+      })
+      .catch(() => {});
     apiClient
       .get<{ category: string | null; inventory_enabled: boolean; custom_settings?: CustomBusinessSettings | null }>(`/api/businesses/${user.businessId}`)
       .then((res) => {
+        fresh = true;
         setCachedBusinessCategory(user.businessId!, res.data.category);
         setCachedInventoryEnabled(user.businessId!, res.data.inventory_enabled);
         setHasInventory(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings).includes('inventory'));
-        setTerms(res.data.custom_settings?.terminology ? getBusinessTerminology(res.data.custom_settings) : null);
+        setTerms(res.data.category === 'others' && res.data.custom_settings?.terminology ? getBusinessTerminology(res.data.custom_settings) : null);
         setIsPharmacy(res.data.category === 'pharmacy');
       })
       .catch(() => {});

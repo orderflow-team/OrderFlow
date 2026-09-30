@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { singularLabel, useBusinessTerminology } from '@/lib/use-business-terminology';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
@@ -67,6 +68,9 @@ interface GenericOrderModalProps {
 
 export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
+  // Others-wizard businesses use their own words ("Sale", "Ornament").
+  const terms = useBusinessTerminology();
+  const orderWord = terms ? singularLabel(terms.ordersLabel) : 'Order';
   // A salesman's job is just to record what the customer wants — pricing is
   // the owner's concern, so price stays read-only (and unit-price management
   // hidden) in their cart.
@@ -665,7 +669,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
         <DialogHeader className="p-4 border-b border-slate-100 flex-shrink-0 relative">
           <div className="flex justify-between items-center">
             <DialogTitle className="text-lg flex items-center gap-2">
-              New Order
+              New {orderWord}
               <button
                 type="button"
                 onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
@@ -1202,7 +1206,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               className="flex-1 h-11 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
               onClick={focusSearch}
             >
-              <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : 'Add Product'}
+              <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : terms ? `Add ${singularLabel(terms.productsLabel)}` : 'Add Product'}
             </Button>
             <Button
               title="Ctrl+Enter"
@@ -1210,7 +1214,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               disabled={cartItems.length === 0 || submitting}
               onClick={handleSubmit}
             >
-              {submitting ? 'Submitting...' : 'Submit Order'}
+              {submitting ? 'Submitting...' : `Submit ${orderWord}`}
             </Button>
           </div>
         </div>

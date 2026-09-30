@@ -428,7 +428,7 @@ export default function SettingsPage() {
         {/* Subscription & Billing Quick Banner */}
         <div 
           onClick={() => router.push('/settings/subscription')}
-          className="cursor-pointer bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl p-5 shadow-lg border border-indigo-700/50 hover:border-indigo-400 transition flex items-center justify-between gap-4"
+          className="cursor-pointer bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white rounded-2xl p-5 shadow-lg border border-indigo-700/50 hover:border-indigo-400 transition flex flex-wrap items-center justify-between gap-4"
         >
           <div className="flex items-center gap-3.5">
             <div className="p-3 bg-yellow-400 text-indigo-950 rounded-2xl font-bold shadow-md">

@@ -170,7 +170,10 @@ export function getOptionalModulesForCategory(
   inventoryEnabled?: boolean,
   customSettings?: CustomBusinessSettings | null,
 ): OptionalModule[] {
-  if (customSettings?.modules) {
+  // Custom module switches come from the Others wizard. A business later moved
+  // to a standard category keeps those old settings, so they only count for
+  // Others (or a not-yet-known category, which is treated as Others).
+  if (customSettings?.modules && (!category || category === 'others')) {
     const active: OptionalModule[] = [];
     if (customSettings.modules.inventory !== false) active.push('inventory');
     if (customSettings.modules.restaurant === true) active.push('restaurant');
@@ -245,7 +248,9 @@ export function getPoFieldConfig(
   category: string | null | undefined,
   customSettings?: CustomBusinessSettings | null,
 ): PoFieldConfig {
-  const explicit = customSettings?.moduleConfig?.inventorySettings?.enableBatchExpiry;
+  // Only an Others business sets this itself; leftover Others settings must
+  // never switch batch/expiry off for, say, a business moved to Pharmacy.
+  const explicit = category === 'others' ? customSettings?.moduleConfig?.inventorySettings?.enableBatchExpiry : undefined;
   const batchExpiry = explicit !== undefined ? explicit : category === 'pharmacy';
   return { batchExpiry, schemeQuantity: batchExpiry };
 }

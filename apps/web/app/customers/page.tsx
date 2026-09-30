@@ -349,10 +349,10 @@ function CustomersPageContent() {
   useEffect(() => {
     if (!ready || !businessId) return;
     apiClient
-      .get<{ name?: string; custom_settings?: any }>(`/api/businesses/${businessId}`)
+      .get<{ name?: string; category?: string | null; custom_settings?: any }>(`/api/businesses/${businessId}`)
       .then((res) => {
         setBusinessName(res.data.name || '');
-        const settings = res.data.custom_settings;
+        const settings = res.data.category === 'others' ? res.data.custom_settings : null;
         const schema = settings?.customerCustomFields || settings?.customFields || [];
         setCustomFieldSchema(schema);
       })

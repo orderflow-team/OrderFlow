@@ -30,8 +30,8 @@ describe('getOptionalModulesForCategory', () => {
     expect(getOptionalModulesForCategory('pharmacy', true)).toEqual(['inventory', 'salesman']);
   });
 
-  it('prefers custom_settings.modules over category defaults entirely', () => {
-    const result = getOptionalModulesForCategory('grocery', true, {
+  it('uses custom_settings.modules instead of defaults for an Others business', () => {
+    const result = getOptionalModulesForCategory('others', true, {
       modules: { inventory: false, restaurant: true, salesman: true, expenses: true, staff: true, loyalty: true },
     });
 
@@ -39,9 +39,15 @@ describe('getOptionalModulesForCategory', () => {
   });
 
   it('keeps inventory active in custom_settings unless explicitly set to false', () => {
-    const result = getOptionalModulesForCategory('grocery', false, { modules: {} });
+    const result = getOptionalModulesForCategory('others', false, { modules: {} });
 
     expect(result).toContain('inventory');
+  });
+
+  it('ignores leftover Others modules once a business moves to a standard category', () => {
+    const leftover = { modules: { inventory: false, restaurant: true, salesman: true } };
+
+    expect(getOptionalModulesForCategory('grocery', true, leftover)).toEqual(getOptionalModulesForCategory('grocery', true));
   });
 });
 
@@ -98,16 +104,16 @@ describe('getPoFieldConfig', () => {
     expect(getPoFieldConfig('grocery')).toEqual({ batchExpiry: false, schemeQuantity: false });
   });
 
-  it('respects an explicit custom_settings override for a non-pharmacy business', () => {
-    const result = getPoFieldConfig('grocery', { moduleConfig: { inventorySettings: { enableBatchExpiry: true } } });
+  it('respects an Others business turning batch/expiry on', () => {
+    const result = getPoFieldConfig('others', { moduleConfig: { inventorySettings: { enableBatchExpiry: true } } });
 
     expect(result).toEqual({ batchExpiry: true, schemeQuantity: true });
   });
 
-  it('respects an explicit false override even for pharmacy', () => {
+  it('ignores leftover Others settings once a business moves to pharmacy', () => {
     const result = getPoFieldConfig('pharmacy', { moduleConfig: { inventorySettings: { enableBatchExpiry: false } } });
 
-    expect(result).toEqual({ batchExpiry: false, schemeQuantity: false });
+    expect(result).toEqual({ batchExpiry: true, schemeQuantity: true });
   });
 });
 

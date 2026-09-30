@@ -10,7 +10,7 @@ import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
 import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
-import { useBusinessTerminology } from '@/lib/use-business-terminology';
+import { singularLabel, useBusinessTerminology } from '@/lib/use-business-terminology';
 import { getCachedBusinessCategory } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { getCached, setCached, listOutbox, type OutboxOrderItem } from '@/lib/offline-db';
@@ -130,6 +130,7 @@ function StatusBadge({ status }: { status: string }) {
 export function GenericOrders() {
   const { businessId, ready } = useBusiness();
   const terms = useBusinessTerminology();
+  const newOrderLabel = terms ? `New ${singularLabel(terms.ordersLabel)}` : 'New Order';
   const isPharmacy = businessId ? getCachedBusinessCategory(businessId) === 'pharmacy' : false;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -903,7 +904,7 @@ export function GenericOrders() {
             </Button>
             {!showForm && (
               <Button onClick={() => setShowForm(true)} title="Press N" className="gap-1.5 bg-accent-orange hover:brightness-95 text-white">
-                <Plus className="w-4 h-4" /> New Order
+                <Plus className="w-4 h-4" /> {newOrderLabel}
               </Button>
             )}
           </div>
@@ -984,7 +985,7 @@ export function GenericOrders() {
             <h2 className="text-xl font-bold text-slate-800 mb-2">No active orders</h2>
             <p className="text-slate-500 mb-8 text-sm">{isPharmacy ? 'Add medicines to create a new order' : 'Add items to create a new order'}</p>
             <Button onClick={() => setShowForm(true)} className="bg-accent-orange hover:brightness-95 text-white gap-2 px-6 h-11 shadow-sm">
-              <Plus className="w-4 h-4" /> New Order
+              <Plus className="w-4 h-4" /> {newOrderLabel}
             </Button>
           </div>
         ) : filteredOrders.length === 0 ? (
@@ -1601,8 +1602,8 @@ export function GenericOrders() {
           type="button"
           onClick={() => setShowForm(true)}
           className="fixed bottom-20 left-4 md:bottom-8 md:left-72 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 hover:brightness-105 active:scale-95 text-white shadow-[0_12px_28px_rgba(79,70,229,0.55),0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center transition-all ring-4 ring-white"
-          aria-label="New Order"
-          title="New Order (Press N)"
+          aria-label={newOrderLabel}
+          title={`${newOrderLabel} (Press N)`}
         >
           <Plus className="w-8 h-8 text-white drop-shadow-sm" strokeWidth={2.75} />
         </button>

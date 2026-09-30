@@ -12,6 +12,7 @@ import apiClient from '@/lib/api-client';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled } from '@/lib/auth';
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
+import { singularLabel, useBusinessTerminology } from '@/lib/use-business-terminology';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
 import { CameraScannerView } from '@/components/camera-scanner-view';
@@ -107,7 +108,7 @@ function ProductsPageContent() {
       .then((res) => {
         setInventoryEnabled(res.data.inventory_enabled);
         setCachedInventoryEnabled(businessId, res.data.inventory_enabled);
-        const settings = res.data.custom_settings;
+        const settings = res.data.category === 'others' ? res.data.custom_settings : null;
         const schema = settings?.productCustomFields || settings?.customFields || [];
         setCustomFieldSchema(schema);
       })
@@ -128,8 +129,10 @@ function ProductsPageContent() {
     return () => window.removeEventListener('open-new-form', handleOpen);
   }, []);
 
-  const entityName = 'Product';
-  const entityNamePlural = 'Products';
+  // An Others-wizard business names its items itself ("Ornaments", "Services").
+  const terms = useBusinessTerminology();
+  const entityNamePlural = terms?.productsLabel ?? 'Products';
+  const entityName = terms ? singularLabel(terms.productsLabel) : 'Product';
 
   const load = async (bizId: string, q?: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -427,9 +430,9 @@ function ProductsPageContent() {
   return (
     <AppShell>
       <div className="p-4 md:p-10 max-w-3xl mx-auto space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">{entityNamePlural}</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"

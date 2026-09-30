@@ -274,8 +274,10 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           setBusinessName(res.data.name || '');
           setBusinessCategory(res.data.category || '');
           setBusinessLogoUrl(res.data.logo_url || null);
-          setCustomSettings(res.data.custom_settings || null);
-          const isChatEnabled = res.data.ai_chat_enabled !== false && res.data.custom_settings?.modules?.ai_assistant !== false;
+          // Custom wording belongs to the Others wizard; a business later switched
+          // to a standard category keeps its old settings, which must not apply.
+          setCustomSettings(res.data.category === 'others' ? res.data.custom_settings || null : null);
+          const isChatEnabled = res.data.ai_chat_enabled !== false && (res.data.category !== 'others' || res.data.custom_settings?.modules?.ai_assistant !== false);
           setCachedChatEnabled(businessId, isChatEnabled);
           setChatEnabled(isChatEnabled);
           setOptionalModules(getOptionalModulesForCategory(res.data.category, res.data.inventory_enabled, res.data.custom_settings));

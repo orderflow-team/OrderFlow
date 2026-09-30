@@ -5,8 +5,13 @@ import apiClient from './api-client';
 import { getCached } from './offline-db';
 import { CustomBusinessSettings, getBusinessTerminology } from './business-modules';
 import { useBusiness } from './use-business';
+import { getCachedBusinessCategory } from './auth';
 
 type Terms = ReturnType<typeof getBusinessTerminology>;
+
+/** "Memberships" -> "Membership"; multi-word labels ("Parts & Services") are left as-is. */
+export const singularLabel = (label: string) =>
+  /[\s&/]/.test(label) || !/[^s]s$/i.test(label) ? label : label.slice(0, -1);
 
 /**
  * The business's own wording ("Members", "Bookings"…) when it was set up with
@@ -21,15 +26,21 @@ export function useBusinessTerminology(): Terms | null {
   useEffect(() => {
     if (!businessId) return;
     let cancelled = false;
-    const apply = (settings?: CustomBusinessSettings | null) => {
-      if (!cancelled) setTerms(settings?.terminology ? getBusinessTerminology(settings) : null);
+    let fresh = false; // the API answered — the saved copy must not overwrite it
+    // Only Others businesses use custom wording — one later switched to a
+    // standard category still carries its old settings, which must not apply.
+    const apply = (category: string | null | undefined, settings?: CustomBusinessSettings | null) => {
+      if (!cancelled) setTerms(category === 'others' && settings?.terminology ? getBusinessTerminology(settings) : null);
     };
     getCached<{ custom_settings?: CustomBusinessSettings }>(businessId, 'business-profile')
-      .then((p) => p && apply(p.custom_settings))
+      .then((p) => p && !fresh && apply(getCachedBusinessCategory(businessId), p.custom_settings))
       .catch(() => {});
     apiClient
-      .get<{ custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
-      .then((res) => apply(res.data.custom_settings))
+      .get<{ category: string | null; custom_settings?: CustomBusinessSettings }>(`/api/businesses/${businessId}`)
+      .then((res) => {
+        fresh = true;
+        apply(res.data.category, res.data.custom_settings);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;

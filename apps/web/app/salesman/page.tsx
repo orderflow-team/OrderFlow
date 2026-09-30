@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/page-header';
 import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
+import { useBusinessTerminology } from '@/lib/use-business-terminology';
 import { getCurrentUser, hasRole } from '@/lib/auth';
 import { useSubscription } from '@/lib/use-subscription';
 import { LockedFeatureBadge } from '@/components/locked-feature-badge';
@@ -43,6 +44,8 @@ export default function SalesmanPage() {
   const { businessId, ready } = useBusiness();
   const { isStarter, isTrial } = useSubscription();
   const isSalesmanRole = hasRole('salesman');
+  // Matches the nav label, which reads "Field Sales" for custom-wording businesses.
+  const terms = useBusinessTerminology();
   const myUserId = getCurrentUser()?.id;
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -359,7 +362,7 @@ export default function SalesmanPage() {
     <AppShell>
       <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
         <PageHeader
-          title="Salesman"
+          title={terms ? 'Field Sales' : 'Salesman'}
           description={isSalesmanRole ? 'Your customer visit log.' : 'Field salesmen and their customer visit log.'}
           action={
             !isSalesmanRole && (
