@@ -445,7 +445,7 @@ export default function AdminUsersPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      {user.email === 'admin@orderflow.com' ? (
+                      {user.email === 'admin.cleverminds@gmail.com' ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
                         <button

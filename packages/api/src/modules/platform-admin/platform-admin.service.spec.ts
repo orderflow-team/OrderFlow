@@ -293,7 +293,7 @@ describe('PlatformAdminService', () => {
 
     it('throws BadRequestException when deleting the platform admin own dev-shell business', async () => {
       businessRepo.findOne.mockResolvedValue({ id: 'biz-1', owner_user_id: 'owner-1', name: 'Dev Shell' });
-      userRepo.findOne.mockResolvedValue({ email: 'admin@orderflow.com' });
+      userRepo.findOne.mockResolvedValue({ email: 'admin.cleverminds@gmail.com' });
 
       await expect(service.deleteStore('biz-1')).rejects.toThrow(BadRequestException);
       expect(dataSource.transaction).not.toHaveBeenCalled();

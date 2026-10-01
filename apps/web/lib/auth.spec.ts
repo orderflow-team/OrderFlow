@@ -103,7 +103,7 @@ describe('auth lib', () => {
 
   describe('getPostLoginPath', () => {
     it('routes the bootstrap admin email to /admin regardless of role', () => {
-      expect(getPostLoginPath('admin', 'admin@orderflow.com')).toBe('/admin');
+      expect(getPostLoginPath('admin', 'admin.cleverminds@gmail.com')).toBe('/admin');
     });
 
     it('routes super_admin to /admin', () => {

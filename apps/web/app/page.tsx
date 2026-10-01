@@ -24,7 +24,7 @@ export default function Home() {
       if (userStr) {
         try {
           const u = JSON.parse(userStr);
-          if (u.role === 'super_admin' || u.email === 'admin@orderflow.com') {
+          if (u.role === 'super_admin' || u.email === 'admin.cleverminds@gmail.com') {
             router.push('/admin');
             return;
           }
