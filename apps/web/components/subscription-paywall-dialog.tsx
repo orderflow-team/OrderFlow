@@ -15,6 +15,9 @@ interface SubscriptionData {
 export function SubscriptionPaywallDialog() {
   const [sub, setSub] = useState<SubscriptionData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  // Why the server said 402, when this dialog was opened by a blocked request
+  // (null when opened by the on-load "plan expired" check).
+  const [blocked, setBlocked] = useState<{ error?: string; message?: string } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -44,8 +47,10 @@ export function SubscriptionPaywallDialog() {
 
   // Listen for HTTP 402 Paywall signals from API interceptor
   useEffect(() => {
-    const handlePaywallTrigger = () => {
+    const handlePaywallTrigger = (event: Event) => {
       if (!pathname.startsWith('/settings/subscription')) {
+        const detail = (event as CustomEvent).detail as { error?: string; message?: string } | undefined;
+        setBlocked(detail ?? null);
         setIsOpen(true);
       }
     };
@@ -56,6 +61,15 @@ export function SubscriptionPaywallDialog() {
   }, [pathname]);
 
   if (!isOpen || !sub) return null;
+
+  // Quota / locked-feature blocks are not "trial expired" — say what actually happened.
+  const LIMIT_LABELS: Record<string, string> = {
+    ORDER_QUOTA_EXCEEDED: 'Monthly Order Limit Reached',
+    AI_SCAN_QUOTA_EXCEEDED: 'Monthly AI Scan Limit Reached',
+    FEATURE_LOCKED: 'Feature Locked On Your Plan',
+  };
+  const limitLabel = (blocked?.error && LIMIT_LABELS[blocked.error]) || '30-Day Free Trial Expired';
+  const limitHit = !!(blocked?.error && LIMIT_LABELS[blocked.error]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
@@ -73,13 +87,19 @@ export function SubscriptionPaywallDialog() {
         <div className="space-y-2">
           <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider">
             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-            30-Day Free Trial Expired
+            {limitLabel}
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Upgrade Your Plan to Continue
+            {limitHit ? 'Upgrade Your Plan to Unlock This' : 'Upgrade Your Plan to Continue'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">
-            Your 30-day free trial has completed. Choose a plan starting at <strong>₹99/month</strong> to keep creating orders and accessing all features.
+            {limitHit && blocked?.message ? (
+              blocked.message
+            ) : (
+              <>
+                Your 30-day free trial has completed. Choose a plan starting at <strong>₹99/month</strong> to keep creating orders and accessing all features.
+              </>
+            )}
           </p>
         </div>
 
@@ -100,6 +120,7 @@ export function SubscriptionPaywallDialog() {
           type="button"
           onClick={() => {
             setIsOpen(false);
+            setBlocked(null);
             router.push('/settings/subscription');
           }}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white font-extrabold text-sm shadow-xl shadow-indigo-300 hover:shadow-indigo-400 active:scale-95 transition-all flex items-center justify-center gap-2"

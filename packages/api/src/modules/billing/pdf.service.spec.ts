@@ -170,13 +170,30 @@ describe('PdfService (full DI)', () => {
 
   describe('getOrGeneratePdf', () => {
     it('returns the cached file path without re-rendering when a pdf already exists on disk', async () => {
-      invoicesRepo.findOne.mockResolvedValue({ id: 'inv-1', invoice_number: 'INV/2026-27/00001', pdf_url: '/uploads/invoices/x.pdf' });
+      invoicesRepo.findOne.mockResolvedValue({ id: 'inv-1', invoice_number: 'INV/2026-27/00001', pdf_url: '/api/billing/invoices/inv-1/pdf' });
       (fs.existsSync as jest.Mock).mockReturnValue(true);
 
       const result = await service.getOrGeneratePdf('inv-1', 'biz-1');
 
-      expect(result).toContain('INV-2026-27-00001.pdf');
+      expect(result).toBe(path.join(process.cwd(), 'storage', 'invoices', 'inv-1.pdf'));
       expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
+    // Invoice numbers restart at 00001 for every business, so two shops' PDFs
+    // must never share a file — and none may sit in the public uploads folder.
+    it('keys the cached file by invoice id, outside the publicly served uploads folder', async () => {
+      invoicesRepo.findOne
+        .mockResolvedValueOnce({ id: 'shop-a-inv', invoice_number: 'INV/2026-27/00001', pdf_url: 'x' })
+        .mockResolvedValueOnce({ id: 'shop-b-inv', invoice_number: 'INV/2026-27/00001', pdf_url: 'x' });
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      const a = await service.getOrGeneratePdf('shop-a-inv', 'biz-a');
+      const b = await service.getOrGeneratePdf('shop-b-inv', 'biz-b');
+
+      expect(a).not.toBe(b);
+      for (const p of [a, b]) {
+        expect(p.split(path.sep)).not.toContain('uploads');
+      }
     });
 
     it('throws NotFoundException when the invoice does not exist', async () => {
@@ -200,8 +217,8 @@ describe('PdfService (full DI)', () => {
       expect(renderPharmacyCashMemoHtml).toHaveBeenCalled();
       expect(renderInvoiceHtml).not.toHaveBeenCalled();
       expect(fs.writeFileSync).toHaveBeenCalled();
-      expect(invoicesRepo.save).toHaveBeenCalledWith(expect.objectContaining({ pdf_url: expect.stringContaining('INV-2026-27-00002.pdf') }));
-      expect(result).toContain('INV-2026-27-00002.pdf');
+      expect(invoicesRepo.save).toHaveBeenCalledWith(expect.objectContaining({ pdf_url: '/api/billing/invoices/inv-1/pdf' }));
+      expect(result).toBe(path.join(process.cwd(), 'storage', 'invoices', 'inv-1.pdf'));
     });
 
     it('uses the standard GST invoice template for a non-pharmacy business', async () => {

@@ -45,6 +45,31 @@ describe('RestaurantController', () => {
     expect(service.findAllTables).toHaveBeenCalledWith('biz-1', 'available');
   });
 
+  describe('findAllTables guest scoping', () => {
+    const tables = [{ id: 'table-1' }, { id: 'table-2' }] as any;
+
+    it('returns every table to staff', async () => {
+      (service.findAllTables as jest.Mock).mockResolvedValue(tables);
+      await expect(
+        controller.findAllTables('biz-1', undefined, { user: { role: 'waiter', userId: 'u1' } }),
+      ).resolves.toEqual(tables);
+    });
+
+    it('returns only the own table for a table-QR guest', async () => {
+      (service.findAllTables as jest.Mock).mockResolvedValue(tables);
+      await expect(
+        controller.findAllTables('biz-1', undefined, { user: { role: 'guest', userId: 'guest-table-2' } }),
+      ).resolves.toEqual([{ id: 'table-2' }]);
+    });
+
+    it('returns no tables to a takeaway guest', async () => {
+      (service.findAllTables as jest.Mock).mockResolvedValue(tables);
+      await expect(
+        controller.findAllTables('biz-1', undefined, { user: { role: 'guest', userId: 'guest-takeaway-biz-1' } }),
+      ).resolves.toEqual([]);
+    });
+  });
+
   it('updateTableStatus delegates to the service', () => {
     const dto = { status: 'occupied' } as any;
     controller.updateTableStatus('table-1', 'biz-1', dto);

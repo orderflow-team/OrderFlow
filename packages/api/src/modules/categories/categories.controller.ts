@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
+import { AllowGuest } from '../../common/decorators/allow-guest.decorator';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -25,7 +26,9 @@ export class CategoriesController {
     return this.categoriesService.create(dto);
   }
 
+  // Guest menu tabs (table QR / takeaway).
   @Get()
+  @AllowGuest()
   findAll(@Query('businessId') businessId: string) {
     return this.categoriesService.findAll(businessId);
   }

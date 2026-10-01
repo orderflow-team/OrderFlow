@@ -57,11 +57,28 @@ describe('SalesmanService', () => {
   });
 
   describe('create', () => {
-    it('creates a salesman without a login when no email/password given', async () => {
+    it('links an existing salesman login from the same business', async () => {
+      usersRepo.findOne.mockResolvedValue({ id: 'existing-user', business_id: 'biz-1', role: UserRole.SALESMAN });
+
       await service.create({ businessId: 'biz-1', name: 'Ravi', userId: 'existing-user' } as any);
 
+      expect(usersRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'existing-user', business_id: 'biz-1', role: UserRole.SALESMAN },
+      });
       expect(usersRepo.create).not.toHaveBeenCalled();
       expect(salesmenRepo.create).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'existing-user' }));
+    });
+
+    // The login routes look the linked user up by this id to reveal its
+    // password, rewrite its email/password and deactivate it — so linking a user
+    // from ANOTHER business (or a non-salesman, e.g. an owner) was an account takeover.
+    it("refuses to link a user that isn't a salesman login in this business", async () => {
+      usersRepo.findOne.mockResolvedValue(null); // not found within biz-1 + SALESMAN
+
+      await expect(
+        service.create({ businessId: 'biz-1', name: 'Ravi', userId: 'user-from-another-shop' } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(salesmenRepo.save).not.toHaveBeenCalled();
     });
 
     it('creates a login user with SALESMAN role when email/password are given', async () => {
@@ -127,6 +144,8 @@ describe('SalesmanService', () => {
       const result = await service.getLoginCredentials('sm-1', 'biz-1');
 
       expect(result).toEqual({ email: 'ravi@example.com', password: 'pass123' });
+      // Only ever looks the login up inside the caller's own business.
+      expect(usersRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'user-1', business_id: 'biz-1' } }));
     });
 
     it('throws NotFoundException when the salesman has no login', async () => {
@@ -182,7 +201,7 @@ describe('SalesmanService', () => {
       const result = await service.remove('sm-1', 'biz-1');
 
       expect(visitsRepo.delete).toHaveBeenCalledWith({ salesman_id: 'sm-1' });
-      expect(usersRepo.update).toHaveBeenCalledWith({ id: 'user-1' }, { is_active: false });
+      expect(usersRepo.update).toHaveBeenCalledWith({ id: 'user-1', business_id: 'biz-1' }, { is_active: false });
       expect(result).toEqual({ deleted: true });
     });
 

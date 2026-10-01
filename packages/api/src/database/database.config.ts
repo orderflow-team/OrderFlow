@@ -34,10 +34,14 @@ export const databaseConfig: TypeOrmModuleOptions = {
   // synchronization can silently alter a developer database differently from
   // production and leaves raw SQL tables (such as subscriptions) unmanaged.
   synchronize: !isManagedPostgres,
-  // Migrations are deliberately run by the deployment job (`npm run
-  // migration:run --workspace=api`) before API replicas start. Running them
-  // here would let every replica attempt schema writes during scale-out.
+  // No deploy step runs `npm run migration:run` — the single API container
+  // applies pending migrations itself on boot. If the API is ever scaled to
+  // several replicas, move this into a one-off deploy job and set it to
+  // false, or replicas will race each other on schema writes.
   migrationsRun: true,
-  logging: true,
+  // Full query logging prints every parameter — OTP codes, password hashes,
+  // staff passwords, customer phone numbers — into the server logs. Keep it
+  // for local development only; DB_LOG_QUERIES=true turns it on elsewhere.
+  logging: !isManagedPostgres || process.env.DB_LOG_QUERIES === "true" ? true : ["error", "warn", "migration"],
   dropSchema: false, // Prevents DB from wiping on every file save
 };

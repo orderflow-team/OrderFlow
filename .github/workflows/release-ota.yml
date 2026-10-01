@@ -68,5 +68,9 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          # Via the environment, not pasted into the script text (see release-apk.yml).
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_MIN_NATIVE_VERSION: ${{ inputs.min_native_version }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
         run: |
-          node scripts/release-ota.mjs "${{ inputs.version }}" "${{ inputs.min_native_version }}" "${{ inputs.platform }}"
+          node scripts/release-ota.mjs "$INPUT_VERSION" "$INPUT_MIN_NATIVE_VERSION" "$INPUT_PLATFORM"

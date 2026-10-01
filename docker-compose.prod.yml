@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-orderflow_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SuperSecretPassword123!}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-orderflow_prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -28,8 +28,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgres://${POSTGRES_USER:-orderflow_admin}:${POSTGRES_PASSWORD:-SuperSecretPassword123!}@postgres:5432/${POSTGRES_DB:-orderflow_prod}?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_32_chars_long!}
+      DATABASE_URL: postgres://${POSTGRES_USER:-orderflow_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-orderflow_prod}?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a long random value}
       FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -38,6 +38,15 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       EMAIL_PROXY_URL: ${EMAIL_PROXY_URL:-}
       EMAIL_PROXY_SECRET: ${EMAIL_PROXY_SECRET:-}
+      # WhatsApp gateway (Evolution API). The key must match the gateway's
+      # AUTHENTICATION_API_KEY; the webhook secret is appended to the webhook
+      # URL so forged inbound messages are rejected.
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:?EVOLUTION_API_KEY must be set}
+      WHATSAPP_WEBHOOK_URL: ${WHATSAPP_WEBHOOK_URL:-}
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:?WHATSAPP_WEBHOOK_SECRET must be set to a long random value}
+      # Number of reverse proxies in front of the API (Nginx = 1). See main.ts.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Google sign-in rejects tokens not issued to this client (auth.service.ts googleAuth).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com}
     ports:

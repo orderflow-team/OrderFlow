@@ -27,6 +27,10 @@ export function VoiceOrderMicButton({
     isListening,
     transcript,
     lastParsedItems,
+    lastUnmatched,
+    pendingChoices,
+    resolveChoice,
+    dismissChoice,
     error,
     startListening,
     stopListening,
@@ -52,11 +56,23 @@ export function VoiceOrderMicButton({
   useEffect(() => {
     if (lastParsedItems.length > 0) {
       const names = lastParsedItems.map((i) => `${i.quantity}x ${i.product.name}`).join(', ');
-      setToastMessage(`Added: ${names}`);
-      const timer = setTimeout(() => setToastMessage(null), 3500);
+      const outOfStock = lastParsedItems.filter((i) => i.outOfStock).map((i) => i.product.name);
+      setToastMessage(`Added: ${names}${outOfStock.length ? ` (out of stock: ${outOfStock.join(', ')})` : ''}`);
+      const timer = setTimeout(() => setToastMessage(null), 5000);
       return () => clearTimeout(timer);
     }
   }, [lastParsedItems]);
+
+  // Something was said that nothing in the catalog matched — say so, or the item is silently lost.
+  const [notFoundMessage, setNotFoundMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (lastUnmatched.length > 0) {
+      setNotFoundMessage(`Couldn't find: ${lastUnmatched.join(', ')}`);
+      const timer = setTimeout(() => setNotFoundMessage(null), 7000);
+      return () => clearTimeout(timer);
+    }
+    setNotFoundMessage(null);
+  }, [lastUnmatched]);
 
   // Dynamic suggestions derived from the active business catalog
   const sampleSuggestions = useMemo(() => {
@@ -112,6 +128,16 @@ export function VoiceOrderMicButton({
           )}
         </button>
 
+        {/* Not-found notice: shown even when nothing else matched */}
+        {notFoundMessage && !isListening && (
+          <div
+            role="status"
+            className={`absolute right-0 ${toastMessage ? 'top-[calc(100%+3.25rem)]' : 'top-full mt-2'} z-50 max-w-[18rem] px-3 py-2 rounded-xl bg-amber-500 text-white shadow-lg border border-amber-400 text-xs font-semibold flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150`}
+          >
+            <AlertCircle className="w-4 h-4 text-white shrink-0" />
+            <span>{notFoundMessage}</span>
+          </div>
+        )}
         {/* Small Floating Success Notification Toast */}
         {toastMessage && !isListening && (
           <div className="absolute right-0 top-full mt-2 z-50 whitespace-nowrap px-3 py-2 rounded-xl bg-emerald-600 text-white shadow-lg border border-emerald-500 text-xs font-semibold flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
@@ -120,6 +146,48 @@ export function VoiceOrderMicButton({
           </div>
         )}
       </div>
+
+      {/* ── "Which one?" — the spoken words fit several products equally well ── */}
+      {!isListening && pendingChoices.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-[9999] p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-slate-900/98 backdrop-blur-3xl border-t border-slate-700/80 text-white shadow-2xl rounded-t-[2rem]">
+          <div className="max-w-lg mx-auto space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold">Which one?</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  You said &ldquo;{pendingChoices[0].rawQuery}&rdquo; ({pendingChoices[0].quantity} to add)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => dismissChoice(pendingChoices[0])}
+                className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200"
+              >
+                Skip
+              </button>
+            </div>
+            <div className="grid gap-2">
+              {pendingChoices[0].options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => resolveChoice(pendingChoices[0], option)}
+                  className="flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-[0.98] border border-white/10 text-left transition-all"
+                >
+                  <span className="text-sm font-semibold truncate">{option.name}</span>
+                  <span className="shrink-0 text-xs text-slate-300">
+                    ₹{Number(option.selling_price).toLocaleString('en-IN')}
+                    {option.is_available === false && <span className="ml-2 text-amber-300">out of stock</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {pendingChoices.length > 1 && (
+              <p className="text-[11px] text-slate-500">{pendingChoices.length - 1} more to choose after this one</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Full Native Voice Sheet (Fixed Bottom, Never Overflows Screen) ── */}
       {isListening && (

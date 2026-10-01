@@ -6,9 +6,12 @@ import {
   BadRequestException,
   ServiceUnavailableException,
   Logger,
+  HttpException,
+  HttpStatus,
 } from "@nestjs/common";
+import { emailMatches } from '../../common/utils/email-match.util';
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, ILike, DataSource } from "typeorm";
+import {Repository, DataSource} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
@@ -25,6 +28,8 @@ import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { GoogleAuthDto } from "./dto/google-auth.dto";
 import { MailService } from "./mail.service";
 import { UserRole } from "../../common/enums/user-role.enum";
+import { randomInt } from "crypto";
+import { LoginAttempts } from "./login-attempts";
 
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
@@ -43,6 +48,8 @@ const OTP_MAX_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
+  private readonly loginAttempts = new LoginAttempts();
+
   constructor(
     @InjectRepository(User) private usersRepository: Repository<User>,
     @InjectRepository(OtpCode) private otpCodesRepository: Repository<OtpCode>,
@@ -75,7 +82,7 @@ export class AuthService {
   async requestSignupOtp(dto: RequestOtpDto) {
     const email = (dto.email || "").toLowerCase().trim();
     const existing = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
     if (existing) {
       throw new ConflictException("Email already registered");
@@ -83,7 +90,7 @@ export class AuthService {
 
     const recent = await this.otpCodesRepository
       .createQueryBuilder("otp")
-      .where("otp.email ILIKE :email", { email })
+      .where("LOWER(otp.email) = :email", { email })
       .andWhere("otp.purpose = :purpose", { purpose: "signup" })
       .andWhere(
         `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
@@ -95,7 +102,7 @@ export class AuthService {
       );
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     const otp = this.otpCodesRepository.create({
@@ -119,14 +126,14 @@ export class AuthService {
   async signup(dto: SignupDto) {
     const email = dto.email.toLowerCase().trim();
     const existing = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
     if (existing) {
       throw new ConflictException("Email already registered");
     }
 
     const latest = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), purpose: "signup", consumed: false },
+      where: { email: emailMatches(email), purpose: "signup", consumed: false },
       order: { created_at: "DESC" },
     });
 
@@ -153,7 +160,6 @@ export class AuthService {
       email,
       password_hash,
       full_name: dto.fullName,
-      business_id: dto.businessId,
       role: UserRole.ADMIN,
     });
 
@@ -165,11 +171,21 @@ export class AuthService {
   async login(dto: LoginDto) {
     const email = (dto.email || "").toLowerCase().trim();
 
+    if (this.loginAttempts.isLocked(email)) {
+      throw new HttpException(
+        "Too many incorrect passwords. Try again in 15 minutes, or sign in with a one-time code.",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
 
     if (!user) {
+      // Counted like a wrong password so a locked/unlocked response can't
+      // reveal which emails have accounts.
+      this.loginAttempts.recordFailure(email);
       throw new UnauthorizedException("Invalid credentials");
     }
 
@@ -184,8 +200,10 @@ export class AuthService {
 
     const matches = await bcrypt.compare(dto.password, user.password_hash);
     if (!matches) {
+      this.loginAttempts.recordFailure(email);
       throw new UnauthorizedException("Invalid credentials");
     }
+    this.loginAttempts.recordSuccess(email);
 
     if (!user.is_active) {
       throw new UnauthorizedException("Account is disabled");
@@ -263,7 +281,7 @@ export class AuthService {
     }
 
     let user = await this.usersRepository.findOne({
-      where: [{ google_id: payload.sub }, { email: ILike(email) }],
+      where: [{ google_id: payload.sub }, { email: emailMatches(email) }],
     });
 
     let isNewUser = false;
@@ -401,6 +419,12 @@ export class AuthService {
     if (!user.is_active) {
       throw new UnauthorizedException("Account is disabled");
     }
+    // A refresh token from before a password change must not be able to mint
+    // new sessions — it would let a locked-out attacker keep renewing.
+    const validAfter = Number(user.sessions_valid_after);
+    if (validAfter && ((payload as { iat?: number }).iat ?? 0) < validAfter) {
+      throw new UnauthorizedException("Session expired. Please sign in again.");
+    }
     return this.issueTokens(user);
   }
 
@@ -419,7 +443,7 @@ export class AuthService {
     // columns aren't guaranteed to agree.
     const recent = await this.otpCodesRepository
       .createQueryBuilder("otp")
-      .where("otp.email ILIKE :email", { email })
+      .where("LOWER(otp.email) = :email", { email })
       .andWhere("otp.purpose = :purpose", { purpose: "login" })
       .andWhere(
         `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
@@ -431,7 +455,7 @@ export class AuthService {
       );
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     const otp = this.otpCodesRepository.create({
@@ -462,7 +486,7 @@ export class AuthService {
     // (not the specific code guessed) so a lockout can't be reset by simply
     // trying a different wrong code.
     const latest = await this.otpCodesRepository.findOne({
-      where: { email: ILike(email), purpose: "login", consumed: false },
+      where: { email: emailMatches(email), purpose: "login", consumed: false },
       order: { created_at: "DESC" },
     });
 
@@ -485,7 +509,7 @@ export class AuthService {
     await this.otpCodesRepository.save(otp);
 
     let user = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
     if (!user) {
       user = await this.usersRepository.save(
@@ -516,7 +540,7 @@ export class AuthService {
     };
 
     const user = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
     if (!user) {
       return genericResponse;
@@ -524,7 +548,7 @@ export class AuthService {
 
     const recent = await this.otpCodesRepository
       .createQueryBuilder("otp")
-      .where("otp.email ILIKE :email", { email })
+      .where("LOWER(otp.email) = :email", { email })
       .andWhere("otp.purpose = :purpose", { purpose: "password_reset" })
       .andWhere(
         `otp.created_at > NOW() - INTERVAL '${OTP_REQUEST_COOLDOWN_SECONDS} seconds'`,
@@ -534,7 +558,7 @@ export class AuthService {
       return genericResponse;
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     const expires_at = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     const otp = this.otpCodesRepository.create({
@@ -560,7 +584,7 @@ export class AuthService {
 
     const latest = await this.otpCodesRepository.findOne({
       where: {
-        email: ILike(email),
+        email: emailMatches(email),
         purpose: "password_reset",
         consumed: false,
       },
@@ -582,7 +606,7 @@ export class AuthService {
     }
 
     const user = await this.usersRepository.findOne({
-      where: { email: ILike(email) },
+      where: { email: emailMatches(email) },
     });
     if (!user) {
       throw new NotFoundException("User not found");
@@ -592,6 +616,7 @@ export class AuthService {
     await this.otpCodesRepository.save(latest);
 
     user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    this.invalidateExistingSessions(user);
     await this.usersRepository.save(user);
 
     return this.issueTokens(user);
@@ -623,9 +648,23 @@ export class AuthService {
     }
 
     user.password_hash = await bcrypt.hash(dto.newPassword, 10);
+    this.invalidateExistingSessions(user);
     await this.usersRepository.save(user);
 
-    return { message: "Password updated" };
+    // Every other device is signed out; hand this one a fresh login so the
+    // person who just changed their password isn't thrown out too.
+    return { message: "Password updated", ...this.issueTokens(user) };
+  }
+
+  /**
+   * Marks every login issued before now as expired for this user. Called
+   * whenever the password changes: without it an attacker who had signed in
+   * kept a working session for 24h (access token) and indefinitely (the
+   * refresh token renews itself weekly) even after the real owner reset the
+   * password. Tokens minted from here on carry a later `iat` and stay valid.
+   */
+  private invalidateExistingSessions(user: User) {
+    user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
   }
 
   private issueTokens(user: User) {

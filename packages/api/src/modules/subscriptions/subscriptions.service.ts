@@ -251,7 +251,100 @@ export class SubscriptionsService {
     return this.getUserSubscriptionStatus(ownerUserId || '', businessId);
   }
 
+  /** Super-admin test path: activates a plan with a simulated payment record. */
   async simulateLocalPaymentUpgrade(businessIdOrUserId: string, planCode: string, cycle: 'monthly' | 'yearly' = 'monthly') {
+    return this.activatePlan(businessIdOrUserId, planCode, cycle, 'local_simulated');
+  }
+
+  /**
+   * A shop asks to move to a paid plan. Nothing is activated here: a super
+   * admin approves the request (approveUpgradeRequest) once the shop has paid.
+   * Asking again while a request is pending just updates the requested plan.
+   */
+  async requestUpgrade(businessId: string, userId: string | undefined, planCode: string, cycle: 'monthly' | 'yearly') {
+    const plan = await this.dataSource.query(
+      `SELECT code, name, price_monthly_inr, price_yearly_inr FROM subscription_plans WHERE code = $1 AND is_active = true`,
+      [planCode],
+    );
+    if (!plan[0]) {
+      throw new NotFoundException(`Plan ${planCode} not found`);
+    }
+    const rows = await this.dataSource.query(
+      `INSERT INTO subscription_upgrade_requests (business_id, requested_by_user_id, plan_code, billing_cycle)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (business_id) WHERE status = 'pending' DO UPDATE SET
+         plan_code = EXCLUDED.plan_code,
+         billing_cycle = EXCLUDED.billing_cycle,
+         requested_by_user_id = EXCLUDED.requested_by_user_id,
+         created_at = NOW()
+       RETURNING id, plan_code, billing_cycle, status, created_at`,
+      [businessId, userId ?? null, planCode, cycle],
+    );
+    const amount = cycle === 'yearly' ? plan[0].price_yearly_inr : plan[0].price_monthly_inr;
+    return { ...rows[0], planName: plan[0].name, amountInr: Number(amount) };
+  }
+
+  /** The business's pending upgrade request, or null. */
+  async getPendingUpgradeRequest(businessId: string) {
+    const rows = await this.dataSource.query(
+      `SELECT r.id, r.plan_code, r.billing_cycle, r.status, r.created_at, p.name AS plan_name
+       FROM subscription_upgrade_requests r
+       LEFT JOIN subscription_plans p ON p.code = r.plan_code
+       WHERE r.business_id = $1 AND r.status = 'pending'
+       LIMIT 1`,
+      [businessId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Every pending request, newest first, for the super-admin queue. */
+  async listPendingUpgradeRequests() {
+    return this.dataSource.query(
+      `SELECT r.id, r.business_id, r.plan_code, r.billing_cycle, r.created_at,
+              b.name AS business_name, b.phone AS business_phone,
+              u.email AS requested_by_email,
+              p.name AS plan_name, p.price_monthly_inr, p.price_yearly_inr
+       FROM subscription_upgrade_requests r
+       JOIN businesses b ON b.id = r.business_id
+       LEFT JOIN users u ON u.id = r.requested_by_user_id
+       LEFT JOIN subscription_plans p ON p.code = r.plan_code
+       WHERE r.status = 'pending'
+       ORDER BY r.created_at DESC`,
+    );
+  }
+
+  /** Activates the requested plan (recorded as a manual payment) and closes the request. */
+  async approveUpgradeRequest(requestId: string, adminUserId: string) {
+    const request = await this.claimPendingRequest(requestId, 'approved', adminUserId);
+    return this.activatePlan(request.business_id, request.plan_code, request.billing_cycle, 'manual');
+  }
+
+  async rejectUpgradeRequest(requestId: string, adminUserId: string) {
+    await this.claimPendingRequest(requestId, 'rejected', adminUserId);
+    return { status: 'rejected' };
+  }
+
+  /** Atomically moves a pending request to its final status, so two admins can't both act on it. */
+  private async claimPendingRequest(requestId: string, status: 'approved' | 'rejected', adminUserId: string) {
+    const [rows] = await this.dataSource.query(
+      `UPDATE subscription_upgrade_requests
+       SET status = $2, resolved_at = NOW(), resolved_by_user_id = $3
+       WHERE id = $1 AND status = 'pending'
+       RETURNING business_id, plan_code, billing_cycle`,
+      [requestId, status, adminUserId],
+    );
+    if (!rows?.[0]) {
+      throw new NotFoundException('This request was already handled or does not exist.');
+    }
+    return rows[0] as { business_id: string; plan_code: string; billing_cycle: 'monthly' | 'yearly' };
+  }
+
+  private async activatePlan(
+    businessIdOrUserId: string,
+    planCode: string,
+    cycle: 'monthly' | 'yearly',
+    gateway: 'local_simulated' | 'manual',
+  ) {
     const plan = await this.dataSource.query(`SELECT id, code, name, price_monthly_inr, price_yearly_inr FROM subscription_plans WHERE code = $1`, [planCode]);
     if (!plan || plan.length === 0) {
       throw new NotFoundException(`Plan ${planCode} not found`);
@@ -282,36 +375,38 @@ export class SubscriptionsService {
     if (userId) {
       await this.dataSource.query(
         `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
-         VALUES (gen_random_uuid(), $1, $2, $3, 'active', $4, $5, $6, 'local_simulated')
+         VALUES (gen_random_uuid(), $1, $2, $3, 'active', $4, $5, $6, $7)
          ON CONFLICT (user_id) DO UPDATE SET
            plan_id = EXCLUDED.plan_id,
            status = 'active',
            billing_cycle = EXCLUDED.billing_cycle,
            current_period_start = EXCLUDED.current_period_start,
            current_period_end = EXCLUDED.current_period_end,
+           gateway = EXCLUDED.gateway,
            updated_at = NOW()`,
-        [userId, businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd]
+        [userId, businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway]
       );
     } else if (businessId) {
       await this.dataSource.query(
         `INSERT INTO business_subscriptions (id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
-         VALUES (gen_random_uuid(), $1, $2, 'active', $3, $4, $5, 'local_simulated')
+         VALUES (gen_random_uuid(), $1, $2, 'active', $3, $4, $5, $6)
          ON CONFLICT (business_id) DO UPDATE SET
            plan_id = EXCLUDED.plan_id,
            status = 'active',
            billing_cycle = EXCLUDED.billing_cycle,
            current_period_start = EXCLUDED.current_period_start,
            current_period_end = EXCLUDED.current_period_end,
+           gateway = EXCLUDED.gateway,
            updated_at = NOW()`,
-        [businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd]
+        [businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway]
       );
     }
 
     // Log payment audit entry
     await this.dataSource.query(
       `INSERT INTO subscription_payments (id, business_id, amount, currency, status, gateway, gateway_payment_id, paid_at)
-       VALUES (gen_random_uuid(), $1, $2, 'INR', 'success', 'local_simulated', 'sim_pay_' || substr(md5(random()::text), 1, 10), NOW())`,
-      [businessId, amount]
+       VALUES (gen_random_uuid(), $1, $2, 'INR', 'success', $3, $4 || substr(md5(random()::text), 1, 10), NOW())`,
+      [businessId, amount, gateway, gateway === 'manual' ? 'manual_' : 'sim_pay_']
     );
 
     return {

@@ -34,6 +34,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
   const tokenClientRef = useRef<any>(null);
   const handoffAbortRef = useRef<AbortController | null>(null);
   const [waitingForBrowser, setWaitingForBrowser] = useState(false);
+  const [handoffCode, setHandoffCode] = useState('');
   const router = useRouter();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
@@ -194,7 +195,13 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
       handoffAbortRef.current = abort;
       setLoading(true);
       try {
-        const result = await browserGoogleSignIn({ onStarted: () => setWaitingForBrowser(true), signal: abort.signal });
+        const result = await browserGoogleSignIn({
+          onStarted: (code) => {
+            setHandoffCode(code);
+            setWaitingForBrowser(true);
+          },
+          signal: abort.signal,
+        });
         if (result) finishLogin(result);
       } catch (e: any) {
         onError?.(e?.response?.data?.message || e?.message || 'Google sign-in failed. Please try again.');
@@ -269,6 +276,15 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
 
       {waitingForBrowser && (
         <div className="mt-3 text-center text-sm text-slate-600">
+          {handoffCode && (
+            <p className="mb-1">
+              Your sign-in code is{' '}
+              <span className="font-mono text-base font-bold tracking-widest text-slate-900">
+                {handoffCode.slice(0, 3)} {handoffCode.slice(3)}
+              </span>
+              . The browser page will show the same code.
+            </p>
+          )}
           <p>Choose your Google account in the browser — you'll be brought back here.</p>
           <button
             type="button"

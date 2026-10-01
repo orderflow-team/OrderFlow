@@ -48,8 +48,10 @@ describe('InventoryService', () => {
     const batchSelectQb = buildBatchSelectQb(opts.soonestBatch ?? null);
 
     const manager: any = {
-      findOne: jest.fn((Entity: any) => Promise.resolve(entityData[Entity.name] ?? null)),
+      findOne: jest.fn((Entity: any, _options?: any) => Promise.resolve(entityData[Entity.name] ?? null)),
       find: jest.fn((Entity: any) => Promise.resolve(entityData[`${Entity.name}List`] ?? [])),
+      // How many of the requested ids exist inside the business (see createPurchaseOrder's ownership check).
+      count: jest.fn((Entity: any) => Promise.resolve(entityData[`${Entity.name}Count`] ?? 0)),
       create: jest.fn((Entity: any, data: any) => ({ id: `${Entity.name}-new-id`, ...data })),
       save: jest.fn(async (a: any, b?: any) => (b !== undefined ? b : a)),
       update: jest.fn(),
@@ -98,7 +100,7 @@ describe('InventoryService', () => {
 
   describe('createPurchaseOrder', () => {
     it('creates the PO and priced items, computing totals, without mirroring when there is no supplier', async () => {
-      const manager = buildManager();
+      const manager = buildManager({ ProductCount: 1 });
       dataSource.transaction.mockImplementation(async (cb) => cb(manager));
 
       const dto = {
@@ -114,8 +116,46 @@ describe('InventoryService', () => {
       expect(result.items).toHaveLength(1);
     });
 
+    // Receiving a PO adds stock to each line's product id, and product ids are
+    // readable by anyone holding a shop's public takeaway QR. Lines must be
+    // products of this business or one shop could inflate another's stock.
+    it("refuses lines for products that aren't this business's, before creating anything", async () => {
+      const manager = buildManager({ ProductCount: 1 }); // only 1 of the 2 ids is ours
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(
+        service.createPurchaseOrder({
+          businessId: 'biz-1',
+          items: [
+            { productId: 'ours', quantity: 1, unitPrice: 1 },
+            { productId: 'another-shops-product', quantity: 9999, unitPrice: 1 },
+          ],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(manager.count).toHaveBeenCalledWith(
+        Product,
+        expect.objectContaining({ where: expect.objectContaining({ business_id: 'biz-1' }) }),
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it("refuses a supplier that isn't this business's", async () => {
+      const manager = buildManager({ ProductCount: 1, SupplierCount: 0 });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(
+        service.createPurchaseOrder({
+          businessId: 'biz-1',
+          supplierId: 'another-shops-supplier',
+          items: [{ productId: 'p1', quantity: 1, unitPrice: 1 }],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
     it('does not mirror when the supplier exists but has no linked business', async () => {
-      const manager = buildManager({ Supplier: { id: 'sup-1', linked_business_id: null } });
+      const manager = buildManager({ Supplier: { id: 'sup-1', linked_business_id: null }, ProductCount: 1, SupplierCount: 1 });
       dataSource.transaction.mockImplementation(async (cb) => cb(manager));
 
       const dto = {
@@ -135,6 +175,8 @@ describe('InventoryService', () => {
         Customer: { id: 'cust-1', linked_business_id: 'biz-1' },
         Business: { id: 'biz-1', name: 'Retailer Shop' },
         Product: { id: 'p1', name: 'Widget', unit: 'piece', stock_quantity: 10 },
+        ProductCount: 1,
+        SupplierCount: 1,
       });
       (findOrCreateProductByName as jest.Mock).mockResolvedValue({
         id: 'mirror-p1',
@@ -158,6 +200,8 @@ describe('InventoryService', () => {
       const manager = buildManager({
         Supplier: { id: 'sup-1', linked_business_id: 'wholesaler-biz' },
         Customer: null,
+        ProductCount: 1,
+        SupplierCount: 1,
       });
       dataSource.transaction.mockImplementation(async (cb) => cb(manager));
 
@@ -213,8 +257,8 @@ describe('InventoryService', () => {
 
       const result = await service.receivePurchaseOrder('po-1', 'biz-1');
 
-      expect(manager.increment).toHaveBeenCalledWith(Product, { id: 'p1' }, 'stock_quantity', 5);
-      expect(manager.update).toHaveBeenCalledWith(Product, { id: 'p1' }, expect.objectContaining({ is_available: true }));
+      expect(manager.increment).toHaveBeenCalledWith(Product, { id: 'p1', business_id: 'biz-1' }, 'stock_quantity', 5);
+      expect(manager.update).toHaveBeenCalledWith(Product, { id: 'p1', business_id: 'biz-1' }, expect.objectContaining({ is_available: true }));
       expect(result.id).toBe('po-1');
     });
 
@@ -392,6 +436,23 @@ describe('InventoryService', () => {
   });
 
   describe('adjustStock', () => {
+    // Two simultaneous write-offs of a 5-unit stock each passed the "enough on
+    // hand?" check against an unlocked read and left it at -5; the batch total
+    // (written as an absolute value from that same read) could also lose an update.
+    it('locks the product and batch rows before checking or writing stock', async () => {
+      const manager = buildManager({
+        Product: { id: 'p1', business_id: 'biz-1', stock_quantity: 10 },
+        ProductBatch: { id: 'b1', business_id: 'biz-1', product_id: 'p1', quantity: 10 },
+      });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await service.adjustStock({ businessId: 'biz-1', productId: 'p1', batchId: 'b1', type: 'OUT', quantity: 3 } as any);
+
+      const lockOf = (Entity: any) => manager.findOne.mock.calls.find(([E]) => E === Entity)?.[1]?.lock;
+      expect(lockOf(Product)).toEqual({ mode: 'pessimistic_write' });
+      expect(lockOf(ProductBatch)).toEqual({ mode: 'pessimistic_write' });
+    });
+
     it('increments stock and marks available for an IN adjustment', async () => {
       const manager = buildManager({ Product: { id: 'p1', business_id: 'biz-1', stock_quantity: 10 } });
       dataSource.transaction.mockImplementation(async (cb) => cb(manager));
@@ -471,6 +532,19 @@ describe('InventoryService', () => {
   });
 
   describe('returnToSupplier', () => {
+    it('locks the product row before checking there is enough stock to return', async () => {
+      const manager = buildManager({
+        Supplier: { id: 'sup-1', business_id: 'biz-1', name: 'Acme Supply' },
+        Product: { id: 'p1', business_id: 'biz-1', stock_quantity: 5 },
+      });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await service.returnToSupplier({ businessId: 'biz-1', supplierId: 'sup-1', productId: 'p1', quantity: 2, unitPrice: 10, reason: 'expired' } as any);
+
+      const productLookup = manager.findOne.mock.calls.find(([E]) => E === Product);
+      expect(productLookup?.[1]?.lock).toEqual({ mode: 'pessimistic_write' });
+    });
+
     it('records a supplier return, decrements stock, and marks unavailable at zero', async () => {
       const manager = buildManager({
         Supplier: { id: 'sup-1', business_id: 'biz-1', name: 'Acme Supply' },

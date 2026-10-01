@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsUUID } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 
 export class SignupDto {
   @IsEmail()
@@ -16,7 +16,8 @@ export class SignupDto {
   @IsString()
   fullName?: string;
 
-  @IsOptional()
-  @IsUUID()
-  businessId?: string;
+  // There is deliberately NO businessId here. It used to be accepted and stored
+  // on the new ADMIN account unchecked, so anyone could sign up as an admin of
+  // any shop whose id they knew (shop ids are public: takeaway QR links,
+  // phone lookup). New accounts onboard their own business after signing up.
 }

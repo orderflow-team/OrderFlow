@@ -3,180 +3,19 @@
 import { useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import Fuse from 'fuse.js';
 import { vibrateScanSuccess } from '@/lib/haptics';
 
-export interface VoiceOrderProduct {
-  id: string;
-  name: string;
-  selling_price: string | number;
-  category?: string | null;
-  unit?: string;
-  barcode?: string | null;
-  sku?: string | null;
-  is_available?: boolean;
-  stock_quantity?: number;
-}
+import {
+  parseVoiceOrder,
+  parseVoiceOrderText,
+  type ParsedVoiceItem,
+  type VoiceChoice,
+  type VoiceOrderProduct,
+} from '@/lib/voice-order-parser';
 
-export interface ParsedVoiceItem {
-  product: VoiceOrderProduct;
-  quantity: number;
-  rawQuery: string;
-  matchScore: number;
-}
-
-// Hindi & Hinglish quantity words mapper
-const HINDI_NUMBER_WORDS: Record<string, number> = {
-  ek: 1,
-  one: 1,
-  do: 2,
-  two: 2,
-  teen: 3,
-  three: 3,
-  char: 4,
-  chaar: 4,
-  four: 4,
-  paanch: 5,
-  panch: 5,
-  five: 5,
-  chhe: 6,
-  che: 6,
-  six: 6,
-  saat: 7,
-  seven: 7,
-  aath: 8,
-  eight: 8,
-  nau: 9,
-  nine: 9,
-  das: 10,
-  ten: 10,
-  gyarah: 11,
-  barah: 12,
-  aadha: 0.5,
-  half: 0.5,
-  dedh: 1.5,
-  derh: 1.5,
-  dhai: 2.5,
-};
-
-// Common filler words spoken at counter to strip before matching product name
-const FILLER_WORDS = [
-  'packet',
-  'packets',
-  'pkt',
-  'pouch',
-  'pouches',
-  'bottle',
-  'bottles',
-  'strip',
-  'strips',
-  'tablet',
-  'tablets',
-  'kilo',
-  'kg',
-  'gm',
-  'gram',
-  'piece',
-  'pcs',
-  'dabba',
-  'box',
-  'boxes',
-  'de do',
-  'dedo',
-  'chahiye',
-  'daalo',
-  'add karo',
-  'aur',
-  'bhi',
-  'ka',
-  'ki',
-  'ke',
-  'bhaiya',
-  'please',
-];
-
-/**
- * Parses raw counter speech into matched catalog items with quantities
- */
-export function parseVoiceOrderText(
-  spokenText: string,
-  catalog: VoiceOrderProduct[]
-): ParsedVoiceItem[] {
-  if (!spokenText || !spokenText.trim() || !catalog || catalog.length === 0) {
-    return [];
-  }
-
-  // Setup Fuse fuzzy search engine
-  const fuse = new Fuse(catalog, {
-    keys: [
-      { name: 'name', weight: 0.7 },
-      { name: 'category', weight: 0.15 },
-      { name: 'sku', weight: 0.1 },
-      { name: 'barcode', weight: 0.05 },
-    ],
-    threshold: 0.5, // flexible matching for phonetic approximations
-    includeScore: true,
-    minMatchCharLength: 2,
-  });
-
-  // Split speech by common separators ("aur", "and", ",", "+", "fir")
-  const rawSegments = spokenText
-    .toLowerCase()
-    .split(/\s*(?:,\s*|\baur\b|\band\b|\bfir\b|\bplus\b|\+|\n)\s*/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const matchedItems: ParsedVoiceItem[] = [];
-
-  for (const segment of rawSegments) {
-    let quantity = 1;
-    let queryWords = segment.split(/\s+/);
-
-    // 1. Look for numeric quantity at start or second word (e.g., "2 packet maggi" or "do maggi")
-    const firstWord = queryWords[0];
-    const secondWord = queryWords[1];
-
-    if (/^\d+(\.\d+)?$/.test(firstWord)) {
-      quantity = parseFloat(firstWord);
-      queryWords.shift();
-    } else if (HINDI_NUMBER_WORDS[firstWord] !== undefined) {
-      quantity = HINDI_NUMBER_WORDS[firstWord];
-      queryWords.shift();
-    } else if (secondWord && /^\d+(\.\d+)?$/.test(secondWord)) {
-      quantity = parseFloat(secondWord);
-      queryWords.splice(1, 1);
-    } else if (secondWord && HINDI_NUMBER_WORDS[secondWord] !== undefined) {
-      quantity = HINDI_NUMBER_WORDS[secondWord];
-      queryWords.splice(1, 1);
-    }
-
-    // 2. Filter out common filler words
-    const cleanTokens = queryWords.filter((w) => !FILLER_WORDS.includes(w));
-    const searchQuery = cleanTokens.join(' ').trim();
-
-    if (!searchQuery) continue;
-
-    // 3. Perform fuzzy catalog search
-    const results = fuse.search(searchQuery);
-
-    if (results.length > 0) {
-      const topMatch = results[0];
-      const matchScore = topMatch.score ?? 1;
-
-      // Only accept if confidence score is reasonable (< 0.5 in Fuse means good match)
-      if (matchScore <= 0.5) {
-        matchedItems.push({
-          product: topMatch.item,
-          quantity: Math.max(0.1, quantity),
-          rawQuery: segment,
-          matchScore: 1 - matchScore,
-        });
-      }
-    }
-  }
-
-  return matchedItems;
-}
+// The parsing itself lives in voice-order-parser.ts (pure logic, tested without a phone).
+export { parseVoiceOrderText };
+export type { ParsedVoiceItem, VoiceChoice, VoiceOrderProduct };
 
 /**
  * React hook providing native speech recognition with browser fallback
@@ -191,15 +30,23 @@ export function useVoiceOrder({
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [lastParsedItems, setLastParsedItems] = useState<ParsedVoiceItem[]>([]);
+  // Spoken items nothing in the catalog matched — shown so a missing item is noticed, not silently lost.
+  const [lastUnmatched, setLastUnmatched] = useState<string[]>([]);
+  // Items that fit several products equally ("maggi" → 70g / 140g); the cashier picks.
+  const [pendingChoices, setPendingChoices] = useState<VoiceChoice[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const processTranscript = useCallback(
     (text: string) => {
       setTranscript(text);
+      setLastUnmatched([]);
+      setPendingChoices([]);
       if (!text.trim()) return;
 
-      const items = parseVoiceOrderText(text, catalog);
+      const { items, choices, unmatched } = parseVoiceOrder(text, catalog);
       setLastParsedItems(items);
+      setLastUnmatched(unmatched);
+      setPendingChoices(choices);
 
       if (items.length > 0) {
         try {
@@ -215,6 +62,27 @@ export function useVoiceOrder({
     [catalog, onItemsMatched]
   );
 
+  /** The cashier picked one of the products an ambiguous phrase could mean. */
+  const resolveChoice = useCallback(
+    (choice: VoiceChoice, product: VoiceOrderProduct) => {
+      setPendingChoices((current) => current.filter((c) => c !== choice));
+      const item: ParsedVoiceItem = {
+        product,
+        quantity: choice.quantity,
+        rawQuery: choice.rawQuery,
+        matchScore: 1,
+        ...(product.is_available === false ? { outOfStock: true } : {}),
+      };
+      setLastParsedItems((current) => [...current, item]);
+      onItemsMatched?.([item]);
+    },
+    [onItemsMatched]
+  );
+
+  const dismissChoice = useCallback((choice: VoiceChoice) => {
+    setPendingChoices((current) => current.filter((c) => c !== choice));
+  }, []);
+
   const startListening = useCallback(async () => {
     // Voice ordering is strictly supported on native mobile (Capacitor Android/iOS) with SpeechRecognition plugin
     if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable('SpeechRecognition')) {
@@ -224,6 +92,8 @@ export function useVoiceOrder({
     setError(null);
     setTranscript('');
     setLastParsedItems([]);
+    setLastUnmatched([]);
+    setPendingChoices([]);
 
     try {
       // Verify device has speech recognition engine available
@@ -302,6 +172,10 @@ export function useVoiceOrder({
     isListening,
     transcript,
     lastParsedItems,
+    lastUnmatched,
+    pendingChoices,
+    resolveChoice,
+    dismissChoice,
     error,
     startListening,
     stopListening,

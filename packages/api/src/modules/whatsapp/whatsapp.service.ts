@@ -1,13 +1,13 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Raw } from 'typeorm';
+import { Repository, Raw, Not, IsNull } from 'typeorm';
 import { Business } from '../../database/entities/business.entity';
 import { Order } from '../../database/entities/order.entity';
 import { OrderParserService } from '../ai/services/order-parser.service';
 import { EvolutionApiService } from './evolution-api.service';
 
 @Injectable()
-export class WhatsappService {
+export class WhatsappService implements OnApplicationBootstrap {
   private readonly logger = new Logger(WhatsappService.name);
   private readonly processedMessageIds = new Map<string, number>();
   private readonly DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
@@ -18,6 +18,37 @@ export class WhatsappService {
     private orderParserService: OrderParserService,
     private evolutionApiService: EvolutionApiService,
   ) {}
+
+  /**
+   * Instances created before WHATSAPP_WEBHOOK_SECRET existed still post to the
+   * bare webhook URL, which WhatsappWebhookController now rejects. Re-point
+   * every connected instance at the token-carrying URL once per boot (it's an
+   * idempotent upsert on the gateway). Fire-and-forget so a slow or down
+   * gateway never delays startup.
+   */
+  onApplicationBootstrap() {
+    if (!process.env.WHATSAPP_WEBHOOK_SECRET || !process.env.EVOLUTION_API_KEY) {
+      this.logger.warn('WHATSAPP_WEBHOOK_SECRET or EVOLUTION_API_KEY not set — inbound WhatsApp orders are disabled.');
+      return;
+    }
+    void this.reRegisterWebhooks();
+  }
+
+  private async reRegisterWebhooks() {
+    try {
+      const businesses = await this.businessRepo.find({
+        where: { whatsapp_instance_name: Not(IsNull()) },
+        select: { id: true, whatsapp_instance_name: true },
+      });
+      let updated = 0;
+      for (const b of businesses) {
+        if (await this.evolutionApiService.setWebhook(b.whatsapp_instance_name)) updated++;
+      }
+      this.logger.log(`Re-registered WhatsApp webhooks for ${updated}/${businesses.length} instances.`);
+    } catch (err: any) {
+      this.logger.error(`Failed to re-register WhatsApp webhooks: ${err.message}`);
+    }
+  }
 
   /** Handles incoming webhook payloads from Evolution API (MESSAGES_UPSERT & CONNECTION_UPDATE). */
   async handleWebhookPayload(payload: any) {

@@ -8,6 +8,7 @@ import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
 import { PriceHistory } from '../../database/entities/price-history.entity';
 import { Customer } from '../../database/entities/customer.entity';
+import { Table } from '../../database/entities/table.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { InvoicesService } from '../billing/invoices.service';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
@@ -146,6 +147,59 @@ describe('OrdersService', () => {
 
       expect(manager.save).toHaveBeenCalled();
       expect(result).toBeDefined();
+    });
+
+    // Customer and table ids supplied by the client must belong to the order's
+    // own business. Table ids are printed on public QR codes, so another shop's
+    // table id is easy to learn; an unscoped update marked it occupied.
+    describe('ids that belong to another business', () => {
+      // A factory: the service attaches a generated productId onto the items it is given.
+      const makeItems = () => [{ customProductName: 'Chai', quantity: 1, unitPrice: 10 }];
+      const setup = (entities: Record<string, any> = {}) => {
+        ordersRepo.findOne.mockResolvedValue(null);
+        const manager = buildManager({ Business: { inventory_enabled: true, allow_orders_beyond_stock: true }, ...entities });
+        dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+        return manager;
+      };
+
+      it("refuses another business's customerId without touching that customer", async () => {
+        const manager = setup({ Customer: null }); // not found within biz-1
+
+        await expect(
+          service.create({ businessId: 'biz-1', customerId: 'cust-of-other-shop', phone: '9999999999', items: makeItems() } as any),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(manager.findOne).toHaveBeenCalledWith(
+          Customer,
+          expect.objectContaining({ where: { id: 'cust-of-other-shop', business_id: 'biz-1' } }),
+        );
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(manager.increment).not.toHaveBeenCalled();
+      });
+
+      it("refuses another business's tableId instead of marking it occupied", async () => {
+        const manager = setup();
+        manager.update = jest.fn().mockResolvedValue({ affected: 0 }); // no such table in biz-1
+
+        await expect(
+          service.create({ businessId: 'biz-1', tableId: 'table-of-other-shop', customerName: 'Walk-in', items: makeItems() } as any),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(manager.update).toHaveBeenCalledWith(
+          Table,
+          { id: 'table-of-other-shop', business_id: 'biz-1' },
+          { status: 'occupied' },
+        );
+      });
+
+      it('still occupies a table that belongs to the business', async () => {
+        const manager = setup();
+        manager.update = jest.fn().mockResolvedValue({ affected: 1 });
+
+        await service.create({ businessId: 'biz-1', tableId: 'table-1', customerName: 'Walk-in', items: makeItems() } as any);
+
+        expect(manager.update).toHaveBeenCalledWith(Table, { id: 'table-1', business_id: 'biz-1' }, { status: 'occupied' });
+      });
     });
 
     it('rejects an item with neither productId nor customProductName', async () => {
@@ -316,6 +370,61 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('catalog price is never overwritten by an order edit', () => {
+    const product = { id: 'p1', name: 'Widget', mrp: null, tax_percentage: 0, selling_price: 100, unit: 'pcs' };
+
+    const setup = () => {
+      productsRepo.findOne.mockResolvedValue(product);
+      const manager = buildManager({
+        Order: { id: 'order-1', business_id: 'biz-1', order_type: 'dine_in', status: 'draft', customer_id: null, total_amount: 0, tax_amount: 0, items: [] },
+        Business: { id: 'biz-1', inventory_enabled: true, allow_orders_beyond_stock: true },
+        Product: product,
+      });
+      dataSource.transaction.mockImplementation((cb: any) => cb(manager));
+      return manager;
+    };
+
+    const expectProductUntouched = (manager: any) => {
+      expect(product.selling_price).toBe(100);
+      expect(manager.save).not.toHaveBeenCalledWith(Product, expect.anything());
+      expect(manager.update).not.toHaveBeenCalledWith(Product, expect.anything(), expect.objectContaining({ selling_price: expect.anything() }));
+    };
+
+    it('addItems bills the overridden price on the line but leaves Product.selling_price alone', async () => {
+      const manager = setup();
+
+      await service.addItems('order-1', 'biz-1', { items: [{ productId: 'p1', quantity: 2, unitPrice: 60 }] } as any);
+
+      expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 60, subtotal: 120 }));
+      expectProductUntouched(manager);
+    });
+
+    it('replaceItems bills the overridden price on the line but leaves Product.selling_price alone', async () => {
+      const manager = setup();
+
+      await service.replaceItems('order-1', 'biz-1', { items: [{ productId: 'p1', quantity: 2, unitPrice: 60 }] } as any);
+
+      expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 60 }));
+      expectProductUntouched(manager);
+    });
+  });
+
+  describe('findOpenOrdersForTable', () => {
+    it('queries only open dine-in orders on that table and selects a minimal field set', async () => {
+      ordersRepo.find = jest.fn().mockResolvedValue([{ id: 'o1' }]);
+
+      const result = await service.findOpenOrdersForTable('biz-1', 'table-1');
+
+      expect(result).toEqual([{ id: 'o1' }]);
+      const arg = ordersRepo.find.mock.calls[0][0];
+      expect(arg.where).toMatchObject({ business_id: 'biz-1', table_id: 'table-1', order_type: 'dine_in' });
+      expect(arg.where.status._value).toEqual(['draft', 'pending', 'confirmed']);
+      expect(arg.select).not.toHaveProperty('customer_name');
+      expect(arg.select).not.toHaveProperty('phone');
+      expect(arg.relations).toBeUndefined();
+    });
+  });
+
   describe('findOne', () => {
     it('returns the order with its items', async () => {
       ordersRepo.findOne.mockResolvedValue({ id: 'order-1', business_id: 'biz-1' });
@@ -370,6 +479,37 @@ describe('OrdersService', () => {
       await expect(service.updateStatus('missing', 'biz-1', { status: 'confirmed' } as any)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    // Two simultaneous "confirm" requests both read the order as not-yet-billed
+    // and each posted a ledger DEBIT, billing the customer twice. The order row
+    // is locked first so the second request waits and sees it already billed.
+    it.each([
+      ['updateStatus', (svc: any) => svc.updateStatus('order-1', 'biz-1', { status: 'confirmed' })],
+      ['returnOrder', (svc: any) => svc.returnOrder('order-1', 'biz-1')],
+      ['remove', (svc: any) => svc.remove('order-1', 'biz-1')],
+    ])('%s locks the order row before it reads the order', async (_name, run) => {
+      const lockCalls: any[] = [];
+      const manager = buildManager({
+        Order: { id: 'order-1', business_id: 'biz-1', status: 'draft', customer_id: null, total_amount: 100, order_number: 'ORD-1', items: [] },
+      });
+      const baseQb = manager.createQueryBuilder;
+      manager.createQueryBuilder = jest.fn((Entity?: any) => {
+        const qb = baseQb(Entity);
+        qb.setLock = jest.fn((mode: string) => {
+          lockCalls.push({ mode, at: manager.findOne.mock.calls.length });
+          return qb;
+        });
+        return qb;
+      });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await Promise.resolve(run(service)).catch(() => undefined);
+
+      const orderLock = lockCalls.find((c) => c.mode === 'pessimistic_write');
+      expect(orderLock).toBeDefined();
+      // No findOne had happened yet when the lock was taken.
+      expect(orderLock.at).toBe(0);
     });
 
     it('debits the customer outstanding amount and posts a ledger entry when entering a billed status', async () => {

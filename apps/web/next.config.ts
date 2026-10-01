@@ -17,6 +17,33 @@ const nextConfig: NextConfig = {
       'zustand',
     ],
   },
+  // The session token lives in localStorage, so anything that can run script on
+  // the page can read it. These headers close the cheap routes in (framing,
+  // content sniffing, referrer leaks, unused powerful features). The static
+  // Capacitor export can't serve custom headers, so it's skipped there.
+  ...(process.env.CAPACITOR_BUILD === '1'
+    ? {}
+    : {
+        async headers() {
+          return [
+            {
+              source: '/:path*',
+              headers: [
+                { key: 'X-Content-Type-Options', value: 'nosniff' },
+                { key: 'X-Frame-Options', value: 'DENY' },
+                { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+                // Voice orders use the microphone; nothing uses camera, location or payments.
+                { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), microphone=(self)' },
+                // No includeSubDomains: that would force HTTPS on every *.obix360.com
+                // host (staging, mail, a gateway) for a year in browsers that visited.
+                ...(isDev
+                  ? []
+                  : [{ key: 'Strict-Transport-Security', value: 'max-age=31536000' }]),
+              ],
+            },
+          ];
+        },
+      }),
   async redirects() {
     return [
       {

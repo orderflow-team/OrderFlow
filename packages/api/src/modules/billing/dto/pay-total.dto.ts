@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsUUID, IsIn, Min } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID, IsIn, Min, Max } from 'class-validator';
 import { PAYMENT_METHODS } from './create-payment.dto';
 
 export class PayTotalDto {
@@ -10,6 +10,7 @@ export class PayTotalDto {
 
   @IsNumber()
   @Min(0.01)
+  @Max(99_999_999)
   amount: number;
 
   @IsIn(PAYMENT_METHODS)

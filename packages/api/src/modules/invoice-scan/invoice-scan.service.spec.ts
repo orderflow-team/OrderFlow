@@ -33,6 +33,8 @@ describe('InvoiceScanService', () => {
       save: jest.fn(async (entity) => entity),
       findOne: jest.fn(),
       find: jest.fn(),
+      // confirm() claims the scan with a conditional UPDATE; 1 row = we won the claim.
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn(),
     };
     itemsRepo = {
@@ -220,6 +222,60 @@ describe('InvoiceScanService', () => {
       expect(inventoryService.receivePurchaseOrder).toHaveBeenCalledWith('po-1', 'biz-1');
       expect(scansRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: 'confirmed', purchase_order_id: 'po-1' }));
       expect(result).toEqual({ id: 'po-1', items: [] });
+    });
+
+    // A double-tap on a slow connection sends two confirms at once; both read
+    // the scan as "ready". Only the request that wins the conditional UPDATE may
+    // add inventory — the other must stop before touching stock.
+    it('lets only one of two simultaneous confirms through', async () => {
+      scansRepo.findOne.mockResolvedValue({ id: 'scan-1', business_id: 'biz-1', status: 'ready' });
+      scansRepo.update.mockResolvedValue({ affected: 0 }); // the other request already claimed it
+
+      await expect(service.confirm('scan-1', baseDto() as any)).rejects.toThrow(BadRequestException);
+
+      expect(productsRepo.save).not.toHaveBeenCalled();
+      expect(inventoryService.createPurchaseOrder).not.toHaveBeenCalled();
+      expect(inventoryService.receivePurchaseOrder).not.toHaveBeenCalled();
+    });
+
+    it('claims the scan before it creates products or receives stock', async () => {
+      scansRepo.findOne.mockResolvedValue({ id: 'scan-1', business_id: 'biz-1', status: 'ready', supplier_id: null });
+      inventoryService.createPurchaseOrder.mockResolvedValue({ id: 'po-1' });
+      inventoryService.findOnePurchaseOrder.mockResolvedValue({ id: 'po-1' });
+
+      await service.confirm('scan-1', baseDto() as any);
+
+      const claimOrder = scansRepo.update.mock.invocationCallOrder[0];
+      expect(scansRepo.update.mock.calls[0][1]).toEqual({ status: 'confirming' });
+      expect(claimOrder).toBeLessThan(productsRepo.save.mock.invocationCallOrder[0]);
+      expect(claimOrder).toBeLessThan(inventoryService.receivePurchaseOrder.mock.invocationCallOrder[0]);
+    });
+
+    it('releases the claim when nothing reached inventory, so the user can retry', async () => {
+      scansRepo.findOne.mockResolvedValue({ id: 'scan-1', business_id: 'biz-1', status: 'ready', supplier_id: null });
+      inventoryService.createPurchaseOrder.mockRejectedValue(new Error('db down'));
+
+      await expect(service.confirm('scan-1', baseDto() as any)).rejects.toThrow('db down');
+
+      expect(scansRepo.update).toHaveBeenLastCalledWith(
+        { id: 'scan-1', business_id: 'biz-1', status: 'confirming' },
+        { status: 'ready' },
+      );
+    });
+
+    it('marks the scan confirmed (not released) when stock was already received before a later failure', async () => {
+      scansRepo.findOne.mockResolvedValue({ id: 'scan-1', business_id: 'biz-1', status: 'ready', supplier_id: null });
+      inventoryService.createPurchaseOrder.mockResolvedValue({ id: 'po-1' });
+      inventoryService.receivePurchaseOrder.mockResolvedValue(undefined);
+      scansRepo.save.mockRejectedValue(new Error('write failed'));
+
+      await expect(service.confirm('scan-1', baseDto() as any)).rejects.toThrow('write failed');
+
+      // A retry must not be able to receive the same stock a second time.
+      expect(scansRepo.update).toHaveBeenLastCalledWith(
+        { id: 'scan-1', business_id: 'biz-1' },
+        { status: 'confirmed', purchase_order_id: 'po-1' },
+      );
     });
 
     it('updates an existing matched product when its details changed', async () => {

@@ -24,8 +24,28 @@ export class EvolutionApiService {
     return Array.from(new Set(urls));
   }
 
+  // No fallback: a key baked into the source is public to anyone with the
+  // repo, and the gateway is reachable from the internet — whoever holds the
+  // key controls every shop's connected WhatsApp number.
   private get apiKey(): string {
-    return process.env.EVOLUTION_API_KEY || 'OrderFlowWhatsAppSecret2026!';
+    const key = process.env.EVOLUTION_API_KEY;
+    if (!key) {
+      throw new Error('EVOLUTION_API_KEY is not set — WhatsApp gateway calls are disabled.');
+    }
+    return key;
+  }
+
+  /**
+   * The URL Evolution POSTs events to, carrying WHATSAPP_WEBHOOK_SECRET as a
+   * query token so WhatsappWebhookController can reject forged events.
+   */
+  private get webhookUrl(): string {
+    const base = process.env.WHATSAPP_WEBHOOK_URL || 'https://obix360.com/api/whatsapp/webhook';
+    const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
+    if (!secret) return base;
+    const url = new URL(base);
+    url.searchParams.set('token', secret);
+    return url.toString();
   }
 
   private get headers() {
@@ -57,7 +77,7 @@ export class EvolutionApiService {
 
   /** Creates a new WhatsApp instance in Evolution API for a business. */
   async createInstance(instanceName: string) {
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://obix360.com/api/whatsapp/webhook';
+    const webhookUrl = this.webhookUrl;
     const payload = {
       instanceName,
       token: instanceName,
@@ -156,9 +176,9 @@ export class EvolutionApiService {
     return 'close';
   }
 
-  /** Ensures webhook endpoint is set for an instance. */
-  async setWebhook(instanceName: string) {
-    const webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || 'https://obix360.com/api/whatsapp/webhook';
+  /** Ensures webhook endpoint is set for an instance. Returns whether any gateway accepted it. */
+  async setWebhook(instanceName: string): Promise<boolean> {
+    const webhookUrl = this.webhookUrl;
     for (const url of this.candidateUrls) {
       try {
         await axios.post(
@@ -175,11 +195,12 @@ export class EvolutionApiService {
           this.axiosConfig,
         );
         this.workingUrl = url;
-        break;
+        return true;
       } catch (err: any) {
         // Best-effort setting
       }
     }
+    return false;
   }
 
   /** Sends an automated text message back to a customer's WhatsApp number. */

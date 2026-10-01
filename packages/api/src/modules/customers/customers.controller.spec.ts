@@ -39,7 +39,7 @@ describe('CustomersController', () => {
     it('calls the unbounded findAll when no pagination params are supplied', async () => {
       (service.findAll as jest.Mock).mockResolvedValue([{ id: 'c1' }]);
 
-      const result = await controller.findAll('biz-1', undefined, undefined, undefined, undefined);
+      const result = await controller.findAll({} as any, 'biz-1', undefined, undefined, undefined, undefined);
 
       expect(service.findAll).toHaveBeenCalledWith('biz-1');
       expect(service.findAllPaginated).not.toHaveBeenCalled();
@@ -50,7 +50,7 @@ describe('CustomersController', () => {
       (service.findAllPaginated as jest.Mock).mockResolvedValue({ customers: [{ id: 'c1' }], total: 42 });
       const res = { setHeader: jest.fn() } as any;
 
-      const result = await controller.findAll('biz-1', '10', '0', 'acme', res);
+      const result = await controller.findAll({} as any, 'biz-1', '10', '0', 'acme', res);
 
       expect(service.findAllPaginated).toHaveBeenCalledWith('biz-1', 'acme', 10, 0);
       expect(res.setHeader).toHaveBeenCalledWith('X-Total-Count', '42');
@@ -61,14 +61,14 @@ describe('CustomersController', () => {
       (service.findAllPaginated as jest.Mock).mockResolvedValue({ customers: [], total: 0 });
       const res = { setHeader: jest.fn() } as any;
 
-      await controller.findAll('biz-1', undefined, undefined, 'acme', res);
+      await controller.findAll({} as any, 'biz-1', undefined, undefined, 'acme', res);
 
       expect(service.findAllPaginated).toHaveBeenCalledWith('biz-1', 'acme', undefined, undefined);
     });
   });
 
   it('getStats delegates to the service', () => {
-    controller.getStats('biz-1');
+    controller.getStats({} as any, 'biz-1');
     expect(service.getStats).toHaveBeenCalledWith('biz-1');
   });
 

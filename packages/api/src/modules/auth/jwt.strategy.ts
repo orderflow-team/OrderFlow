@@ -24,6 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     businessId: string;
     role: string;
     tokenType?: string;
+    iat?: number;
   }) {
     if (payload.tokenType && payload.tokenType !== "access") {
       throw new UnauthorizedException("Invalid access token");
@@ -39,11 +40,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // re-checks is_active, so a token minted before the disable stops
       // working on its very next use.
       const rows = await this.dataSource.query(
-        `SELECT is_active FROM users WHERE id = $1`,
+        `SELECT is_active, sessions_valid_after FROM users WHERE id = $1`,
         [payload.sub],
       );
-      if (rows.length > 0 && rows[0].is_active === false) {
+      // A deleted user has no row at all — treat that like a disabled one,
+      // or their already-issued token keeps working until it expires.
+      if (rows.length === 0 || rows[0].is_active === false) {
         throw new UnauthorizedException("Account disabled");
+      }
+      // The password was changed or reset after this token was issued: it's a
+      // session from before that, possibly the very one being locked out.
+      const validAfter = Number(rows[0].sessions_valid_after);
+      if (validAfter && (payload.iat ?? 0) < validAfter) {
+        throw new UnauthorizedException("Session expired. Please sign in again.");
       }
 
       // Fire-and-forget, throttled to once/minute per user via the WHERE

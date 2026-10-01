@@ -10,3 +10,5 @@ uploads/invoice-scans/
 uploads/invoices/
 uploads/logos/
 uploads/media/
+# Cached invoice PDFs (see PdfService) — real customer documents.
+storage/

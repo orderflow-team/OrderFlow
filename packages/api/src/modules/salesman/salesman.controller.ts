@@ -41,7 +41,9 @@ export class SalesmanController {
     return this.salesmanService.createLogin(id, businessId, dto);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  // Reveals the login's current plaintext password — owner only, like /api/staff
+  // credentials. Managers can still edit the login (PATCH below) and reset the password.
+  @Roles(UserRole.ADMIN)
   @Get(':id/login')
   getLogin(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.salesmanService.getLoginCredentials(id, businessId);

@@ -13,8 +13,14 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Trust reverse proxy (Apache2 / Nginx) so client IP addresses from X-Forwarded-For
-  // are used for rate-limiting rather than treating all traffic as 127.0.0.1
-  app.set('trust proxy', true);
+  // are used for rate-limiting rather than treating all traffic as 127.0.0.1.
+  // Trust exactly the proxy hops in front of us, never `true`: `true` takes the
+  // left-most X-Forwarded-For entry, which the client writes itself, so anyone
+  // could send a fresh fake IP per request and skip every per-IP rate limit
+  // (login, OTP, password reset). Set TRUST_PROXY_HOPS if there's more than
+  // one proxy (e.g. a CDN in front of Nginx).
+  const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10);
+  app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 1);
   // API responses are JSON/files rather than embeddable application pages.
   // These low-risk defaults prevent content-type sniffing, clickjacking, and
   // accidental referrer leakage without interfering with the web client.
@@ -99,6 +105,13 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix("");
+  // Older builds cached invoice PDFs here, named by invoice number, so the
+  // files are guessable and some hold another shop's invoice. PDFs now live
+  // in storage/invoices (never served statically); refuse the old path so any
+  // files still on disk can't be downloaded.
+  app.use("/uploads/invoices", (_req, res) => {
+    res.status(404).end();
+  });
   app.useStaticAssets(path.join(process.cwd(), "uploads"), {
     prefix: "/uploads",
     // APK release files keep a random on-disk name (see app-apk-releases.controller.ts)

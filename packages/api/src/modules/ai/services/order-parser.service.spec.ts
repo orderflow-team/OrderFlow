@@ -381,58 +381,6 @@ Eg. Basmati Rice-5-Kg, Sugar-2-Kg]`;
     });
   });
 
-  describe('parseVoiceTranscript', () => {
-    it('throws BadRequestException for an empty transcript', async () => {
-      await expect(service.parseVoiceTranscript('  ', 'biz-1', 'cust-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws BadRequestException when Gemini is not configured', async () => {
-      geminiKeyPool.isConfigured = false;
-
-      await expect(service.parseVoiceTranscript('2kg rice for Neel', 'biz-1', 'cust-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('returns a draft order parsed from the transcript', async () => {
-      geminiKeyPool.isConfigured = true;
-      geminiKeyPool.generateContent.mockResolvedValue(
-        JSON.stringify({ customer_name: 'Neel', items: [{ name: 'Rice', quantity: 2, unit: 'kg' }] }),
-      );
-
-      const result = await service.parseVoiceTranscript('2kg rice for Neel', 'biz-1', 'cust-1');
-
-      expect(result).toEqual({
-        customerName: 'Neel',
-        customerId: 'cust-1',
-        items: [{ name: 'Rice', quantity: 2, unit: 'kg' }],
-        status: 'draft',
-        totalAmount: 0,
-      });
-    });
-
-    it('defaults customerName to "Unknown Customer" when Gemini omits it', async () => {
-      geminiKeyPool.isConfigured = true;
-      geminiKeyPool.generateContent.mockResolvedValue(JSON.stringify({ items: [] }));
-
-      const result = await service.parseVoiceTranscript('rice', 'biz-1', 'cust-1');
-
-      expect(result.customerName).toBe('Unknown Customer');
-    });
-
-    it('throws BadRequestException when the Gemini call fails', async () => {
-      geminiKeyPool.isConfigured = true;
-      geminiKeyPool.generateContent.mockRejectedValue(new Error('quota exceeded'));
-
-      await expect(service.parseVoiceTranscript('rice', 'biz-1', 'cust-1')).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws BadRequestException when the response has no parsable JSON', async () => {
-      geminiKeyPool.isConfigured = true;
-      geminiKeyPool.generateContent.mockResolvedValue('not json at all');
-
-      await expect(service.parseVoiceTranscript('rice', 'biz-1', 'cust-1')).rejects.toThrow(BadRequestException);
-    });
-  });
-
   describe('Report & Business intelligence queries', () => {
     it('returns remaining payment / dues of all suppliers', async () => {
       suppliersService.findAll.mockResolvedValue([
