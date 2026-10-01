@@ -92,7 +92,7 @@ describe('OrdersController', () => {
       (service.findAll as jest.Mock).mockResolvedValue({ orders: [{ id: 'o1' }], total: 3 });
       const res = { setHeader: jest.fn() } as any;
 
-      const result = await controller.findAll('biz-1', 'draft', 'cust-1', '10', '0', 'search', res);
+      const result = await controller.findAll({} as any, 'biz-1', 'draft', 'cust-1', '10', '0', 'search', res);
 
       expect(service.findAll).toHaveBeenCalledWith('biz-1', 'draft', 'cust-1', 10, 0, 'search');
       expect(res.setHeader).toHaveBeenCalledWith('X-Total-Count', '3');
@@ -103,7 +103,7 @@ describe('OrdersController', () => {
       (service.findAll as jest.Mock).mockResolvedValue({ orders: [], total: 0 });
       const res = { setHeader: jest.fn() } as any;
 
-      await controller.findAll('biz-1', undefined, undefined, undefined, undefined, '', res);
+      await controller.findAll({} as any, 'biz-1', undefined, undefined, undefined, undefined, '', res);
 
       expect(service.findAll).toHaveBeenCalledWith('biz-1', undefined, undefined, undefined, undefined, undefined);
     });
@@ -154,8 +154,69 @@ describe('OrdersController', () => {
 
   it('addItems delegates to the service', () => {
     const dto = { items: [] } as any;
-    controller.addItems('order-1', 'biz-1', dto);
+    controller.addItems('order-1', 'biz-1', dto, { user: { role: 'cashier' } } as any);
     expect(service.addItems).toHaveBeenCalledWith('order-1', 'biz-1', dto);
+  });
+
+  describe('guest (table QR / takeaway) scoping', () => {
+    const tableGuest = { user: { role: 'guest', userId: 'guest-table-1', businessId: 'biz-1' } } as any;
+    const takeawayGuest = { user: { role: 'guest', userId: 'guest-takeaway-biz-1', businessId: 'biz-1' } } as any;
+
+    it('strips client-supplied unitPrice on addItems so guests pay catalog price', async () => {
+      (service.findOne as jest.Mock).mockResolvedValue({ table_id: 'table-1', order_type: 'dine_in' });
+      const dto = { items: [{ productId: 'p1', quantity: 1, unitPrice: 0 }] } as any;
+      await controller.addItems('order-1', 'biz-1', dto, tableGuest);
+      expect(dto.items[0].unitPrice).toBeUndefined();
+      expect(service.addItems).toHaveBeenCalled();
+    });
+
+    it("refuses addItems on another table's order", async () => {
+      (service.findOne as jest.Mock).mockResolvedValue({ table_id: 'table-2', order_type: 'dine_in' });
+      await expect(
+        controller.addItems('order-1', 'biz-1', { items: [] } as any, tableGuest),
+      ).rejects.toThrow('Order not found');
+    });
+
+    it('refuses findOne on a dine-in order for a takeaway guest', async () => {
+      (service.findOne as jest.Mock).mockResolvedValue({ table_id: 'table-1', order_type: 'dine_in' });
+      await expect(controller.findOne('order-1', 'biz-1', takeawayGuest)).rejects.toThrow('Order not found');
+    });
+
+    it('lets a takeaway guest read its own takeaway order', async () => {
+      const order = { table_id: null, order_type: 'take_away' };
+      (service.findOne as jest.Mock).mockResolvedValue(order);
+      await expect(controller.findOne('order-1', 'biz-1', takeawayGuest)).resolves.toBe(order);
+    });
+
+    it('list returns only the open orders on the guest table, never the full history', async () => {
+      (service as any).findOpenOrdersForTable = jest.fn().mockResolvedValue([{ id: 'o1' }]);
+      const result = await controller.findAll(tableGuest, 'biz-1');
+      expect((service as any).findOpenOrdersForTable).toHaveBeenCalledWith('biz-1', 'table-1');
+      expect(service.findAll).not.toHaveBeenCalled();
+      expect(result).toEqual([{ id: 'o1' }]);
+    });
+
+    it('create forces table/type from the token and drops customerId + prescription key', async () => {
+      const dto = {
+        businessId: 'biz-1',
+        customerName: 'x',
+        customerId: 'someone-elses-credit-account',
+        tableId: 'other-table',
+        orderType: 'delivery',
+        prescriptionImageKey: 'k',
+        items: [{ productId: 'p1', quantity: 1, unitPrice: 0 }],
+      } as any;
+      await controller.create(dto, tableGuest);
+      expect(dto).toMatchObject({ tableId: 'table-1', orderType: 'dine_in', customerId: undefined, prescriptionImageKey: undefined });
+      expect(dto.items[0].unitPrice).toBeUndefined();
+      expect(service.create).toHaveBeenCalledWith(dto, undefined);
+    });
+  });
+
+  it('keeps staff unitPrice overrides', () => {
+    const dto = { items: [{ productId: 'p1', quantity: 1, unitPrice: 5 }] } as any;
+    controller.addItems('order-1', 'biz-1', dto, { user: { role: 'cashier' } } as any);
+    expect(dto.items[0].unitPrice).toBe(5);
   });
 
   it('replaceItems delegates to the service', () => {

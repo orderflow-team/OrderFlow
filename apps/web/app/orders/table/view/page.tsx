@@ -138,7 +138,16 @@ function TableDetailsPageInner() {
       if (isCustomerMode) {
         const currentTrackedId = trackedOrderId || localStorage.getItem(`tracked_order_id_${id}`);
         if (currentTrackedId) {
-          const trackedOrder = tableOrders.find(o => o.id === currentTrackedId);
+          // Guests only get the table's open orders back from the list call, so
+          // once their bill is paid it drops out of it — look it up by id.
+          let trackedOrder: any = tableOrders.find(o => o.id === currentTrackedId);
+          if (!trackedOrder) {
+            trackedOrder = (
+              await apiClient
+                .get<Order>(`/api/orders/${currentTrackedId}`, { params: { businessId } })
+                .catch(() => null)
+            )?.data;
+          }
           if (trackedOrder && trackedOrder.status === 'paid') {
             setPaidOrderDetails({
               orderNumber: trackedOrder.order_number,

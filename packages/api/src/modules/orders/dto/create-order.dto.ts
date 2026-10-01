@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsUUID,
   Min,
+  Max,
   ValidateNested,
   ArrayMinSize,
   IsArray,
@@ -20,8 +21,11 @@ export class CreateOrderItemDto {
   @IsString()
   customProductName?: string;
 
+  // Upper bounds keep a typo'd or hostile value from overflowing the
+  // decimal(15,2) order columns (a raw 500) — 1M covers gram-level quantities.
   @IsNumber()
   @Min(0.01)
+  @Max(1_000_000)
   quantity: number;
 
   @IsOptional()
@@ -31,6 +35,7 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(10_000_000)
   unitPrice?: number;
 }
 

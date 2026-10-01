@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -14,6 +15,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { AllowGuest } from '../../common/decorators/allow-guest.decorator';
+import { getGuestScope } from '../../common/utils/guest-scope';
 import { RestaurantService } from './restaurant.service';
 import { CreateTableDto } from './dto/create-table.dto';
 import { UpdateTableStatusDto } from './dto/update-table-status.dto';
@@ -33,9 +36,18 @@ export class RestaurantController {
     return this.restaurantService.createTable(dto);
   }
 
+  // The table-QR guest page reads its own table's status from this list.
   @Get('tables')
-  findAllTables(@Query('businessId') businessId: string, @Query('status') status?: string) {
-    return this.restaurantService.findAllTables(businessId, status);
+  @AllowGuest()
+  async findAllTables(
+    @Query('businessId') businessId: string,
+    @Query('status') status?: string,
+    @Req() req?: { user?: { role?: string; userId?: string } },
+  ) {
+    const tables = await this.restaurantService.findAllTables(businessId, status);
+    const guest = getGuestScope(req?.user);
+    if (!guest) return tables;
+    return guest.kind === 'table' ? tables.filter((t) => t.id === guest.tableId) : [];
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.WAITER)
@@ -93,7 +105,9 @@ export class RestaurantController {
     return this.restaurantService.listKitchenStaff(businessId);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  // Reveals the login's current plaintext password — owner only, like /api/staff
+  // credentials. Managers can still edit the login (PATCH below) and reset the password.
+  @Roles(UserRole.ADMIN)
   @Get('kitchen-staff/:id/login')
   getKitchenStaffLogin(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.restaurantService.getKitchenStaffCredentials(id, businessId);
