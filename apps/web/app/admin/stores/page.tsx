@@ -436,7 +436,7 @@ export default function AdminStoresPage() {
                   // The platform admin's own account gets a "Dev" business shell
                   // automatically — it's not a real tenant, so category/product
                   // metrics for it would just be noise.
-                  const isDevAccount = store.owner_email === 'admin@orderflow.com';
+                  const isDevAccount = store.owner_email === 'admin.cleverminds@gmail.com';
                   return (
                   <tr key={store.id} className="hover:bg-accent transition">
                     <td className="px-4 py-3 font-semibold text-foreground max-w-[170px] xl:max-w-[220px]">

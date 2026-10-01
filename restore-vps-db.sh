@@ -25,7 +25,7 @@ sudo -u postgres psql -d "$DB_NAME" -f "$BACKUP_FILE"
 
 echo "3. Configuring extensions and admin passwords..."
 sudo -u postgres psql -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
-sudo -u postgres psql -d "$DB_NAME" -c "UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'admin@orderflow.com';"
+sudo -u postgres psql -d "$DB_NAME" -c "UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'admin.cleverminds@gmail.com';"
 sudo -u postgres psql -d "$DB_NAME" -c "UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'bhattneel2004@gmail.com';"
 sudo -u postgres psql -d "$DB_NAME" -c "UPDATE platform_settings SET maintenance_mode = false, maintenance_message = NULL;"
 

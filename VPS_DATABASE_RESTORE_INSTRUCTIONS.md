@@ -26,7 +26,7 @@ sudo -u postgres createdb orderflow_prod 2>/dev/null || true
 sudo -u postgres psql -d orderflow_prod -f /tmp/neon_db_backup_complete_with_schema.sql
 
 # Step C: Ensure pgcrypto extension is active & set Super Admin password to admin123
-sudo -u postgres psql -d orderflow_prod -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'admin@orderflow.com';"
+sudo -u postgres psql -d orderflow_prod -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'admin.cleverminds@gmail.com';"
 
 # Step D: Ensure Owner Admin account is active & reset password to admin123
 sudo -u postgres psql -d orderflow_prod -c "UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'bhattneel2004@gmail.com';"
@@ -82,6 +82,6 @@ SELECT
 ```bash
 curl -X POST https://obix360.com/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@orderflow.com","password":"admin123"}'
+  -d '{"email":"admin.cleverminds@gmail.com","password":"admin123"}'
 ```
 Expected output: `{"access_token":"...","user":{...}}` with HTTP 200/201.

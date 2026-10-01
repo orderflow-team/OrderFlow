@@ -765,7 +765,7 @@ export class PlatformAdminService {
     // the admin UI uses for "isDevAccount").
     if (store.owner_user_id) {
       const owner = await this.userRepo.findOne({ where: { id: store.owner_user_id } });
-      if (owner?.email === 'admin@orderflow.com') {
+      if (owner?.email === 'admin.cleverminds@gmail.com') {
         throw new BadRequestException('Cannot delete the platform admin\'s own business account');
       }
     }
