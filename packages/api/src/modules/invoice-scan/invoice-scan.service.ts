@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { S3Client, GetObjectCommand, CopyObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { InvoiceScan } from '../../database/entities/invoice-scan.entity';
@@ -352,98 +352,131 @@ export class InvoiceScanService {
       throw new BadRequestException('Select at least one item to add to inventory.');
     }
 
-    const purchaseItems = [];
-    for (const item of includedItems) {
-      let productId = item.matchedProductId;
-      const { purchasePrice, sellingPrice } = this.resolvePrices(item.unitPrice, item.mrp);
-      if (!productId) {
-        const product = await this.productsRepository.save(
-          this.productsRepository.create({
-            business_id: dto.businessId,
-            name: item.productName,
-            unit: 'piece',
-            purchase_price: purchasePrice,
-            selling_price: sellingPrice,
-            stock_quantity: 0,
-            batch_number: item.batchNumber,
-            expiry_date: item.expiryMonthYear ? this.monthYearToDate(item.expiryMonthYear) : undefined,
-            // Not a draft: the verify screen (edit + confirm) before this point
-            // is already the review step, so these shouldn't also land in the
-            // dashboard's Quick Parchi draft-review queue.
-            is_draft: false,
-          }),
-        );
-        productId = product.id;
-      } else {
-        // Find existing product and update details if they have changed
-        const product = await this.productsRepository.findOne({
-          where: { id: productId, business_id: dto.businessId },
-        });
-        if (product) {
-          let hasChanges = false;
-          const updates: Partial<Product> = {};
+    // Claim the scan before touching stock. The old "is it confirmed yet?"
+    // check above only passed or failed on a snapshot, so two requests landing
+    // together (a double-tap on a slow connection) both got through and each
+    // created the products and received the purchase order — doubling inventory.
+    // This conditional UPDATE lets exactly one of them proceed.
+    const claim = await this.scansRepository.update(
+      { id, business_id: dto.businessId, status: Not(In(['confirmed', 'confirming'])) },
+      { status: 'confirming' },
+    );
+    if (!claim.affected) {
+      throw new BadRequestException('This scan is already being confirmed or was already confirmed.');
+    }
+    const statusBeforeClaim = scan.status;
+    let purchaseOrderId: string | null = null;
 
-          if (item.productName && product.name !== item.productName) {
-            updates.name = item.productName;
-            hasChanges = true;
-          }
+    try {
+      const purchaseItems = [];
+      for (const item of includedItems) {
+        let productId = item.matchedProductId;
+        const { purchasePrice, sellingPrice } = this.resolvePrices(item.unitPrice, item.mrp);
+        if (!productId) {
+          const product = await this.productsRepository.save(
+            this.productsRepository.create({
+              business_id: dto.businessId,
+              name: item.productName,
+              unit: 'piece',
+              purchase_price: purchasePrice,
+              selling_price: sellingPrice,
+              stock_quantity: 0,
+              batch_number: item.batchNumber,
+              expiry_date: item.expiryMonthYear ? this.monthYearToDate(item.expiryMonthYear) : undefined,
+              // Not a draft: the verify screen (edit + confirm) before this point
+              // is already the review step, so these shouldn't also land in the
+              // dashboard's Quick Parchi draft-review queue.
+              is_draft: false,
+            }),
+          );
+          productId = product.id;
+        } else {
+          // Find existing product and update details if they have changed
+          const product = await this.productsRepository.findOne({
+            where: { id: productId, business_id: dto.businessId },
+          });
+          if (product) {
+            let hasChanges = false;
+            const updates: Partial<Product> = {};
 
-          if (item.unitPrice != null || item.mrp != null) {
-            if (Number(product.purchase_price) !== purchasePrice) {
-              updates.purchase_price = purchasePrice;
+            if (item.productName && product.name !== item.productName) {
+              updates.name = item.productName;
               hasChanges = true;
             }
-            if (Number(product.selling_price) !== sellingPrice) {
-              updates.selling_price = sellingPrice;
+
+            if (item.unitPrice != null || item.mrp != null) {
+              if (Number(product.purchase_price) !== purchasePrice) {
+                updates.purchase_price = purchasePrice;
+                hasChanges = true;
+              }
+              if (Number(product.selling_price) !== sellingPrice) {
+                updates.selling_price = sellingPrice;
+                hasChanges = true;
+              }
+            }
+
+            if (item.batchNumber !== undefined && product.batch_number !== item.batchNumber) {
+              updates.batch_number = item.batchNumber;
               hasChanges = true;
             }
-          }
 
-          if (item.batchNumber !== undefined && product.batch_number !== item.batchNumber) {
-            updates.batch_number = item.batchNumber;
-            hasChanges = true;
-          }
-
-          if (item.expiryMonthYear) {
-            const newExpiryDate = this.monthYearToDate(item.expiryMonthYear);
-            const newExpiryStr = this.formatDateLocal(newExpiryDate);
-            const currentExpiryStr = product.expiry_date ? this.formatDateLocal(new Date(product.expiry_date)) : '';
-            if (currentExpiryStr !== newExpiryStr) {
-              updates.expiry_date = newExpiryDate;
-              hasChanges = true;
+            if (item.expiryMonthYear) {
+              const newExpiryDate = this.monthYearToDate(item.expiryMonthYear);
+              const newExpiryStr = this.formatDateLocal(newExpiryDate);
+              const currentExpiryStr = product.expiry_date ? this.formatDateLocal(new Date(product.expiry_date)) : '';
+              if (currentExpiryStr !== newExpiryStr) {
+                updates.expiry_date = newExpiryDate;
+                hasChanges = true;
+              }
             }
-          }
 
-          if (hasChanges) {
-            await this.productsRepository.update({ id: product.id }, updates);
+            if (hasChanges) {
+              await this.productsRepository.update({ id: product.id }, updates);
+            }
           }
         }
+
+        purchaseItems.push({
+          productId,
+          quantity: item.quantity,
+          unitPrice: purchasePrice,
+          batchNumber: item.batchNumber,
+          expiryDate: item.expiryMonthYear ? this.formatDateLocal(this.monthYearToDate(item.expiryMonthYear)) : undefined,
+          schemeQuantity: item.schemeQuantity,
+        });
       }
 
-      purchaseItems.push({
-        productId,
-        quantity: item.quantity,
-        unitPrice: purchasePrice,
-        batchNumber: item.batchNumber,
-        expiryDate: item.expiryMonthYear ? this.formatDateLocal(this.monthYearToDate(item.expiryMonthYear)) : undefined,
-        schemeQuantity: item.schemeQuantity,
-      });
+      const purchaseOrder = await this.inventoryService.createPurchaseOrder({
+        businessId: dto.businessId,
+        supplierId: dto.supplierId ?? scan.supplier_id ?? undefined,
+        orderNumber: `SCAN-${Date.now()}`,
+        items: purchaseItems,
+      } as any);
+
+      await this.inventoryService.receivePurchaseOrder(purchaseOrder.id, dto.businessId);
+      purchaseOrderId = purchaseOrder.id;
+
+      scan.status = 'confirmed';
+      scan.purchase_order_id = purchaseOrder.id;
+      await this.scansRepository.save(scan);
+
+      return this.inventoryService.findOnePurchaseOrder(purchaseOrder.id, dto.businessId);
+    } catch (err) {
+      if (purchaseOrderId) {
+        // Stock was already received: releasing the claim would let a retry add
+        // it all again. Record the scan as confirmed and surface the error.
+        await this.scansRepository
+          .update({ id, business_id: dto.businessId }, { status: 'confirmed', purchase_order_id: purchaseOrderId })
+          .catch(() => undefined);
+      } else {
+        // Nothing reached inventory: release the claim so the user can fix
+        // the problem and try again.
+        await this.scansRepository
+          .update({ id, business_id: dto.businessId, status: 'confirming' }, { status: statusBeforeClaim })
+          .catch(() => undefined);
+      }
+      throw err;
     }
-
-    const purchaseOrder = await this.inventoryService.createPurchaseOrder({
-      businessId: dto.businessId,
-      supplierId: dto.supplierId ?? scan.supplier_id ?? undefined,
-      orderNumber: `SCAN-${Date.now()}`,
-      items: purchaseItems,
-    } as any);
-
-    await this.inventoryService.receivePurchaseOrder(purchaseOrder.id, dto.businessId);
-
-    scan.status = 'confirmed';
-    scan.purchase_order_id = purchaseOrder.id;
-    await this.scansRepository.save(scan);
-
-    return this.inventoryService.findOnePurchaseOrder(purchaseOrder.id, dto.businessId);
   }
 
   /**

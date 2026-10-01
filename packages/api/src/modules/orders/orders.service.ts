@@ -7,6 +7,7 @@ import {
   forwardRef,
   Logger,
 } from "@nestjs/common";
+import { escapeLikePattern } from '../../common/utils/email-match.util';
 import * as fs from "fs";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -474,11 +475,17 @@ export class OrdersService {
         const savedOrder = await manager.save(order);
 
         if (dto.tableId) {
-          await manager.update(
+          // Table ids are printed on public QR codes, so anyone can learn another
+          // restaurant's. Only touch a table of THIS business — unscoped, creating
+          // an order against someone else's table id marked it occupied.
+          const tableUpdate = await manager.update(
             Table,
-            { id: dto.tableId },
+            { id: dto.tableId, business_id: dto.businessId },
             { status: "occupied" },
           );
+          if (!tableUpdate.affected) {
+            throw new BadRequestException("Table not found");
+          }
         }
 
         let kotId: string | null = null;
@@ -795,6 +802,18 @@ export class OrdersService {
     params: { customerId?: string; customerName?: string; phone?: string },
   ): Promise<string | undefined> {
     let resolvedCustomerId = params.customerId;
+    if (resolvedCustomerId) {
+      // A client-supplied id is only ever trusted inside this business. Without
+      // this check an order could be attached to ANOTHER shop's customer: its
+      // phone got rewritten below and billing then posted debt onto that
+      // customer's balance.
+      const owned = await manager.findOne(Customer, {
+        where: { id: resolvedCustomerId, business_id: businessId },
+      });
+      if (!owned) {
+        throw new BadRequestException("Customer not found");
+      }
+    }
     if (params.phone && !resolvedCustomerId) {
       const byPhone = await manager.findOne(Customer, {
         where: { business_id: businessId, phone: params.phone },
@@ -825,7 +844,7 @@ export class OrdersService {
       resolvedCustomerId = customer.id;
     } else if (resolvedCustomerId && params.phone) {
       const existing = await manager.findOne(Customer, {
-        where: { id: resolvedCustomerId },
+        where: { id: resolvedCustomerId, business_id: businessId },
       });
       if (existing && !existing.phone) {
         existing.phone = params.phone;
@@ -1060,6 +1079,31 @@ export class OrdersService {
     );
   }
 
+  /**
+   * Takes a row lock on an order for the rest of the surrounding transaction.
+   * Status changes, returns and deletes all read the order, decide from what
+   * they saw ("not billed yet", "not returned yet"), then post ledger entries
+   * and stock movements. Without the lock two simultaneous requests (a
+   * double-tap, or two staff on one order) both pass the check and the
+   * customer is billed, or the stock credited back, twice.
+   *
+   * It's a plain locking SELECT rather than a `lock` option on the load that
+   * follows: those loads join `items`, and Postgres refuses FOR UPDATE on the
+   * nullable side of an outer join.
+   */
+  private async lockOrder(
+    manager: import("typeorm").EntityManager,
+    id: string,
+    businessId: string,
+  ): Promise<void> {
+    await manager
+      .createQueryBuilder(Order, "o")
+      .setLock("pessimistic_write")
+      .select("o.id")
+      .where("o.id = :id AND o.business_id = :businessId", { id, businessId })
+      .getOne();
+  }
+
   private async decrementStock(
     manager: import("typeorm").EntityManager,
     businessId: string,
@@ -1178,6 +1222,7 @@ export class OrdersService {
    */
   async remove(id: string, businessId: string) {
     return this.dataSource.transaction(async (manager) => {
+      await this.lockOrder(manager, id, businessId);
       const order = await manager.findOne(Order, {
         where: { id, business_id: businessId },
         relations: { items: true },
@@ -1300,8 +1345,8 @@ export class OrdersService {
     let where: any;
     if (search) {
       where = [
-        { ...base, customer_name: ILike(`%${search}%`) },
-        { ...base, order_number: ILike(`%${search}%`) },
+        { ...base, customer_name: ILike(`%${escapeLikePattern(search)}%`) },
+        { ...base, order_number: ILike(`%${escapeLikePattern(search)}%`) },
       ];
     } else {
       where = base;
@@ -1348,6 +1393,32 @@ export class OrdersService {
       relations: { product: true },
     });
     return { ...order, items };
+  }
+
+  /**
+   * What a table-QR guest's list call returns: just the still-open dine-in
+   * order(s) on their own table, with only the fields the table page needs —
+   * no other tables, no history, no customer details.
+   */
+  async findOpenOrdersForTable(businessId: string, tableId: string) {
+    return this.ordersRepository.find({
+      where: {
+        business_id: businessId,
+        table_id: tableId,
+        order_type: "dine_in",
+        status: In(["draft", "pending", "confirmed"]),
+      },
+      select: {
+        id: true,
+        order_number: true,
+        status: true,
+        order_type: true,
+        table_id: true,
+        total_amount: true,
+        created_at: true,
+      },
+      order: { created_at: "DESC" },
+    });
   }
 
   async findActiveOrderByTable(tableId: string, businessId: string) {
@@ -1432,6 +1503,7 @@ export class OrdersService {
       );
     }
     return this.dataSource.transaction(async (manager) => {
+      await this.lockOrder(manager, id, businessId);
       const order = await manager.findOne(Order, {
         where: { id, business_id: businessId },
       });
@@ -1607,6 +1679,7 @@ export class OrdersService {
     items?: { id: string; quantity: number }[],
   ) {
     await this.dataSource.transaction(async (manager) => {
+      await this.lockOrder(manager, id, businessId);
       const order = await manager.findOne(Order, {
         where: { id, business_id: businessId },
         relations: { items: true },
@@ -1934,19 +2007,6 @@ export class OrdersService {
             newlyCreatedProductIds.set(nameKey, linkedProductId);
           }
           item.productId = linkedProductId;
-        } else if (item.productId && item.unitPrice !== undefined) {
-          // If a user explicitly updates the price of a catalog product during order edit,
-          // sync that new price back to the product's base price.
-          const product = await manager.findOne(Product, {
-            where: { id: item.productId },
-          });
-          if (product && Number(product.selling_price) !== Number(unitPrice)) {
-            product.selling_price = Number(unitPrice);
-            if (item.unit && !product.unit_prices?.[item.unit]) {
-              product.unit = item.unit;
-            }
-            await manager.save(Product, product);
-          }
         }
 
         resolvedItems.push({
@@ -2173,19 +2233,6 @@ export class OrdersService {
             newlyCreatedProductIds.set(nameKey, linkedProductId);
           }
           item.productId = linkedProductId;
-        } else if (item.productId && item.unitPrice !== undefined) {
-          // If a user explicitly updates the price of a catalog product during order edit,
-          // sync that new price back to the product's base price.
-          const product = await manager.findOne(Product, {
-            where: { id: item.productId },
-          });
-          if (product && Number(product.selling_price) !== Number(unitPrice)) {
-            product.selling_price = Number(unitPrice);
-            if (item.unit && !product.unit_prices?.[item.unit]) {
-              product.unit = item.unit;
-            }
-            await manager.save(Product, product);
-          }
         }
 
         resolvedItems.push({

@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -20,6 +21,9 @@ export class BusinessConnectionsController {
     return this.connectionsService.listForBusiness(businessId);
   }
 
+  // Tells the caller whether a phone number belongs to an OBIX business (and its
+  // name), so it needs a tight per-IP limit or it becomes a number-enumeration tool.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Get('check-phone')
   checkPhone(@Query('businessId') businessId: string, @Query('phone') phone: string) {
     return this.connectionsService.checkPhone(businessId, phone);

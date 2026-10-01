@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseItem } from '../../database/entities/purchase-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
@@ -170,6 +170,28 @@ export class InventoryService {
 
   async createPurchaseOrder(dto: CreatePurchaseOrderDto) {
     return this.dataSource.transaction(async (manager) => {
+      // Every product and supplier on the order must belong to THIS business.
+      // Receiving the order adds stock to each line's product id, and product ids
+      // are readable by anyone holding a shop's public takeaway QR (the guest
+      // menu includes them) — so an unchecked id let one shop inflate another
+      // shop's stock.
+      const productIds = [...new Set(dto.items.map((item) => item.productId).filter((id): id is string => !!id))];
+      if (productIds.length > 0) {
+        const owned = await manager.count(Product, { where: { id: In(productIds), business_id: dto.businessId } });
+        if (owned !== productIds.length) {
+          throw new BadRequestException('One or more products do not belong to this business');
+        }
+      }
+      const supplierIds = [
+        ...new Set([dto.supplierId, ...dto.items.map((item) => item.supplierId)].filter((id): id is string => !!id)),
+      ];
+      if (supplierIds.length > 0) {
+        const ownedSuppliers = await manager.count(Supplier, { where: { id: In(supplierIds), business_id: dto.businessId } });
+        if (ownedSuppliers !== supplierIds.length) {
+          throw new BadRequestException('One or more suppliers do not belong to this business');
+        }
+      }
+
       const pricedItems = dto.items.map((item) => {
         const subtotal = item.quantity * item.unitPrice;
         const taxAmount = subtotal * ((item.taxPercentage ?? 0) / 100);
@@ -386,13 +408,13 @@ export class InventoryService {
 
       for (const item of items) {
         if (item.product_id) {
-          await manager.increment(Product, { id: item.product_id }, 'stock_quantity', Number(item.quantity));
+          await manager.increment(Product, { id: item.product_id, business_id: businessId }, 'stock_quantity', Number(item.quantity));
           // Set is_available to true since stock was added, and update last-supplier if present.
           // batch_number/expiry_date are no longer set directly here — creditReceivedBatch
           // below credits a ProductBatch row and re-derives them from the soonest-expiry batch.
           await manager.update(
             Product,
-            { id: item.product_id },
+            { id: item.product_id, business_id: businessId },
             {
               is_available: true,
               ...(item.supplier_id ? { last_supplier_id: item.supplier_id } : {}),
@@ -608,8 +630,13 @@ export class InventoryService {
 
   async adjustStock(dto: AdjustStockDto) {
     return this.dataSource.transaction(async (manager) => {
+      // Row lock: the "enough on hand?" check and the batch write below both
+      // act on what's read here. Unlocked, two simultaneous write-offs of a
+      // 5-unit stock each pass the check and leave it at -5, and two
+      // simultaneous stock-ins overwrite each other's batch total.
       const product = await manager.findOne(Product, {
         where: { id: dto.productId, business_id: dto.businessId },
+        lock: { mode: 'pessimistic_write' },
       });
       if (!product) {
         throw new NotFoundException('Product not found');
@@ -633,6 +660,7 @@ export class InventoryService {
       if (dto.batchId) {
         const batch = await manager.findOne(ProductBatch, {
           where: { id: dto.batchId, business_id: dto.businessId, product_id: dto.productId },
+          lock: { mode: 'pessimistic_write' },
         });
         if (!batch) {
           throw new NotFoundException('Batch not found');
@@ -671,7 +699,11 @@ export class InventoryService {
       if (!supplier) {
         throw new NotFoundException('Supplier not found');
       }
-      const product = await manager.findOne(Product, { where: { id: dto.productId, business_id: dto.businessId } });
+      // Locked for the same reason as adjustStock: the stock check below must see the committed number.
+      const product = await manager.findOne(Product, {
+        where: { id: dto.productId, business_id: dto.businessId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!product) {
         throw new NotFoundException('Product not found');
       }
@@ -687,6 +719,7 @@ export class InventoryService {
       if (dto.batchId) {
         const batch = await manager.findOne(ProductBatch, {
           where: { id: dto.batchId, business_id: dto.businessId, product_id: dto.productId },
+          lock: { mode: 'pessimistic_write' },
         });
         if (!batch) {
           throw new NotFoundException('Batch not found');

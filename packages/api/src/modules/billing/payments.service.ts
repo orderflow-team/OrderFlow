@@ -207,14 +207,37 @@ export class PaymentsService {
       if (existing) return existing;
     }
     return this.dataSource.transaction(async (manager) => {
+      // Serialize payments per order: without the row lock two simultaneous
+      // payments both read the same "paid so far", both pass the remaining-
+      // balance check, and the order (and the customer's ledger) is credited
+      // twice.
       let order: Order | null = null;
       if (dto.orderId) {
         order = await manager.findOne(Order, {
           where: { id: dto.orderId, business_id: dto.businessId },
+          lock: { mode: "pessimistic_write" },
         });
         if (!order) {
           throw new NotFoundException("Order not found");
         }
+        // A cancelled/returned order has had its debt reversed. Paying it would
+        // flip it back to "paid" (and free its table) and push the customer's
+        // balance negative.
+        if (UNBILLABLE_ORDER_STATUSES.includes(order.status)) {
+          throw new BadRequestException(
+            "This order was cancelled or returned, so it can't take a payment.",
+          );
+        }
+      }
+
+      // The pre-transaction idempotency check above can't see a request that
+      // is still in flight; once we hold the lock, check again so a retry
+      // returns the first payment instead of hitting the unique index.
+      if (dto.clientRequestId) {
+        const duplicate = await manager.findOne(Payment, {
+          where: { business_id: dto.businessId, client_request_id: dto.clientRequestId },
+        });
+        if (duplicate) return duplicate;
       }
 
       if (!order) {
@@ -222,6 +245,7 @@ export class PaymentsService {
         if (dto.customerId) {
           const customer = await manager.findOne(Customer, {
             where: { id: dto.customerId, business_id: dto.businessId },
+            lock: { mode: "pessimistic_write" },
           });
           if (!customer) {
             throw new NotFoundException("Customer not found");
@@ -323,6 +347,7 @@ export class PaymentsService {
     return this.dataSource.transaction(async (manager) => {
       const customer = await manager.findOne(Customer, {
         where: { id: dto.customerId, business_id: dto.businessId },
+        lock: { mode: "pessimistic_write" },
       });
       if (!customer) {
         throw new NotFoundException("Customer not found");
@@ -489,6 +514,7 @@ export class PaymentsService {
     return this.dataSource.transaction(async (manager) => {
       const customer = await manager.findOne(Customer, {
         where: { id: dto.customerId, business_id: dto.businessId },
+        lock: { mode: "pessimistic_write" },
       });
       if (!customer) {
         throw new NotFoundException("Customer not found");

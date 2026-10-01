@@ -24,7 +24,7 @@ describe('PaymentsService', () => {
   });
 
   const buildManager = (entityData: Record<string, any> = {}, qbRaw: any = { total: '0' }) => ({
-    findOne: jest.fn((Entity: any) => Promise.resolve(entityData[Entity.name] ?? null)),
+    findOne: jest.fn((Entity: any, _options?: any) => Promise.resolve(entityData[Entity.name] ?? null)),
     find: jest.fn((Entity: any) => Promise.resolve(entityData[`${Entity.name}List`] ?? [])),
     count: jest.fn((Entity: any) => Promise.resolve(entityData[`${Entity.name}Count`] ?? 0)),
     create: jest.fn((Entity: any, data: any) => ({ id: `${Entity.name}-new-id`, ...data })),
@@ -67,6 +67,58 @@ describe('PaymentsService', () => {
       await expect(
         service.create({ businessId: 'biz-1', orderId: 'missing', amount: 10, paymentMethod: 'Cash' } as any),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // Two simultaneous payments for one order both used to read the same
+    // "paid so far" and each record in full, crediting the order and the
+    // customer's ledger twice. The row lock makes them queue instead.
+    it('locks the order row so concurrent payments are serialized', async () => {
+      const manager = buildManager({ Order: { id: 'ord-1', status: 'confirmed', total_amount: 100, order_number: 'ORD-1' } });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await service.create({ businessId: 'biz-1', orderId: 'ord-1', amount: 100, paymentMethod: 'Cash' } as any);
+
+      const orderLookup = manager.findOne.mock.calls.find(([Entity]) => Entity === Order);
+      expect(orderLookup?.[1]).toMatchObject({ lock: { mode: 'pessimistic_write' } });
+    });
+
+    it.each(['cancelled', 'returned'])('refuses a payment against a %s order', async (status) => {
+      const manager = buildManager({ Order: { id: 'ord-1', status, total_amount: 100, order_number: 'ORD-1' } });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(
+        service.create({ businessId: 'biz-1', orderId: 'ord-1', amount: 100, paymentMethod: 'Cash' } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(manager.increment).not.toHaveBeenCalled();
+    });
+
+    it('returns the first payment when a retry with the same clientRequestId arrives while it was in flight', async () => {
+      const manager = buildManager({
+        Order: { id: 'ord-1', status: 'confirmed', total_amount: 100, order_number: 'ORD-1' },
+        Payment: { id: 'pay-first' },
+      });
+      paymentsRepo.findOne.mockResolvedValue(null); // the pre-transaction check saw nothing yet
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      const result = await service.create({
+        businessId: 'biz-1', orderId: 'ord-1', amount: 100, paymentMethod: 'Cash', clientRequestId: 'req-9',
+      } as any);
+
+      expect(result).toEqual({ id: 'pay-first' });
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('locks the customer row before spending advance credit', async () => {
+      const manager = buildManager({ Customer: { id: 'cust-1', advance_balance: 0 } });
+      dataSource.transaction.mockImplementation(async (cb) => cb(manager));
+
+      await expect(service.applyAdvanceToOutstanding({ businessId: 'biz-1', customerId: 'cust-1' } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      const customerLookup = manager.findOne.mock.calls.find(([Entity]) => Entity === Customer);
+      expect(customerLookup?.[1]).toMatchObject({ lock: { mode: 'pessimistic_write' } });
     });
 
     it('records a pure customer-level payment (no order) and decrements outstanding', async () => {
