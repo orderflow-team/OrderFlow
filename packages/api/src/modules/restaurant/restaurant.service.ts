@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { emailMatches } from '../../common/utils/email-match.util';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import {Repository} from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Table } from '../../database/entities/table.entity';
 import { KOT } from '../../database/entities/kot.entity';
@@ -40,7 +41,7 @@ export class RestaurantService {
    */
   async createKitchenStaffLogin(businessId: string, dto: CreateKitchenStaffLoginDto) {
     const email = dto.email.toLowerCase();
-    const existing = await this.usersRepository.findOne({ where: { email: ILike(email) } });
+    const existing = await this.usersRepository.findOne({ where: { email: emailMatches(email) } });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
@@ -87,7 +88,7 @@ export class RestaurantService {
     const user = await this.findKitchenStaffUser(userId, businessId);
     if (dto.email) {
       const normalizedEmail = dto.email.toLowerCase();
-      const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+      const existing = await this.usersRepository.findOne({ where: { email: emailMatches(normalizedEmail) } });
       if (existing && existing.id !== user.id) {
         throw new ConflictException('Email already registered');
       }
@@ -98,6 +99,8 @@ export class RestaurantService {
     }
     if (dto.password) {
       user.password_hash = await bcrypt.hash(dto.password, 10);
+      // A reset must sign the old password's sessions out (see AuthService.invalidateExistingSessions).
+      user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
       user.password_plain = encryptPassword(dto.password);
     }
     const saved = await this.usersRepository.save(user);
@@ -144,6 +147,26 @@ export class RestaurantService {
 
   /** Occupies the table for a new order's KOT, per the Restaurant Module flow. */
   async createKot(dto: CreateKotDto) {
+    // findAllKots returns the linked order in full, so a KOT pointing at another
+    // shop's order id would hand that order's customer/totals/notes back. The
+    // order and table must belong to this business.
+    if (dto.orderId) {
+      const ownedOrders = await this.kotRepository.manager.getRepository(Order).count({
+        where: { id: dto.orderId, business_id: dto.businessId },
+      });
+      if (!ownedOrders) {
+        throw new BadRequestException('Order not found');
+      }
+    }
+    if (dto.tableId) {
+      const ownedTables = await this.tablesRepository.count({
+        where: { id: dto.tableId, business_id: dto.businessId },
+      });
+      if (!ownedTables) {
+        throw new BadRequestException('Table not found');
+      }
+    }
+
     const kot = this.kotRepository.create({
       business_id: dto.businessId,
       order_id: dto.orderId,

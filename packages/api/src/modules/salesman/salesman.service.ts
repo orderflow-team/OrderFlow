@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { emailMatches } from '../../common/utils/email-match.util';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, IsNull, Repository } from 'typeorm';
+import {IsNull, Repository} from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Salesman } from '../../database/entities/salesman.entity';
 import { Visit } from '../../database/entities/visit.entity';
@@ -22,6 +23,18 @@ export class SalesmanService {
 
   async create(dto: CreateSalesmanDto) {
     let userId = dto.userId;
+    if (userId) {
+      // The login routes below look the linked user up by this id to show its
+      // password, change its email/password and deactivate it. Accepting any
+      // user id here let one shop point a salesman at another shop's user and
+      // take that account over, so it must be a salesman login in THIS shop.
+      const linked = await this.usersRepository.findOne({
+        where: { id: userId, business_id: dto.businessId, role: UserRole.SALESMAN },
+      });
+      if (!linked) {
+        throw new BadRequestException('That login does not belong to a salesman in this business.');
+      }
+    }
     if (dto.email && dto.password) {
       const user = await this.createLoginUser(dto.businessId, dto.name, dto.email, dto.password);
       userId = user.id;
@@ -55,7 +68,7 @@ export class SalesmanService {
 
   private async createLoginUser(businessId: string, name: string, email: string, password: string) {
     const normalizedEmail = email.toLowerCase();
-    const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+    const existing = await this.usersRepository.findOne({ where: { email: emailMatches(normalizedEmail) } });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
@@ -87,7 +100,7 @@ export class SalesmanService {
       throw new NotFoundException('This salesman has no login');
     }
     const user = await this.usersRepository.findOne({
-      where: { id: salesman.user_id },
+      where: { id: salesman.user_id, business_id: businessId },
       select: { id: true, email: true, password_plain: true },
     });
     if (!user) {
@@ -102,13 +115,13 @@ export class SalesmanService {
     if (!salesman.user_id) {
       throw new NotFoundException('This salesman has no login');
     }
-    const user = await this.usersRepository.findOne({ where: { id: salesman.user_id } });
+    const user = await this.usersRepository.findOne({ where: { id: salesman.user_id, business_id: businessId } });
     if (!user) {
       throw new NotFoundException('Login not found');
     }
     if (dto.email) {
       const normalizedEmail = dto.email.toLowerCase();
-      const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+      const existing = await this.usersRepository.findOne({ where: { email: emailMatches(normalizedEmail) } });
       if (existing && existing.id !== user.id) {
         throw new ConflictException('Email already registered');
       }
@@ -116,6 +129,8 @@ export class SalesmanService {
     }
     if (dto.password) {
       user.password_hash = await bcrypt.hash(dto.password, 10);
+      // A reset must sign the old password's sessions out (see AuthService.invalidateExistingSessions).
+      user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
       user.password_plain = encryptPassword(dto.password);
     }
     const saved = await this.usersRepository.save(user);
@@ -135,7 +150,7 @@ export class SalesmanService {
     const salesman = await this.findOne(id, businessId);
     await this.visitsRepository.delete({ salesman_id: id });
     if (salesman.user_id) {
-      await this.usersRepository.update({ id: salesman.user_id }, { is_active: false });
+      await this.usersRepository.update({ id: salesman.user_id, business_id: businessId }, { is_active: false });
     }
     await this.salesmenRepository.remove(salesman);
     return { deleted: true };

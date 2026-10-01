@@ -328,10 +328,16 @@ export default function SettingsPage() {
     }
     setChangingPassword(true);
     try {
-      await apiClient.post('/auth/password/change', {
+      const res = await apiClient.post('/auth/password/change', {
         currentPassword: passwordForm.currentPassword || undefined,
         newPassword: passwordForm.newPassword,
       });
+      // Changing the password signs every other device out. The server hands
+      // this one a fresh login so the person changing it stays signed in.
+      if (res.data?.access_token && res.data?.refresh_token) {
+        localStorage.setItem('access_token', res.data.access_token);
+        localStorage.setItem('refresh_token', res.data.refresh_token);
+      }
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setPasswordSaved(true);
     } catch (err: any) {

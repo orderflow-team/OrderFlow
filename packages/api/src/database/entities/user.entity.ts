@@ -25,6 +25,12 @@ export class User {
   @Column({ type: 'text', nullable: true, select: false })
   password_plain: string;
 
+  // Epoch seconds. Any access/refresh token issued before this is rejected —
+  // set whenever the password changes so old sessions can't outlive it.
+  // (bigint comes back from pg as a string.)
+  @Column({ type: 'bigint', nullable: true })
+  sessions_valid_after: string | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   full_name: string;
 

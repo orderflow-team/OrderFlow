@@ -174,11 +174,16 @@ export default function SalesmanPage() {
     setCredError('');
     setCredShowPassword(false);
     setCredLoading(true);
+    // The email is already on the roster. Only the owner may see the current
+    // password; a manager still edits the login and sets a new password.
+    setCredForm({ email: salesmen.find((m) => m.id === salesmanId)?.email || '', currentPassword: '', newPassword: '' });
     try {
       const res = await apiClient.get<{ email: string; password: string | null }>(`/api/salesman/${salesmanId}/login`, { params: { businessId } });
       setCredForm({ email: res.data.email, currentPassword: res.data.password || '', newPassword: '' });
     } catch (err: any) {
-      setCredError(err.response?.data?.message || 'Failed to load login details');
+      if (err.response?.status !== 403) {
+        setCredError(err.response?.data?.message || 'Failed to load login details');
+      }
     } finally {
       setCredLoading(false);
     }

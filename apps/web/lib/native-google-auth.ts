@@ -48,7 +48,8 @@ const POLL_MS = 2000;
  * See AppGoogleHandoffService in the API.
  */
 export async function browserGoogleSignIn(opts: {
-  onStarted?: () => void;
+  /** Receives the 6-digit code to show, so the user can match it on the browser page. */
+  onStarted?: (code: string) => void;
   signal: AbortSignal;
 }): Promise<GoogleLoginResult | null> {
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -66,8 +67,8 @@ export async function browserGoogleSignIn(opts: {
     }
     throw err;
   }
-  const { sessionId, expiresInSeconds } = data as { sessionId: string; expiresInSeconds: number };
-  opts.onStarted?.();
+  const { sessionId, code, expiresInSeconds } = data as { sessionId: string; code: string; expiresInSeconds: number };
+  opts.onStarted?.(code);
 
   // The website is served from the same origin as the API (see VPS routing).
   window.open(`${API_BASE_URL.replace(/\/+$/, '')}/google-app-signin?session=${sessionId}`, '_system');

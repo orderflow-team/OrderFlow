@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { emailMatches } from '../../common/utils/email-match.util';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, In, Repository } from 'typeorm';
+import {In, Repository} from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../database/entities/user.entity';
 import { encryptPassword, decryptPassword } from '../../common/utils/credential-crypto.util';
@@ -14,7 +15,7 @@ export class StaffService {
 
   async create(businessId: string, dto: CreateStaffDto) {
     const normalizedEmail = dto.email.toLowerCase();
-    const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+    const existing = await this.usersRepository.findOne({ where: { email: emailMatches(normalizedEmail) } });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
@@ -60,7 +61,7 @@ export class StaffService {
     const user = await this.findStaffUser(id, businessId);
     if (dto.email) {
       const normalizedEmail = dto.email.toLowerCase();
-      const existing = await this.usersRepository.findOne({ where: { email: ILike(normalizedEmail) } });
+      const existing = await this.usersRepository.findOne({ where: { email: emailMatches(normalizedEmail) } });
       if (existing && existing.id !== user.id) {
         throw new ConflictException('Email already registered');
       }
@@ -77,6 +78,8 @@ export class StaffService {
     }
     if (dto.password) {
       user.password_hash = await bcrypt.hash(dto.password, 10);
+      // A reset must sign the old password's sessions out (see AuthService.invalidateExistingSessions).
+      user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
       user.password_plain = encryptPassword(dto.password);
     }
     const saved = await this.usersRepository.save(user);

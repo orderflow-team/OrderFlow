@@ -31,6 +31,10 @@ export class AuthController {
   // AppGoogleHandoffService. create/complete are as sensitive as /auth/google;
   // claim is polled every ~2s by the waiting app, so it gets more headroom.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // Unauthenticated, and pending sessions share one global cap — without a
+  // per-IP limit a single client could fill the cap and block Google
+  // sign-in for every older app build.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('google/app-session')
   createAppGoogleSession(@Body() dto: CreateAppGoogleHandoffDto) {
     return this.appGoogleHandoff.create(dto.secretHash);
@@ -113,11 +117,17 @@ export class AuthController {
     return this.authService.changePassword(req.user.userId, dto);
   }
 
+  // Public (anyone with the QR link) — a per-IP cap so it can't be used to mint guest sessions in bulk.
+  // Generous on purpose: every customer in a restaurant shares the restaurant's Wi-Fi, i.e. one IP.
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('table-guest-login')
   async tableGuestLogin(@Body('tableId') tableId: string) {
     return this.authService.tableGuestLogin(tableId);
   }
 
+  // Public (anyone with the QR link) — a per-IP cap so it can't be used to mint guest sessions in bulk.
+  // Generous on purpose: every customer in a restaurant shares the restaurant's Wi-Fi, i.e. one IP.
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('takeaway-guest-login')
   async takeawayGuestLogin(@Body('businessId') businessId: string) {
     return this.authService.takeawayGuestLogin(businessId);

@@ -31,6 +31,10 @@ function GoogleAppSignIn() {
   const [error, setError] = useState('');
   const [showButton, setShowButton] = useState(false);
   const [done, setDone] = useState(false);
+  // Shown here and in the app. The user must confirm they match before we go
+  // to Google: otherwise anyone could send a victim a link to a session the
+  // attacker started, and collect the victim's login when they sign in.
+  const [confirmCode, setConfirmCode] = useState('');
 
   const attachToApp = async (id: string, authPayload: { idToken?: string; accessToken?: string }) => {
     await apiClient.post(`/auth/google/app-session/${id}/complete`, authPayload);
@@ -65,20 +69,23 @@ function GoogleAppSignIn() {
     }
     setSessionId(querySession);
     apiClient
-      .get(`/auth/google/app-session/${querySession}`)
-      .then(() => {
-        const url = googleAccountChooserUrl(querySession);
-        if (url) {
-          window.location.replace(url);
-          // Only visible if the redirect is blocked for some reason.
-          setTimeout(() => setShowButton(true), 4000);
-        } else {
-          setShowButton(true);
-        }
-      })
+      .get<{ code: string }>(`/auth/google/app-session/${querySession}`)
+      .then((res) => setConfirmCode(res.data.code))
       .catch((err) => setError(err.response?.data?.message || 'This sign-in link has expired. Go back to the app and try again.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [querySession]);
+
+  const continueToGoogle = () => {
+    setConfirmCode('');
+    const url = googleAccountChooserUrl(sessionId);
+    if (url) {
+      window.location.replace(url);
+      // Only visible if the redirect is blocked for some reason.
+      setTimeout(() => setShowButton(true), 4000);
+    } else {
+      setShowButton(true);
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
@@ -95,6 +102,23 @@ function GoogleAppSignIn() {
             <CheckCircle2 className="w-10 h-10 text-emerald-500" />
             <p className="font-semibold text-slate-800">You're signed in.</p>
             <p className="text-sm text-slate-600">Returning to the OBIX app… If it doesn't open, switch back to it.</p>
+          </div>
+        ) : confirmCode ? (
+          <div className="mt-6 flex flex-col items-center text-center space-y-4">
+            <p className="text-sm text-slate-600">Check that the OBIX app on your phone shows this code:</p>
+            <p className="font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">
+              {confirmCode.slice(0, 3)} {confirmCode.slice(3)}
+            </p>
+            <button
+              type="button"
+              onClick={continueToGoogle}
+              className="w-full h-12 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors"
+            >
+              The codes match — continue
+            </button>
+            <p className="text-xs text-slate-500">
+              If the codes don't match, or you didn't just tap &quot;Continue with Google&quot; in the OBIX app, close this page.
+            </p>
           </div>
         ) : showButton && sessionId ? (
           <>

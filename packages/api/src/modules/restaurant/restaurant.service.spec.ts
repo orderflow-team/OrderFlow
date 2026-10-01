@@ -17,10 +17,10 @@ jest.mock('../../common/utils/credential-crypto.util', () => ({
 
 describe('RestaurantService', () => {
   let service: RestaurantService;
-  let tablesRepo: { create: jest.Mock; save: jest.Mock; find: jest.Mock; findOne: jest.Mock; update: jest.Mock; remove: jest.Mock };
+  let tablesRepo: { create: jest.Mock; save: jest.Mock; find: jest.Mock; findOne: jest.Mock; update: jest.Mock; remove: jest.Mock; count: jest.Mock };
   let kotRepo: { create: jest.Mock; save: jest.Mock; find: jest.Mock; findOne: jest.Mock; update: jest.Mock; manager: { getRepository: jest.Mock } };
   let usersRepo: { findOne: jest.Mock; find: jest.Mock; create: jest.Mock; save: jest.Mock };
-  let orderRepoViaManager: { update: jest.Mock };
+  let orderRepoViaManager: { update: jest.Mock; count: jest.Mock };
 
   beforeEach(async () => {
     tablesRepo = {
@@ -29,9 +29,10 @@ describe('RestaurantService', () => {
       find: jest.fn(),
       findOne: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(1),
       remove: jest.fn(async (entity) => entity),
     };
-    orderRepoViaManager = { update: jest.fn() };
+    orderRepoViaManager = { update: jest.fn(), count: jest.fn().mockResolvedValue(1) };
     kotRepo = {
       create: jest.fn((entity) => ({ id: 'kot-new', ...entity })),
       save: jest.fn(async (entity) => entity),
@@ -198,6 +199,29 @@ describe('RestaurantService', () => {
     it('does not touch any table when none is specified', async () => {
       await service.createKot({ businessId: 'biz-1', orderId: 'order-1' } as any);
 
+      expect(tablesRepo.update).not.toHaveBeenCalled();
+    });
+
+    // findAllKots returns the linked order in full, so a KOT pointing at another
+    // shop's order id would read that order's customer/totals/notes back.
+    it("refuses an orderId that isn't this business's, before creating the KOT", async () => {
+      orderRepoViaManager.count.mockResolvedValue(0);
+
+      await expect(service.createKot({ businessId: 'biz-1', orderId: 'order-of-other-shop' } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(orderRepoViaManager.count).toHaveBeenCalledWith({ where: { id: 'order-of-other-shop', business_id: 'biz-1' } });
+      expect(kotRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("refuses a tableId that isn't this business's", async () => {
+      tablesRepo.count.mockResolvedValue(0);
+
+      await expect(
+        service.createKot({ businessId: 'biz-1', orderId: 'order-1', tableId: 'table-of-other-shop' } as any),
+      ).rejects.toThrow(BadRequestException);
+      expect(kotRepo.save).not.toHaveBeenCalled();
       expect(tablesRepo.update).not.toHaveBeenCalled();
     });
   });

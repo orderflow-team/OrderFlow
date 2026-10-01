@@ -182,7 +182,6 @@ describe("AuthService", () => {
         password: "password123",
         code: "123456",
         fullName: "New User",
-        businessId: "biz-2",
       });
 
       expect(usersRepo.findOne).toHaveBeenCalledWith({
@@ -195,13 +194,38 @@ describe("AuthService", () => {
         expect.objectContaining({
           email: "new@example.com",
           role: UserRole.ADMIN,
-          business_id: "biz-2",
         }),
       );
       expect(usersRepo.save).toHaveBeenCalled();
       expect(result.access_token).toBe("signed-token");
       expect(result.refresh_token).toBe("signed-token");
       expect(result.user.email).toBe("new@example.com");
+    });
+
+    // Shop ids are public (takeaway QR links, phone lookup). Signup used to store a
+    // client-supplied businessId on the new ADMIN account unchecked, making the
+    // signer an admin of any shop they could name.
+    it("never binds a new admin account to a business named by the caller", async () => {
+      usersRepo.findOne.mockResolvedValue(null);
+      otpRepo.findOne.mockResolvedValue({
+        email: "attacker@example.com",
+        code: "123456",
+        purpose: "signup",
+        consumed: false,
+        expires_at: new Date(Date.now() + 60_000),
+        attempts: 0,
+      });
+
+      await service.signup({
+        email: "attacker@example.com",
+        password: "password123",
+        code: "123456",
+        businessId: "victim-shop-id",
+      } as any);
+
+      const created = usersRepo.create.mock.calls.at(-1)![0];
+      expect(created.business_id).toBeUndefined();
+      expect(JSON.stringify(created)).not.toContain("victim-shop-id");
     });
 
     it("throws ConflictException when the email is already registered", async () => {
@@ -780,6 +804,111 @@ describe("AuthService", () => {
       await expect(service.takeawayGuestLogin("missing")).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // `%` and `_` are legal in an email's local part (and @IsEmail accepts them),
+  // but they're wildcards in ILIKE. A lookup built on ILike() let a caller who
+  // owned `attacker@gmail.com` request a code for themselves and then submit
+  // `%@gmail.com`: the code lookup matched their own code, the user lookup
+  // matched the first Gmail account in the table, and that account was logged
+  // in (or had its password reset). Every identity lookup must be an exact match.
+  describe("email wildcard injection", () => {
+    const WILDCARD = "%@gmail.com";
+
+    /** Every `where` handed to a repository, flattened. */
+    const wheresOf = (repo: MockRepo) =>
+      repo.findOne.mock.calls.flatMap(([opts]) => (Array.isArray(opts?.where) ? opts.where : [opts?.where]));
+
+    const expectNoPatternMatching = (repo: MockRepo) => {
+      for (const where of wheresOf(repo)) {
+        const op = where?.email;
+        if (op && typeof op === "object") {
+          expect(op.type).not.toBe("ilike");
+          expect(op.type).not.toBe("like");
+        }
+      }
+    };
+
+    it("verifyOtp looks the code and the user up by exact email, not by pattern", async () => {
+      otpRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.verifyOtp({ email: WILDCARD, code: "123456" } as any)).rejects.toThrow(BadRequestException);
+
+      const op = wheresOf(otpRepo)[0].email;
+      expect(op.type).toBe("raw");
+      // The wildcard string only ever appears as a bound value, compared with "=".
+      expect(op.getSql?.("otp.email") ?? op.sql?.("otp.email") ?? "").toContain("= :emailLower");
+      expectNoPatternMatching(otpRepo);
+    });
+
+    it("verifyOtp with a valid code never resolves the account through a wildcard", async () => {
+      otpRepo.findOne.mockResolvedValue({ id: "otp-1", code: "123456", attempts: 0, expires_at: new Date(Date.now() + 60_000) });
+      usersRepo.findOne.mockResolvedValue(null);
+      usersRepo.save.mockImplementation(async (u: any) => ({ id: "new", is_active: true, ...u }));
+      jwtService.sign.mockReturnValue("token");
+
+      await service.verifyOtp({ email: WILDCARD, code: "123456" } as any);
+
+      expectNoPatternMatching(usersRepo);
+      expectNoPatternMatching(otpRepo);
+    });
+
+    it("resetPassword and login use exact lookups too", async () => {
+      otpRepo.findOne.mockResolvedValue(null);
+      await expect(
+        service.resetPassword({ email: WILDCARD, code: "123456", newPassword: "newpass1" } as any),
+      ).rejects.toThrow(BadRequestException);
+      expectNoPatternMatching(otpRepo);
+
+      usersRepo.findOne.mockResolvedValue(null);
+      await expect(service.login({ email: WILDCARD, password: "x" } as any)).rejects.toThrow(UnauthorizedException);
+      expectNoPatternMatching(usersRepo);
+    });
+  });
+
+  describe("password changes end older sessions", () => {
+    const nowSec = () => Math.floor(Date.now() / 1000);
+
+    it("resetPassword stamps sessions_valid_after so earlier logins stop working", async () => {
+      otpRepo.findOne.mockResolvedValue({ id: "otp-1", code: "123456", attempts: 0, expires_at: new Date(Date.now() + 60_000) });
+      usersRepo.findOne.mockResolvedValue({ ...baseUser });
+      (bcrypt.hash as jest.Mock).mockResolvedValue("new-hash");
+      jwtService.sign.mockReturnValue("token");
+
+      await service.resetPassword({ email: "user@example.com", code: "123456", newPassword: "newpass1" } as any);
+
+      const saved = usersRepo.save.mock.calls.at(-1)![0];
+      expect(Number(saved.sessions_valid_after)).toBeGreaterThanOrEqual(nowSec() - 2);
+    });
+
+    it("changePassword stamps it too, and returns fresh tokens so this device stays signed in", async () => {
+      usersRepo.findOne.mockResolvedValue({ ...baseUser });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValue("new-hash");
+      jwtService.sign.mockReturnValue("fresh-token");
+
+      const result: any = await service.changePassword("user-1", { currentPassword: "old", newPassword: "newpass1" } as any);
+
+      expect(Number(usersRepo.save.mock.calls.at(-1)![0].sessions_valid_after)).toBeGreaterThanOrEqual(nowSec() - 2);
+      expect(result).toMatchObject({ message: "Password updated", access_token: "fresh-token", refresh_token: "fresh-token" });
+    });
+
+    it("refuses a refresh token issued before the password change", async () => {
+      const changedAt = nowSec();
+      jwtService.verify.mockReturnValue({ sub: "user-1", email: "a@b.c", role: UserRole.ADMIN, tokenType: "refresh", iat: changedAt - 100 });
+      usersRepo.findOne.mockResolvedValue({ ...baseUser, sessions_valid_after: String(changedAt) });
+
+      await expect(service.refresh({ refreshToken: "old-refresh" } as any)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("still refreshes a token issued after the change", async () => {
+      const changedAt = nowSec() - 50;
+      jwtService.verify.mockReturnValue({ sub: "user-1", email: "a@b.c", role: UserRole.ADMIN, tokenType: "refresh", iat: nowSec() });
+      usersRepo.findOne.mockResolvedValue({ ...baseUser, sessions_valid_after: String(changedAt) });
+      jwtService.sign.mockReturnValue("new");
+
+      await expect(service.refresh({ refreshToken: "ok-refresh" } as any)).resolves.toHaveProperty("access_token");
     });
   });
 });
