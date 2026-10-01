@@ -24,6 +24,7 @@ import {
   Sun,
   Moon,
   Radio,
+  Crown,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
@@ -93,6 +94,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       name: 'Stores',
       href: '/admin/stores',
       icon: Store,
+    },
+    {
+      name: 'Upgrade Requests',
+      href: '/admin/upgrade-requests',
+      icon: Crown,
     },
     {
       name: 'Business Network',

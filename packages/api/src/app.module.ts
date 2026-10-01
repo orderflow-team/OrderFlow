@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -30,7 +30,7 @@ import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module';
-import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-paywall.guard';
+import { SubscriptionPaywallInterceptor } from './modules/subscriptions/subscription-paywall.interceptor';
 
 @Module({
   imports: [
@@ -69,7 +69,9 @@ import { SubscriptionPaywallGuard } from './modules/subscriptions/subscription-p
   controllers: [AppController],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_GUARD, useClass: SubscriptionPaywallGuard },
+    // An interceptor (not a guard): global guards run before the controllers'
+    // JwtAuthGuard, so a guard here never saw an authenticated user.
+    { provide: APP_INTERCEPTOR, useClass: SubscriptionPaywallInterceptor },
   ],
 })
 export class AppModule {}

@@ -52,6 +52,12 @@ export default function SubscriptionSettingsPage() {
   const [inputReferralCode, setInputReferralCode] = useState('');
   const [applyingReferral, setApplyingReferral] = useState(false);
   const [message, setMessage] = useState('');
+  const [pendingRequest, setPendingRequest] = useState<{
+    plan_code: string;
+    plan_name: string | null;
+    billing_cycle: 'monthly' | 'yearly';
+    created_at: string;
+  } | null>(null);
   const [referralInfo, setReferralInfo] = useState<{
     referralCode: string;
     referralLink: string;
@@ -79,12 +85,14 @@ export default function SubscriptionSettingsPage() {
   const fetchSubscription = async () => {
     try {
       setLoading(true);
-      const [resSub, resRef] = await Promise.all([
+      const [resSub, resRef, resReq] = await Promise.all([
         apiClient.get('/api/subscriptions/current'),
         apiClient.get('/api/subscriptions/referral-info').catch(() => null),
+        apiClient.get('/api/subscriptions/upgrade-request').catch(() => null),
       ]);
       setSub(resSub.data);
       if (resRef) setReferralInfo(resRef.data);
+      setPendingRequest(resReq?.data?.request ?? null);
       if (resSub.data?.planCode) {
         setSelectedPlanCode(resSub.data.planCode);
         if (resSub.data.planCode === 'starter' || resSub.data.planCode === 'pro' || resSub.data.planCode === 'enterprise') {
@@ -102,19 +110,24 @@ export default function SubscriptionSettingsPage() {
     fetchSubscription();
   }, []);
 
-  const handleSimulateUpgrade = async (planCode: string) => {
+  // There's no payment gateway yet: this sends an upgrade request, and the
+  // OBIX team activates the plan once the shop has paid.
+  const handleRequestUpgrade = async (planCode: string) => {
     try {
       setUpgradingCode(planCode);
       setSelectedPlanCode(planCode);
       setMessage('');
-      const res = await apiClient.post('/api/subscriptions/simulate-upgrade', {
+      const res = await apiClient.post('/api/subscriptions/upgrade-request', {
         planCode,
         billingCycle,
       });
-      setMessage(res.data.message || 'Plan upgrade active!');
+      const amount = Number(res.data?.amountInr || 0);
+      setMessage(
+        `Upgrade request sent for ${res.data?.planName || planCode}${amount ? ` (₹${amount.toLocaleString('en-IN')}/${billingCycle === 'yearly' ? 'year' : 'month'})` : ''}. Our team will contact you to collect payment and activate your plan.`,
+      );
       await fetchSubscription();
     } catch (err: any) {
-      setMessage(err.response?.data?.message || 'Upgrade failed');
+      setMessage(err.response?.data?.message || 'Could not send the upgrade request. Please try again.');
     } finally {
       setUpgradingCode(null);
     }
@@ -195,6 +208,14 @@ export default function SubscriptionSettingsPage() {
           </div>
         </div>
       </div>
+
+      {pendingRequest && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-2xl text-xs font-semibold shadow-sm">
+          Upgrade to {pendingRequest.plan_name || pendingRequest.plan_code} ({pendingRequest.billing_cycle}) requested on{' '}
+          {new Date(pendingRequest.created_at).toLocaleDateString('en-IN')}. We&apos;ll activate it once payment is received.
+          Questions? WhatsApp us on +91 80007 02299.
+        </div>
+      )}
 
       {message && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
@@ -333,14 +354,14 @@ export default function SubscriptionSettingsPage() {
 
             <button
               disabled={upgradingCode === 'starter' || (sub?.planCode === 'starter' && isActive)}
-              onClick={() => handleSimulateUpgrade('starter')}
+              onClick={() => handleRequestUpgrade('starter')}
               className={`w-full py-3.5 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs min-h-[44px] ${
                 sub?.planCode === 'starter' && isActive
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                   : 'bg-slate-900 text-white shadow-md active:scale-95'
               }`}
             >
-              {upgradingCode === 'starter' ? 'Upgrading...' : sub?.planCode === 'starter' && isActive ? 'Current Plan' : 'Select Starter →'}
+              {upgradingCode === 'starter' ? 'Sending request...' : sub?.planCode === 'starter' && isActive ? 'Current Plan' : 'Select Starter →'}
             </button>
           </div>
         )}
@@ -411,14 +432,14 @@ export default function SubscriptionSettingsPage() {
 
             <button
               disabled={upgradingCode === 'pro' || (sub?.planCode === 'pro' && isActive)}
-              onClick={() => handleSimulateUpgrade('pro')}
+              onClick={() => handleRequestUpgrade('pro')}
               className={`w-full py-3.5 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs min-h-[44px] ${
                 sub?.planCode === 'pro' && isActive
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 active:scale-95'
               }`}
             >
-              {upgradingCode === 'pro' ? 'Upgrading...' : sub?.planCode === 'pro' && isActive ? 'Current Plan' : 'Select Pro ✨'}
+              {upgradingCode === 'pro' ? 'Sending request...' : sub?.planCode === 'pro' && isActive ? 'Current Plan' : 'Select Pro ✨'}
             </button>
           </div>
         )}
@@ -477,14 +498,14 @@ export default function SubscriptionSettingsPage() {
 
             <button
               disabled={upgradingCode === 'enterprise' || (sub?.planCode === 'enterprise' && isActive)}
-              onClick={() => handleSimulateUpgrade('enterprise')}
+              onClick={() => handleRequestUpgrade('enterprise')}
               className={`w-full py-3.5 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs min-h-[44px] ${
                 sub?.planCode === 'enterprise' && isActive
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                   : 'bg-slate-900 text-white shadow-md active:scale-95'
               }`}
             >
-              {upgradingCode === 'enterprise' ? 'Upgrading...' : sub?.planCode === 'enterprise' && isActive ? 'Current Plan' : 'Select Enterprise →'}
+              {upgradingCode === 'enterprise' ? 'Sending request...' : sub?.planCode === 'enterprise' && isActive ? 'Current Plan' : 'Select Enterprise →'}
             </button>
           </div>
         )}
@@ -554,7 +575,7 @@ export default function SubscriptionSettingsPage() {
             disabled={upgradingCode === 'starter' || (sub?.planCode === 'starter' && isActive)}
             onClick={(e) => {
               e.stopPropagation();
-              handleSimulateUpgrade('starter');
+              handleRequestUpgrade('starter');
             }}
             className={`w-full py-3 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs ${
               sub?.planCode === 'starter' && isActive
@@ -562,7 +583,7 @@ export default function SubscriptionSettingsPage() {
                 : 'bg-slate-900 hover:bg-indigo-950 text-white shadow-md'
             }`}
           >
-            {upgradingCode === 'starter' ? 'Upgrading...' : sub?.planCode === 'starter' && isActive ? 'Current Plan' : 'Select Starter →'}
+            {upgradingCode === 'starter' ? 'Sending request...' : sub?.planCode === 'starter' && isActive ? 'Current Plan' : 'Select Starter →'}
           </button>
         </div>
 
@@ -641,7 +662,7 @@ export default function SubscriptionSettingsPage() {
             disabled={upgradingCode === 'pro' || (sub?.planCode === 'pro' && isActive)}
             onClick={(e) => {
               e.stopPropagation();
-              handleSimulateUpgrade('pro');
+              handleRequestUpgrade('pro');
             }}
             className={`w-full py-3 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs ${
               sub?.planCode === 'pro' && isActive
@@ -649,7 +670,7 @@ export default function SubscriptionSettingsPage() {
                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200'
             }`}
           >
-            {upgradingCode === 'pro' ? 'Upgrading...' : sub?.planCode === 'pro' && isActive ? 'Current Plan' : 'Select Pro ✨'}
+            {upgradingCode === 'pro' ? 'Sending request...' : sub?.planCode === 'pro' && isActive ? 'Current Plan' : 'Select Pro ✨'}
           </button>
         </div>
 
@@ -715,7 +736,7 @@ export default function SubscriptionSettingsPage() {
             disabled={upgradingCode === 'enterprise' || (sub?.planCode === 'enterprise' && isActive)}
             onClick={(e) => {
               e.stopPropagation();
-              handleSimulateUpgrade('enterprise');
+              handleRequestUpgrade('enterprise');
             }}
             className={`w-full py-3 rounded-full font-bold transition flex items-center justify-center gap-2 text-xs ${
               sub?.planCode === 'enterprise' && isActive
@@ -723,7 +744,7 @@ export default function SubscriptionSettingsPage() {
                 : 'bg-slate-900 hover:bg-indigo-950 text-white shadow-md'
             }`}
           >
-            {upgradingCode === 'enterprise' ? 'Upgrading...' : sub?.planCode === 'enterprise' && isActive ? 'Current Plan' : 'Select Enterprise →'}
+            {upgradingCode === 'enterprise' ? 'Sending request...' : sub?.planCode === 'enterprise' && isActive ? 'Current Plan' : 'Select Enterprise →'}
           </button>
         </div>
       </div>

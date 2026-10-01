@@ -168,7 +168,6 @@ Orderflow is built as a Turbo monorepo containing:
 ### 9. AI & Voice Order Parsing (`/api/ai`)
 | Method | Endpoint | Access Level | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/ai/parse-voice` | Authenticated (Throttled) | Parse speech-to-text transcript into order items |
 | `POST` | `/api/ai/chat-order` | Authenticated (Throttled) | Parse chat message (WhatsApp order) into structured order |
 
 ### 10. Invoice Scanning & OCR (`/api/invoice-scans`)
@@ -252,7 +251,12 @@ Orderflow is built as a Turbo monorepo containing:
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/subscriptions/plans` | Public | List available subscription plans |
 | `GET` | `/api/subscriptions/current` | Authenticated | Get current store subscription status |
-| `POST` | `/api/subscriptions/simulate-upgrade` | Authenticated | Simulate plan upgrade / renewal |
+| `POST` | `/api/subscriptions/simulate-upgrade` | Super admin | Activate a plan with a simulated payment (testing only) |
+| `POST` | `/api/subscriptions/upgrade-request` | Shop owner | Request a paid plan; activated by a super admin after payment |
+| `GET` | `/api/subscriptions/upgrade-request` | Authenticated | The shop's pending upgrade request, if any |
+| `GET` | `/api/subscriptions/upgrade-requests` | Super admin | Pending upgrade requests across all shops |
+| `POST` | `/api/subscriptions/upgrade-requests/:id/approve` | Super admin | Activate the requested plan (records a manual payment) |
+| `POST` | `/api/subscriptions/upgrade-requests/:id/reject` | Super admin | Reject an upgrade request |
 | `GET` | `/api/subscriptions/referral-info` | Authenticated | Get store referral code & stats |
 | `POST` | `/api/subscriptions/apply-referral` | Authenticated | Apply referral promo code |
 
