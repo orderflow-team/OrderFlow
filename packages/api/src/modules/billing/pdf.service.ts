@@ -22,7 +22,13 @@ import {
 } from './templates/invoice.template';
 import { loadImageDataUri } from '../../common/utils/image-data-uri.util';
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'invoices');
+// Rendered PDFs are cached outside `uploads/`, which main.ts serves publicly
+// with no auth — they must only ever leave via the authenticated download
+// route or a share token. Files are keyed by invoice id, not invoice_number:
+// numbering is per business, so every shop has an "INV/2026-27/00001" and
+// number-based filenames made shops overwrite (and get served) each other's
+// invoices.
+const PDF_CACHE_DIR = path.join(process.cwd(), 'storage', 'invoices');
 const SHARE_TOKEN_TTL_MINUTES = 15;
 
 // invoice_number is "INV/{FY}/{seq}" (e.g. "INV/2026-27/00001") — the GST
@@ -126,8 +132,7 @@ export class PdfService implements OnModuleDestroy {
       throw new NotFoundException('Invoice not found');
     }
 
-    const filenameStem = invoiceFilenameStem(invoice.invoice_number);
-    const filePath = path.join(UPLOADS_DIR, `${filenameStem}.pdf`);
+    const filePath = path.join(PDF_CACHE_DIR, `${invoice.id}.pdf`);
     if (invoice.pdf_url && fs.existsSync(filePath)) {
       return filePath;
     }
@@ -140,7 +145,7 @@ export class PdfService implements OnModuleDestroy {
       ? renderPharmacyCashMemoHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber, invoiceColumns?.cashMemo)
       : renderInvoiceHtml(invoice, items, business, customer, order, loadLogoDataUri(business), previousBalanceDue, referenceInvoiceNumber, invoiceColumns?.gstInvoice);
 
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    fs.mkdirSync(PDF_CACHE_DIR, { recursive: true });
 
     let browser: Browser;
     try {
@@ -168,7 +173,8 @@ export class PdfService implements OnModuleDestroy {
       await page.close();
     }
 
-    invoice.pdf_url = `/uploads/invoices/${filenameStem}.pdf`;
+    // Only a "generated" marker now — the file itself is never publicly served.
+    invoice.pdf_url = `/api/billing/invoices/${invoice.id}/pdf`;
     await this.invoicesRepository.save(invoice);
 
     return filePath;

@@ -12,7 +12,7 @@ describe('AiController', () => {
       providers: [
         {
           provide: OrderParserService,
-          useValue: { parseVoiceTranscript: jest.fn(), parseChatOrder: jest.fn() },
+          useValue: { parseChatOrder: jest.fn() },
         },
       ],
     }).compile();
@@ -21,28 +21,19 @@ describe('AiController', () => {
     service = module.get(OrderParserService);
   });
 
-  describe('parseVoice', () => {
-    it('returns a success envelope wrapping the parsed order', async () => {
-      (service.parseVoiceTranscript as jest.Mock).mockResolvedValue({ customerName: 'Neel', items: [] });
+  describe('chatOrder', () => {
+    it('hands the message to the parser for the caller’s business and returns its result', async () => {
+      service.parseChatOrder.mockResolvedValue({ reply: 'Added 2 kg rice' } as any);
 
-      const result = await controller.parseVoice({ transcript: '2kg rice', customerId: 'cust-1' } as any);
+      const result = await controller.chatOrder({
+        businessId: 'biz-1',
+        message: '2 kg rice',
+        orderId: 'order-1',
+        pendingCustomer: undefined,
+      } as any);
 
-      expect(service.parseVoiceTranscript).toHaveBeenCalledWith('2kg rice', 'business-id-placeholder', 'cust-1');
-      expect(result).toEqual({ order: { customerName: 'Neel', items: [] }, status: 'success' });
+      expect(service.parseChatOrder).toHaveBeenCalledWith('biz-1', '2 kg rice', 'order-1', undefined);
+      expect(result).toEqual({ reply: 'Added 2 kg rice' });
     });
-
-    it('returns an error envelope instead of throwing when the service rejects', async () => {
-      (service.parseVoiceTranscript as jest.Mock).mockRejectedValue(new Error('Transcript cannot be empty'));
-
-      const result = await controller.parseVoice({ transcript: '', customerId: 'cust-1' } as any);
-
-      expect(result).toEqual({ error: 'Transcript cannot be empty', status: 'error' });
-    });
-  });
-
-  it('chatOrder delegates to the service with the dto fields spread positionally', () => {
-    const dto = { businessId: 'biz-1', message: '2 widget', orderId: 'order-1', pendingCustomer: { customerName: 'Neel' } };
-    controller.chatOrder(dto as any);
-    expect(service.parseChatOrder).toHaveBeenCalledWith('biz-1', '2 widget', 'order-1', { customerName: 'Neel' });
   });
 });

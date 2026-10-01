@@ -156,8 +156,8 @@ describe('PlatformAdminController', () => {
   });
 
   it('impersonateStore delegates to the service', () => {
-    controller.impersonateStore('biz-1');
-    expect(service.impersonateStore).toHaveBeenCalledWith('biz-1');
+    controller.impersonateStore('biz-1', { user: { userId: 'admin-1' } });
+    expect(service.impersonateStore).toHaveBeenCalledWith('biz-1', 'admin-1');
   });
 
   it('exportSystemSnapshot delegates to the service', () => {

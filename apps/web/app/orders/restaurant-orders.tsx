@@ -13,6 +13,8 @@ import { useBusiness } from '@/lib/use-business';
 import { Plus, Users, ShoppingBag, Trash2, UtensilsCrossed, CheckCircle2, QrCode, Printer, Pencil, History, Search, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { MenuSelectionModal, CartItem } from '@/components/menu-selection-modal';
+import { escapeHtml } from '@/lib/receipt-template';
+import { QrImage } from '@/components/qr-image';
 import React from 'react';
 
 // Convert takeaway order items into cart format
@@ -521,13 +523,14 @@ function RestaurantPageContent() {
           </DialogHeader>
           <div className="flex flex-col items-center justify-center p-6 space-y-6 bg-slate-50 rounded-2xl border border-slate-100 mt-2">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex flex-col items-center">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
-                )}`}
-                alt="Takeaway Self-Service QR"
-                className="w-48 h-48 sm:w-56 sm:h-56"
-              />
+              <div id="takeaway-qr-print-area">
+                <QrImage
+                  value={typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''}
+                  size={300}
+                  alt="Takeaway Self-Service QR"
+                  className="w-48 h-48 sm:w-56 sm:h-56"
+                />
+              </div>
               <div className="text-slate-800 font-extrabold text-lg mt-4 tracking-wide uppercase">TAKEAWAY ORDERING</div>
               <p className="text-xs text-slate-400 font-semibold tracking-wider uppercase mt-1">Scan to View Menu & Order</p>
             </div>
@@ -547,9 +550,8 @@ function RestaurantPageContent() {
               type="button"
               className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
               onClick={() => {
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/takeaway?businessId=${businessId}&customerMode=1` : ''
-                )}`;
+                const qrUrl = document.querySelector<HTMLImageElement>('#takeaway-qr-print-area img')?.src;
+                if (!qrUrl) return;
                 const win = window.open('', '_blank');
                 if (!win) return;
                 win.document.write(`
@@ -917,10 +919,9 @@ function RestaurantPageContent() {
             
             {/* QR Image container */}
             <div id="table-qr-print-area" className="p-4 bg-white rounded-3xl border border-slate-100 flex flex-col items-center gap-3">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                  typeof window !== 'undefined' ? `${window.location.origin}/orders/table/view?id=${qrTable.id}&customerMode=1` : ''
-                )}`}
+              <QrImage
+                value={typeof window !== 'undefined' ? `${window.location.origin}/orders/table/view?id=${qrTable.id}&customerMode=1` : ''}
+                size={300}
                 alt={`QR for ${qrTable.name}`}
                 className="w-[200px] h-[200px] object-contain"
               />
@@ -948,7 +949,7 @@ function RestaurantPageContent() {
                 win.document.write(`
                   <html>
                     <head>
-                      <title>Print QR Code - ${qrTable.name}</title>
+                      <title>Print QR Code - ${escapeHtml(qrTable.name)}</title>
                       <style>
                         body {
                           display: flex;
@@ -986,7 +987,7 @@ function RestaurantPageContent() {
                     <body>
                       <div class="qr-container">
                         <img src="${printContent.querySelector('img')?.src}" alt="QR" />
-                        <div class="label">TABLE ${qrTable.name}</div>
+                        <div class="label">TABLE ${escapeHtml(qrTable.name)}</div>
                         <div class="instruction">Scan to view Menu & Order</div>
                       </div>
                       <script>

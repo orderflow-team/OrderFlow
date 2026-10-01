@@ -25,4 +25,12 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 
 WORKDIR /app/packages/api
+
+# Don't run as root: this process launches headless Chromium with --no-sandbox
+# (pdf.service.ts) to render HTML, so a browser exploit would otherwise be root
+# in the container. The only place the API writes to disk is storage/invoices
+# (cached invoice PDFs); everything else is read-only here.
+RUN mkdir -p storage/invoices && chown -R node:node storage
+USER node
+
 CMD ["npm", "run", "start:prod"]

@@ -249,8 +249,8 @@ export class PlatformAdminController {
   }
 
   @Post('impersonate/:businessId')
-  impersonateStore(@Param('businessId') businessId: string) {
-    return this.platformAdminService.impersonateStore(businessId);
+  impersonateStore(@Param('businessId') businessId: string, @Req() req: any) {
+    return this.platformAdminService.impersonateStore(businessId, req.user?.userId);
   }
 
   @Get('snapshot')

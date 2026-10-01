@@ -564,7 +564,11 @@ export class PlatformAdminService {
       [userId]
     );
 
-    const days = dto.extend_days && dto.extend_days > 0 ? Number(dto.extend_days) : 30;
+    // Spliced into an INTERVAL literal below (an interval can't be a bind
+    // parameter here), and the controller body is an unvalidated inline type —
+    // so force a whole number in a sane range rather than trusting it.
+    const requestedDays = Math.trunc(Number(dto.extend_days));
+    const days = Number.isFinite(requestedDays) && requestedDays > 0 ? Math.min(requestedDays, 3650) : 30;
 
     if (subRes.length === 0) {
       await this.dataSource.query(
@@ -653,7 +657,10 @@ export class PlatformAdminService {
     );
 
     if (subRes.length === 0) {
-      const days = dto.extend_days || 30;
+      // Spliced into an INTERVAL literal below, and the body is an unvalidated
+      // inline type: a string here used to go straight into the SQL.
+      const requestedDays = Math.trunc(Number(dto.extend_days));
+      const days = Number.isFinite(requestedDays) && requestedDays > 0 ? Math.min(requestedDays, 3650) : 30;
       await this.dataSource.query(
         `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, trial_starts_at, trial_ends_at, current_period_start, current_period_end)
          VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '${days} days', NOW(), NOW() + INTERVAL '${days} days')`,
@@ -1140,7 +1147,7 @@ export class PlatformAdminService {
   /**
    * Super Admin Store Impersonation — 1-click developer login to any store
    */
-  async impersonateStore(businessId: string) {
+  async impersonateStore(businessId: string, actingAdminId?: string) {
     const business = await this.businessRepo.findOne({ where: { id: businessId } });
     if (!business) {
       throw new NotFoundException('Store not found');
@@ -1177,16 +1184,23 @@ export class PlatformAdminService {
       // "Business mismatch" — "Login as Store" never actually worked for
       // anything beyond routes with no BusinessScopeGuard.
       businessId: business.id,
+      // Marks the session as support access, and says who started it.
+      impersonatedBy: actingAdminId,
     };
 
-    const token = this.jwtService.sign(payload);
+    // Full owner access for a week was far longer than support work needs, and
+    // this token can't be revoked — keep it short; "Login as Store" again if
+    // more time is needed.
+    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
 
+    // Logged against the super admin who did it. It used to be logged under the
+    // owner's id, so the audit trail couldn't say which admin impersonated whom.
     await this.logActivity(
       'SUPER_ADMIN_IMPERSONATE_STORE',
-      ownerUser.id,
+      actingAdminId ?? ownerUser.id,
       business.id,
       'stores',
-      { store_name: business.name, owner_email: ownerUser.email },
+      { store_name: business.name, owner_user_id: ownerUser.id, owner_email: ownerUser.email },
     );
 
     return {

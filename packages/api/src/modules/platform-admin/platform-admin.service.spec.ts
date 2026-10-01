@@ -428,6 +428,44 @@ describe('PlatformAdminService', () => {
     });
   });
 
+  // extend_days is spliced into an INTERVAL literal (it can't be a bind
+  // parameter), and the controller body is an unvalidated inline type.
+  describe('extend_days is never trusted as SQL', () => {
+    const hostile = "1 days'; DROP TABLE users; --";
+    const sqlSent = () => dataSource.query.mock.calls.map(([sql]) => String(sql)).join(' | ');
+
+    it('updateStoreSubscription: a string never reaches the SQL text', async () => {
+      businessRepo.findOne.mockResolvedValue({ id: 'biz-1' });
+      dataSource.query.mockResolvedValue([]);
+
+      await service.updateStoreSubscription('biz-1', { extend_days: hostile as any, status: 'active' }, 'admin-1');
+
+      expect(sqlSent()).not.toContain('DROP TABLE');
+      expect(sqlSent()).toMatch(/INTERVAL '30 days'/);
+    });
+
+    it('updateStoreSubscription: huge or fractional values are clamped to a whole, sane number', async () => {
+      businessRepo.findOne.mockResolvedValue({ id: 'biz-1' });
+      dataSource.query.mockResolvedValue([]);
+
+      await service.updateStoreSubscription('biz-1', { extend_days: 1e21, status: 'active' }, 'admin-1');
+      expect(sqlSent()).toMatch(/INTERVAL '3650 days'/);
+
+      dataSource.query.mockClear();
+      await service.updateStoreSubscription('biz-1', { extend_days: 7.9, status: 'active' }, 'admin-1');
+      expect(sqlSent()).toMatch(/INTERVAL '7 days'/);
+    });
+
+    it('updateUserSubscription: a string never reaches the SQL text', async () => {
+      userRepo.findOne.mockResolvedValue({ id: 'user-1', business_id: 'biz-1' });
+      dataSource.query.mockResolvedValue([]);
+
+      await service.updateUserSubscription('user-1', { extend_days: hostile as any, status: 'active' }, 'admin-1');
+
+      expect(sqlSent()).not.toContain('DROP TABLE');
+    });
+  });
+
   describe('impersonateStore', () => {
     it('throws NotFoundException when the store does not exist', async () => {
       businessRepo.findOne.mockResolvedValue(null);
@@ -446,11 +484,33 @@ describe('PlatformAdminService', () => {
       businessRepo.findOne.mockResolvedValue({ id: 'biz-1', name: 'Test Store', owner_user_id: 'owner-1' });
       userRepo.findOne.mockResolvedValue({ id: 'owner-1', email: 'owner@example.com', full_name: 'Owner', role: 'admin' });
 
-      const result = await service.impersonateStore('biz-1');
+      const result = await service.impersonateStore('biz-1', 'admin-9');
 
-      expect(jwtService.sign).toHaveBeenCalledWith(expect.objectContaining({ businessId: 'biz-1' }));
+      expect(jwtService.sign).toHaveBeenCalledWith(expect.objectContaining({ businessId: 'biz-1' }), expect.anything());
       expect(result.access_token).toBe('signed-token');
-      expect(activityLogRepo.save).toHaveBeenCalledWith(expect.objectContaining({ action: 'SUPER_ADMIN_IMPERSONATE_STORE' }));
+    });
+
+    it('issues a short-lived token that records which super admin started it', async () => {
+      businessRepo.findOne.mockResolvedValue({ id: 'biz-1', name: 'Test Store', owner_user_id: 'owner-1' });
+      userRepo.findOne.mockResolvedValue({ id: 'owner-1', email: 'owner@example.com', full_name: 'Owner', role: 'admin' });
+
+      await service.impersonateStore('biz-1', 'admin-9');
+
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'owner-1', impersonatedBy: 'admin-9' }),
+        { expiresIn: '1h' },
+      );
+    });
+
+    it('logs the impersonation against the acting super admin, not the owner', async () => {
+      businessRepo.findOne.mockResolvedValue({ id: 'biz-1', name: 'Test Store', owner_user_id: 'owner-1' });
+      userRepo.findOne.mockResolvedValue({ id: 'owner-1', email: 'owner@example.com', full_name: 'Owner', role: 'admin' });
+
+      await service.impersonateStore('biz-1', 'admin-9');
+
+      expect(activityLogRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'SUPER_ADMIN_IMPERSONATE_STORE', user_id: 'admin-9' }),
+      );
     });
   });
 

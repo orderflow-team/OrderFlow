@@ -4,6 +4,8 @@ import { useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Printer, MessageSquare, Sparkles, Store, ShoppingBag } from 'lucide-react';
+import { escapeHtml } from '@/lib/receipt-template';
+import { QrImage } from '@/components/qr-image';
 
 interface WhatsappCounterStandeeProps {
   isOpen: boolean;
@@ -25,8 +27,6 @@ export function WhatsappCounterStandee({
   const formattedPhone = (whatsappPhone || '').replace(/\D/g, '');
   const encodedText = encodeURIComponent('Hi Obix, I want to place an order:');
   const waUrl = `https://wa.me/${formattedPhone}?text=${encodedText}`;
-  // High quality Google Chart QR API URL
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(waUrl)}`;
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -39,7 +39,7 @@ export function WhatsappCounterStandee({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>WhatsApp Order Standee - ${businessName}</title>
+          <title>WhatsApp Order Standee - ${escapeHtml(businessName)}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
             body {
@@ -159,8 +159,9 @@ export function WhatsappCounterStandee({
 
             {/* QR Code Container */}
             <div className="bg-white p-3.5 rounded-2xl inline-block shadow-md border border-slate-200/80 my-1">
-              <img
-                src={qrCodeUrl}
+              <QrImage
+                value={waUrl}
+                size={300}
                 alt="WhatsApp Order QR Code"
                 className="w-48 h-48 rounded-xl object-contain mx-auto"
               />

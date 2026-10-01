@@ -51,6 +51,16 @@ describe('ProductsController', () => {
       expect(result.url).toContain('product-images/');
     });
 
+    // product-images is a public bucket: a client-chosen name like "x.html"
+    // must never become the stored file's extension.
+    it('derives the stored extension from the image type, not the client filename', async () => {
+      const file = { originalname: 'evil.html', mimetype: 'image/png', buffer: Buffer.from('x') };
+
+      const result = await controller.uploadFile(file);
+
+      expect(result.url).toMatch(/product-images\/\d+-[0-9a-f-]{36}\.png$/);
+    });
+
     it('throws BadRequestException when no file is provided', async () => {
       await expect(controller.uploadFile(undefined as any)).rejects.toThrow(BadRequestException);
       expect(sendMock).not.toHaveBeenCalled();
@@ -67,6 +77,27 @@ describe('ProductsController', () => {
     const dto = { businessId: 'biz-1', name: 'Widget', sellingPrice: 10 } as any;
     controller.create(dto);
     expect(service.create).toHaveBeenCalledWith(dto);
+  });
+
+  describe('findAll guest menu', () => {
+    const row = { id: 'p1', name: 'Tea', selling_price: 10, purchase_price: 4, last_supplier_id: 's1', last_supplier: { id: 's1' } };
+
+    it('strips cost price and supplier fields for a guest, even when paginated params are sent', async () => {
+      (service.findAll as jest.Mock).mockResolvedValue([row]);
+      const result = await controller.findAll('biz-1', undefined, undefined, '10', '0', undefined, undefined, {
+        user: { role: 'guest', userId: 'guest-takeaway-biz-1' },
+      });
+      expect(result).toEqual([{ id: 'p1', name: 'Tea', selling_price: 10 }]);
+      expect(service.findAllPaginated).not.toHaveBeenCalled();
+    });
+
+    it('leaves cost price intact for staff', async () => {
+      (service.findAll as jest.Mock).mockResolvedValue([row]);
+      const result = await controller.findAll('biz-1', undefined, undefined, undefined, undefined, undefined, undefined, {
+        user: { role: 'admin', userId: 'u1' },
+      });
+      expect(result).toEqual([row]);
+    });
   });
 
   describe('findAll', () => {

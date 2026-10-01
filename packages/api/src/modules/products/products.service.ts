@@ -10,6 +10,8 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { PriceHistory } from '../../database/entities/price-history.entity';
 import { InvoiceScanItem } from '../../database/entities/invoice-scan-item.entity';
 import { Stock } from '../../database/entities/stock.entity';
+import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { SupplierReturn } from '../../database/entities/supplier-return.entity';
 import { SharedBarcodeCatalog } from '../../database/entities/shared-barcode-catalog.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -383,25 +385,39 @@ export class ProductsService {
     const remove = await this.findOne(removeId, businessId);
 
     return this.dataSource.transaction(async (manager) => {
+      // Lock both rows and read the stock figure here, not from the loads above:
+      // a sale landing between those reads and this transaction would otherwise
+      // be lost when the removed product's quantity is folded into the kept one.
+      // Lock order is by id so two merges touching the same pair can't deadlock.
+      const [first, second] = [keep.id, remove.id].sort();
+      for (const productId of [first, second]) {
+        await manager.findOne(Product, { where: { id: productId, business_id: businessId }, lock: { mode: 'pessimistic_write' } });
+      }
+      const lockedRemove = await manager.findOne(Product, { where: { id: remove.id, business_id: businessId } });
+      const removedStock = Number(lockedRemove?.stock_quantity ?? 0);
+
       await manager.update(OrderItem, { product_id: remove.id }, { product_id: keep.id });
       await manager.update(PurchaseItem, { product_id: remove.id }, { product_id: keep.id });
       await manager.update(InvoiceItem, { product_id: remove.id }, { product_id: keep.id });
       await manager.update(PriceHistory, { product_id: remove.id }, { product_id: keep.id });
       await manager.update(InvoiceScanItem, { matched_product_id: remove.id }, { matched_product_id: keep.id });
       await manager.update(Stock, { product_id: remove.id }, { product_id: keep.id });
+      // These three reference the product too. Batches and variants are
+      // ON DELETE CASCADE, so deleting the removed product used to silently
+      // destroy its batch numbers, expiry dates and recall traceability along
+      // with its packaging variants; supplier_returns has no cascade, so any
+      // product that had ever been returned to a supplier made the whole merge
+      // fail with a foreign-key error.
+      await manager.update(ProductBatch, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(ProductVariant, { product_id: remove.id }, { product_id: keep.id });
+      await manager.update(SupplierReturn, { product_id: remove.id }, { product_id: keep.id });
 
-      if (Number(remove.stock_quantity) > 0) {
-        await manager.increment(Product, { id: keep.id }, 'stock_quantity', Number(remove.stock_quantity));
+      if (removedStock > 0) {
+        await manager.increment(Product, { id: keep.id }, 'stock_quantity', removedStock);
       }
       await manager.delete(Product, { id: remove.id });
 
       return { merged: true, keptProductId: keep.id, removedProductId: remove.id };
     });
-  }
-
-  async adjustStock(id: string, businessId: string, delta: number) {
-    const product = await this.findOne(id, businessId);
-    product.stock_quantity = Number(product.stock_quantity) + delta;
-    return this.productsRepository.save(product);
   }
 }

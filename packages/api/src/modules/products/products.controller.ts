@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   Res,
+  Req,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -15,13 +16,15 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { extname } from 'path';
+import { randomUUID } from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { AllowGuest } from '../../common/decorators/allow-guest.decorator';
+import { getGuestScope } from '../../common/utils/guest-scope';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -29,6 +32,14 @@ import { CreateProductWithVariantsDto } from './dto/create-product-with-variants
 import { MergeProductsDto } from './dto/merge-products.dto';
 
 const PRODUCT_IMAGES_BUCKET = 'product-images';
+// product-images is a public_read bucket, so only real image types may go in.
+// The extension comes from the (checked) mime type, never the client's filename.
+const PRODUCT_IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+};
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/products')
@@ -41,12 +52,20 @@ export class ProductsController {
   // to upload straight to Neon Object Storage instead of Render's ephemeral disk.
   @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (_req, file, cb) => {
+        cb(null, file.mimetype in PRODUCT_IMAGE_EXTENSIONS);
+      },
+      // Held in memory before upload, so an unbounded size is a memory-exhaustion hole.
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
   async uploadFile(@UploadedFile() file: any) {
     if (!file) {
-      throw new BadRequestException('No file uploaded');
+      throw new BadRequestException('Upload a PNG, JPEG, WebP or GIF image up to 5 MB.');
     }
-    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    const key = `${Date.now()}-${randomUUID()}${PRODUCT_IMAGE_EXTENSIONS[file.mimetype]}`;
     await this.s3.send(
       new PutObjectCommand({
         Bucket: PRODUCT_IMAGES_BUCKET,
@@ -87,7 +106,9 @@ export class ProductsController {
   // matching, in particular) call ProductsService.findAll directly and need
   // the full, unbounded array — changing findAll's own contract would have
   // broken them.
+  // Also the guest (table QR / takeaway) menu — see stripping below.
   @Get()
+  @AllowGuest()
   async findAll(
     @Query('businessId') businessId: string,
     @Query('search') search?: string,
@@ -96,7 +117,13 @@ export class ProductsController {
     @Query('offset') offset?: string,
     @Query('category') category?: string,
     @Res({ passthrough: true }) res?: Response,
+    @Req() req?: { user?: { role?: string; userId?: string } },
   ) {
+    if (getGuestScope(req?.user)) {
+      // Guests only need the menu — never cost price or who it's bought from.
+      const products = await this.productsService.findAll(businessId, search, isDraft);
+      return products.map(({ purchase_price, last_supplier_id, last_supplier, ...menuFields }: any) => menuFields);
+    }
     if (limit === undefined && offset === undefined) {
       return this.productsService.findAll(businessId, search, isDraft);
     }

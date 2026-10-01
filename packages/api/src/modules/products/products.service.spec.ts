@@ -5,6 +5,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { Product } from '../../database/entities/product.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
+import { ProductBatch } from '../../database/entities/product-batch.entity';
+import { ProductVariant } from '../../database/entities/product-variant.entity';
+import { SupplierReturn } from '../../database/entities/supplier-return.entity';
 import { SharedBarcodeCatalog } from '../../database/entities/shared-barcode-catalog.entity';
 import { InvoicesService } from '../billing/invoices.service';
 
@@ -312,14 +315,37 @@ describe('ProductsService', () => {
       await expect(service.mergeProducts('biz-1', 'p1', 'p1')).rejects.toThrow(BadRequestException);
     });
 
-    it('reassigns references, folds in stock, deletes the removed product, and returns a summary', async () => {
+    // Batches and variants are ON DELETE CASCADE and supplier_returns blocks
+    // the delete, so each must be moved to the kept product first — otherwise
+    // merging destroys batch numbers / expiry dates / variants, or fails outright.
+    it('moves batches, variants and supplier returns to the kept product, and folds in the locked stock figure', async () => {
       productsRepo.findOne
         .mockResolvedValueOnce({ id: 'keep-1', business_id: 'biz-1' })
         .mockResolvedValueOnce({ id: 'remove-1', business_id: 'biz-1', stock_quantity: 5 });
+      const manager: any = {
+        // What is actually in the database inside the transaction (a sale since the loads above left 3).
+        findOne: jest.fn(async (_E: any, opts: any) =>
+          opts.where.id === 'remove-1' ? { id: 'remove-1', business_id: 'biz-1', stock_quantity: 3 } : { id: 'keep-1', business_id: 'biz-1' },
+        ),
+        update: jest.fn(),
+        increment: jest.fn(),
+        delete: jest.fn(),
+      };
+      dataSource.transaction.mockImplementationOnce(async (cb: any) => cb(manager));
 
       const result = await service.mergeProducts('biz-1', 'keep-1', 'remove-1');
 
-      expect(dataSource.transaction).toHaveBeenCalled();
+      expect(manager.update).toHaveBeenCalledWith(ProductBatch, { product_id: 'remove-1' }, { product_id: 'keep-1' });
+      expect(manager.update).toHaveBeenCalledWith(ProductVariant, { product_id: 'remove-1' }, { product_id: 'keep-1' });
+      expect(manager.update).toHaveBeenCalledWith(SupplierReturn, { product_id: 'remove-1' }, { product_id: 'keep-1' });
+      // Stock comes from the locked in-transaction read (3), not the stale pre-transaction one (5).
+      expect(manager.increment).toHaveBeenCalledWith(Product, { id: 'keep-1' }, 'stock_quantity', 3);
+      // Everything is moved before the removed product is deleted.
+      const lastMove = Math.max(...manager.update.mock.invocationCallOrder);
+      expect(lastMove).toBeLessThan(manager.delete.mock.invocationCallOrder[0]);
+      // Both rows are locked first.
+      const locks = manager.findOne.mock.calls.filter(([, o]: any) => o.lock?.mode === 'pessimistic_write');
+      expect(locks).toHaveLength(2);
       expect(result).toEqual({ merged: true, keptProductId: 'keep-1', removedProductId: 'remove-1' });
     });
 
@@ -330,27 +356,4 @@ describe('ProductsService', () => {
     });
   });
 
-  describe('adjustStock', () => {
-    it('applies a positive delta to stock_quantity', async () => {
-      productsRepo.findOne.mockResolvedValue({ id: 'p1', business_id: 'biz-1', stock_quantity: 10 });
-
-      const result = await service.adjustStock('p1', 'biz-1', 5);
-
-      expect(result.stock_quantity).toBe(15);
-    });
-
-    it('applies a negative delta to stock_quantity', async () => {
-      productsRepo.findOne.mockResolvedValue({ id: 'p1', business_id: 'biz-1', stock_quantity: 10 });
-
-      const result = await service.adjustStock('p1', 'biz-1', -3);
-
-      expect(result.stock_quantity).toBe(7);
-    });
-
-    it('throws NotFoundException when the product does not exist', async () => {
-      productsRepo.findOne.mockResolvedValue(null);
-
-      await expect(service.adjustStock('missing', 'biz-1', 1)).rejects.toThrow(NotFoundException);
-    });
-  });
 });

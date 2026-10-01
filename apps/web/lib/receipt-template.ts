@@ -58,7 +58,7 @@ const money = (n: number) => n.toFixed(2);
 // `X" onload="fetch(...)` can't execute in the print window (which, as a
 // same-origin popup, can reach back into window.opener otherwise, including
 // its localStorage-held auth token).
-const escapeHtml = (s: string) =>
+export const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
