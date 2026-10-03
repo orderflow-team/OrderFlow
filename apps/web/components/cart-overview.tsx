@@ -38,16 +38,67 @@ export function CartOverview(props: CartOverviewProps) {
     getMaxQty, onBack, onSubmit, onName, onRate, onUnit, onQty, onRemove, onSaveUnitPrice, onQuickAdd, onQuickRemove,
   } = props;
 
-  // Rows whose rate the user chose to override even though a price was known.
-  const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [calcOpen, setCalcOpen] = useState(true);
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Salesmen can't set rates, so a missing rate never blocks them.
   const zeroCount = priceReadOnly ? 0 : items.filter(i => rateOf(i) <= 0).length;
   const firstZeroId = priceReadOnly ? undefined : items.find(i => rateOf(i) <= 0)?.product.id;
-  // Raw text while a rate is being typed, so "0.5" survives the leading zero.
+  // Rates are typed on the in-app keypad (never the phone's keyboard). `fresh` means the
+  // next key replaces the existing rate, like a selected field.
+  const [rateEditId, setRateEditId] = useState<string | null>(null);
+  const [fresh, setFresh] = useState(false);
   const [rateDraft, setRateDraft] = useState<Record<string, string>>({});
+  // True while a name / qty / unit field has the phone keyboard up: our keypad steps aside.
+  const [typing, setTyping] = useState(false);
+  const editing = rateEditId && items.some(i => i.product.id === rateEditId) ? rateEditId : null;
+
+  const startRateEdit = (id: string) => {
+    if (priceReadOnly) return;
+    setCalcOpen(true);
+    setRateEditId(id);
+    setFresh(true);
+    requestAnimationFrame(() => rowRefs.current[id]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  };
+  const setRate = (id: string, v: string) => {
+    setRateDraft(p => ({ ...p, [id]: v }));
+    onRate(id, v === '' || v === '.' ? '0' : v);
+  };
+  const rateDigit = (d: string) => {
+    if (!editing) return;
+    const base = fresh ? '' : (rateDraft[editing] ?? '');
+    setFresh(false);
+    if (d === '.') { if (!base.includes('.')) setRate(editing, base === '' ? '0.' : base + '.'); return; }
+    if (d === '00') { if (base !== '' && base !== '0' && base.length + 2 <= 9) setRate(editing, base + '00'); return; }
+    if (base.length >= 9) return;
+    setRate(editing, base === '0' ? d : base + d);
+  };
+  const rateBackspace = () => {
+    if (!editing) return;
+    const base = fresh ? '' : (rateDraft[editing] ?? '');
+    setFresh(false);
+    setRate(editing, base.slice(0, -1));
+  };
+  const rateDone = () => {
+    const current = editing;
+    setRateDraft({});
+    setFresh(false);
+    // Hop to the next line that still has no rate, otherwise close the editor.
+    const next = items.find(i => i.product.id !== current && rateOf(i) <= 0);
+    if (next && !priceReadOnly) startRateEdit(next.product.id);
+    else setRateEditId(null);
+  };
+  // Open straight on the first missing rate.
+  useEffect(() => { if (firstZeroId) startRateEdit(firstZeroId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') e.currentTarget.blur();
+  };
+  const typingProps = {
+    onFocus: () => { setTyping(true); setRateEditId(null); setRateDraft({}); },
+    onBlur: () => setTyping(false),
+  };
 
   // Jump to the first line that still needs a rate when the user tries to place the order.
   const [attempted, setAttempted] = useState(false);
@@ -85,7 +136,6 @@ export function CartOverview(props: CartOverviewProps) {
           const id = item.product.id;
           const rate = rateOf(item);
           const needsRate = rate <= 0 && !priceReadOnly;
-          const rateEditable = !priceReadOnly && (needsRate || unlocked[id]);
           const isOpen = !!expanded[id];
           const noUnit = !item.product.unit || !item.product.unit.trim();
           return (
@@ -95,46 +145,33 @@ export function CartOverview(props: CartOverviewProps) {
                   type="text"
                   value={item.product.name}
                   onChange={e => onName(id, e.target.value)}
-                  onKeyDown={e => e.stopPropagation()}
+                  onKeyDown={blurOnEnter}
+                  enterKeyHint="done"
+                  {...typingProps}
                   className="min-w-0 text-sm font-medium text-slate-800 bg-transparent rounded px-1 -mx-1 outline-none focus:ring-1 focus:ring-emerald-500"
                   aria-label="Item name"
                 />
 
-                {rateEditable ? (
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    autoFocus={id === firstZeroId && !unlocked[id]}
-                    placeholder="Rate"
-                    value={rateDraft[id] ?? (needsRate ? '' : item.product.selling_price)}
-                    onChange={e => {
-                      const v = e.target.value;
-                      setUnlocked(p => (p[id] ? p : { ...p, [id]: true }));
-                      setRateDraft(p => ({ ...p, [id]: v }));
-                      onRate(id, v === '' ? '0' : v);
-                    }}
-                    onBlur={() => setRateDraft(p => { const n = { ...p }; delete n[id]; return n; })}
-                    onFocus={e => e.target.select()}
-                    onKeyDown={e => e.stopPropagation()}
-                    aria-label="Rate"
-                    className={`w-full h-8 text-right text-sm rounded-md px-1.5 outline-none border ${
-                      needsRate ? 'border-rose-400 bg-rose-50 focus:ring-1 focus:ring-rose-500' : 'border-slate-300 bg-white focus:ring-1 focus:ring-emerald-500'
-                    }`}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    disabled={priceReadOnly}
-                    onClick={() => setUnlocked(p => ({ ...p, [id]: true }))}
-                    title={priceReadOnly ? undefined : 'Tap to change rate'}
-                    className={`flex items-center justify-end gap-0.5 h-8 text-sm text-slate-700 ${priceReadOnly ? 'cursor-default' : 'hover:text-emerald-700'}`}
-                  >
-                    {!priceReadOnly && <Lock className="w-2.5 h-2.5 text-slate-300" />}
-                    {needsRate ? <span className="text-rose-500 text-xs">No rate</span> : <>₹{fmt(rate)}</>}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={priceReadOnly}
+                  onClick={() => startRateEdit(id)}
+                  aria-label="Rate"
+                  title={priceReadOnly ? undefined : 'Tap to change rate'}
+                  className={`flex items-center justify-end gap-0.5 h-8 px-1.5 rounded-md text-sm border ${
+                    editing === id
+                      ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500 text-slate-900'
+                      : needsRate
+                        ? 'border-rose-400 bg-rose-50 text-rose-500'
+                        : 'border-transparent text-slate-700'
+                  } ${priceReadOnly ? 'cursor-default' : ''}`}
+                >
+                  {editing === id
+                    ? <>₹{rateDraft[id] ?? (rate > 0 ? String(rate) : '')}<span className="w-px h-4 bg-emerald-500 animate-pulse" /></>
+                    : needsRate
+                      ? <span className="text-xs">Rate</span>
+                      : <>{!priceReadOnly && <Lock className="w-2.5 h-2.5 text-slate-300" />}₹{fmt(rate)}</>}
+                </button>
 
                 <div className="flex items-center justify-center gap-0.5">
                   <button type="button" onClick={() => onQty(item, item.quantity - 1)} className="w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:bg-slate-100" aria-label="Decrease">
@@ -149,9 +186,10 @@ export function CartOverview(props: CartOverviewProps) {
                       const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
                       if (!isNaN(v) && v >= 0) onQty(item, v);
                     }}
-                    onBlur={() => { if (item.quantity === 0) onQty(item, 0); }}
-                    onFocus={e => e.target.select()}
-                    onKeyDown={e => e.stopPropagation()}
+                    onFocus={e => { e.target.select(); typingProps.onFocus(); }}
+                    onBlur={() => { typingProps.onBlur(); if (item.quantity === 0) onQty(item, 0); }}
+                    onKeyDown={blurOnEnter}
+                    enterKeyHint="done"
                     aria-label="Quantity"
                     className="w-8 text-center text-sm font-medium bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
@@ -189,7 +227,9 @@ export function CartOverview(props: CartOverviewProps) {
                     value={item.product.unit || ''}
                     placeholder="Unit"
                     onChange={e => onUnit(id, e.target.value)}
-                    onKeyDown={e => e.stopPropagation()}
+                    onKeyDown={blurOnEnter}
+                    enterKeyHint="done"
+                    {...typingProps}
                     className={`w-24 h-7 text-xs rounded border px-1.5 outline-none ${noUnit ? 'border-rose-400' : 'border-slate-300'} focus:ring-1 focus:ring-emerald-500`}
                   />
                   {!priceReadOnly && onSaveUnitPrice && (
@@ -216,8 +256,20 @@ export function CartOverview(props: CartOverviewProps) {
         </datalist>
       </div>
 
-      {calcOpen && (
-        <CalcKeypad liveIds={items.map(i => i.product.id)} onQuickAdd={onQuickAdd} onQuickRemove={onQuickRemove} />
+      {calcOpen && !typing && (
+        <CalcKeypad
+          liveIds={items.map(i => i.product.id)}
+          onQuickAdd={onQuickAdd}
+          onQuickRemove={onQuickRemove}
+          onCollapse={() => { setCalcOpen(false); setRateEditId(null); setRateDraft({}); }}
+          rateEdit={editing ? {
+            label: items.find(i => i.product.id === editing)?.product.name ?? '',
+            value: rateDraft[editing] ?? (rateOf(items.find(i => i.product.id === editing)!) > 0 ? String(rateOf(items.find(i => i.product.id === editing)!)) : ''),
+            onDigit: rateDigit,
+            onBackspace: rateBackspace,
+            onDone: rateDone,
+          } : undefined}
+        />
       )}
 
       <div className="px-4 pt-2 pb-3 border-t border-slate-200 bg-white/80">
