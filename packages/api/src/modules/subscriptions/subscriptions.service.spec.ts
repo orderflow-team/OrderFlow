@@ -42,6 +42,8 @@ describe('SubscriptionsService upgrade requests', () => {
         .mockResolvedValueOnce([])
         // owner lookup
         .mockResolvedValueOnce([{ id: 'owner-1' }])
+        // existing subscription row for this shop? none → insert
+        .mockResolvedValueOnce([])
         .mockResolvedValue([]);
 
       const result = await service.approveUpgradeRequest('req-1', 'admin-1');
@@ -51,6 +53,28 @@ describe('SubscriptionsService upgrade requests', () => {
       expect(subscriptionCall?.[1]).toContain('manual');
       const paymentCall = query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO subscription_payments'));
       expect(paymentCall?.[1]).toEqual(['biz-1', '499', 'manual', 'manual_']);
+    });
+
+    // The migrations only make business_id unique (not user_id), so ON CONFLICT (user_id)
+    // failed on any database built from them. Activation must work without it.
+    it('updates the existing subscription row instead of relying on ON CONFLICT', async () => {
+      query
+        .mockResolvedValueOnce([[{ business_id: 'biz-1', plan_code: 'pro', billing_cycle: 'monthly' }], 1])
+        .mockResolvedValueOnce([{ id: 'plan-pro', code: 'pro', name: 'Pro', price_monthly_inr: '499', price_yearly_inr: '4999' }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'owner-1' }])
+        .mockResolvedValueOnce([{ id: 'sub-1' }]) // existing row found
+        .mockResolvedValue([]);
+
+      await service.approveUpgradeRequest('req-1', 'admin-1');
+
+      const sql = sqlCalls();
+      expect(sql.some((s) => s.includes('ON CONFLICT'))).toBe(false);
+      expect(sql.some((s) => s.includes('UPDATE business_subscriptions'))).toBe(true);
+      expect(sql.some((s) => s.includes('INSERT INTO business_subscriptions'))).toBe(false);
+      const update = query.mock.calls.find(([s]) => String(s).includes('UPDATE business_subscriptions'));
+      expect(update?.[1][0]).toBe('sub-1');
+      expect(update?.[1]).toContain('manual');
     });
 
     it('refuses a request that was already handled', async () => {
