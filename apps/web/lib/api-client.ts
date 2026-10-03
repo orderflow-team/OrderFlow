@@ -168,6 +168,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+/** Whether a request was sent with a login token (as opposed to before the visitor had one). */
+function carriedCredentials(request: any): boolean {
+  const headers = request?.headers;
+  return !!(headers?.Authorization ?? headers?.authorization ?? headers?.get?.('Authorization'));
+}
+
 // De-duplicates concurrent refreshes: if several requests 401 around the same
 // moment (e.g. a handful of components fetching right after the app resumes
 // from background), they all await this same in-flight call instead of each
@@ -230,6 +236,21 @@ apiClient.interceptors.response.use(
       originalRequest?.url?.includes('/auth/google') ||
       originalRequest?.url?.includes('/auth/otp') ||
       originalRequest?.url?.includes('/auth/signup');
+
+    // QR-code customer pages (?customerMode=1) log the visitor in as a guest on
+    // load, but the shared page shell fires requests in the same instant (plan
+    // status, banners) — with no token yet, so they 401. That is expected, not
+    // an expired session: reacting to it wiped the guest session being created
+    // and sent the customer to /login, so scanning a QR code showed a sign-in
+    // screen instead of the menu.
+    if (
+      error.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('customerMode') === '1' &&
+      !carriedCredentials(originalRequest)
+    ) {
+      return Promise.reject(error);
+    }
 
     // A short-lived access_token expiring is routine — try a silent refresh
     // and retry once before treating this as a real logout. _retry guards

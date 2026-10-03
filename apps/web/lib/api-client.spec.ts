@@ -160,6 +160,50 @@ describe('api-client', () => {
       expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
     });
 
+    // A customer scanning a table/takeaway QR code gets a guest login on page load, but
+    // the page shell sends requests before that finishes. Those token-less 401s used to
+    // wipe the new guest session and redirect to /login.
+    describe('on a QR customer page (?customerMode=1)', () => {
+      const setUrl = (search: string) => window.history.pushState({}, '', '/orders/takeaway' + search);
+      afterEach(() => window.history.pushState({}, '', '/'));
+
+      it('ignores a 401 for a request that was sent before the guest had a token', async () => {
+        setUrl('?businessId=b1&customerMode=1');
+        localStorage.setItem('access_token', 'guest-token-just-created');
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const error = { response: { status: 401 }, config: { url: '/api/subscriptions/current', headers: {} } };
+
+        await expect(responseInterceptors[0].onRejected(error)).rejects.toBe(error);
+
+        expect(localStorage.getItem('access_token')).toBe('guest-token-just-created'); // session kept
+        expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
+        expect(axiosPostMock).not.toHaveBeenCalled();
+      });
+
+      it('still handles a 401 normally when the request did carry a token (a real expiry)', async () => {
+        setUrl('?businessId=b1&customerMode=1');
+        localStorage.setItem('access_token', 'expired');
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const error = { response: { status: 401 }, config: { url: '/api/orders', headers: { Authorization: 'Bearer expired' }, _retry: true } };
+
+        await expect(responseInterceptors[0].onRejected(error)).rejects.toBe(error);
+
+        expect(localStorage.getItem('access_token')).toBeNull();
+        expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
+      });
+
+      it('does not change behavior on ordinary (non-QR) pages', async () => {
+        setUrl('?businessId=b1');
+        localStorage.setItem('access_token', 'stale');
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+        const error = { response: { status: 401 }, config: { url: '/api/orders', headers: {}, _retry: true } };
+
+        await expect(responseInterceptors[0].onRejected(error)).rejects.toBe(error);
+
+        expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
+      });
+    });
+
     it('rejects immediately with no refresh attempt when there is no stored refresh_token', async () => {
       const originalRequest: any = { url: '/api/orders', _retry: false };
       const error = { response: { status: 401 }, config: originalRequest };
