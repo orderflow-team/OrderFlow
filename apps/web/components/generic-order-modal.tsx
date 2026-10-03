@@ -9,6 +9,8 @@ import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
 import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { parseQuantityUnit, canonicalUnitKey } from '@/lib/parse-quantity-unit';
+import { CartOverview } from '@/components/cart-overview';
+import { useIsNativeApp } from '@/lib/use-is-native-app';
 import { ShoppingCart, Plus, Minus, Search, Trash2, Phone, User, CheckCircle2, Save, Check, ScanBarcode, Stethoscope, UserRound, ChevronDown, ChevronUp, Camera, Grid2x2, X } from 'lucide-react';
 import { CategoryFilterPills } from '@/components/category-filter-pills';
 import { useBarcodeScanner } from '@/lib/use-barcode-scanner';
@@ -107,6 +109,9 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [justCreatedCustomer, setJustCreatedCustomer] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // The Cart Overview + keypad flow is for the mobile app only; the website keeps the inline cart.
+  const isNativeApp = useIsNativeApp();
+  const [showOverview, setShowOverview] = useState(false);
   const [isCartCollapsed, setIsCartCollapsed] = useState(false);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
   // Camera barcode scanning is native-only (Capacitor Android) — the toggle
@@ -227,6 +232,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setPatientName('');
       setDoctorName('');
       setIsHeaderCollapsed(false);
+      setShowOverview(false);
       setIsCartCollapsed(false);
       setShowOptionalFields(false);
       setScanMode(false);
@@ -409,6 +415,16 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     });
   };
 
+  // Calculator entries from the Cart Overview: nameless lines the cashier can
+  // rename afterwards. Unit defaults to pcs so submit's unit check passes.
+  const quickAddSeq = useRef(0);
+  const quickAddLine = (rate: number, qty: number): string => {
+    const id = `draft-qa-${Date.now()}-${quickAddSeq.current++}`;
+    const product: Product = { id, name: 'Item', selling_price: String(rate), category: null, is_available: true, unit: 'pcs' };
+    setCart(prev => ({ ...prev, [id]: { product, quantity: qty, original_unit: 'pcs', original_price: rate } }));
+    return id;
+  };
+
   const updateCartName = (productId: string, newName: string) => {
     setCart(prev => {
       const newCart = { ...prev };
@@ -555,6 +571,11 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       return;
     }
 
+    if (isNativeApp && !isSalesmanRole && items.some(item => !(Number(item.product.selling_price) > 0))) {
+      setShowOverview(true);
+      return;
+    }
+
     // Verify all items have a unit
     const hasItemWithoutUnit = items.some(item => !item.product.unit || !item.product.unit.trim());
     if (hasItemWithoutUnit) {
@@ -583,6 +604,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
 
   const cartItems = Object.values(cart);
   const cartTotal = cartItems.reduce((acc, item) => acc + (Number(item.product.selling_price) * item.quantity), 0);
+  const hasZeroRate = isNativeApp && !isSalesmanRole && cartItems.some(i => !(Number(i.product.selling_price) > 0));
   const hasCustomerPrices = Object.keys(customerPrices).length > 0;
 
   // Barcode scanner (keyboard-wedge): scanning an item while the modal is open
@@ -1053,6 +1075,72 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
           )}
         </div>
 
+        {isNativeApp ? (
+        <>
+        {/* Cart summary — full editing lives in the Cart Overview */}
+        <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 px-4 pt-3 pb-4 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
+          <button
+            type="button"
+            onClick={() => setShowOverview(true)}
+            disabled={cartItems.length === 0}
+            data-testid="cart-review"
+            className="w-full flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl bg-white/70 border border-white/60 text-sm text-slate-800 disabled:opacity-60"
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <ShoppingCart className="w-4 h-4" />
+              Cart ({cartItems.length} items)
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="font-bold text-base">₹{cartTotal.toFixed(2)}</span>
+              {cartItems.length > 0 && <span className="text-xs font-semibold text-tile-lavender-fg">Review ›</span>}
+            </span>
+          </button>
+
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              title="Press /"
+              className="flex-1 h-11 gap-1.5 font-semibold bg-tile-lavender-fg hover:brightness-95 text-white"
+              onClick={focusSearch}
+            >
+              <Plus className="w-4 h-4" /> {isPharmacy ? 'Add Medicine' : terms ? `Add ${singularLabel(terms.productsLabel)}` : 'Add Product'}
+            </Button>
+            <Button
+              title="Ctrl+Enter"
+              className="flex-1 h-11 text-base font-semibold"
+              disabled={cartItems.length === 0 || submitting}
+              onClick={() => (hasZeroRate ? setShowOverview(true) : handleSubmit())}
+            >
+              {submitting ? 'Submitting...' : `Submit ${orderWord}`}
+            </Button>
+          </div>
+        </div>
+
+        {showOverview && (
+          <CartOverview
+            items={cartItems}
+            total={cartTotal}
+            priceReadOnly={isSalesmanRole}
+            submitting={submitting}
+            submitLabel={`Submit ${orderWord}`}
+            error={submitError || validationError || phoneError}
+            unitSaveState={unitPriceSaveState}
+            getMaxQty={(item) => getMaxQty(item.product)}
+            onBack={() => setShowOverview(false)}
+            onSubmit={handleSubmit}
+            onName={updateCartName}
+            onRate={updateCartPrice}
+            onUnit={updateCartUnit}
+            onQty={(item, qty) => (qty <= 0 ? updateCart(item.product, -item.quantity) : setCartQuantity(item.product, qty))}
+            onRemove={(id) => setCart(prev => { const n = { ...prev }; delete n[id]; return n; })}
+            onSaveUnitPrice={saveUnitPrice}
+            onQuickAdd={quickAddLine}
+            onQuickRemove={(id) => setCart(prev => { const n = { ...prev }; delete n[id]; return n; })}
+          />
+        )}
+        </>
+        ) : (
+        <>
         {/* Cart */}
         <div className="flex-shrink-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 border-t border-white/50 px-4 pt-4 pb-4 shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.1)] z-10 glass-sheen-sm rounded-b-3xl">
           <button
@@ -1218,6 +1306,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
             </Button>
           </div>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
     <QuickAddProductDialog

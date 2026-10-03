@@ -18,7 +18,9 @@ import {
   ChevronDown, 
   ArrowRight,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Keyboard,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,10 @@ import { useOfflineStore } from '@/lib/offline-store';
 import { type ParsedVoiceItem } from '@/lib/use-voice-order';
 import { getCached } from '@/lib/offline-db';
 import { instantPrintReceipt, buildReceiptHtml } from '@/lib/receipt-template';
+import { hasRole } from '@/lib/auth';
+import { useIsNativeApp } from '@/lib/use-is-native-app';
+import { CalcKeypad } from '@/components/calc-keypad';
+import { CartOverview } from '@/components/cart-overview';
 
 interface Product {
   id: string;
@@ -86,6 +92,13 @@ export function DashboardQuickOrder({
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [upiQrUrl, setUpiQrUrl] = useState<string | null>(null);
   const enqueueOrder = useOfflineStore((s) => s.enqueueOrder);
+  // Keypad entry (Ezo-style) is for people who set prices; salesmen only record what's wanted.
+  // Mobile app only — the website keeps the original Quick Order.
+  const isNativeApp = useIsNativeApp();
+  const canUseKeypad = isNativeApp && !hasRole('salesman');
+  const [entryMode, setEntryMode] = useState<'search' | 'keypad'>('search');
+  const [showCartEditor, setShowCartEditor] = useState(false);
+  const quickSeq = React.useRef(0);
 
   // Load products and customers when dialog opens
   useEffect(() => {
@@ -163,6 +176,26 @@ export function DashboardQuickOrder({
 
   const clearCart = () => setCart({});
 
+  const isDraft = (id: string) => id.startsWith('draft-');
+
+  // Keypad lines: nameless "Item" rows the cashier can rename afterwards.
+  const quickAddLine = (rate: number, qty: number): string => {
+    const id = `draft-qa-${Date.now()}-${quickSeq.current++}`;
+    setCart((prev) => ({
+      ...prev,
+      [id]: { product: { id, name: 'Item', selling_price: String(rate), unit: 'pcs' }, quantity: qty },
+    }));
+    return id;
+  };
+  const removeLine = (id: string) =>
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  const patchLine = (id: string, fn: (i: CartItem) => CartItem) =>
+    setCart((prev) => (prev[id] ? { ...prev, [id]: fn(prev[id]) } : prev));
+
   const cartItems = Object.values(cart);
   // Same maths as the server's order total (price × qty + GST per line), so the
   // amount collected and the UPI QR match the bill — not the pre-GST price.
@@ -174,6 +207,7 @@ export function DashboardQuickOrder({
       }, 0) * 100,
     ) / 100;
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const hasZeroRate = isNativeApp && cartItems.some((i) => !(Number(i.product.selling_price) > 0));
 
   // Filter products for fast selection
   const filteredProducts = search.trim()
@@ -190,6 +224,10 @@ export function DashboardQuickOrder({
   // ⚡ 1-Click Order Execution (Cash, UPI, Credit)
   const handleExecuteOrder = async (paymentMode: 'cash' | 'upi' | 'credit') => {
     if (!businessId || cartItems.length === 0 || submitting) return;
+    if (hasZeroRate) {
+      setShowCartEditor(true);
+      return;
+    }
     setSubmitting(true);
     setSuccessOrder(null);
 
@@ -200,7 +238,8 @@ export function DashboardQuickOrder({
       phone: customerPhone ? customerPhone.replace(/\D/g, '').slice(-10) : undefined,
       orderType: 'regular',
       items: cartItems.map((item) => ({
-        productId: item.product.id,
+        productId: isDraft(item.product.id) ? undefined : item.product.id,
+        customProductName: isDraft(item.product.id) ? item.product.name : undefined,
         quantity: item.quantity,
         unit: item.product.unit || 'pcs',
         unitPrice: Number(item.product.selling_price),
@@ -421,6 +460,35 @@ export function DashboardQuickOrder({
             </div>
           )}
 
+          {canUseKeypad && (
+            <div className="flex p-0.5 rounded-xl bg-slate-200/70 text-xs font-bold" role="tablist" aria-label="Entry mode">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === 'search'}
+                onClick={() => setEntryMode('search')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition ${entryMode === 'search' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
+              >
+                <Search className="w-3.5 h-3.5" /> Search
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={entryMode === 'keypad'}
+                onClick={() => setEntryMode('keypad')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition ${entryMode === 'keypad' ? 'bg-white text-slate-800 shadow-xs' : 'text-slate-500'}`}
+              >
+                <Keyboard className="w-3.5 h-3.5" /> Keypad
+              </button>
+            </div>
+          )}
+
+          {entryMode === 'keypad' && canUseKeypad ? (
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+              <CalcKeypad liveIds={cartItems.map((i) => i.product.id)} onQuickAdd={quickAddLine} onQuickRemove={removeLine} />
+            </div>
+          ) : (
+          <>
           {/* Search & Voice Bar */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -521,6 +589,8 @@ export function DashboardQuickOrder({
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* 3. Bottom Sticky Settle Dock */}
@@ -550,6 +620,15 @@ export function DashboardQuickOrder({
                     </span>
                   ))}
                 </div>
+                {isNativeApp && (
+                <button
+                  type="button"
+                  onClick={() => setShowCartEditor(true)}
+                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-indigo-600 hover:underline px-1 shrink-0"
+                >
+                  <Pencil className="w-2.5 h-2.5" /> Edit
+                </button>
+                )}
                 <button
                   type="button"
                   onClick={clearCart}
@@ -614,6 +693,27 @@ export function DashboardQuickOrder({
           <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,16px))] bg-slate-100/70 border-t border-slate-200/80 text-center text-xs text-slate-400 font-medium shrink-0">
             Tap any product or speak above to add to cart
           </div>
+        )}
+
+        {isNativeApp && showCartEditor && (
+          <CartOverview
+            items={cartItems as any}
+            total={cartTotal}
+            priceReadOnly={!canUseKeypad}
+            submitting={false}
+            submitLabel="Done"
+            unitSaveState={{}}
+            getMaxQty={() => 999999}
+            onBack={() => setShowCartEditor(false)}
+            onSubmit={() => setShowCartEditor(false)}
+            onName={(id, name) => patchLine(id, (i) => ({ ...i, product: { ...i.product, name } }))}
+            onRate={(id, rate) => patchLine(id, (i) => ({ ...i, product: { ...i.product, selling_price: rate } }))}
+            onUnit={(id, unit) => patchLine(id, (i) => ({ ...i, product: { ...i.product, unit } }))}
+            onQty={(item, qty) => (qty <= 0 ? removeLine(item.product.id) : patchLine(item.product.id, (i) => ({ ...i, quantity: qty })))}
+            onRemove={removeLine}
+            onQuickAdd={quickAddLine}
+            onQuickRemove={removeLine}
+          />
         )}
 
         {/* 4. Internal Customer Picker Overlay */}
