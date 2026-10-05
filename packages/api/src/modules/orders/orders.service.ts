@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
   Inject,
   Optional,
   forwardRef,
@@ -583,73 +584,86 @@ export class OrdersService {
   }
 
   /**
-   * Automatically creates an official invoice, generates the PDF, and sends it directly
-   * to the customer's WhatsApp number via Evolution API (from the business's connected WhatsApp).
+   * Fire-and-forget version used right after an order is placed: it never throws, because a failed
+   * WhatsApp send must not affect the sale. The reason is logged. The manual "Send on WhatsApp"
+   * button uses sendWhatsappInvoice() instead, so the user is told when it did not go out.
    */
   async dispatchWhatsappInvoice(order: any, businessId: string, rawPhone?: string) {
     try {
-      let phone = rawPhone;
-      if (!phone && order.customer_id) {
-        const customer = await this.dataSource.getRepository(Customer).findOne({
-          where: { id: order.customer_id },
+      await this.sendWhatsappInvoice(order, businessId, rawPhone);
+    } catch (err: any) {
+      this.logger.warn(`WhatsApp invoice not sent for order ${order?.id}: ${err?.message}`);
+    }
+  }
+
+  /**
+   * Creates the official invoice if needed, generates the PDF and sends it to the customer's WhatsApp
+   * from the business's connected number. Throws a specific, user-readable error for every way it can
+   * fail, so callers never report success for a message that was not sent.
+   */
+  async sendWhatsappInvoice(order: any, businessId: string, rawPhone?: string) {
+    let phone = rawPhone;
+    if (!phone && order.customer_id) {
+      const customer = await this.dataSource.getRepository(Customer).findOne({
+        where: { id: order.customer_id, business_id: businessId },
+      });
+      phone = customer?.phone;
+    }
+    if (!phone || phone.replace(/\D/g, "").length < 10) {
+      throw new BadRequestException(
+        "This order has no valid customer phone number. Add the customer's number and try again.",
+      );
+    }
+
+    const business = await this.dataSource.getRepository(Business).findOne({
+      where: { id: businessId },
+    });
+    if (!business?.whatsapp_instance_name || !business.whatsapp_connected) {
+      throw new BadRequestException("WhatsApp is not connected. Connect it in Settings → WhatsApp first.");
+    }
+
+    // Ensure an invoice entity exists for this order
+    let invoice = await this.dataSource.getRepository(Invoice).findOne({
+      where: { order_id: order.id, type: "invoice" },
+    });
+    if (!invoice) {
+      try {
+        invoice = await this.invoicesService.generateFromOrder(order.id, businessId);
+      } catch (genErr: any) {
+        invoice = await this.dataSource.getRepository(Invoice).findOne({
+          where: { order_id: order.id, type: "invoice" },
         });
-        phone = customer?.phone;
-      }
-
-      if (!phone) {
-        return;
-      }
-
-      const business = await this.dataSource.getRepository(Business).findOne({
-        where: { id: businessId },
-      });
-
-      if (!business || !business.whatsapp_connected || !business.whatsapp_instance_name) {
-        return;
-      }
-
-      // Ensure an invoice entity exists for this order
-      let invoice = await this.dataSource.getRepository(Invoice).findOne({
-        where: { order_id: order.id, type: "invoice" },
-      });
-      if (!invoice) {
-        try {
-          invoice = await this.invoicesService.generateFromOrder(order.id, businessId);
-        } catch (genErr: any) {
-          invoice = await this.dataSource.getRepository(Invoice).findOne({
-            where: { order_id: order.id, type: "invoice" },
-          });
+        if (!invoice) {
+          throw new BadRequestException(`Could not create the invoice for this order: ${genErr?.message ?? "unknown error"}`);
         }
       }
-
-      if (!invoice || !this.pdfService) {
-        return;
-      }
-
-      const filePath = await this.pdfService.getOrGeneratePdf(invoice.id, businessId);
-      if (!fs.existsSync(filePath)) {
-        this.logger.warn(`PDF file not found at ${filePath} for WhatsApp dispatch`);
-        return;
-      }
-
-      const pdfBase64 = fs.readFileSync(filePath).toString("base64");
-      const fileName = `${invoiceFilenameStem(invoice.invoice_number)}.pdf`;
-      const businessName = business.name || "Store";
-      const totalFormatted = Number(order.total_amount || invoice.total_amount || 0).toFixed(2);
-
-      const caption = `📄 *Invoice ${invoice.invoice_number}*\n\nThank you for shopping with *${businessName}*!\n💰 *Total Amount:* ₹${totalFormatted}\n\nYour official tax invoice PDF is attached below. Have a great day!`;
-
-      await this.evolutionApiService.sendMediaDocument(
-        business.whatsapp_instance_name,
-        phone,
-        pdfBase64,
-        fileName,
-        caption,
-      );
-      this.logger.log(`WhatsApp invoice PDF dispatched to ${phone} for order ${order.id}`);
-    } catch (err: any) {
-      this.logger.warn(`Failed to auto-dispatch WhatsApp invoice for order ${order?.id}: ${err?.message}`);
     }
+    if (!invoice || !this.pdfService) {
+      throw new BadRequestException("Could not prepare the invoice PDF.");
+    }
+
+    const filePath = await this.pdfService.getOrGeneratePdf(invoice.id, businessId);
+    if (!fs.existsSync(filePath)) {
+      this.logger.warn(`PDF file not found at ${filePath} for WhatsApp dispatch`);
+      throw new BadRequestException("The invoice PDF could not be generated.");
+    }
+
+    const pdfBase64 = fs.readFileSync(filePath).toString("base64");
+    const fileName = `${invoiceFilenameStem(invoice.invoice_number)}.pdf`;
+    const businessName = business.name || "Store";
+    const totalFormatted = Number(order.total_amount || invoice.total_amount || 0).toFixed(2);
+
+    const caption = `📄 *Invoice ${invoice.invoice_number}*\n\nThank you for shopping with *${businessName}*!\n💰 *Total Amount:* ₹${totalFormatted}\n\nYour official tax invoice PDF is attached below. Have a great day!`;
+
+    try {
+      await this.evolutionApiService.sendMediaDocument(business.whatsapp_instance_name, phone, pdfBase64, fileName, caption);
+    } catch (err: any) {
+      throw new ServiceUnavailableException(
+        `WhatsApp did not accept the message (${err?.message ?? "gateway error"}). Check that WhatsApp is still connected in Settings and the number is on WhatsApp.`,
+      );
+    }
+    this.logger.log(`WhatsApp invoice PDF dispatched to ${phone} for order ${order.id}`);
+    return { invoiceNumber: invoice.invoice_number };
   }
 
   /**

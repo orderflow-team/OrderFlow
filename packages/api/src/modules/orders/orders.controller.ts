@@ -134,7 +134,8 @@ export class OrdersController {
     @Body('phone') rawPhone?: string,
   ) {
     const order = await this.ordersService.findOne(id, businessId);
-    await this.ordersService.dispatchWhatsappInvoice(order, businessId, rawPhone);
+    // Throws a specific error if the message was not actually handed to WhatsApp.
+    await this.ordersService.sendWhatsappInvoice(order, businessId, rawPhone);
     return { success: true, message: 'Invoice PDF dispatched to WhatsApp' };
   }
 

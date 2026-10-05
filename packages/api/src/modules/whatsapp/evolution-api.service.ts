@@ -254,18 +254,23 @@ export class EvolutionApiService {
       },
     };
 
+    // Sending a PDF can take longer than the default 8s, and a client-side timeout would report a
+    // failure for a message the gateway may still deliver.
+    const config = { ...this.axiosConfig, timeout: 25000 };
+    let lastError = 'gateway unreachable';
     for (const url of this.candidateUrls) {
       try {
-        const res = await axios.post(`${url}/message/sendMedia/${instanceName}`, payload, this.axiosConfig);
+        const res = await axios.post(`${url}/message/sendMedia/${instanceName}`, payload, config);
         this.workingUrl = url;
         this.logger.log(`Sent WhatsApp PDF document ${fileName} via ${instanceName} to ${cleanNumber}`);
         return res.data;
       } catch (err: any) {
-        // Try next url
+        const detail = err?.response?.data?.response?.message ?? err?.response?.data?.message ?? err?.message;
+        lastError = `${err?.response?.status ?? 'no response'}: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`;
       }
     }
-    this.logger.error(`Failed to send WhatsApp PDF document via ${instanceName} to ${number}`);
-    return null;
+    this.logger.error(`Failed to send WhatsApp PDF document via ${instanceName} to ${cleanNumber}: ${lastError}`);
+    throw new Error(lastError);
   }
 
   /** Logs out and deletes an instance connection. */
