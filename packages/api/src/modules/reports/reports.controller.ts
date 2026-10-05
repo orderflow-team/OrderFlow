@@ -6,11 +6,15 @@ import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { ReportsService } from './reports.service';
+import { LedgerReportsService } from './ledger-reports.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/reports')
 export class ReportsController {
-  constructor(private reportsService: ReportsService) {}
+  constructor(
+    private reportsService: ReportsService,
+    private ledgerReports: LedgerReportsService,
+  ) {}
 
   // Unrestricted: this is also the data source for the home Dashboard page,
   // which every role (including Cashier/Waiter/Salesman/etc.) lands on.
@@ -106,6 +110,46 @@ export class ReportsController {
       businessId,
       productId,
       days ? Number(days) : undefined,
+      from,
+      to,
+    );
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('day-book')
+  dayBook(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.ledgerReports.dayBook(businessId || req.user?.businessId || '', from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('ageing')
+  ageing(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('kind') kind: string,
+    @Query('businessId') businessId?: string,
+  ) {
+    return this.ledgerReports.ageing(businessId || req.user?.businessId || '', kind === 'payable' ? 'payable' : 'receivable');
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('party-ledger')
+  partyLedger(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('kind') kind: string,
+    @Query('partyId') partyId: string,
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.ledgerReports.partyLedger(
+      businessId || req.user?.businessId || '',
+      kind === 'supplier' ? 'supplier' : 'customer',
+      partyId,
       from,
       to,
     );

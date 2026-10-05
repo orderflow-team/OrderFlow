@@ -15,6 +15,8 @@ import { ProductsTab } from './products-tab';
 import { SuppliersTab } from './suppliers-tab';
 import { FinanceTab } from './finance-tab';
 import { OperationsTab } from './operations-tab';
+import { DayBookTab } from './day-book-tab';
+import { DuesLedgerTab } from './dues-ledger-tab';
 import { GstFilingTab } from './gst-filing-tab';
 import { ScheduleH1RegisterTab } from './schedule-h1-register-tab';
 import type { AnalyticsPayload, OutstandingCustomer } from './types';
@@ -26,8 +28,13 @@ const BASE_TABS = [
   { id: 'suppliers', label: 'Suppliers' },
   { id: 'finance', label: 'Finance' },
   { id: 'operations', label: 'Operations' },
+  { id: 'day-book', label: 'Day Book' },
+  { id: 'dues', label: 'Dues & Ledger' },
   { id: 'gst', label: 'GST Filing' },
 ];
+
+// These tabs pick their own date range, so the shared "last N days" selector doesn't apply.
+const OWN_PERIOD_TABS = ['day-book', 'dues', 'gst', 'rx-register'];
 
 export default function ReportsPage() {
   const { businessId, ready } = useBusiness();
@@ -96,7 +103,7 @@ export default function ReportsPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <ReportTabBar tabs={tabs} activeTab={activeTab} onSelect={setActiveTab} />
-          <PeriodSelector days={days} onChange={setDays} />
+          {!OWN_PERIOD_TABS.includes(activeTab) && <PeriodSelector days={days} onChange={setDays} />}
         </div>
 
         {error && (
@@ -114,6 +121,8 @@ export default function ReportsPage() {
               <FinanceTab analytics={analytics} businessId={businessId} days={days} onExpenseChanged={() => load(businessId, days)} />
             )}
             {activeTab === 'operations' && <OperationsTab analytics={analytics} days={days} />}
+            {activeTab === 'day-book' && businessId && <DayBookTab businessId={businessId} />}
+            {activeTab === 'dues' && businessId && <DuesLedgerTab businessId={businessId} />}
             {activeTab === 'gst' && businessId && <GstFilingTab businessId={businessId} />}
             {activeTab === 'rx-register' && businessId && isPharmacy && <ScheduleH1RegisterTab businessId={businessId} />}
           </>
