@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-currency';
@@ -14,7 +14,7 @@ interface SaleProfit { sales: SaleProfitRow[]; truncated: boolean; totals: { bil
 interface StaffRow { userId: string | null; name: string; role: string | null; bills: number; sales: number; tax: number; averageBill: number; sharePercent: number }
 interface StaffSales { staff: StaffRow[]; totals: { bills: number; sales: number } }
 interface StockRow { id: string; name: string; sku: string | null; category: string | null; unit: string | null; currentStock: number; costPrice: number; stockValue: number; purchasedQty: number; soldQty: number; soldRevenue: number; status: 'ok' | 'low' | 'out' }
-interface StockSummary { items: StockRow[]; totals: { products: number; stockValue: number; outOfStock: number; lowStock: number; purchasedQty: number; soldQty: number } }
+interface StockSummary { truncated?: boolean; items: StockRow[]; totals: { products: number; stockValue: number; outOfStock: number; lowStock: number; purchasedQty: number; soldQty: number } }
 
 interface FlowRow { label: string; total: number; count: number }
 interface MoneyFlow {
@@ -73,15 +73,17 @@ export function SalesStockTab({ businessId }: { businessId: string }) {
   const [error, setError] = useState('');
 
   const meta = VIEWS.find((v) => v.id === view)!;
+  const requestId = useRef(0);
 
   const load = (v: View = view) => {
+    const id = ++requestId.current;
     setLoading(true);
     setError('');
     apiClient
       .get(`/api/reports/${VIEWS.find((x) => x.id === v)!.path}`, { params: { businessId, ...range } })
-      .then((res) => setResult({ view: v, data: res.data }))
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load report'))
-      .finally(() => setLoading(false));
+      .then((res) => { if (id === requestId.current) setResult({ view: v, data: res.data }); })
+      .catch((err) => { if (id === requestId.current) setError(err.response?.data?.message || 'Failed to load report'); })
+      .finally(() => { if (id === requestId.current) setLoading(false); });
   };
 
   useEffect(() => {
@@ -220,6 +222,7 @@ export function SalesStockTab({ businessId }: { businessId: string }) {
                 <Stat label="Low stock" value={String(stock.totals.lowStock)} tone={stock.totals.lowStock > 0 ? 'text-amber-700' : 'text-slate-900'} />
                 <Stat label="Sold in period" value={String(stock.totals.soldQty)} />
               </div>
+              {stock.truncated && <p className="text-xs text-amber-700">Showing the first {stock.items.length} products only; totals cover those.</p>}
               {stock.items.length === 0 ? (
                 <p className="text-sm text-slate-400">No products yet.</p>
               ) : (

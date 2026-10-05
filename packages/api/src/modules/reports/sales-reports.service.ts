@@ -12,6 +12,7 @@ import { parseRange } from './ledger-reports.service';
 
 const UNBILLED_ORDER_STATUSES = ['draft', 'cancelled', 'returned'];
 const MAX_ROWS = 1000;
+const MAX_PRODUCTS = 2000;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const pct = (profit: number, revenue: number) => (revenue > 0 ? round2((profit / revenue) * 100) : 0);
@@ -36,7 +37,10 @@ export class SalesReportsService {
    */
   async moneyFlow(businessId: string, from?: string, to?: string) {
     const { start, end } = parseRange(from, to);
-    const day = (col: string) => `to_char(${col} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`;
+    // Timestamps are `timestamp without time zone`, holding the database's local wall-clock time.
+    // First read them as that zone (-> an exact instant), then render that instant in IST.
+    const day = (col: string) =>
+      `to_char((${col} AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`;
 
     const received = () =>
       this.paymentsRepository
@@ -254,7 +258,7 @@ export class SalesReportsService {
         .andWhere('p.is_draft = false')
         .andWhere('p.is_archived = false')
         .orderBy('p.name', 'ASC')
-        .limit(2000)
+        .limit(MAX_PRODUCTS)
         .getMany(),
       this.orderItemsRepository
         .createQueryBuilder('i')
@@ -309,6 +313,7 @@ export class SalesReportsService {
     return {
       from: start.toISOString(),
       to: end.toISOString(),
+      truncated: products.length >= MAX_PRODUCTS,
       items,
       totals: {
         products: items.length,

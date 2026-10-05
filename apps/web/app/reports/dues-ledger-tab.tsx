@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api-client';
@@ -44,30 +44,36 @@ export function DuesLedgerTab({ businessId }: { businessId: string }) {
   const [range, setRange] = useState(dateRangePreset('fy'));
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const ageingRequest = useRef(0);
+  const ledgerRequest = useRef(0);
 
   useEffect(() => {
     if (!businessId) return;
+    const id = ++ageingRequest.current;
+    ledgerRequest.current++; // drop any statement still loading for the previous toggle
     setLoading(true);
     setError('');
     setSelected(null);
     setLedger(null);
+    setAgeing(null);
     apiClient
       .get<Ageing>('/api/reports/ageing', { params: { businessId, kind } })
-      .then((res) => setAgeing(res.data))
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load dues'))
-      .finally(() => setLoading(false));
+      .then((res) => { if (id === ageingRequest.current) setAgeing(res.data); })
+      .catch((err) => { if (id === ageingRequest.current) setError(err.response?.data?.message || 'Failed to load dues'); })
+      .finally(() => { if (id === ageingRequest.current) setLoading(false); });
   }, [businessId, kind]);
 
   const loadLedger = (party: AgeingParty) => {
+    const id = ++ledgerRequest.current;
     setLedgerLoading(true);
     setError('');
     apiClient
       .get<Ledger>('/api/reports/party-ledger', {
         params: { businessId, kind: kind === 'receivable' ? 'customer' : 'supplier', partyId: party.id, ...range },
       })
-      .then((res) => setLedger(res.data))
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load ledger'))
-      .finally(() => setLedgerLoading(false));
+      .then((res) => { if (id === ledgerRequest.current) setLedger(res.data); })
+      .catch((err) => { if (id === ledgerRequest.current) setError(err.response?.data?.message || 'Failed to load ledger'); })
+      .finally(() => { if (id === ledgerRequest.current) setLedgerLoading(false); });
   };
 
   const openParty = (party: AgeingParty) => {

@@ -15,11 +15,62 @@ describe('ledger report helpers', () => {
     expect(allocateOutstanding(docs, 0)).toEqual([]);
   });
 
+  it('treats a bare date as an IST calendar day regardless of server timezone', () => {
+    const { start, end } = parseRange('2026-10-05', '2026-10-05');
+    expect(start.toISOString()).toBe('2026-10-04T18:30:00.000Z'); // 00:00 IST
+    expect(end.toISOString()).toBe('2026-10-05T18:29:59.999Z'); // 23:59:59.999 IST
+  });
+
   it('treats a bare "to" date as the end of that day and rejects bad or reversed ranges', () => {
     const { start, end } = parseRange('2026-10-01', '2026-10-01');
     expect(end.getTime() - start.getTime()).toBeGreaterThan(86_000_000);
     expect(() => parseRange('nope', undefined)).toThrow(BadRequestException);
     expect(() => parseRange('2026-10-05', '2026-10-01')).toThrow(BadRequestException);
+  });
+});
+
+describe('LedgerReportsService.ageing', () => {
+  const chain = (rows: any[]) => {
+    const qb: any = {};
+    for (const m of ['where', 'andWhere', 'orderBy', 'limit']) qb[m] = jest.fn(() => qb);
+    qb.getMany = jest.fn().mockResolvedValue(rows);
+    return qb;
+  };
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+
+  it('fetches all parties\' bills in ONE query and ages dues onto the newest bills', async () => {
+    const customers = chain([
+      { id: 'c1', name: 'Ravi', phone: '99', outstanding_amount: 250 },
+      { id: 'c2', name: 'Sita', phone: null, outstanding_amount: 50 },
+    ]);
+    const orders = {
+      query: jest.fn().mockResolvedValue([
+        { party_id: 'c1', created_at: daysAgo(40), total_amount: '200' },
+        { party_id: 'c1', created_at: daysAgo(2), total_amount: '150' },
+        { party_id: 'c2', created_at: daysAgo(120), total_amount: '80' },
+      ]),
+    };
+    const service = new LedgerReportsService(orders as any, { createQueryBuilder: () => customers } as any, {} as any, {} as any, {} as any, {} as any);
+
+    const r = await service.ageing('biz', 'receivable');
+
+    expect(orders.query).toHaveBeenCalledTimes(1);
+    expect(r.parties[0].buckets).toMatchObject({ '0-30': 150, '31-60': 100 });
+    expect(r.parties[1].buckets).toMatchObject({ '90+': 50 });
+    expect(r.total).toBe(300);
+    expect(r.buckets).toMatchObject({ '0-30': 150, '31-60': 100, '90+': 50 });
+  });
+
+  it('puts dues that no bill explains (opening balance) in the oldest bucket and skips the bill query when nobody owes', async () => {
+    const orders = { query: jest.fn().mockResolvedValue([]) };
+    const some = chain([{ id: 'c1', name: 'Ravi', phone: null, outstanding_amount: 75 }]);
+    const withDebt = new LedgerReportsService(orders as any, { createQueryBuilder: () => some } as any, {} as any, {} as any, {} as any, {} as any);
+    expect((await withDebt.ageing('biz', 'receivable')).parties[0].buckets['90+']).toBe(75);
+
+    const none = new LedgerReportsService(orders as any, { createQueryBuilder: () => chain([]) } as any, {} as any, {} as any, {} as any, {} as any);
+    orders.query.mockClear();
+    expect((await none.ageing('biz', 'receivable')).parties).toEqual([]);
+    expect(orders.query).not.toHaveBeenCalled();
   });
 });
 

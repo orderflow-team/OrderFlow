@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import apiClient from '@/lib/api-client';
 import { formatCurrency } from '@/lib/format-currency';
@@ -18,6 +18,7 @@ interface DayBookEntry {
   saleAmount: number;
 }
 interface DayBook {
+  truncated?: boolean;
   entries: DayBookEntry[];
   totals: { sales: number; moneyIn: number; moneyOut: number; net: number };
 }
@@ -36,15 +37,17 @@ export function DayBookTab({ businessId }: { businessId: string }) {
   const [data, setData] = useState<DayBook | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const requestId = useRef(0);
 
   const load = () => {
+    const id = ++requestId.current; // a slower, older response must not overwrite a newer one
     setLoading(true);
     setError('');
     apiClient
       .get<DayBook>('/api/reports/day-book', { params: { businessId, ...range } })
-      .then((res) => setData(res.data))
-      .catch((err) => setError(err.response?.data?.message || 'Failed to load day book'))
-      .finally(() => setLoading(false));
+      .then((res) => { if (id === requestId.current) setData(res.data); })
+      .catch((err) => { if (id === requestId.current) setError(err.response?.data?.message || 'Failed to load day book'); })
+      .finally(() => { if (id === requestId.current) setLoading(false); });
   };
 
   useEffect(() => {
@@ -96,6 +99,7 @@ export function DayBookTab({ businessId }: { businessId: string }) {
                   </div>
                 ))}
               </div>
+              {data.truncated && <p className="text-xs text-amber-700">This range has more entries than can be shown. Totals reflect only the entries listed — narrow the dates for exact figures.</p>}
               {data.entries.length === 0 ? (
                 <p className="text-sm text-slate-400">Nothing recorded in this period.</p>
               ) : (

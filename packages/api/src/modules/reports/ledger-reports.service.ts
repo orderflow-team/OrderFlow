@@ -25,17 +25,29 @@ export function bucketForAge(ageDays: number): AgeingBucket {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Parses a yyyy-mm-dd (or full ISO) string; a bare date as `to` means the END of that day. */
+/** Guard rails so one huge shop/range can't produce an unbounded response. */
+const MAX_ENTRIES_PER_SOURCE = 2000;
+const MAX_PARTIES = 500;
+const MAX_BILLS_PER_PARTY = 200;
+
+/** Business days are Indian calendar days, whatever timezone the server happens to run in (UTC on most VPSes). */
+const IST_OFFSET = '+05:30';
+const IST_OFFSET_MS = 5.5 * 3_600_000;
+
+/**
+ * Parses a yyyy-mm-dd (or full ISO) string. A bare date means that calendar day in IST: the start of the
+ * day for `from`, the END of the day for `to`. Defaults to today (IST).
+ */
 export function parseRange(from?: string, to?: string): { start: Date; end: Date } {
   const parse = (value: string, endOfDay: boolean): Date => {
     const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
-    const d = new Date(isDateOnly ? `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}` : value);
+    const d = new Date(isDateOnly ? `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}${IST_OFFSET}` : value);
     if (Number.isNaN(d.getTime())) throw new BadRequestException(`Invalid date: ${value}`);
     return d;
   };
-  const now = new Date();
-  const start = from ? parse(from, false) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = to ? parse(to, true) : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const todayIst = new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
+  const start = parse(from || todayIst, false);
+  const end = parse(to || todayIst, true);
   if (start > end) throw new BadRequestException('"from" must be on or before "to"');
   return { start, end };
 }
@@ -80,6 +92,8 @@ export class LedgerReportsService {
         .where('o.business_id = :businessId', { businessId })
         .andWhere('o.status NOT IN (:...excluded)', { excluded: UNBILLED_ORDER_STATUSES })
         .andWhere('o.created_at BETWEEN :start AND :end', { start, end })
+        .orderBy('o.created_at', 'DESC')
+        .limit(MAX_ENTRIES_PER_SOURCE)
         .getMany(),
       this.paymentsRepository
         .createQueryBuilder('p')
@@ -88,11 +102,15 @@ export class LedgerReportsService {
         .andWhere("p.status = 'completed'")
         .andWhere('p.payment_method IS DISTINCT FROM :credit', { credit: NON_CASH_PAYMENT_METHOD })
         .andWhere('p.created_at BETWEEN :start AND :end', { start, end })
+        .orderBy('p.created_at', 'DESC')
+        .limit(MAX_ENTRIES_PER_SOURCE)
         .getMany(),
       this.expensesRepository
         .createQueryBuilder('e')
         .where('e.business_id = :businessId', { businessId })
         .andWhere('e.created_at BETWEEN :start AND :end', { start, end })
+        .orderBy('e.created_at', 'DESC')
+        .limit(MAX_ENTRIES_PER_SOURCE)
         .getMany(),
       this.purchaseOrdersRepository
         .createQueryBuilder('po')
@@ -100,6 +118,8 @@ export class LedgerReportsService {
         .where('po.business_id = :businessId', { businessId })
         .andWhere("po.status IN ('received', 'paid')")
         .andWhere('po.updated_at BETWEEN :start AND :end', { start, end })
+        .orderBy('po.updated_at', 'DESC')
+        .limit(MAX_ENTRIES_PER_SOURCE)
         .getMany(),
     ]);
 
@@ -165,9 +185,13 @@ export class LedgerReportsService {
       { sales: 0, moneyIn: 0, moneyOut: 0 },
     );
 
+    // Totals are summed from the rows returned, so flag it when any source hit the cap.
+    const truncated = [orders, payments, expenses, purchases].some((rows) => rows.length >= MAX_ENTRIES_PER_SOURCE);
+
     return {
       from: start.toISOString(),
       to: end.toISOString(),
+      truncated,
       entries: entries.map((e) => ({
         ...e,
         at: e.at.toISOString(),
@@ -197,12 +221,14 @@ export class LedgerReportsService {
             .where('c.business_id = :businessId', { businessId })
             .andWhere('c.outstanding_amount > 0')
             .orderBy('c.outstanding_amount', 'DESC')
+            .limit(MAX_PARTIES)
             .getMany()
         : await this.suppliersRepository
             .createQueryBuilder('s')
             .where('s.business_id = :businessId', { businessId })
             .andWhere('s.outstanding_amount > 0')
             .orderBy('s.outstanding_amount', 'DESC')
+            .limit(MAX_PARTIES)
             .getMany();
 
     const rows = [] as Array<{
@@ -214,28 +240,42 @@ export class LedgerReportsService {
       buckets: Record<AgeingBucket, number>;
     }>;
 
+    // One query for every party's bills (newest MAX_BILLS_PER_PARTY each) instead of one query per party.
+    const partyIds = parties.map((p) => p.id);
+    const billRows: Array<{ party_id: string; created_at: Date; total_amount: string }> = partyIds.length
+      ? kind === 'receivable'
+        ? await this.ordersRepository.query(
+            `SELECT party_id, created_at, total_amount FROM (
+               SELECT customer_id AS party_id, created_at, total_amount,
+                      ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY created_at DESC) AS rn
+                 FROM orders
+                WHERE business_id = $1 AND customer_id = ANY($2::uuid[])
+                  AND status NOT IN ('draft', 'cancelled', 'returned')
+             ) t WHERE rn <= $3`,
+            [businessId, partyIds, MAX_BILLS_PER_PARTY],
+          )
+        : await this.purchaseOrdersRepository.query(
+            `SELECT party_id, created_at, total_amount FROM (
+               SELECT supplier_id AS party_id, created_at, total_amount,
+                      ROW_NUMBER() OVER (PARTITION BY supplier_id ORDER BY created_at DESC) AS rn
+                 FROM purchase_orders
+                WHERE business_id = $1 AND supplier_id = ANY($2::uuid[])
+                  AND status IN ('received', 'paid')
+             ) t WHERE rn <= $3`,
+            [businessId, partyIds, MAX_BILLS_PER_PARTY],
+          )
+      : [];
+    const billsByParty = new Map<string, Array<{ at: Date; total: number }>>();
+    for (const b of billRows) {
+      const list = billsByParty.get(b.party_id) ?? [];
+      list.push({ at: new Date(b.created_at), total: Number(b.total_amount) });
+      billsByParty.set(b.party_id, list);
+    }
+    for (const list of billsByParty.values()) list.sort((a, b) => b.at.getTime() - a.at.getTime()); // newest first
+
     for (const party of parties) {
       const outstanding = Number(party.outstanding_amount);
-      const docs =
-        kind === 'receivable'
-          ? (
-              await this.ordersRepository
-                .createQueryBuilder('o')
-                .where('o.business_id = :businessId AND o.customer_id = :id', { businessId, id: party.id })
-                .andWhere('o.status NOT IN (:...excluded)', { excluded: UNBILLED_ORDER_STATUSES })
-                .orderBy('o.created_at', 'DESC')
-                .limit(500)
-                .getMany()
-            ).map((o) => ({ at: o.created_at, total: Number(o.total_amount) }))
-          : (
-              await this.purchaseOrdersRepository
-                .createQueryBuilder('po')
-                .where('po.business_id = :businessId AND po.supplier_id = :id', { businessId, id: party.id })
-                .andWhere("po.status IN ('received', 'paid')")
-                .orderBy('po.created_at', 'DESC')
-                .limit(500)
-                .getMany()
-            ).map((po) => ({ at: po.created_at, total: Number(po.total_amount) }));
+      const docs = billsByParty.get(party.id) ?? [];
 
       const partyBuckets = empty();
       let oldest = 0;
@@ -244,7 +284,7 @@ export class LedgerReportsService {
         partyBuckets[bucketForAge(age)] += slice.due;
         oldest = Math.max(oldest, age);
       }
-      // Dues older than the 500 most recent bills (or opening balances with no bill) — oldest bucket.
+      // Dues older than the most recent bills fetched (or opening balances with no bill) — oldest bucket.
       const allocated = Object.values(partyBuckets).reduce((a, b) => a + b, 0);
       if (outstanding - allocated > 0.01) {
         partyBuckets['90+'] += outstanding - allocated;
