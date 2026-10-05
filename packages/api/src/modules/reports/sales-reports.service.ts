@@ -5,6 +5,9 @@ import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
 import { PurchaseItem } from '../../database/entities/purchase-item.entity';
+import { Payment } from '../../database/entities/payment.entity';
+import { Expense } from '../../database/entities/expense.entity';
+import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { parseRange } from './ledger-reports.service';
 
 const UNBILLED_ORDER_STATUSES = ['draft', 'cancelled', 'returned'];
@@ -20,7 +23,100 @@ export class SalesReportsService {
     @InjectRepository(OrderItem) private orderItemsRepository: Repository<OrderItem>,
     @InjectRepository(Product) private productsRepository: Repository<Product>,
     @InjectRepository(PurchaseItem) private purchaseItemsRepository: Repository<PurchaseItem>,
+    @InjectRepository(Payment) private paymentsRepository: Repository<Payment>,
+    @InjectRepository(Expense) private expensesRepository: Repository<Expense>,
+    @InjectRepository(PurchaseOrder) private purchaseOrdersRepository: Repository<PurchaseOrder>,
   ) {}
+
+  /**
+   * Money in vs money out for the period, split by how it was paid. In = payments actually received
+   * (the label-only 'Credit' method never moves money). Out = expenses plus purchases received from
+   * suppliers — purchases count on the day they were received, not when the supplier was paid, because
+   * supplier payments are tracked only as a running balance. Days are IST calendar days.
+   */
+  async moneyFlow(businessId: string, from?: string, to?: string) {
+    const { start, end } = parseRange(from, to);
+    const day = (col: string) => `to_char(${col} AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD')`;
+
+    const received = () =>
+      this.paymentsRepository
+        .createQueryBuilder('p')
+        .where('p.business_id = :businessId', { businessId })
+        .andWhere("p.status = 'completed'")
+        .andWhere('p.payment_method IS DISTINCT FROM :credit', { credit: 'Credit' })
+        .andWhere('p.created_at BETWEEN :start AND :end', { start, end });
+    const expenses = () =>
+      this.expensesRepository
+        .createQueryBuilder('e')
+        .where('e.business_id = :businessId', { businessId })
+        .andWhere('e.created_at BETWEEN :start AND :end', { start, end });
+    const purchases = () =>
+      this.purchaseOrdersRepository
+        .createQueryBuilder('po')
+        .where('po.business_id = :businessId', { businessId })
+        .andWhere("po.status IN ('received', 'paid')")
+        .andWhere('po.updated_at BETWEEN :start AND :end', { start, end });
+
+    const [inByMethod, inByDay, expByCategory, expByDay, purchaseTotal, purchaseByDay] = await Promise.all([
+      received()
+        .select("COALESCE(p.payment_method, 'Other')", 'label')
+        .addSelect('SUM(p.amount)', 'total')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy("COALESCE(p.payment_method, 'Other')")
+        .orderBy('"total"', 'DESC')
+        .getRawMany(),
+      received().select(day('p.created_at'), 'day').addSelect('SUM(p.amount)', 'total').groupBy('1').getRawMany(),
+      expenses()
+        .select("COALESCE(e.category, 'Uncategorised')", 'label')
+        .addSelect('SUM(e.amount)', 'total')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy("COALESCE(e.category, 'Uncategorised')")
+        .orderBy('"total"', 'DESC')
+        .getRawMany(),
+      expenses().select(day('e.created_at'), 'day').addSelect('SUM(e.amount)', 'total').groupBy('1').getRawMany(),
+      purchases().select('COALESCE(SUM(po.total_amount), 0)', 'total').addSelect('COUNT(*)', 'count').getRawOne(),
+      purchases().select(day('po.updated_at'), 'day').addSelect('SUM(po.total_amount)', 'total').groupBy('1').getRawMany(),
+    ]);
+
+    const rowsOf = (rows: any[]) => rows.map((r) => ({ label: r.label as string, total: round2(Number(r.total)), count: Number(r.count) }));
+    const moneyInByMethod = rowsOf(inByMethod);
+    const expenseByCategory = rowsOf(expByCategory);
+    const purchaseSummary = { total: round2(Number(purchaseTotal.total)), count: Number(purchaseTotal.count) };
+
+    const days = new Map<string, { moneyIn: number; moneyOut: number }>();
+    const add = (rows: any[], key: 'moneyIn' | 'moneyOut') => {
+      for (const r of rows) {
+        const d = days.get(r.day) ?? { moneyIn: 0, moneyOut: 0 };
+        d[key] += Number(r.total);
+        days.set(r.day, d);
+      }
+    };
+    add(inByDay, 'moneyIn');
+    add(expByDay, 'moneyOut');
+    add(purchaseByDay, 'moneyOut');
+
+    const totalIn = moneyInByMethod.reduce((sum, m) => sum + m.total, 0);
+    const totalOut = expenseByCategory.reduce((sum, m) => sum + m.total, 0) + purchaseSummary.total;
+    const cashIn = moneyInByMethod.filter((m) => m.label === 'Cash').reduce((sum, m) => sum + m.total, 0);
+
+    return {
+      from: start.toISOString(),
+      to: end.toISOString(),
+      moneyInByMethod,
+      expenseByCategory,
+      purchases: purchaseSummary,
+      daily: [...days.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, d]) => ({ date, moneyIn: round2(d.moneyIn), moneyOut: round2(d.moneyOut), net: round2(d.moneyIn - d.moneyOut) })),
+      totals: {
+        moneyIn: round2(totalIn),
+        moneyOut: round2(totalOut),
+        net: round2(totalIn - totalOut),
+        cashIn: round2(cashIn),
+        digitalIn: round2(totalIn - cashIn),
+      },
+    };
+  }
 
   /**
    * Profit per bill. Same basis as the Overview profit figure: revenue is the pre-tax line total,

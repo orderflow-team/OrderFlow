@@ -12,7 +12,7 @@ describe('ReportsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ReportsController],
       providers: [
-        { provide: SalesReportsService, useValue: { saleWiseProfit: jest.fn(), staffWiseSales: jest.fn(), stockSummary: jest.fn() } },
+        { provide: SalesReportsService, useValue: { saleWiseProfit: jest.fn(), staffWiseSales: jest.fn(), stockSummary: jest.fn(), moneyFlow: jest.fn() } },
         { provide: LedgerReportsService, useValue: { dayBook: jest.fn(), ageing: jest.fn(), partyLedger: jest.fn() } },
         {
           provide: ReportsService,

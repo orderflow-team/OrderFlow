@@ -180,6 +180,17 @@ export class ReportsController {
   }
 
   @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('money-flow')
+  moneyFlow(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.salesReports.moneyFlow(businessId || req.user?.businessId || '', from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @Get('stock-summary')
   stockSummary(
     @Req() req: Request & { user?: { businessId?: string } },

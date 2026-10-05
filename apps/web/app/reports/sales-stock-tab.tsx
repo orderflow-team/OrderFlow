@@ -7,7 +7,7 @@ import { formatCurrency } from '@/lib/format-currency';
 import { buildCsv, dateRangePreset, downloadCsv, printReport, type ExportCell } from '@/lib/report-export';
 import { DateRangeBar } from './date-range-bar';
 
-type View = 'profit' | 'staff' | 'stock';
+type View = 'profit' | 'staff' | 'stock' | 'money';
 
 interface SaleProfitRow { id: string; orderNumber: string; createdAt: string; customerName: string; revenue: number; cost: number; profit: number; marginPercent: number; uncostedLines: number }
 interface SaleProfit { sales: SaleProfitRow[]; truncated: boolean; totals: { bills: number; revenue: number; cost: number; profit: number; marginPercent: number; lossMakingBills: number } }
@@ -16,10 +16,20 @@ interface StaffSales { staff: StaffRow[]; totals: { bills: number; sales: number
 interface StockRow { id: string; name: string; sku: string | null; category: string | null; unit: string | null; currentStock: number; costPrice: number; stockValue: number; purchasedQty: number; soldQty: number; soldRevenue: number; status: 'ok' | 'low' | 'out' }
 interface StockSummary { items: StockRow[]; totals: { products: number; stockValue: number; outOfStock: number; lowStock: number; purchasedQty: number; soldQty: number } }
 
+interface FlowRow { label: string; total: number; count: number }
+interface MoneyFlow {
+  moneyInByMethod: FlowRow[];
+  expenseByCategory: FlowRow[];
+  purchases: { total: number; count: number };
+  daily: { date: string; moneyIn: number; moneyOut: number; net: number }[];
+  totals: { moneyIn: number; moneyOut: number; net: number; cashIn: number; digitalIn: number };
+}
+
 const VIEWS: { id: View; label: string; path: string; description: string }[] = [
   { id: 'profit', label: 'Sale-wise profit', path: 'sale-profit', description: 'Profit and margin on every bill. Cost uses each product’s current purchase price.' },
   { id: 'staff', label: 'Staff-wise sales', path: 'staff-sales', description: 'Bills and sales per team member. QR and online orders have no staff member and are grouped together.' },
   { id: 'stock', label: 'Stock summary', path: 'stock-summary', description: 'Current stock and value per item, with what was purchased and sold in the period.' },
+  { id: 'money', label: 'Money in / out', path: 'money-flow', description: 'Payments received (cash vs UPI/bank) against expenses and supplier purchases, day by day.' },
 ];
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -57,7 +67,7 @@ export function SalesStockTab({ businessId }: { businessId: string }) {
   const [range, setRange] = useState(dateRangePreset('month'));
   // Each result is tagged with the view that fetched it, so a view never renders another view's payload
   // (e.g. in the render between clicking a toggle and the new data arriving).
-  const [result, setResult] = useState<{ view: View; data: SaleProfit | StaffSales | StockSummary } | null>(null);
+  const [result, setResult] = useState<{ view: View; data: SaleProfit | StaffSales | StockSummary | MoneyFlow } | null>(null);
   const data = result?.view === view ? result.data : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -91,11 +101,17 @@ export function SalesStockTab({ businessId }: { businessId: string }) {
   } else if (view === 'stock' && data) {
     headers = ['Item', 'SKU', 'Category', 'Unit', 'Current stock', 'Cost price', 'Stock value', 'Purchased', 'Sold', 'Status'];
     rows = (data as StockSummary).items.map((i) => [i.name, i.sku ?? '', i.category ?? '', i.unit ?? '', i.currentStock, i.costPrice, i.stockValue, i.purchasedQty, i.soldQty, i.status]);
+  } else if (view === 'money' && data) {
+    const m = data as MoneyFlow;
+    headers = ['Date', 'Money in', 'Money out', 'Net'];
+    rows = m.daily.map((d) => [d.date, d.moneyIn, d.moneyOut, d.net]);
+    rows.push(['Total', m.totals.moneyIn, m.totals.moneyOut, m.totals.net]);
   }
   const title = `${meta.label} ${range.from} to ${range.to}`;
 
   const profit = view === 'profit' ? (data as SaleProfit | null) : null;
   const staff = view === 'staff' ? (data as StaffSales | null) : null;
+  const money = view === 'money' ? (data as MoneyFlow | null) : null;
   const stock = view === 'stock' ? (data as StockSummary | null) : null;
 
   return (
@@ -225,6 +241,51 @@ export function SalesStockTab({ businessId }: { businessId: string }) {
                 </Table>
               )}
               <p className="text-xs text-slate-400">Current stock and value are as of now; purchased and sold cover the selected dates.</p>
+            </>
+          )}
+          {money && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <Stat label="Money in" value={formatCurrency(money.totals.moneyIn)} tone="text-emerald-700" />
+                <Stat label="Money out" value={formatCurrency(money.totals.moneyOut)} tone="text-rose-700" />
+                <Stat label="Net" value={formatCurrency(money.totals.net)} tone={money.totals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'} />
+                <Stat label="Cash received" value={formatCurrency(money.totals.cashIn)} />
+                <Stat label="UPI / bank received" value={formatCurrency(money.totals.digitalIn)} />
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Money in by method</p>
+                  {money.moneyInByMethod.length === 0 ? <p className="text-sm text-slate-400">No payments received.</p> : (
+                    <Table headers={['Method', 'Payments', 'Amount']}>
+                      {money.moneyInByMethod.map((m) => (
+                        <tr key={m.label} className="border-t border-white/40"><td className={td}>{m.label}</td><td className={num}>{m.count}</td><td className={num}>{formatCurrency(m.total)}</td></tr>
+                      ))}
+                    </Table>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 mb-1">Money out</p>
+                  <Table headers={['Type', 'Entries', 'Amount']}>
+                    {money.expenseByCategory.map((m) => (
+                      <tr key={m.label} className="border-t border-white/40"><td className={td}>Expense: {m.label}</td><td className={num}>{m.count}</td><td className={num}>{formatCurrency(m.total)}</td></tr>
+                    ))}
+                    <tr className="border-t border-white/40"><td className={td}>Supplier purchases received</td><td className={num}>{money.purchases.count}</td><td className={num}>{formatCurrency(money.purchases.total)}</td></tr>
+                  </Table>
+                </div>
+              </div>
+              {money.daily.length > 0 && (
+                <Table headers={headers}>
+                  {money.daily.map((d) => (
+                    <tr key={d.date} className="border-t border-white/40">
+                      <td className={td}>{d.date}</td>
+                      <td className={`${num} text-emerald-700`}>{formatCurrency(d.moneyIn)}</td>
+                      <td className={`${num} text-rose-700`}>{formatCurrency(d.moneyOut)}</td>
+                      <td className={`${num} font-semibold`}>{formatCurrency(d.net)}</td>
+                    </tr>
+                  ))}
+                </Table>
+              )}
+              <p className="text-xs text-slate-400">Purchases count on the day they were received, not when the supplier was paid. Credit sales are not money in until paid.</p>
             </>
           )}
           {loading && !data && <p className="text-sm text-slate-400">Loading...</p>}

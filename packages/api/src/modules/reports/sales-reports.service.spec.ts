@@ -20,7 +20,7 @@ describe('SalesReportsService', () => {
     const totals = chain({ one: { revenue: '300', cost: '270' } });
     const count = chain({ one: { count: '5' } });
     const items = { createQueryBuilder: jest.fn().mockReturnValueOnce(rows).mockReturnValueOnce(totals).mockReturnValueOnce(count) };
-    const service = new SalesReportsService({} as any, items as any, {} as any, {} as any);
+    const service = new SalesReportsService({} as any, items as any, {} as any, {} as any, {} as any, {} as any, {} as any);
 
     const r = await service.saleWiseProfit('biz', '2026-10-01', '2026-10-31');
 
@@ -38,7 +38,7 @@ describe('SalesReportsService', () => {
       ],
     });
     const orders = { createQueryBuilder: jest.fn(() => rows) };
-    const service = new SalesReportsService(orders as any, {} as any, {} as any, {} as any);
+    const service = new SalesReportsService(orders as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
 
     const r = await service.staffWiseSales('biz', '2026-10-01', '2026-10-31');
 
@@ -62,6 +62,9 @@ describe('SalesReportsService', () => {
       { createQueryBuilder: () => sold } as any,
       { createQueryBuilder: () => products } as any,
       { createQueryBuilder: () => bought } as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
 
     const r = await service.stockSummary('biz', '2026-10-01', '2026-10-31');
@@ -69,5 +72,32 @@ describe('SalesReportsService', () => {
     expect(r.items.map((i) => i.status)).toEqual(['out', 'low', 'ok']);
     expect(r.items[2]).toMatchObject({ soldQty: 7, purchasedQty: 20, stockValue: 500 });
     expect(r.totals).toMatchObject({ stockValue: 900, outOfStock: 1, lowStock: 1, soldQty: 7, purchasedQty: 20 });
+  });
+
+  it('splits money in by method, adds expenses and purchases to money out, and nets per day', async () => {
+    const payments = chain({});
+    payments.getRawMany
+      .mockResolvedValueOnce([{ label: 'Cash', total: '300', count: '3' }, { label: 'UPI', total: '200', count: '2' }])
+      .mockResolvedValueOnce([{ day: '2026-10-01', total: '400' }, { day: '2026-10-02', total: '100' }]);
+    const expenses = chain({});
+    expenses.getRawMany
+      .mockResolvedValueOnce([{ label: 'Rent', total: '80', count: '1' }])
+      .mockResolvedValueOnce([{ day: '2026-10-02', total: '80' }]);
+    const purchases = chain({ one: { total: '120', count: '1' } });
+    purchases.getRawMany.mockResolvedValue([{ day: '2026-10-01', total: '120' }]);
+    const service = new SalesReportsService(
+      {} as any, {} as any, {} as any, {} as any,
+      { createQueryBuilder: () => payments } as any,
+      { createQueryBuilder: () => expenses } as any,
+      { createQueryBuilder: () => purchases } as any,
+    );
+
+    const r = await service.moneyFlow('biz', '2026-10-01', '2026-10-31');
+
+    expect(r.totals).toEqual({ moneyIn: 500, moneyOut: 200, net: 300, cashIn: 300, digitalIn: 200 });
+    expect(r.daily).toEqual([
+      { date: '2026-10-01', moneyIn: 400, moneyOut: 120, net: 280 },
+      { date: '2026-10-02', moneyIn: 100, moneyOut: 80, net: 20 },
+    ]);
   });
 });
