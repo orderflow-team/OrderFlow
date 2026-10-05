@@ -7,6 +7,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { ReportsService } from './reports.service';
 import { LedgerReportsService } from './ledger-reports.service';
+import { SalesReportsService } from './sales-reports.service';
 
 @UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/reports')
@@ -14,6 +15,7 @@ export class ReportsController {
   constructor(
     private reportsService: ReportsService,
     private ledgerReports: LedgerReportsService,
+    private salesReports: SalesReportsService,
   ) {}
 
   // Unrestricted: this is also the data source for the home Dashboard page,
@@ -153,5 +155,38 @@ export class ReportsController {
       from,
       to,
     );
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('sale-profit')
+  saleProfit(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.salesReports.saleWiseProfit(businessId || req.user?.businessId || '', from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('staff-sales')
+  staffSales(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.salesReports.staffWiseSales(businessId || req.user?.businessId || '', from, to);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT)
+  @Get('stock-summary')
+  stockSummary(
+    @Req() req: Request & { user?: { businessId?: string } },
+    @Query('businessId') businessId?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.salesReports.stockSummary(businessId || req.user?.businessId || '', from, to);
   }
 }
