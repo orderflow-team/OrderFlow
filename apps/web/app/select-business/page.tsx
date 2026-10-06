@@ -240,6 +240,7 @@ export default function SelectBusinessPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <h1 className="sr-only">Choose a business</h1>
         <p className="text-slate-500">Loading your businesses...</p>
       </div>
     );

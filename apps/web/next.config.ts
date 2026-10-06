@@ -41,6 +41,13 @@ const nextConfig: NextConfig = {
                   : [{ key: 'Strict-Transport-Security', value: 'max-age=31536000' }]),
               ],
             },
+            // Logged-in app screens must never be indexed. robots.txt only stops
+            // crawling; this header is what keeps a discovered URL out of results.
+            {
+              source:
+                '/(admin|dashboard|billing|customers|inventory|orders|products|reports|restaurant|salesman|select-business|settings|staff|forgot-password|google-app-signin)/:path*',
+              headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+            },
           ];
         },
       }),
