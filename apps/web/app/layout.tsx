@@ -8,7 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://obix360.com"),
   title: {
-    default: "OBIX 360 - Business. Simplified. | All-in-One Order, Billing & POS",
+    default: "OBIX 360 - All-in-One Billing Software | Orders, Inventory & POS",
     template: "%s | OBIX 360",
   },
   description:
@@ -19,7 +19,9 @@ export const metadata: Metadata = {
     "obix360",
     "Orderflow",
     "Order Management",
+    "All-in-One Billing Software",
     "Billing Software",
+    "GST Billing Software",
     "Inventory Management",
     "WhatsApp Invoicing",
     "POS Billing",
@@ -39,22 +41,21 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  alternates: {
-    canonical: "https://obix360.com",
-  },
   openGraph: {
     type: "website",
-    locale: "en_US",
+    locale: "en_IN",
     url: "https://obix360.com",
     siteName: "OBIX 360",
     title: "OBIX 360 - Modern Order, Billing & Inventory Management",
     description:
       "All-in-one business operating system. Invoicing, inventory, WhatsApp automations, and live store management.",
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "OBIX 360" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "OBIX 360 - Business. Simplified.",
     description: "Multi-industry order management, billing, inventory & POS system.",
+    images: ["/icon-512.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -79,7 +80,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased selection:bg-emerald-500/30">
+    <html lang="en-IN" className="h-full antialiased selection:bg-emerald-500/30">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <DismissNativeSplash />
         <SwRegister />

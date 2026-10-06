@@ -473,7 +473,7 @@ export function LandingPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            OBIX 2.0 • AI-Powered Counter POS &amp; WhatsApp Billing
+            All-in-One Billing Software • POS, Inventory &amp; WhatsApp Billing
           </div>
 
           <h1 className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
@@ -485,7 +485,7 @@ export function LandingPage() {
           </h1>
 
           <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-xl">
-            The all-in-one counter platform engineered with Voice-to-Bill AI, instant WhatsApp order parsing, and wholesale bill OCR. Real-time inventory and GST compliance for grocery, restaurant, pharmacy, and wholesale.
+            The all-in-one billing software for Indian businesses, engineered with Voice-to-Bill AI, instant WhatsApp order parsing, and wholesale bill OCR. Real-time inventory and GST compliance for grocery, restaurant, pharmacy, and wholesale.
           </p>
 
           {/* Interactive Feature Switcher that dynamically drives the live mobile phone mockup */}

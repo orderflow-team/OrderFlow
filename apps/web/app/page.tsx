@@ -1,60 +1,68 @@
-'use client';
+import type { Metadata } from 'next';
+import { HomeClient } from '@/components/home-client';
+import { FAQS } from '@/components/landing/faq-data';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
-import { Capacitor } from '@capacitor/core';
-import { isTokenExpired } from '@/lib/auth';
+const SITE = 'https://obix360.com';
 
-const LandingPage = dynamic(() => import('@/components/landing/landing-page').then((m) => ({ default: m.LandingPage })), { ssr: false });
+export const metadata: Metadata = {
+  title: {
+    absolute: 'OBIX 360 – All-in-One Billing Software with GST, Inventory & POS for India',
+  },
+  description:
+    'OBIX 360 is all-in-one billing software for India: GST invoicing, inventory, order management, POS and WhatsApp invoices in one app for shops, pharmacies, wholesalers and restaurants. Start free.',
+  alternates: { canonical: SITE },
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE}/#organization`,
+      name: 'OBIX 360',
+      alternateName: ['OBIX', 'obix360'],
+      url: SITE,
+      logo: `${SITE}/icon-512.png`,
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE}/#website`,
+      url: SITE,
+      name: 'OBIX 360',
+      publisher: { '@id': `${SITE}/#organization` },
+      inLanguage: 'en-IN',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'OBIX 360',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web, Android',
+      url: SITE,
+      description:
+        'All-in-one billing software: GST billing, inventory tracking, order management, WhatsApp invoicing and POS for retail, pharmacy, wholesale and restaurant businesses.',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
+      publisher: { '@id': `${SITE}/#organization` },
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: FAQS.map((f) => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
+    },
+  ],
+};
 
 export default function Home() {
-  const router = useRouter();
-  const [showLanding, setShowLanding] = useState(false);
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    // A stale/expired token used to still trigger the dashboard redirect
-    // below, which would then fail its own auth check and bounce to
-    // /login — so opening the home link looked like it "opened to login."
-    // Checking expiry here means an expired session just shows the normal
-    // home page instead of chaining through a doomed redirect.
-    if (token && !isTokenExpired(token)) {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        try {
-          const u = JSON.parse(userStr);
-          if (u.role === 'super_admin' || u.email === 'admin.cleverminds@gmail.com') {
-            router.push('/admin');
-            return;
-          }
-        } catch (e) {}
-      }
-      router.push('/dashboard');
-      return;
-    }
-    if (token) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-    }
-    // The marketing landing page is only useful to web visitors — someone
-    // opening the installed Android app has already signed up, so send them
-    // straight to sign-in instead (they can reach /signup from there too).
-    if (Capacitor.isNativePlatform()) {
-      router.push('/login');
-      return;
-    }
-    setShowLanding(true);
-  }, []);
-
-  if (!showLanding) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-slate-400 text-sm">Loading OBIX...</p>
-      </div>
-    );
-  }
-
-  return <LandingPage />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        // Static, server-built JSON; escape "<" so it can't close the tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\u003c') }}
+      />
+      <HomeClient />
+    </>
+  );
 }

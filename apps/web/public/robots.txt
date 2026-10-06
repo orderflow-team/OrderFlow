@@ -3,5 +3,19 @@ Allow: /
 Disallow: /admin/
 Disallow: /dashboard/
 Disallow: /api/
+Disallow: /api-proxy/
+Disallow: /billing/
+Disallow: /customers/
+Disallow: /inventory/
+Disallow: /orders/
+Disallow: /products/
+Disallow: /reports/
+Disallow: /restaurant/
+Disallow: /salesman/
+Disallow: /settings/
+Disallow: /staff/
+Disallow: /select-business/
+Disallow: /forgot-password/
+Disallow: /google-app-signin/
 
 Sitemap: https://obix360.com/sitemap.xml

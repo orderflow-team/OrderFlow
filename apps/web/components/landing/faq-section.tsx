@@ -2,40 +2,8 @@
 
 import { useState } from 'react';
 import { ChevronDown, HelpCircle, Search } from 'lucide-react';
+import { FAQS } from './faq-data';
 
-interface FAQItem {
-  question: string;
-  answer: string;
-  category: 'general' | 'hardware' | 'gst' | 'offline';
-}
-
-const FAQS: FAQItem[] = [
-  {
-    category: 'hardware',
-    question: 'Do I need special hardware to run OBIX?',
-    answer: 'No. OBIX runs in any modern browser on Windows PCs, Android tablets, iPads, or smartphones. You can plug in standard USB/Bluetooth thermal receipt printers (58mm or 80mm) and barcode scanners directly.',
-  },
-  {
-    category: 'gst',
-    question: 'Is OBIX compliant with Indian GST laws?',
-    answer: 'Yes! OBIX automatically calculates CGST, SGST, and IGST rates based on item HSN codes. It supports B2B invoices with GSTIN validation, B2C thermal bills, and generates monthly GST-ready sales reports.',
-  },
-  {
-    category: 'offline',
-    question: 'What happens if my internet connection drops at the counter?',
-    answer: 'OBIX features offline-first local database caching. You can continue taking orders and printing thermal receipts even during an internet outage. Your sales and inventory updates automatically sync to the cloud once reconnected.',
-  },
-  {
-    category: 'general',
-    question: 'Can I import my existing product catalog from Excel or Tally?',
-    answer: 'Yes! You can bulk upload your entire product catalog, pricing, batch numbers, and inventory levels using a standard CSV/Excel template in less than 2 minutes.',
-  },
-  {
-    category: 'general',
-    question: 'How do staff logins work for cashiers and waiters?',
-    answer: 'As a store owner or manager, you can add team logins and assign precise role-based access. Cashiers only see the billing screen, waiters see table order taking, cooks see the kitchen display, and accountants see financials.',
-  },
-];
 
 export function FaqSection() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
@@ -69,6 +37,7 @@ export function FaqSection() {
           {[
             { id: 'all', label: 'All Questions' },
             { id: 'hardware', label: 'Hardware & Printers' },
+            { id: 'pricing', label: 'Pricing' },
             { id: 'gst', label: 'GST & Invoices' },
             { id: 'offline', label: 'Offline Mode' },
             { id: 'general', label: 'General' },
