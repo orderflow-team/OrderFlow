@@ -8,7 +8,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://obix360.com"),
   title: {
-    default: "OBIX 360 - Business. Simplified. | All-in-One Order, Billing & POS",
+    default: "OBIX 360 - All-in-One Billing Software | Orders, Inventory & POS",
     template: "%s | OBIX 360",
   },
   description:
@@ -19,7 +19,9 @@ export const metadata: Metadata = {
     "obix360",
     "Orderflow",
     "Order Management",
+    "All-in-One Billing Software",
     "Billing Software",
+    "GST Billing Software",
     "Inventory Management",
     "WhatsApp Invoicing",
     "POS Billing",

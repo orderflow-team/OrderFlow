@@ -5,10 +5,10 @@ const SITE = 'https://obix360.com';
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'OBIX 360 – Billing, Inventory & Order Management Software for Indian Businesses',
+    absolute: 'OBIX 360 – All-in-One Billing Software with GST, Inventory & POS for India',
   },
   description:
-    'OBIX 360 is all-in-one billing software with GST invoicing, inventory tracking, order management, WhatsApp invoices and POS for retailers, pharmacies, wholesalers and restaurants in India. Start free.',
+    'OBIX 360 is all-in-one billing software for India: GST invoicing, inventory, order management, POS and WhatsApp invoices in one app for shops, pharmacies, wholesalers and restaurants. Start free.',
   alternates: { canonical: SITE },
 };
 
@@ -38,7 +38,7 @@ const jsonLd = {
       operatingSystem: 'Web, Android',
       url: SITE,
       description:
-        'Order management, GST billing, inventory tracking, WhatsApp invoicing and POS for retail, pharmacy, wholesale and restaurant businesses.',
+        'All-in-one billing software: GST billing, inventory tracking, order management, WhatsApp invoicing and POS for retail, pharmacy, wholesale and restaurant businesses.',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
       publisher: { '@id': `${SITE}/#organization` },
     },
