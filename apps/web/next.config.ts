@@ -57,6 +57,19 @@ const nextConfig: NextConfig = {
         destination: 'https://obix360.com/:path*',
         permanent: true,
       },
+      // One canonical host for search engines: www and apex both served 200,
+      // splitting the site into two duplicate copies.
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'www.obix360.com',
+          },
+        ],
+        destination: 'https://obix360.com/:path*',
+        permanent: true,
+      },
     ];
   },
 };
