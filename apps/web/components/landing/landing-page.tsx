@@ -1240,6 +1240,16 @@ export function LandingPage() {
               </h4>
               <ul className="space-y-2.5 text-sm">
                 <li>
+                  <Link href="/pharmacy-billing-software" className="hover:text-white transition-colors">
+                    Pharmacy Billing Software
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/restaurant-billing-software" className="hover:text-white transition-colors">
+                    Restaurant Billing Software
+                  </Link>
+                </li>
+                <li>
                   <a href="#contact" className="hover:text-white transition-colors">
                     Contact &amp; Helpdesk
                   </a>
