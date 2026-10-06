@@ -202,7 +202,13 @@ export function AppShell({ children, hideNavigation = false }: { children: React
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (!token) {
-      router.push('/login');
+      // A QR-code customer page (?customerMode=1) renders this shell while it is
+      // still logging the visitor in as a guest — the token arrives a moment
+      // later (see useBusiness). Redirecting here sent every customer who scanned
+      // a QR code to the staff sign-in screen before they could see the menu.
+      const isQrCustomerPage =
+        typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('customerMode') === '1';
+      if (!isQrCustomerPage) router.push('/login');
       return;
     }
     setBusinessId(getCurrentUser()?.businessId ?? null);

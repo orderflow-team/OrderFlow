@@ -371,35 +371,35 @@ export class SubscriptionsService {
       userId = ownerRes[0]?.id || null;
     }
 
-    // Update subscription by user_id or business_id
-    if (userId) {
-      await this.dataSource.query(
-        `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
-         VALUES (gen_random_uuid(), $1, $2, $3, 'active', $4, $5, $6, $7)
-         ON CONFLICT (user_id) DO UPDATE SET
-           plan_id = EXCLUDED.plan_id,
-           status = 'active',
-           billing_cycle = EXCLUDED.billing_cycle,
-           current_period_start = EXCLUDED.current_period_start,
-           current_period_end = EXCLUDED.current_period_end,
-           gateway = EXCLUDED.gateway,
-           updated_at = NOW()`,
-        [userId, businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway]
+    // Find the shop's existing subscription row, then update it — or insert one.
+    // This used to be INSERT ... ON CONFLICT (user_id), which only works if
+    // business_subscriptions.user_id has a unique constraint. The migrations
+    // only make business_id unique, so on a database built from them every
+    // upgrade (including a super admin approving a request) failed with
+    // "no unique or exclusion constraint matching the ON CONFLICT specification".
+    if (userId || businessId) {
+      const existing = await this.dataSource.query(
+        `SELECT id FROM business_subscriptions
+         WHERE user_id = $1 OR business_id = $2
+         ORDER BY (user_id = $1) DESC NULLS LAST
+         LIMIT 1`,
+        [userId, businessId],
       );
-    } else if (businessId) {
-      await this.dataSource.query(
-        `INSERT INTO business_subscriptions (id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
-         VALUES (gen_random_uuid(), $1, $2, 'active', $3, $4, $5, $6)
-         ON CONFLICT (business_id) DO UPDATE SET
-           plan_id = EXCLUDED.plan_id,
-           status = 'active',
-           billing_cycle = EXCLUDED.billing_cycle,
-           current_period_start = EXCLUDED.current_period_start,
-           current_period_end = EXCLUDED.current_period_end,
-           gateway = EXCLUDED.gateway,
-           updated_at = NOW()`,
-        [businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway]
-      );
+      if (existing[0]) {
+        await this.dataSource.query(
+          `UPDATE business_subscriptions SET
+             plan_id = $2, status = 'active', billing_cycle = $3,
+             current_period_start = $4, current_period_end = $5, gateway = $6, updated_at = NOW()
+           WHERE id = $1`,
+          [existing[0].id, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway],
+        );
+      } else {
+        await this.dataSource.query(
+          `INSERT INTO business_subscriptions (id, user_id, business_id, plan_id, status, billing_cycle, current_period_start, current_period_end, gateway)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'active', $4, $5, $6, $7)`,
+          [userId, businessId, targetPlan.id, cycle, currentPeriodStart, currentPeriodEnd, gateway],
+        );
+      }
     }
 
     // Log payment audit entry
