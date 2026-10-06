@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { HomeClient } from '@/components/home-client';
+import { FAQS } from '@/components/landing/faq-data';
 
 const SITE = 'https://obix360.com';
 
@@ -41,6 +42,14 @@ const jsonLd = {
         'All-in-one billing software: GST billing, inventory tracking, order management, WhatsApp invoicing and POS for retail, pharmacy, wholesale and restaurant businesses.',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
       publisher: { '@id': `${SITE}/#organization` },
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: FAQS.map((f) => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
     },
   ],
 };
