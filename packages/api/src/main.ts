@@ -9,6 +9,7 @@ import { ValidationPipe } from "@nestjs/common";
 import * as path from "path";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
+import { resolveListenPort } from "./common/utils/listen-port.util";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -123,7 +124,10 @@ async function bootstrap() {
     },
   });
 
-  const port = process.env.PORT || 4000;
+  const { port, usedDefault } = resolveListenPort();
+  if (usedDefault) {
+    console.warn(`⚠️ PORT is not set (or invalid); defaulting to ${port}. Set PORT explicitly so it matches your reverse proxy.`);
+  }
   await app.listen(port, "0.0.0.0");
 
   console.log(`✅ Application is running on: http://0.0.0.0:${port}`);
