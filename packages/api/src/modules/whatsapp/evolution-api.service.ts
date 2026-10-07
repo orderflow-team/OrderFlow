@@ -1,6 +1,24 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 
+/** Why the Evolution gateway can't be used right now. */
+export type EvolutionFailureKind = 'key_missing' | 'key_rejected' | 'unreachable' | 'http_error';
+
+export interface EvolutionFailure {
+  kind: EvolutionFailureKind;
+  status?: number;
+  /** For server logs only. Never contains the API key. */
+  detail: string;
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
 @Injectable()
 export class EvolutionApiService {
   private readonly logger = new Logger(EvolutionApiService.name);
@@ -73,6 +91,54 @@ export class EvolutionApiService {
       return { base64, code, pairingCode, count };
     }
     return null;
+  }
+
+  /**
+   * Works out WHY the gateway can't be used. Every call below swallows its own
+   * error and tries the next URL, so by the time a caller sees "no QR code" the
+   * real cause (missing key, rejected key, gateway down) is gone. This is a
+   * read-only probe, one GET per candidate URL run in parallel, so it stays well
+   * inside the web client's 10s timeout. Returns null when the gateway accepted
+   * our credentials.
+   */
+  async diagnose(): Promise<EvolutionFailure | null> {
+    let headers: Record<string, string>;
+    try {
+      headers = this.headers;
+    } catch {
+      return { kind: 'key_missing', detail: 'EVOLUTION_API_KEY is not set' };
+    }
+
+    const results = await Promise.all(
+      this.candidateUrls.map(async (url) => {
+        try {
+          await axios.get(`${url}/instance/fetchInstances`, { headers, timeout: 3000 });
+          return { ok: true, url, status: undefined as number | undefined, code: undefined as string | undefined };
+        } catch (err: any) {
+          return { ok: false, url, status: err?.response?.status as number | undefined, code: err?.code as string | undefined };
+        }
+      }),
+    );
+
+    const accepted = results.find((r) => r.ok);
+    if (accepted) {
+      this.workingUrl = accepted.url;
+      return null;
+    }
+    const rejected = results.find((r) => r.status === 401 || r.status === 403);
+    if (rejected) {
+      return {
+        kind: 'key_rejected',
+        status: rejected.status,
+        detail: `gateway at ${hostOf(rejected.url)} rejected EVOLUTION_API_KEY (HTTP ${rejected.status})`,
+      };
+    }
+    const failed = results.find((r) => r.status);
+    if (failed) {
+      return { kind: 'http_error', status: failed.status, detail: `gateway at ${hostOf(failed.url)} answered HTTP ${failed.status}` };
+    }
+    const codes = Array.from(new Set(results.map((r) => r.code).filter(Boolean))).join(', ') || 'no response';
+    return { kind: 'unreachable', detail: `no gateway answered (${codes})` };
   }
 
   /** Creates a new WhatsApp instance in Evolution API for a business. */

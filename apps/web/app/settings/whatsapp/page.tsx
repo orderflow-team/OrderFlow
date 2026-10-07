@@ -139,7 +139,7 @@ export default function WhatsappSettingsPage() {
       } else if (res.data?.qrData?.code) {
         setPairingCode(res.data.qrData.code);
       } else {
-        throw new Error('Evolution API did not return a QR code. Please check that Evolution API is running on port 8080.');
+        throw new Error('WhatsApp did not return a QR code. Please try again in a moment.');
       }
       await loadSettings();
     } catch (err: any) {

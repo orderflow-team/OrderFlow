@@ -47,6 +47,8 @@ describe('WhatsappService', () => {
       createInstance: jest.fn().mockResolvedValue({ status: 'created' }),
       fetchQrCode: jest.fn().mockResolvedValue({ base64: 'qr-base64-data' }),
       logoutInstance: jest.fn().mockResolvedValue(true),
+      extractQr: jest.fn().mockReturnValue(null),
+      diagnose: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -60,6 +62,83 @@ describe('WhatsappService', () => {
     }).compile();
 
     service = module.get<WhatsappService>(WhatsappService);
+  });
+
+  describe('connect', () => {
+    const noQr = () => {
+      evolutionApiService.fetchQrCode.mockResolvedValue(null);
+      evolutionApiService.createInstance.mockResolvedValue(null);
+    };
+    const failureOf = async () => {
+      try {
+        await service.connect(mockBusiness.id as string);
+      } catch (err: any) {
+        return err;
+      }
+      throw new Error('connect() should have thrown');
+    };
+
+    it('returns the QR code when the gateway provides one', async () => {
+      const res = await service.connect(mockBusiness.id as string);
+
+      expect(res.qrData).toEqual({ base64: 'qr-base64-data' });
+      expect(evolutionApiService.diagnose).not.toHaveBeenCalled();
+    });
+
+    it('tells the user the gateway key is missing instead of a generic QR error', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue({ kind: 'key_missing', detail: 'EVOLUTION_API_KEY is not set' });
+
+      const err = await failureOf();
+
+      expect(err.getStatus()).toBe(400);
+      expect(err.getResponse()).toMatchObject({ code: 'GATEWAY_KEY_MISSING', message: expect.stringContaining('gateway key is missing') });
+    });
+
+    it('tells the user the gateway rejected the credentials', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue({ kind: 'key_rejected', status: 401, detail: 'gateway at gw rejected EVOLUTION_API_KEY (HTTP 401)' });
+
+      expect((await failureOf()).getResponse()).toMatchObject({ code: 'GATEWAY_KEY_REJECTED' });
+    });
+
+    it('tells the user the gateway is unreachable', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue({ kind: 'unreachable', detail: 'no gateway answered (ECONNREFUSED)' });
+
+      expect((await failureOf()).getResponse()).toMatchObject({ code: 'GATEWAY_UNREACHABLE' });
+    });
+
+    it('includes the HTTP status for other gateway errors', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue({ kind: 'http_error', status: 502, detail: 'gateway answered HTTP 502' });
+
+      expect((await failureOf()).getResponse()).toMatchObject({ code: 'GATEWAY_ERROR', message: expect.stringContaining('502') });
+    });
+
+    it('says the gateway is healthy but returned no QR when the key is accepted', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue(null);
+
+      expect((await failureOf()).getResponse()).toMatchObject({ code: 'QR_UNAVAILABLE', message: expect.stringContaining('running but did not return a QR code') });
+    });
+
+    it('still fails with a clear message if the diagnosis itself throws', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockRejectedValue(new Error('boom'));
+
+      expect((await failureOf()).getResponse()).toMatchObject({ code: 'QR_UNAVAILABLE' });
+    });
+
+    it('never puts the key, URL or internal detail in the message sent to the browser', async () => {
+      noQr();
+      evolutionApiService.diagnose.mockResolvedValue({ kind: 'key_rejected', status: 401, detail: 'gateway at obix360.com rejected EVOLUTION_API_KEY (HTTP 401)' });
+
+      const body = JSON.stringify((await failureOf()).getResponse());
+
+      expect(body).not.toContain('obix360.com');
+      expect(body).not.toContain('EVOLUTION_API_KEY');
+    });
   });
 
   describe('handleWebhookPayload', () => {

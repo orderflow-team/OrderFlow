@@ -398,15 +398,44 @@ export class WhatsappService implements OnApplicationBootstrap {
     }
 
     if (!qrData || (!qrData.base64 && !qrData.code)) {
-      throw new BadRequestException(
-        'Evolution API did not return a QR code. Please ensure Evolution API is running and accessible.',
-      );
+      throw await this.qrFailure(instanceName);
     }
 
     return {
       instanceName,
       qrData, // Contains base64 image or pairing code
     };
+  }
+
+  /**
+   * Builds the error for "no QR code came back". The gateway client swallows its
+   * own errors, so this asks it what actually went wrong and tells the user
+   * something they can act on. The exact reason (host, HTTP status) goes to the
+   * server log only; the key and URLs are never sent to the browser.
+   */
+  private async qrFailure(instanceName: string): Promise<BadRequestException> {
+    const failure = await this.evolutionApiService.diagnose().catch(() => null);
+
+    let code = 'QR_UNAVAILABLE';
+    let message = 'The WhatsApp gateway is running but did not return a QR code. Please try again in a moment.';
+    if (failure?.kind === 'key_missing') {
+      code = 'GATEWAY_KEY_MISSING';
+      message = 'WhatsApp is not set up on this server yet (the gateway key is missing). Please contact support.';
+    } else if (failure?.kind === 'key_rejected') {
+      code = 'GATEWAY_KEY_REJECTED';
+      message = 'The WhatsApp gateway refused this server\'s credentials. Please contact support.';
+    } else if (failure?.kind === 'unreachable') {
+      code = 'GATEWAY_UNREACHABLE';
+      message = 'The WhatsApp gateway is not reachable right now. Please try again in a few minutes.';
+    } else if (failure?.kind === 'http_error') {
+      code = 'GATEWAY_ERROR';
+      message = `The WhatsApp gateway returned an error (HTTP ${failure.status}). Please try again shortly.`;
+    }
+
+    this.logger.error(
+      `WhatsApp QR failed for ${instanceName}: ${failure ? `${failure.kind} - ${failure.detail}` : 'gateway reachable and key accepted, but no QR returned'}`,
+    );
+    return new BadRequestException({ statusCode: 400, error: 'Bad Request', message, code });
   }
 
   /** Disconnects and deletes WhatsApp instance for a store. */
