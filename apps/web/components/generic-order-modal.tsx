@@ -73,8 +73,13 @@ interface CustomerFavorite {
   inLastOrder: boolean;
 }
 
-/** Orders containing an item before it counts as something the customer buys often. */
-const FREQUENT_ORDER_COUNT = 3;
+/**
+ * How many of a customer's orders must include an item before it counts as
+ * something they buy often. Scales with their history: with 2 orders, an item
+ * in both is a habit; with 20 orders it takes about a third of them. Never
+ * fewer than 2, since one order is not a pattern.
+ */
+const frequentThreshold = (totalOrders: number) => Math.max(2, Math.ceil(totalOrders * 0.3));
 
 export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
@@ -110,6 +115,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const [customerPrices, setCustomerPrices] = useState<Record<string, { price: number, unit?: string }>>({});
   // what this customer usually buys: productId -> history, used to float and glow their usual items
   const [customerFavorites, setCustomerFavorites] = useState<Record<string, CustomerFavorite>>({});
+  const [customerTotalOrders, setCustomerTotalOrders] = useState(0);
   const priceLoadRef = useRef<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
@@ -230,6 +236,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setSubmitError('');
       setCustomerPrices({});
       setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       priceLoadRef.current = '';
       setCart({});
       setSearch('');
@@ -265,14 +272,18 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setCustomerPrices({});
     }
     try {
-      const res = await apiClient.get<Record<string, CustomerFavorite>>('/api/orders/customer-favorites', {
+      const res = await apiClient.get<{ totalOrders: number; items: Record<string, CustomerFavorite> }>('/api/orders/customer-favorites', {
         params: { businessId, customerId: cid },
       });
       // Ignore a late response if a different customer was picked meanwhile.
-      if (priceLoadRef.current === cid) setCustomerFavorites(res.data);
+      if (priceLoadRef.current === cid) {
+        setCustomerFavorites(res.data.items);
+        setCustomerTotalOrders(res.data.totalOrders);
+      }
     } catch (e) {
       console.error('[favorites] error', e);
       setCustomerFavorites({});
+      setCustomerTotalOrders(0);
     }
   };
 
@@ -346,6 +357,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setCustomerId('');
       setCustomerPrices({});
       setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -364,6 +376,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setCustomerId('');
       setCustomerPrices({});
       setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -390,7 +403,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const favoriteInfo = (id: string) => {
     const f = customerFavorites[id];
     if (!f) return null;
-    const frequent = f.orderCount >= FREQUENT_ORDER_COUNT;
+    const frequent = f.orderCount >= frequentThreshold(customerTotalOrders);
     if (!frequent && !f.inLastOrder) return null;
     return { frequent, inLastOrder: f.inLastOrder, orderCount: f.orderCount, score: f.orderCount + (f.inLastOrder ? 0.5 : 0) };
   };
@@ -1009,9 +1022,11 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                   className={`relative flex items-center gap-2 pl-3 pr-8 py-2 min-h-[68px] rounded-xl border transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${
                     atMax ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'
                   } ${
-                    qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
-                  } ${
-                    fav && qty === 0 ? 'border-amber-300 ring-1 ring-amber-300 shadow-[0_0_14px_2px_rgba(251,191,36,0.45)]' : ''
+                    qty > 0
+                      ? 'border-emerald-400 ring-1 ring-emerald-400'
+                      : fav
+                        ? 'border-amber-400 hover:bg-white/60 fav-glow'
+                        : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
                   onClick={() => !atMax && updateCart(p, 1)}
                 >

@@ -641,20 +641,21 @@ describe('OrdersService', () => {
 
       const result = await service.customerFavorites('biz-1', 'cust-1');
 
-      expect(result.milk).toEqual({
+      expect(result.totalOrders).toBe(3);
+      expect(result.items.milk).toEqual({
         orderCount: 2,
         totalQuantity: 4,
         lastOrderedAt: '2026-10-03T00:00:00.000Z',
         inLastOrder: true,
       });
-      expect(result.bread.inLastOrder).toBe(true);
-      expect(result.rice).toMatchObject({ orderCount: 1, totalQuantity: 5, inLastOrder: false });
+      expect(result.items.bread.inLastOrder).toBe(true);
+      expect(result.items.rice).toMatchObject({ orderCount: 1, totalQuantity: 5, inLastOrder: false });
     });
 
     it('returns an empty map for a customer with no past orders', async () => {
       orderItemsRepo.createQueryBuilder.mockReturnValue(buildQb({ getRawMany: jest.fn().mockResolvedValue([]) }));
 
-      expect(await service.customerFavorites('biz-1', 'cust-1')).toEqual({});
+      expect(await service.customerFavorites('biz-1', 'cust-1')).toEqual({ totalOrders: 0, items: {} });
     });
   });
 

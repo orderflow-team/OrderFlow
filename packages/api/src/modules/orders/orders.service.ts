@@ -2393,17 +2393,20 @@ export class OrdersService {
    * What this customer buys, per product, so the new-order screen can float
    * their usual items to the top: how many separate orders included it, the
    * total quantity, when they last had it, and whether it was in their most
-   * recent order. Uses the same order statuses as customerPrices.
+   * recent order. totalOrders lets the screen judge "often" relative to this
+   * customer's own history rather than a fixed count. Uses the same order
+   * statuses as customerPrices.
    */
   async customerFavorites(
     businessId: string,
     customerId: string,
-  ): Promise<
-    Record<
+  ): Promise<{
+    totalOrders: number;
+    items: Record<
       string,
       { orderCount: number; totalQuantity: number; lastOrderedAt: string; inLastOrder: boolean }
-    >
-  > {
+    >;
+  }> {
     const rows: Array<{
       product_id: string;
       order_id: string;
@@ -2426,17 +2429,19 @@ export class OrdersService {
       .getRawMany();
 
     const lastOrderId = rows[0]?.order_id;
+    const allOrderIds = new Set<string>();
     const orderIdsByProduct = new Map<string, Set<string>>();
-    const result: Record<
+    const items: Record<
       string,
       { orderCount: number; totalQuantity: number; lastOrderedAt: string; inLastOrder: boolean }
     > = {};
     for (const row of rows) {
+      allOrderIds.add(row.order_id);
       const ids = orderIdsByProduct.get(row.product_id) ?? new Set<string>();
       ids.add(row.order_id);
       orderIdsByProduct.set(row.product_id, ids);
       // Rows are newest first, so the first sighting carries the last-ordered date.
-      const entry = (result[row.product_id] ??= {
+      const entry = (items[row.product_id] ??= {
         orderCount: 0,
         totalQuantity: 0,
         lastOrderedAt: new Date(row.created_at).toISOString(),
@@ -2446,7 +2451,7 @@ export class OrdersService {
       entry.orderCount = ids.size;
       if (row.order_id === lastOrderId) entry.inLastOrder = true;
     }
-    return result;
+    return { totalOrders: allOrderIds.size, items };
   }
 
   async getOrderReceiptHtml(id: string, businessId: string): Promise<string> {
