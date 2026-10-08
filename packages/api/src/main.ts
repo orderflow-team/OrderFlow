@@ -7,12 +7,19 @@ dns.setDefaultResultOrder("ipv4first");
 import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import * as path from "path";
+import { json } from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { resolveListenPort } from "./common/utils/listen-port.util";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Evolution API posts whole WhatsApp events (media thumbnails, contact cards,
+  // long forwarded messages) to this route; Express's 100kb default rejects
+  // those with 413, so the customer's order message is silently dropped. Parse
+  // just this path with a bigger cap, before the default parser sees it. The
+  // route is token-protected, and the default limit still covers everything else.
+  app.use('/api/whatsapp/webhook', json({ limit: '10mb' }));
   // Trust reverse proxy (Apache2 / Nginx) so client IP addresses from X-Forwarded-For
   // are used for rate-limiting rather than treating all traffic as 127.0.0.1.
   // Trust exactly the proxy hops in front of us, never `true`: `true` takes the
