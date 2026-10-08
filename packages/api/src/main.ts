@@ -20,6 +20,11 @@ async function bootstrap() {
   // just this path with a bigger cap, before the default parser sees it. The
   // route is token-protected, and the default limit still covers everything else.
   app.use('/api/whatsapp/webhook', json({ limit: '10mb' }));
+  // Nest only installs its own JSON parser when none named `jsonParser` is
+  // already on the stack, and express.json() has exactly that name, so the
+  // line above would otherwise switch JSON parsing off for every other route
+  // (logins arrive with an empty body). Register the default parser ourselves.
+  app.use(json());
   // Trust reverse proxy (Apache2 / Nginx) so client IP addresses from X-Forwarded-For
   // are used for rate-limiting rather than treating all traffic as 127.0.0.1.
   // Trust exactly the proxy hops in front of us, never `true`: `true` takes the
