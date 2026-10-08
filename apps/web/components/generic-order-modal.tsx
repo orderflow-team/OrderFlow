@@ -66,6 +66,16 @@ interface GenericOrderModalProps {
   onCustomerCreated?: (customer: Customer) => void;
 }
 
+interface CustomerFavorite {
+  orderCount: number;
+  totalQuantity: number;
+  lastOrderedAt: string;
+  inLastOrder: boolean;
+}
+
+/** Orders containing an item before it counts as something the customer buys often. */
+const FREQUENT_ORDER_COUNT = 3;
+
 export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
   // Others-wizard businesses use their own words ("Sale", "Ornament").
@@ -98,6 +108,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const [submitting, setSubmitting] = useState(false);
   // customer-specific price overrides: productId → price
   const [customerPrices, setCustomerPrices] = useState<Record<string, { price: number, unit?: string }>>({});
+  // what this customer usually buys: productId -> history, used to float and glow their usual items
+  const [customerFavorites, setCustomerFavorites] = useState<Record<string, CustomerFavorite>>({});
   const priceLoadRef = useRef<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
@@ -217,6 +229,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setValidationError('');
       setSubmitError('');
       setCustomerPrices({});
+      setCustomerFavorites({});
       priceLoadRef.current = '';
       setCart({});
       setSearch('');
@@ -250,6 +263,16 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } catch (e) {
       console.error('[prices] error', e);
       setCustomerPrices({});
+    }
+    try {
+      const res = await apiClient.get<Record<string, CustomerFavorite>>('/api/orders/customer-favorites', {
+        params: { businessId, customerId: cid },
+      });
+      // Ignore a late response if a different customer was picked meanwhile.
+      if (priceLoadRef.current === cid) setCustomerFavorites(res.data);
+    } catch (e) {
+      console.error('[favorites] error', e);
+      setCustomerFavorites({});
     }
   };
 
@@ -322,6 +345,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } else if (customerId) {
       setCustomerId('');
       setCustomerPrices({});
+      setCustomerFavorites({});
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -339,6 +363,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } else {
       setCustomerId('');
       setCustomerPrices({});
+      setCustomerFavorites({});
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -359,6 +384,19 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !(p.barcode || '').includes(search)) return false;
     return true;
   });
+
+  // Items this customer had last time or buys often go first (strongest habit
+  // on top); everything else keeps the catalogue order.
+  const favoriteInfo = (id: string) => {
+    const f = customerFavorites[id];
+    if (!f) return null;
+    const frequent = f.orderCount >= FREQUENT_ORDER_COUNT;
+    if (!frequent && !f.inLastOrder) return null;
+    return { frequent, inLastOrder: f.inLastOrder, orderCount: f.orderCount, score: f.orderCount + (f.inLastOrder ? 0.5 : 0) };
+  };
+  const rankedProducts = [...filteredProducts].sort(
+    (a, b) => (favoriteInfo(b.id)?.score ?? 0) - (favoriteInfo(a.id)?.score ?? 0),
+  );
 
   const updateCart = (product: Product, delta: number) => {
     setCart(prev => {
@@ -950,7 +988,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
 
           {/* Product list */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pb-4">
-            {filteredProducts.map(p => {
+            {rankedProducts.map(p => {
+              const fav = favoriteInfo(p.id);
               const qty = cart[p.id]?.quantity || 0;
               const maxQty = getMaxQty(p);
               const atMax = Number.isFinite(maxQty) && qty >= maxQty;
@@ -958,6 +997,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               const originalPrice = hasPreviousPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
               const hasCustomPrice = hasPreviousPrice && originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
               const metaBits = [
+                fav?.inLastOrder ? 'Ordered last time' : null,
+                fav?.frequent ? `Buys often · ${fav.orderCount}×` : null,
                 hasPreviousPrice ? 'Last purchased price' : null,
                 p.batch_number ? `Batch ${p.batch_number}` : null,
                 atMax ? `Only ${maxQty} in inventory — max added` : null,
@@ -969,6 +1010,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                     atMax ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'
                   } ${
                     qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
+                  } ${
+                    fav && qty === 0 ? 'border-amber-300 ring-1 ring-amber-300 shadow-[0_0_14px_2px_rgba(251,191,36,0.45)]' : ''
                   }`}
                   onClick={() => !atMax && updateCart(p, 1)}
                 >
@@ -989,6 +1032,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                             className={
                               bit === 'Last purchased price'
                                 ? 'font-semibold text-emerald-700'
+                                : bit === 'Ordered last time' || bit?.startsWith('Buys often')
+                                  ? 'font-semibold text-amber-600'
                                 : bit?.startsWith('Only')
                                   ? 'font-semibold text-rose-600'
                                   : ''
