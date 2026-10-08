@@ -344,15 +344,16 @@
     inset 0 -1px 1px rgba(255, 255, 255, 0.12),
     0 10px 25px -10px rgba(15, 23, 42, 0.2);
 }
-/* A customer's usual items in the order picker. Defined after glass-sheen-sm
-   and carrying the same sheen, because that class' box-shadow would otherwise
-   override any Tailwind shadow/ring added to the same card. */
+/* A customer's usual items in the order picker: a faint violet halo, a colour
+   nothing else on these cards uses (green = added, red = Rx). Defined after
+   glass-sheen-sm and carrying the same sheen, because that class' box-shadow
+   would otherwise override any Tailwind shadow/ring added to the same card. */
 .fav-glow {
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.6),
-    0 0 0 1px rgba(251, 191, 36, 0.9),
-    0 0 14px 3px rgba(251, 191, 36, 0.55),
-    0 10px 25px -10px rgba(217, 119, 6, 0.35);
+    0 0 0 1px rgba(139, 92, 246, 0.28),
+    0 0 12px 1px rgba(139, 92, 246, 0.18),
+    0 10px 25px -10px rgba(15, 23, 42, 0.2);
 }
 .glass-inset {
   box-shadow:

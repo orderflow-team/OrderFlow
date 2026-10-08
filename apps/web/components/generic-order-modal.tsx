@@ -1025,7 +1025,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                     qty > 0
                       ? 'border-emerald-400 ring-1 ring-emerald-400'
                       : fav
-                        ? 'border-amber-400 hover:bg-white/60 fav-glow'
+                        ? 'border-violet-300/60 hover:bg-white/60 fav-glow'
                         : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
                   onClick={() => !atMax && updateCart(p, 1)}
@@ -1048,7 +1048,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                               bit === 'Last purchased price'
                                 ? 'font-semibold text-emerald-700'
                                 : bit === 'Ordered last time' || bit?.startsWith('Buys often')
-                                  ? 'font-semibold text-amber-600'
+                                  ? 'font-semibold text-violet-600'
                                 : bit?.startsWith('Only')
                                   ? 'font-semibold text-rose-600'
                                   : ''
