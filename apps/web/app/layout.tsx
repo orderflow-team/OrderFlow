@@ -46,16 +46,24 @@ export const metadata: Metadata = {
     locale: "en_IN",
     url: "https://obix360.com",
     siteName: "OBIX 360",
-    title: "OBIX 360 - Modern Order, Billing & Inventory Management",
+    title: "OBIX 360 – GST Billing, Inventory & Orders in One App",
     description:
-      "All-in-one business operating system. Invoicing, inventory, WhatsApp automations, and live store management.",
-    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "OBIX 360" }],
+      "All-in-one billing software for India: GST invoicing, inventory, orders, POS and WhatsApp invoices for shops, pharmacies, wholesalers and restaurants.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "OBIX 360 – all-in-one GST billing, inventory and WhatsApp invoicing software",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "OBIX 360 - Business. Simplified.",
-    description: "Multi-industry order management, billing, inventory & POS system.",
-    images: ["/icon-512.png"],
+    title: "OBIX 360 – GST Billing, Inventory & Orders in One App",
+    description:
+      "All-in-one billing software for India: GST invoicing, inventory, orders, POS and WhatsApp invoices for shops, pharmacies, wholesalers and restaurants.",
+    images: ["/og-image.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -68,8 +76,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
   themeColor: "#059669",
 };

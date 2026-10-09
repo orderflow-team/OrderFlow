@@ -468,21 +468,22 @@ export function LandingPage() {
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 grid lg:grid-cols-12 gap-8 items-center min-h-[calc(100vh-80px)] py-12"
       >
         <div className="lg:col-span-6 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 via-emerald-500/15 to-violet-500/15 border border-emerald-500/30 text-emerald-900 text-xs font-extrabold uppercase tracking-wider shadow-sm">
+          {/* The H1 carries the search keywords; the big brand tagline below keeps its look as a paragraph. */}
+          <h1 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 via-emerald-500/15 to-violet-500/15 border border-emerald-500/30 text-emerald-900 text-xs font-extrabold uppercase tracking-wider shadow-sm">
             <span className="relative flex h-2 w-2 mr-0.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             All-in-One Billing Software • POS, Inventory &amp; WhatsApp Billing
-          </div>
+          </h1>
 
-          <h1 className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
+          <p className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
             <span className="whitespace-nowrap">Orders in. Inventory out.</span>
             <br />
             <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
               Paid up.
             </span>
-          </h1>
+          </p>
 
           <p className="text-lg text-slate-600 font-medium leading-relaxed max-w-xl">
             The all-in-one billing software for Indian businesses, engineered with Voice-to-Bill AI, instant WhatsApp order parsing, and wholesale bill OCR. Real-time inventory and GST compliance for grocery, restaurant, pharmacy, and wholesale.
