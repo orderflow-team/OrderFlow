@@ -3,8 +3,9 @@ import { ShieldCheck, Lock, Eye, Database, Trash2, Mail, ArrowLeft } from 'lucid
 import { ObixMark } from '@/components/obix-logo';
 
 export const metadata = {
-  title: 'Privacy Policy | OBIX OrderFlow',
-  description: 'Privacy Policy and data safety commitments for OBIX (OrderFlow Business & Store Management).',
+  title: 'Privacy Policy',
+  description: 'Privacy Policy and data safety commitments for OBIX 360, the all-in-one billing, inventory and order management app.',
+  alternates: { canonical: '/privacy-policy' },
 };
 
 export default function PrivacyPolicyPage() {

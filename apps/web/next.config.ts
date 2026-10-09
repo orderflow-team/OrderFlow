@@ -64,6 +64,8 @@ const nextConfig: NextConfig = {
         destination: 'https://obix360.com/:path*',
         permanent: true,
       },
+      // /privacy and /privacy-policy were the same page at two URLs.
+      { source: '/privacy', destination: '/privacy-policy', permanent: true },
       // One canonical host for search engines: www and apex both served 200,
       // splitting the site into two duplicate copies.
       {
