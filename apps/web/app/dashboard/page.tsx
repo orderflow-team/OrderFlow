@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import apiClient from '@/lib/api-client';
 import { getCached, setCached } from '@/lib/offline-db';
+import { isNetworkError } from '@/lib/offline-store';
 import { getCurrentUser, getCachedBusinessCategory, setCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventoryEnabled, hasRole } from '@/lib/auth';
 import { CustomBusinessSettings, getBusinessTerminology, getOptionalModulesForCategory } from '@/lib/business-modules';
 import { singularLabel } from '@/lib/use-business-terminology';
@@ -195,6 +196,8 @@ export default function DashboardPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [stale, setStale] = useState(false);
+  // Why the saved copy is showing: no connection at all, or the server answered with an error / was restarting.
+  const [staleOffline, setStaleOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [showSeedConfirm, setShowSeedConfirm] = useState(false);
@@ -243,6 +246,7 @@ export default function DashboardPage() {
       if (cached) {
         setData(cached);
         setStale(true);
+        setStaleOffline(isNetworkError(err));
       } else {
         router.push('/');
       }
@@ -359,7 +363,9 @@ export default function DashboardPage() {
         {stale && (
           <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl px-3 py-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            You&apos;re offline — showing the last data loaded. Numbers may be out of date.
+            {staleOffline
+              ? "You're offline — showing the last data loaded. Numbers may be out of date."
+              : "Couldn't refresh from the server — showing the last saved data. Numbers may be out of date."}
           </p>
         )}
         <PageHeader
