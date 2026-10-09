@@ -29,6 +29,7 @@ describe('OrdersController', () => {
             create: jest.fn(),
             findAll: jest.fn(),
             customerPrices: jest.fn(),
+            customerFavorites: jest.fn(),
             suggestPrice: jest.fn(),
             getOrderReceiptHtml: jest.fn(),
             findOne: jest.fn(),
@@ -112,6 +113,11 @@ describe('OrdersController', () => {
   it('customerPrices delegates to the service', () => {
     controller.customerPrices('biz-1', 'cust-1');
     expect(service.customerPrices).toHaveBeenCalledWith('biz-1', 'cust-1');
+  });
+
+  it('customerFavorites delegates to the service', () => {
+    controller.customerFavorites('biz-1', 'cust-1');
+    expect(service.customerFavorites).toHaveBeenCalledWith('biz-1', 'cust-1');
   });
 
   it('suggestPrice delegates to the service', () => {

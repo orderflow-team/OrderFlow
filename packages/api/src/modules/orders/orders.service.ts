@@ -2389,6 +2389,71 @@ export class OrdersService {
     return map;
   }
 
+  /**
+   * What this customer buys, per product, so the new-order screen can float
+   * their usual items to the top: how many separate orders included it, the
+   * total quantity, when they last had it, and whether it was in their most
+   * recent order. totalOrders lets the screen judge "often" relative to this
+   * customer's own history rather than a fixed count. Uses the same order
+   * statuses as customerPrices.
+   */
+  async customerFavorites(
+    businessId: string,
+    customerId: string,
+  ): Promise<{
+    totalOrders: number;
+    items: Record<
+      string,
+      { orderCount: number; totalQuantity: number; lastOrderedAt: string; inLastOrder: boolean }
+    >;
+  }> {
+    const rows: Array<{
+      product_id: string;
+      order_id: string;
+      quantity: string | number;
+      created_at: Date | string;
+    }> = await this.orderItemsRepository
+      .createQueryBuilder("oi")
+      .innerJoin("oi.order", "o")
+      .where("o.business_id = :businessId", { businessId })
+      .andWhere("o.customer_id = :customerId", { customerId })
+      .andWhere("o.status IN (:...statuses)", {
+        statuses: ["paid", "confirmed", "delivered"],
+      })
+      .andWhere("oi.product_id IS NOT NULL")
+      .orderBy("o.created_at", "DESC")
+      .select("oi.product_id", "product_id")
+      .addSelect("o.id", "order_id")
+      .addSelect("oi.quantity", "quantity")
+      .addSelect("o.created_at", "created_at")
+      .getRawMany();
+
+    const lastOrderId = rows[0]?.order_id;
+    const allOrderIds = new Set<string>();
+    const orderIdsByProduct = new Map<string, Set<string>>();
+    const items: Record<
+      string,
+      { orderCount: number; totalQuantity: number; lastOrderedAt: string; inLastOrder: boolean }
+    > = {};
+    for (const row of rows) {
+      allOrderIds.add(row.order_id);
+      const ids = orderIdsByProduct.get(row.product_id) ?? new Set<string>();
+      ids.add(row.order_id);
+      orderIdsByProduct.set(row.product_id, ids);
+      // Rows are newest first, so the first sighting carries the last-ordered date.
+      const entry = (items[row.product_id] ??= {
+        orderCount: 0,
+        totalQuantity: 0,
+        lastOrderedAt: new Date(row.created_at).toISOString(),
+        inLastOrder: false,
+      });
+      entry.totalQuantity += Number(row.quantity) || 0;
+      entry.orderCount = ids.size;
+      if (row.order_id === lastOrderId) entry.inLastOrder = true;
+    }
+    return { totalOrders: allOrderIds.size, items };
+  }
+
   async getOrderReceiptHtml(id: string, businessId: string): Promise<string> {
     const order = await this.ordersRepository.findOne({
       where: { id, business_id: businessId },

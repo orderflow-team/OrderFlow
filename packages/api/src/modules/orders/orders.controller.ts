@@ -183,6 +183,14 @@ export class OrdersController {
     return this.ordersService.customerPrices(businessId, customerId);
   }
 
+  @Get('customer-favorites')
+  customerFavorites(
+    @Query('businessId') businessId: string,
+    @Query('customerId') customerId: string,
+  ) {
+    return this.ordersService.customerFavorites(businessId, customerId);
+  }
+
   @Post('suggest-price')
   suggestPrice(
     @Query('businessId') businessId: string,

@@ -66,6 +66,21 @@ interface GenericOrderModalProps {
   onCustomerCreated?: (customer: Customer) => void;
 }
 
+interface CustomerFavorite {
+  orderCount: number;
+  totalQuantity: number;
+  lastOrderedAt: string;
+  inLastOrder: boolean;
+}
+
+/**
+ * How many of a customer's orders must include an item before it counts as
+ * something they buy often. Scales with their history: with 2 orders, an item
+ * in both is a habit; with 20 orders it takes about a third of them. Never
+ * fewer than 2, since one order is not a pattern.
+ */
+const frequentThreshold = (totalOrders: number) => Math.max(2, Math.ceil(totalOrders * 0.3));
+
 export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, customers, onClose, onSubmit, onCustomerCreated }: GenericOrderModalProps) {
   const isPharmacy = getCachedBusinessCategory(businessId) === 'pharmacy';
   // Others-wizard businesses use their own words ("Sale", "Ornament").
@@ -98,6 +113,9 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const [submitting, setSubmitting] = useState(false);
   // customer-specific price overrides: productId → price
   const [customerPrices, setCustomerPrices] = useState<Record<string, { price: number, unit?: string }>>({});
+  // what this customer usually buys: productId -> history, used to float and glow their usual items
+  const [customerFavorites, setCustomerFavorites] = useState<Record<string, CustomerFavorite>>({});
+  const [customerTotalOrders, setCustomerTotalOrders] = useState(0);
   const priceLoadRef = useRef<string>('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   // productId → 'saving' | 'saved', for the per-unit "save this price" cart action
@@ -217,6 +235,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setValidationError('');
       setSubmitError('');
       setCustomerPrices({});
+      setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       priceLoadRef.current = '';
       setCart({});
       setSearch('');
@@ -250,6 +270,20 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } catch (e) {
       console.error('[prices] error', e);
       setCustomerPrices({});
+    }
+    try {
+      const res = await apiClient.get<{ totalOrders: number; items: Record<string, CustomerFavorite> }>('/api/orders/customer-favorites', {
+        params: { businessId, customerId: cid },
+      });
+      // Ignore a late response if a different customer was picked meanwhile.
+      if (priceLoadRef.current === cid) {
+        setCustomerFavorites(res.data.items);
+        setCustomerTotalOrders(res.data.totalOrders);
+      }
+    } catch (e) {
+      console.error('[favorites] error', e);
+      setCustomerFavorites({});
+      setCustomerTotalOrders(0);
     }
   };
 
@@ -322,6 +356,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } else if (customerId) {
       setCustomerId('');
       setCustomerPrices({});
+      setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -339,6 +375,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     } else {
       setCustomerId('');
       setCustomerPrices({});
+      setCustomerFavorites({});
+      setCustomerTotalOrders(0);
       setJustCreatedCustomer(false);
       priceLoadRef.current = '';
     }
@@ -359,6 +397,19 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !(p.barcode || '').includes(search)) return false;
     return true;
   });
+
+  // Items this customer had last time or buys often go first (strongest habit
+  // on top); everything else keeps the catalogue order.
+  const favoriteInfo = (id: string) => {
+    const f = customerFavorites[id];
+    if (!f) return null;
+    const frequent = f.orderCount >= frequentThreshold(customerTotalOrders);
+    if (!frequent && !f.inLastOrder) return null;
+    return { frequent, inLastOrder: f.inLastOrder, orderCount: f.orderCount, score: f.orderCount + (f.inLastOrder ? 0.5 : 0) };
+  };
+  const rankedProducts = [...filteredProducts].sort(
+    (a, b) => (favoriteInfo(b.id)?.score ?? 0) - (favoriteInfo(a.id)?.score ?? 0),
+  );
 
   const updateCart = (product: Product, delta: number) => {
     setCart(prev => {
@@ -950,7 +1001,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
 
           {/* Product list */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pb-4">
-            {filteredProducts.map(p => {
+            {rankedProducts.map(p => {
+              const fav = favoriteInfo(p.id);
               const qty = cart[p.id]?.quantity || 0;
               const maxQty = getMaxQty(p);
               const atMax = Number.isFinite(maxQty) && qty >= maxQty;
@@ -958,6 +1010,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               const originalPrice = hasPreviousPrice ? baseProducts.find(b => b.id === p.id)?.selling_price : undefined;
               const hasCustomPrice = hasPreviousPrice && originalPrice !== undefined && Number(originalPrice) !== Number(p.selling_price);
               const metaBits = [
+                fav?.inLastOrder ? 'Ordered last time' : null,
+                fav?.frequent ? `Buys often · ${fav.orderCount}×` : null,
                 hasPreviousPrice ? 'Last purchased price' : null,
                 p.batch_number ? `Batch ${p.batch_number}` : null,
                 atMax ? `Only ${maxQty} in inventory — max added` : null,
@@ -968,7 +1022,11 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                   className={`relative flex items-center gap-2 pl-3 pr-8 py-2 min-h-[68px] rounded-xl border transition-all bg-white/40 backdrop-blur-xl glass-sheen-sm ${
                     atMax ? 'cursor-not-allowed opacity-90' : 'cursor-pointer'
                   } ${
-                    qty > 0 ? 'border-emerald-400 ring-1 ring-emerald-400' : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
+                    qty > 0
+                      ? 'border-emerald-400 ring-1 ring-emerald-400'
+                      : fav
+                        ? 'border-violet-300/60 hover:bg-white/60 fav-glow'
+                        : 'border-white/50 hover:bg-white/60 ring-1 ring-white/50'
                   }`}
                   onClick={() => !atMax && updateCart(p, 1)}
                 >
@@ -989,6 +1047,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                             className={
                               bit === 'Last purchased price'
                                 ? 'font-semibold text-emerald-700'
+                                : bit === 'Ordered last time' || bit?.startsWith('Buys often')
+                                  ? 'font-semibold text-violet-600'
                                 : bit?.startsWith('Only')
                                   ? 'font-semibold text-rose-600'
                                   : ''

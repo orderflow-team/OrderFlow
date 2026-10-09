@@ -626,6 +626,39 @@ describe('OrdersService', () => {
     });
   });
 
+  describe('customerFavorites', () => {
+    it('counts distinct orders per product and flags what was in the last order', async () => {
+      const qb = buildQb({
+        getRawMany: jest.fn().mockResolvedValue([
+          { product_id: 'milk', order_id: 'o3', quantity: '2', created_at: '2026-10-03T00:00:00Z' },
+          { product_id: 'bread', order_id: 'o3', quantity: '1', created_at: '2026-10-03T00:00:00Z' },
+          { product_id: 'milk', order_id: 'o2', quantity: '1', created_at: '2026-10-02T00:00:00Z' },
+          { product_id: 'milk', order_id: 'o2', quantity: '1', created_at: '2026-10-02T00:00:00Z' },
+          { product_id: 'rice', order_id: 'o1', quantity: '5', created_at: '2026-10-01T00:00:00Z' },
+        ]),
+      });
+      orderItemsRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.customerFavorites('biz-1', 'cust-1');
+
+      expect(result.totalOrders).toBe(3);
+      expect(result.items.milk).toEqual({
+        orderCount: 2,
+        totalQuantity: 4,
+        lastOrderedAt: '2026-10-03T00:00:00.000Z',
+        inLastOrder: true,
+      });
+      expect(result.items.bread.inLastOrder).toBe(true);
+      expect(result.items.rice).toMatchObject({ orderCount: 1, totalQuantity: 5, inLastOrder: false });
+    });
+
+    it('returns an empty map for a customer with no past orders', async () => {
+      orderItemsRepo.createQueryBuilder.mockReturnValue(buildQb({ getRawMany: jest.fn().mockResolvedValue([]) }));
+
+      expect(await service.customerFavorites('biz-1', 'cust-1')).toEqual({ totalOrders: 0, items: {} });
+    });
+  });
+
   describe('getOrderReceiptHtml', () => {
     it('throws NotFoundException when the order does not exist', async () => {
       ordersRepo.findOne.mockResolvedValue(null);
