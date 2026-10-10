@@ -25,6 +25,7 @@ import {
   Moon,
   Radio,
   Crown,
+  BarChart3,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
@@ -104,6 +105,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       name: 'Business Network',
       href: '/admin/business-connections',
       icon: Link2,
+    },
+    {
+      name: 'Sales Data & Export',
+      href: '/admin/sales',
+      icon: BarChart3,
     },
     {
       name: 'Global Orders Stream',

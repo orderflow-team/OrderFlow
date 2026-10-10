@@ -114,8 +114,8 @@ describe('PlatformAdminController', () => {
   });
 
   it('getGlobalOrders delegates to the service', () => {
-    controller.getGlobalOrders('neel', 'paid', 'biz-1', 'manual', 1, 15);
-    expect(service.getGlobalOrders).toHaveBeenCalledWith({ search: 'neel', status: 'paid', business_id: 'biz-1', origin: 'manual', page: 1, limit: 15 });
+    controller.getGlobalOrders('neel', 'paid', 'biz-1', 'manual', '2026-01-01', '2026-01-31', 1, 15);
+    expect(service.getGlobalOrders).toHaveBeenCalledWith({ search: 'neel', status: 'paid', business_id: 'biz-1', origin: 'manual', from: '2026-01-01', to: '2026-01-31', page: 1, limit: 15 });
   });
 
   it('getBusinessConnections delegates to the service', () => {
