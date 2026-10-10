@@ -6,6 +6,7 @@ import { Business, User, Product, Order, UserActivityLog, BusinessConnection, Pl
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformAdminController } from './platform-admin.controller';
+import { SheetsSyncController } from './sheets-sync.controller';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { PlatformAdminController } from './platform-admin.controller';
     }),
     NotificationsModule,
   ],
-  controllers: [PlatformAdminController],
+  controllers: [PlatformAdminController, SheetsSyncController],
   providers: [PlatformAdminService],
   exports: [PlatformAdminService],
 })

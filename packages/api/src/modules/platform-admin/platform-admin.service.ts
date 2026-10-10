@@ -1162,6 +1162,94 @@ export class PlatformAdminService {
   }
 
   /**
+   * Incremental feed for the Google Sheet. Returns whole orders (every line)
+   * whose order row OR any line changed after `cursor`, oldest change first.
+   * The sheet replaces all rows for the returned order ids, so edited and
+   * removed lines stay correct. Cursor is "<changed_at>|<order_id>" with the
+   * timestamp kept as Postgres text (microseconds) so keyset paging can't
+   * skip rows through JS Date's millisecond rounding.
+   */
+  async getSheetSyncBatch(cursor?: string, limit?: number) {
+    const take = Math.min(500, Math.max(1, Number(limit) || 200));
+    let cTs = '1970-01-01T00:00:00.000000';
+    let cId = '00000000-0000-0000-0000-000000000000';
+    if (cursor) {
+      const [ts, id] = cursor.split('|');
+      if (!ts || !id || !/^\d{4}-\d{2}-\d{2}T[\d:.]+$/.test(ts) || !/^[0-9a-f-]{36}$/i.test(id)) {
+        throw new BadRequestException('Invalid cursor');
+      }
+      cTs = ts;
+      cId = id;
+    }
+
+    const rows = await this.dataSource.query(
+      `WITH page AS (
+         SELECT o.id,
+                GREATEST(o.updated_at, COALESCE((SELECT MAX(i.updated_at) FROM order_items i WHERE i.order_id = o.id), o.updated_at)) AS changed_at
+           FROM orders o
+       ),
+       picked AS (
+         SELECT id, changed_at, to_char(changed_at, 'YYYY-MM-DD"T"HH24:MI:SS.US') AS changed_text
+           FROM page
+          WHERE (changed_at, id) > ($1::timestamp, $2::uuid)
+          ORDER BY changed_at, id
+          LIMIT $3
+       )
+       SELECT pk.id AS order_id, pk.changed_text, o.order_number, o.created_at, o.status, o.origin, o.customer_name,
+              b.name AS business_name,
+              COALESCE(p.name, oi.custom_product_name, CASE WHEN oi.id IS NULL THEN NULL ELSE 'Custom item' END) AS product_name,
+              oi.quantity::float AS quantity, oi.unit, oi.unit_price::float AS unit_price,
+              oi.subtotal::float AS subtotal, oi.tax_percentage::float AS tax_percentage,
+              oi.tax_amount::float AS item_tax, oi.returned_quantity::float AS returned_quantity,
+              o.total_amount::float AS order_total, o.tax_amount::float AS order_tax,
+              ROW_NUMBER() OVER (PARTITION BY pk.id ORDER BY oi.created_at, oi.id) AS line_no
+         FROM picked pk
+         JOIN orders o ON o.id = pk.id
+         JOIN businesses b ON b.id = o.business_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN products p ON p.id = oi.product_id
+        ORDER BY pk.changed_at, pk.id, line_no`,
+      [cTs, cId, take],
+    );
+
+    const lines = rows.map((r: any) => {
+      const first = Number(r.line_no) === 1;
+      const net = (r.quantity ?? 0) - (r.returned_quantity ?? 0);
+      return {
+        order_id: r.order_id,
+        order_number: r.order_number,
+        created_at: r.created_at,
+        business_name: r.business_name,
+        customer_name: r.customer_name,
+        status: r.status,
+        origin: r.origin,
+        product_name: r.product_name,
+        quantity: r.quantity,
+        unit: r.unit,
+        unit_price: r.unit_price,
+        subtotal: r.subtotal,
+        tax_percentage: r.tax_percentage,
+        item_tax: r.item_tax,
+        returned_quantity: r.returned_quantity,
+        net_quantity: r.product_name === null ? 0 : net,
+        // Order-level figures only on the first line so sheet SUMs don't multiply them by line count.
+        order_count: first ? 1 : 0,
+        order_revenue: first ? r.order_total : 0,
+        order_tax: first ? r.order_tax : 0,
+      };
+    });
+
+    const orderIds = [...new Set(rows.map((r: any) => r.order_id))];
+    const last = rows.length ? rows[rows.length - 1] : null;
+    return {
+      lines,
+      order_ids: orderIds,
+      next_cursor: last ? `${last.changed_text}|${last.order_id}` : cursor || null,
+      has_more: orderIds.length === take,
+    };
+  }
+
+  /**
    * Platform-wide view of every B2B account link (business-connections
    * module) — who's linked, who has a pending request, who got rejected.
    * Support has had no way to see this at all short of a direct DB query;
