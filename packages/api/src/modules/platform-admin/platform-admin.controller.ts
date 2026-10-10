@@ -188,10 +188,43 @@ export class PlatformAdminController {
     @Query('status') status?: string,
     @Query('business_id') business_id?: string,
     @Query('origin') origin?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.platformAdminService.getGlobalOrders({ search, status, business_id, origin, page, limit });
+    return this.platformAdminService.getGlobalOrders({ search, status, business_id, origin, from, to, page, limit });
+  }
+
+  @Get('orders/:id/detail')
+  getOrderDetail(@Param('id') id: string) {
+    return this.platformAdminService.getOrderDetail(id);
+  }
+
+  @Get('sales/stores')
+  getSalesByStore(@Query('from') from?: string, @Query('to') to?: string, @Query('search') search?: string) {
+    return this.platformAdminService.getSalesByStore({ from, to, search });
+  }
+
+  @Get('sales/items')
+  getItemsSold(
+    @Query('business_id') business_id?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.platformAdminService.getItemsSold({ business_id, from, to, search });
+  }
+
+  @Get('sales/order-lines')
+  getOrderLines(
+    @Query('business_id') business_id?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.platformAdminService.getOrderLines({ business_id, from, to, status, search });
   }
 
   @Get('business-connections')

@@ -929,7 +929,7 @@ export class PlatformAdminService {
   /**
    * System-wide Global Orders Stream & Telemetry
    */
-  async getGlobalOrders(query: { search?: string; status?: string; business_id?: string; origin?: string; page?: number; limit?: number }) {
+  async getGlobalOrders(query: { search?: string; status?: string; business_id?: string; origin?: string; from?: string; to?: string; page?: number; limit?: number }) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 15));
     const skip = (page - 1) * limit;
@@ -956,6 +956,10 @@ export class PlatformAdminService {
     if (query.origin) {
       qb.andWhere('order.origin = :origin', { origin: query.origin });
     }
+
+    const range = this.parseDateRange(query.from, query.to);
+    if (range.from) qb.andWhere('order.created_at >= :from', { from: range.from });
+    if (range.to) qb.andWhere('order.created_at < :to', { to: range.to });
 
     const [orders, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
@@ -990,6 +994,171 @@ export class PlatformAdminService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /** Inclusive YYYY-MM-DD range -> [from, to) Date pair; invalid/blank values are ignored. */
+  private parseDateRange(from?: string, to?: string): { from?: Date; to?: Date } {
+    const out: { from?: Date; to?: Date } = {};
+    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) out.from = new Date(`${from}T00:00:00.000Z`);
+    if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      const d = new Date(`${to}T00:00:00.000Z`);
+      d.setUTCDate(d.getUTCDate() + 1);
+      out.to = d;
+    }
+    return out;
+  }
+
+  /**
+   * Store-wise sales package: one row per store with orders, units, revenue
+   * and tax. Mirrors the reports module's definition of a sale (drafts,
+   * cancelled and returned orders are not counted).
+   */
+  async getSalesByStore(query: { from?: string; to?: string; search?: string }) {
+    const range = this.parseDateRange(query.from, query.to);
+    const params: any[] = [];
+    let where = `o.status NOT IN ('draft','cancelled','returned')`;
+    if (range.from) { params.push(range.from); where += ` AND o.created_at >= $${params.length}`; }
+    if (range.to) { params.push(range.to); where += ` AND o.created_at < $${params.length}`; }
+    let storeWhere = '';
+    if (query.search) { params.push(`%${query.search}%`); storeWhere = `WHERE b.name ILIKE $${params.length}`; }
+
+    const rows = await this.dataSource.query(
+      `SELECT b.id AS business_id, b.name AS business_name, b.category AS category,
+              COALESCE(s.orders_count, 0)::int AS orders_count,
+              COALESCE(s.items_sold, 0)::float AS items_sold,
+              COALESCE(s.revenue, 0)::float AS revenue,
+              COALESCE(s.tax, 0)::float AS tax,
+              s.last_order_at AS last_order_at
+         FROM businesses b
+         LEFT JOIN (
+           SELECT o.business_id,
+                  COUNT(*) AS orders_count,
+                  SUM(o.total_amount) AS revenue,
+                  SUM(o.tax_amount) AS tax,
+                  MAX(o.created_at) AS last_order_at,
+                  SUM((SELECT COALESCE(SUM(oi.quantity - oi.returned_quantity), 0) FROM order_items oi WHERE oi.order_id = o.id)) AS items_sold
+             FROM orders o WHERE ${where}
+            GROUP BY o.business_id
+         ) s ON s.business_id = b.id
+         ${storeWhere}
+         ORDER BY revenue DESC, b.name ASC`,
+      params,
+    );
+    const data = rows.map((r: any) => ({
+      ...r,
+      avg_order_value: r.orders_count > 0 ? r.revenue / r.orders_count : 0,
+    }));
+    return {
+      data,
+      summary: {
+        stores: data.length,
+        orders: data.reduce((a: number, r: any) => a + r.orders_count, 0),
+        itemsSold: data.reduce((a: number, r: any) => a + r.items_sold, 0),
+        revenue: data.reduce((a: number, r: any) => a + r.revenue, 0),
+        tax: data.reduce((a: number, r: any) => a + r.tax, 0),
+      },
+    };
+  }
+
+  /** Items sold, aggregated per store + product, optionally for a single store. */
+  async getItemsSold(query: { business_id?: string; from?: string; to?: string; search?: string }) {
+    const range = this.parseDateRange(query.from, query.to);
+    const params: any[] = [];
+    let where = `o.status NOT IN ('draft','cancelled','returned')`;
+    if (query.business_id) { params.push(query.business_id); where += ` AND o.business_id = $${params.length}`; }
+    if (range.from) { params.push(range.from); where += ` AND o.created_at >= $${params.length}`; }
+    if (range.to) { params.push(range.to); where += ` AND o.created_at < $${params.length}`; }
+    if (query.search) {
+      params.push(`%${query.search}%`);
+      where += ` AND COALESCE(p.name, oi.custom_product_name, '') ILIKE $${params.length}`;
+    }
+
+    const data = await this.dataSource.query(
+      `SELECT b.id AS business_id, b.name AS business_name,
+              COALESCE(p.name, oi.custom_product_name, 'Custom item') AS product_name,
+              p.category AS category,
+              SUM(oi.quantity)::float AS quantity_sold,
+              SUM(oi.returned_quantity)::float AS quantity_returned,
+              SUM(oi.quantity - oi.returned_quantity)::float AS net_quantity,
+              SUM(oi.subtotal)::float AS revenue,
+              SUM(oi.tax_amount)::float AS tax,
+              COUNT(DISTINCT o.id)::int AS orders_count
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         JOIN businesses b ON b.id = o.business_id
+         LEFT JOIN products p ON p.id = oi.product_id
+        WHERE ${where}
+        GROUP BY b.id, b.name, COALESCE(p.name, oi.custom_product_name, 'Custom item'), p.category
+        ORDER BY b.name ASC, revenue DESC
+        LIMIT 20000`,
+      params,
+    );
+    return { data };
+  }
+
+  /** One order with its line items, for the admin drill-down. */
+  async getOrderDetail(orderId: string) {
+    const order = await this.orderRepo.findOne({ where: { id: orderId }, relations: { business: true } });
+    if (!order) throw new NotFoundException('Order not found');
+    const items = await this.dataSource.query(
+      `SELECT oi.id, COALESCE(p.name, oi.custom_product_name, 'Custom item') AS product_name,
+              oi.quantity::float AS quantity, oi.unit, oi.unit_price::float AS unit_price,
+              oi.subtotal::float AS subtotal, oi.tax_percentage::float AS tax_percentage,
+              oi.tax_amount::float AS tax_amount, oi.returned_quantity::float AS returned_quantity
+         FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = $1 ORDER BY oi.created_at ASC`,
+      [orderId],
+    );
+    return {
+      id: order.id,
+      order_number: order.order_number || order.id.slice(0, 8),
+      customer_name: order.customer_name || 'Walk-in Customer',
+      business_id: order.business_id,
+      business_name: order.business?.name || 'N/A',
+      status: order.status,
+      origin: order.origin || 'manual',
+      order_type: order.order_type,
+      total_amount: Number(order.total_amount) || 0,
+      tax_amount: Number(order.tax_amount) || 0,
+      notes: order.notes,
+      created_at: order.created_at,
+      items,
+    };
+  }
+
+  /**
+   * Every order line in range (optionally one store) as flat rows — the
+   * "each order + its items" export. Capped to keep the response bounded.
+   */
+  async getOrderLines(query: { business_id?: string; from?: string; to?: string; status?: string; search?: string }) {
+    const range = this.parseDateRange(query.from, query.to);
+    const params: any[] = [];
+    const conds: string[] = [];
+    if (query.business_id) { params.push(query.business_id); conds.push(`o.business_id = $${params.length}`); }
+    if (query.status) { params.push(`%${query.status}%`); conds.push(`o.status ILIKE $${params.length}`); }
+    if (range.from) { params.push(range.from); conds.push(`o.created_at >= $${params.length}`); }
+    if (range.to) { params.push(range.to); conds.push(`o.created_at < $${params.length}`); }
+    if (query.search) {
+      params.push(`%${query.search}%`);
+      conds.push(`(o.customer_name ILIKE $${params.length} OR o.order_number ILIKE $${params.length} OR b.name ILIKE $${params.length})`);
+    }
+    const data = await this.dataSource.query(
+      `SELECT o.id AS order_id, o.order_number, o.created_at, o.status, o.origin, o.customer_name,
+              b.name AS business_name, o.total_amount::float AS order_total, o.tax_amount::float AS order_tax,
+              COALESCE(p.name, oi.custom_product_name, 'Custom item') AS product_name,
+              oi.quantity::float AS quantity, oi.unit, oi.unit_price::float AS unit_price,
+              oi.subtotal::float AS subtotal, oi.tax_percentage::float AS tax_percentage,
+              oi.tax_amount::float AS item_tax, oi.returned_quantity::float AS returned_quantity
+         FROM orders o
+         JOIN businesses b ON b.id = o.business_id
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN products p ON p.id = oi.product_id
+         ${conds.length ? 'WHERE ' + conds.join(' AND ') : ''}
+        ORDER BY o.created_at DESC, o.id, oi.created_at ASC
+        LIMIT 50000`,
+      params,
+    );
+    return { data };
   }
 
   /**
