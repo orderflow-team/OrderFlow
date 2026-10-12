@@ -169,8 +169,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="p-6 rounded-2xl bg-slate-900 text-white space-y-2">
               <p className="font-bold text-base">OBIX OrderFlow Privacy Team</p>
-              <p className="text-xs text-slate-300">Email: admin.cleverminds@gmail.com</p>
-              <p className="text-xs text-slate-300">Website: https://orderflow-web-iota.vercel.app</p>
+              <p className="text-xs text-slate-300">Email: <a href="mailto:admin.cleverminds@gmail.com" className="underline hover:text-white">admin.cleverminds@gmail.com</a></p>
+              <p className="text-xs text-slate-300">Website: <a href="https://obix360.com" className="underline hover:text-white">https://obix360.com</a></p>
             </div>
           </section>
         </div>

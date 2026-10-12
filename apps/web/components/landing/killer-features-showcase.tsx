@@ -297,7 +297,7 @@ export function KillerFeaturesShowcase() {
 
             <div className="relative z-10">
               {/* Header Badge, Title & Live Telemetry Panel */}
-              <div className="grid lg:grid-cols-12 gap-8 items-start mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start mb-8">
                 {/* Left Side: Title, Badges, Copy & Interactive Flow Switcher */}
                 <div className="lg:col-span-7 xl:col-span-8 space-y-4">
                   <div className="flex items-center gap-3.5">
@@ -430,7 +430,7 @@ export function KillerFeaturesShowcase() {
                 
                 {/* FLOW 1: RETAILER AUTO-PO TO WHOLESALER */}
                 {connectFlow === 'auto_po' && (
-                  <div className="grid lg:grid-cols-11 gap-4 items-center">
+                  <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-center">
                     
                     {/* LEFT APP WINDOW: REAL RETAIL POS COUNTER */}
                     <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs">
@@ -623,7 +623,7 @@ export function KillerFeaturesShowcase() {
 
                 {/* FLOW 2: FIELD SALESMAN ROUTE TO DEPOT DISPATCH */}
                 {connectFlow === 'salesman' && (
-                  <div className="grid lg:grid-cols-11 gap-4 items-center">
+                  <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-center">
                     
                     {/* LEFT: FIELD SALESMAN MOBILE APP (Real UI from /salesman) */}
                     <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs">
@@ -765,7 +765,7 @@ export function KillerFeaturesShowcase() {
 
                 {/* FLOW 3: LIVE B2B TIERED RATES & MIRRORED UDHAR LEDGER */}
                 {connectFlow === 'pricing' && (
-                  <div className="grid lg:grid-cols-11 gap-4 items-center">
+                  <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-center">
                     
                     {/* LEFT: RETAILER POS BUYING RATE & MARGIN VIEW */}
                     <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-xs">
@@ -947,7 +947,7 @@ export function KillerFeaturesShowcase() {
         {/* ============================================================ */}
         {/* ROW 2: AI VOICE-TO-BILL ENGINE (7 COLS) & WHATSAPP AUTOMATION (5 COLS) */}
         {/* ============================================================ */}
-        <div className="grid lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* KILLER FEATURE: MULTILINGUAL AI VOICE COUNTER (7 COLS) */}
           <Reveal className="lg:col-span-7 flex flex-col">
@@ -1231,7 +1231,7 @@ export function KillerFeaturesShowcase() {
         {/* ============================================================ */}
         {/* ROW 3: AI DISTRIBUTOR BILL OCR (6 COLS) & ZERO-DOWNTIME OFFLINE MESH (6 COLS) */}
         {/* ============================================================ */}
-        <div className="grid lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* KILLER FEATURE: AI PURCHASE INVOICE SCANNER (OCR) (6 COLS) */}
           <Reveal delay={180} className="lg:col-span-6 flex flex-col">
