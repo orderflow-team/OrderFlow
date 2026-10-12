@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, Phone, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { CONTACT_URL } from '@/lib/mailer-client';
@@ -57,7 +57,7 @@ export function ContactSection() {
   };
 
   return (
-    <div className="grid lg:grid-cols-12 gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       <div className="lg:col-span-5">
         <p className="text-xs font-bold tracking-[0.2em] text-emerald-700 uppercase mb-3">Get In Touch</p>
         <h2 className="text-4xl font-extrabold tracking-tight text-slate-950 max-w-md">
@@ -69,6 +69,16 @@ export function ContactSection() {
         <div className="mt-6 flex items-center gap-3 text-sm text-slate-500 font-medium">
           <Mail className="w-4 h-4 text-emerald-600" />
           <span>We usually reply within one business day.</span>
+        </div>
+        <div className="mt-4 space-y-2 text-sm font-semibold">
+          <a href="mailto:support@obix360.com" className="flex items-center gap-3 text-slate-700 hover:text-emerald-700 transition-colors">
+            <Mail className="w-4 h-4 text-emerald-600" />
+            support@obix360.com
+          </a>
+          <a href="tel:+918000702299" className="flex items-center gap-3 text-slate-700 hover:text-emerald-700 transition-colors">
+            <Phone className="w-4 h-4 text-emerald-600" />
+            +91 80007 02299
+          </a>
         </div>
       </div>
 

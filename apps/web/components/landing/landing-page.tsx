@@ -163,6 +163,15 @@ export function LandingPage() {
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
   const [scrollActiveStep, setScrollActiveStep] = useState(0);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
   const [heroActiveMode, setHeroActiveMode] = useState<"pos" | "voice" | "whatsapp">("pos");
   const [heroView, setHeroView] = useState<"pos" | "kot" | "voice">("pos");
   const [printAnim, setPrintAnim] = useState(false);
@@ -360,7 +369,9 @@ export function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <GooglePlayButton size="sm" variant="dark" className="hidden 2xl:inline-flex" />
+            <div className="hidden 2xl:block">
+              <GooglePlayButton size="sm" variant="dark" />
+            </div>
             <Link
               href="/login"
               className="hidden sm:inline-block whitespace-nowrap text-sm font-semibold text-slate-700 hover:text-slate-950 px-3.5 py-2 rounded-xl hover:bg-slate-200/50 transition-colors"
@@ -379,6 +390,8 @@ export function LandingPage() {
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
               className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-200/60 cursor-pointer"
               aria-label="Toggle Navigation Menu"
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav"
             >
               {mobileNavOpen ? (
                 <X className="w-6 h-6" />
@@ -391,7 +404,17 @@ export function LandingPage() {
 
         {/* Mobile Navigation Drawer */}
         {mobileNavOpen && (
-          <div className="lg:hidden bg-slate-900 text-white px-6 py-6 border-b border-slate-800 space-y-4 font-semibold text-sm animate-in slide-in-from-top duration-200">
+          <div
+            id="mobile-nav"
+            className="lg:hidden max-h-[calc(100vh-4.5rem)] overflow-y-auto bg-slate-900 text-white px-6 py-6 border-b border-slate-800 space-y-4 font-semibold text-sm animate-in slide-in-from-top duration-200"
+          >
+            <a
+              href="#onboarding"
+              onClick={() => setMobileNavOpen(false)}
+              className="block py-2 hover:text-blue-400"
+            >
+              Onboarding
+            </a>
             <a
               href="#exclusive-features"
               onClick={() => setMobileNavOpen(false)}
@@ -467,7 +490,7 @@ export function LandingPage() {
         ref={heroRef}
         className="relative z-10 max-w-[100rem] mx-auto px-6 sm:px-10 grid lg:grid-cols-12 gap-8 items-center min-h-[calc(100vh-80px)] py-12"
       >
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-6 min-w-0 space-y-6">
           {/* The H1 carries the search keywords; the big brand tagline below keeps its look as a paragraph. */}
           <h1 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/15 via-emerald-500/15 to-violet-500/15 border border-emerald-500/30 text-emerald-900 text-xs font-extrabold uppercase tracking-wider shadow-sm">
             <span className="relative flex h-2 w-2 mr-0.5">
@@ -478,7 +501,7 @@ export function LandingPage() {
           </h1>
 
           <p className="text-5xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-slate-950 leading-[1.08]">
-            <span className="whitespace-nowrap">Orders in. Inventory out.</span>
+            <span className="sm:whitespace-nowrap">Orders in. Inventory out.</span>
             <br />
             <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 bg-clip-text text-transparent">
               Paid up.
@@ -767,7 +790,7 @@ export function LandingPage() {
                 Step {selectedStep + 1} of 6: {STEPS[selectedStep]?.title}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80">
               {STEPS.map((_, idx) => (
                 <button
                   key={idx}
@@ -784,7 +807,7 @@ export function LandingPage() {
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* LEFT PART: Steps list — scrolls independently */}
             <div className="lg:col-span-5 relative">
               <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3 px-1 flex items-center justify-between">
@@ -1144,9 +1167,9 @@ export function LandingPage() {
                   </a>
                 </li>
                 <li>
-                  <Link href="/salesman" className="hover:text-white transition-colors">
+                  <a href="#terminals" className="hover:text-white transition-colors">
                     Field Salesman
-                  </Link>
+                  </a>
                 </li>
                 <li>
                   <a href="#terminals" className="hover:text-white transition-colors">
@@ -1251,18 +1274,18 @@ export function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy" className="hover:text-white transition-colors">
-                    Data Sovereign Policy
-                  </Link>
-                </li>
-                <li>
-                  <a href="#contact" className="hover:text-white transition-colors">
+                  <Link href="/terms" className="hover:text-white transition-colors">
                     Terms of Service
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="mailto:support@obix360.com" className="hover:text-white transition-colors">
                     support@obix360.com
+                  </a>
+                </li>
+                <li>
+                  <a href="tel:+918000702299" className="hover:text-white transition-colors">
+                    +91 80007 02299
                   </a>
                 </li>
               </ul>
@@ -1279,12 +1302,9 @@ export function LandingPage() {
               <Link href="/privacy-policy" className="hover:text-slate-300 transition-colors">
                 Privacy
               </Link>
-              <a href="#contact" className="hover:text-slate-300 transition-colors">
+              <Link href="/terms" className="hover:text-slate-300 transition-colors">
                 Terms
-              </a>
-              <a href="#contact" className="hover:text-slate-300 transition-colors">
-                Security
-              </a>
+              </Link>
               <button
                 type="button"
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

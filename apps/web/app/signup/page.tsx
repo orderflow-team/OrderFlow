@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -141,7 +142,9 @@ export default function SignupPage() {
       </div>
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
-          <ObixMark className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
+          <Link href="/" aria-label="OBIX 360 home">
+            <ObixMark className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
+          </Link>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
           <p className="text-[10px] tracking-[0.2em] text-slate-500 font-semibold uppercase">Order Billing Inventory eXperience</p>
           <p className="text-slate-600 text-sm font-medium">Create your account to get started</p>
