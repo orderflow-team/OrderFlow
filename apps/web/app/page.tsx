@@ -6,10 +6,10 @@ const SITE = 'https://obix360.com';
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'OBIX 360 – All-in-One Billing Software with GST, Inventory & POS for India',
+    absolute: 'Billing Software for India: GST, Inventory & POS | OBIX 360',
   },
   description:
-    'OBIX 360 is all-in-one billing software for India: GST invoicing, inventory, order management, POS and WhatsApp invoices in one app for shops, pharmacies, wholesalers and restaurants. Start free.',
+    'All-in-one billing software for shops, medical stores, wholesalers and restaurants: GST invoices, inventory, POS and WhatsApp bills. Start free.',
   alternates: { canonical: SITE },
 };
 
