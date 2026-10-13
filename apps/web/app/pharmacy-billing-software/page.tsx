@@ -707,6 +707,33 @@ export default function PharmacyBillingSoftwarePage() {
           </div>
         </section>
 
+        {/* Related guides: internal links to the supporting pages */}
+        <section className="mx-auto max-w-6xl space-y-6 px-4 py-16">
+          <h2 className="text-2xl font-extrabold tracking-tight text-[#0D1B16] sm:text-3xl">
+            More guides for medical stores
+          </h2>
+          <ul className="grid gap-4 sm:grid-cols-3">
+            {[
+              ['/pharmacy-management-software', 'Pharmacy management software', 'Stock, suppliers, customer dues, staff roles and daily reports.'],
+              ['/medical-store-software', 'Medical store software', 'What to expect from software, a day at the counter and questions to ask.'],
+              ['/gst-billing-software-for-chemists', 'GST billing for chemists', 'CGST, SGST and IGST by HSN code, GSTIN checks and GST-ready reports.'],
+            ].map(([href, label, blurb]) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="group block h-full rounded-2xl bg-white p-5 ring-1 ring-[#D5E0DB] transition-shadow hover:shadow-[0_14px_30px_-18px_rgba(10,59,44,0.6)]"
+                >
+                  <h3 className="font-bold text-[#0A3B2C] group-hover:text-[#0F7B57]">{label}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-[#40554B]">{blurb}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#0F7B57]">
+                    Read more <ArrowRight className="h-4 w-4" aria-hidden={true} />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {/* Final CTA */}
         <section className="bg-[#0A3B2C] py-16 sm:py-20">
           <div className="mx-auto max-w-3xl space-y-6 px-4 text-center">

@@ -1240,6 +1240,21 @@ export function LandingPage() {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/pharmacy-management-software" className="hover:text-white transition-colors">
+                    Pharmacy Management Software
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/medical-store-software" className="hover:text-white transition-colors">
+                    Medical Store Software
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/gst-billing-software-for-chemists" className="hover:text-white transition-colors">
+                    GST Billing for Chemists
+                  </Link>
+                </li>
+                <li>
                   <a href="#pricing" className="hover:text-white transition-colors">
                     Pricing Plans
                   </a>
