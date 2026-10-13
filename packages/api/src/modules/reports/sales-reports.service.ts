@@ -15,6 +15,14 @@ const MAX_ROWS = 1000;
 const MAX_PRODUCTS = 2000;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/**
+ * Net of returns: a partly returned line only counts the quantity that stayed sold, so revenue and cost
+ * shrink together and the profit of returned units is not left in the report.
+ */
+const NET_QTY = 'GREATEST(i.quantity - COALESCE(i.returned_quantity, 0), 0)';
+const NET_REVENUE = `COALESCE(SUM(i.subtotal * ${NET_QTY} / NULLIF(i.quantity, 0)), 0)`;
+const NET_COST = `COALESCE(SUM(${NET_QTY} * COALESCE(p.purchase_price, 0)), 0)`;
+
 const pct = (profit: number, revenue: number) => (revenue > 0 ? round2((profit / revenue) * 100) : 0);
 
 @Injectable()
@@ -123,8 +131,8 @@ export class SalesReportsService {
   }
 
   /**
-   * Profit per bill. Same basis as the Overview profit figure: revenue is the pre-tax line total,
-   * cost is quantity x the product's current purchase price. Free-text items have no cost basis and
+   * Profit per bill, net of returned quantity. Revenue is the pre-tax line total, cost is the kept
+   * quantity x the product's current purchase price. Free-text items have no cost basis and
    * count as zero cost — `uncostedLines` tells the caller how many bills are affected.
    */
   async saleWiseProfit(businessId: string, from?: string, to?: string) {
@@ -145,8 +153,8 @@ export class SalesReportsService {
         .addSelect('o.order_number', 'orderNumber')
         .addSelect('o.created_at', 'createdAt')
         .addSelect('o.customer_name', 'customerName')
-        .addSelect('COALESCE(SUM(i.subtotal), 0)', 'revenue')
-        .addSelect('COALESCE(SUM(i.quantity * COALESCE(p.purchase_price, 0)), 0)', 'cost')
+        .addSelect(NET_REVENUE, 'revenue')
+        .addSelect(NET_COST, 'cost')
         .addSelect('COUNT(i.id)', 'lines')
         .addSelect('COALESCE(SUM(CASE WHEN i.product_id IS NULL THEN 1 ELSE 0 END), 0)', 'uncostedLines')
         .groupBy('o.id')
@@ -157,8 +165,8 @@ export class SalesReportsService {
         .limit(MAX_ROWS)
         .getRawMany(),
       base()
-        .select('COALESCE(SUM(i.subtotal), 0)', 'revenue')
-        .addSelect('COALESCE(SUM(i.quantity * COALESCE(p.purchase_price, 0)), 0)', 'cost')
+        .select(NET_REVENUE, 'revenue')
+        .addSelect(NET_COST, 'cost')
         .getRawOne(),
       base().select('COUNT(DISTINCT o.id)', 'count').getRawOne(),
     ]);

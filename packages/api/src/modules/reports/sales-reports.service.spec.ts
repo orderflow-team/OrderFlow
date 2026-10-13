@@ -30,6 +30,24 @@ describe('SalesReportsService', () => {
     expect(r.truncated).toBe(true); // 5 bills exist, 2 returned
   });
 
+  it('counts only the quantity that stayed sold in revenue and cost', async () => {
+    const rows = chain({ many: [] });
+    const totals = chain({ one: { revenue: '0', cost: '0' } });
+    const count = chain({ one: { count: '0' } });
+    const items = { createQueryBuilder: jest.fn().mockReturnValueOnce(rows).mockReturnValueOnce(totals).mockReturnValueOnce(count) };
+    const service = new SalesReportsService({} as any, items as any, {} as any, {} as any, {} as any, {} as any, {} as any);
+
+    await service.saleWiseProfit('biz', '2026-10-01', '2026-10-31');
+
+    const sqlOf = (qb: any) => [...qb.select.mock.calls, ...qb.addSelect.mock.calls].map((c: any[]) => c[0]).join(' | ');
+    for (const qb of [rows, totals]) {
+      const sql = sqlOf(qb);
+      expect(sql).toContain('i.quantity - COALESCE(i.returned_quantity, 0)');
+      // 10 sold at 50 (cost 30), 4 returned -> revenue 300, cost 180, profit 120, not 500/300/200.
+      expect(sql).toMatch(/i\.subtotal \* GREATEST\(i\.quantity - COALESCE\(i\.returned_quantity, 0\), 0\) \/ NULLIF\(i\.quantity, 0\)/);
+    }
+  });
+
   it('groups staff, labels bills with no creator, and computes share of sales', async () => {
     const rows = chain({
       many: [
