@@ -996,12 +996,16 @@ export class PlatformAdminService {
     };
   }
 
-  /** Inclusive YYYY-MM-DD range -> [from, to) Date pair; invalid/blank values are ignored. */
+  /**
+   * Inclusive YYYY-MM-DD range -> [from, to) Date pair; invalid/blank values are ignored.
+   * Days are India days (the platform default timezone), not UTC days: an order at
+   * 01:00 IST belongs to that IST date, but its UTC date is the day before.
+   */
   private parseDateRange(from?: string, to?: string): { from?: Date; to?: Date } {
     const out: { from?: Date; to?: Date } = {};
-    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) out.from = new Date(`${from}T00:00:00.000Z`);
+    if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) out.from = new Date(`${from}T00:00:00.000+05:30`);
     if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
-      const d = new Date(`${to}T00:00:00.000Z`);
+      const d = new Date(`${to}T00:00:00.000+05:30`);
       d.setUTCDate(d.getUTCDate() + 1);
       out.to = d;
     }
@@ -1080,8 +1084,9 @@ export class PlatformAdminService {
               SUM(oi.quantity)::float AS quantity_sold,
               SUM(oi.returned_quantity)::float AS quantity_returned,
               SUM(oi.quantity - oi.returned_quantity)::float AS net_quantity,
-              SUM(oi.subtotal)::float AS revenue,
-              SUM(oi.tax_amount)::float AS tax,
+              -- net of returns, like net_quantity and the store totals
+              SUM(oi.subtotal * (oi.quantity - oi.returned_quantity) / NULLIF(oi.quantity, 0))::float AS revenue,
+              SUM(oi.tax_amount * (oi.quantity - oi.returned_quantity) / NULLIF(oi.quantity, 0))::float AS tax,
               COUNT(DISTINCT o.id)::int AS orders_count
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
