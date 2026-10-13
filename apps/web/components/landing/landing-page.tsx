@@ -1235,6 +1235,11 @@ export function LandingPage() {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/pharmacy-billing-software" className="hover:text-white transition-colors">
+                    Pharmacy Billing Software
+                  </Link>
+                </li>
+                <li>
                   <a href="#pricing" className="hover:text-white transition-colors">
                     Pricing Plans
                   </a>
