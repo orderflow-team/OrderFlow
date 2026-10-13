@@ -530,4 +530,51 @@ describe('PlatformAdminService', () => {
       expect(result.counts.users).toBe(1);
     });
   });
+
+  describe('sales date range (India days)', () => {
+    it('starts the From day at 00:00 IST and ends the To day after 24h IST', async () => {
+      await service.getSalesByStore({ from: '2026-10-01', to: '2026-10-02' });
+
+      const [, params] = dataSource.query.mock.calls[0];
+      // 2026-10-01 00:00 IST = 2026-09-30 18:30 UTC, so a 01:00 IST order is inside the day.
+      expect((params[0] as Date).toISOString()).toBe('2026-09-30T18:30:00.000Z');
+      // To is exclusive: the start of 2026-10-03 IST.
+      expect((params[1] as Date).toISOString()).toBe('2026-10-02T18:30:00.000Z');
+    });
+
+    it('ignores malformed dates', async () => {
+      await service.getSalesByStore({ from: 'yesterday', to: '2026-13' });
+
+      expect(dataSource.query.mock.calls[0][1]).toEqual([]);
+    });
+  });
+
+  describe('getItemsSold', () => {
+    it('reports revenue and tax net of returned quantity', async () => {
+      await service.getItemsSold({});
+
+      const sql: string = dataSource.query.mock.calls[0][0];
+      expect(sql).toMatch(/SUM\(oi\.subtotal \* \(oi\.quantity - oi\.returned_quantity\) \/ NULLIF\(oi\.quantity, 0\)\)::float AS revenue/);
+      expect(sql).toMatch(/SUM\(oi\.tax_amount \* \(oi\.quantity - oi\.returned_quantity\) \/ NULLIF\(oi\.quantity, 0\)\)::float AS tax/);
+    });
+  });
+
+  describe('getSheetSyncBatch', () => {
+    it('rejects a malformed cursor before touching the database', async () => {
+      await expect(service.getSheetSyncBatch("x'; DROP TABLE orders;--|y")).rejects.toThrow(BadRequestException);
+      expect(dataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('puts order-level totals on the first line of each order only', async () => {
+      dataSource.query.mockResolvedValue([
+        { order_id: 'o1', changed_text: '2026-10-01T10:00:00.000000', product_name: 'A', quantity: 2, returned_quantity: 1, order_total: 100, order_tax: 5, line_no: '1' },
+        { order_id: 'o1', changed_text: '2026-10-01T10:00:00.000000', product_name: 'B', quantity: 1, returned_quantity: 0, order_total: 100, order_tax: 5, line_no: '2' },
+      ]);
+
+      const { lines } = await service.getSheetSyncBatch();
+
+      expect(lines.map((l: any) => l.order_revenue)).toEqual([100, 0]);
+      expect(lines.map((l: any) => l.net_quantity)).toEqual([1, 1]);
+    });
+  });
 });

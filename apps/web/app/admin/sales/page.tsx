@@ -98,7 +98,7 @@ const downloadCsv = (filename: string, headers: string[], rows: unknown[][]) => 
 
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString() : '');
 const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase();
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 export default function AdminSalesPage() {
   const [tab, setTab] = useState<Tab>('stores');
