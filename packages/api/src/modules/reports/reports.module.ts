@@ -12,6 +12,9 @@ import { Expense } from '../../database/entities/expense.entity';
 import { Salesman } from '../../database/entities/salesman.entity';
 import { Business } from '../../database/entities/business.entity';
 import { ReportsController } from './reports.controller';
+import { SalesReportsService } from './sales-reports.service';
+import { LedgerReportsService } from './ledger-reports.service';
+import { Supplier } from '../../database/entities/supplier.entity';
 import { ReportsService } from './reports.service';
 
 @Module({
@@ -28,10 +31,11 @@ import { ReportsService } from './reports.service';
       Expense,
       Salesman,
       Business,
+      Supplier,
     ]),
   ],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService, LedgerReportsService, SalesReportsService],
   exports: [ReportsService],
 })
 export class ReportsModule {}
