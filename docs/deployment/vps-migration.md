@@ -1,3 +1,5 @@
+> **Note:** Historical migration guide. For routine releases use [../deployment.md](../deployment.md).
+
 # 🚀 Unified VPS Migration Guide (Replacing Vercel & Render using Apache2)
 
 You can migrate **BOTH Vercel (Next.js Web Dashboard) AND Render (NestJS API + Postgres DB)** onto a single **$6 – $10/mo VPS running Apache2**!

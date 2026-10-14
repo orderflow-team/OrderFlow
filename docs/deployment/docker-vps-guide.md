@@ -1,3 +1,5 @@
+> **Note:** This is the **Docker Compose** deployment guide. Production currently runs the API and web app under **pm2** behind Apache2. See [../deployment.md](../deployment.md) for the current process. Keep this guide if you want to run the stack in containers.
+
 # Complete Production VPS Hosting & Infrastructure Guide for Orderflow
 
 This is the comprehensive, end-to-end deployment guide for hosting **Orderflow** (NestJS API + Next.js Web App + PostgreSQL Database + Object Storage) on any Linux Virtual Private Server (VPS) such as **DigitalOcean, Hetzner, AWS EC2, Linode, Vultr, or Hostinger**.
