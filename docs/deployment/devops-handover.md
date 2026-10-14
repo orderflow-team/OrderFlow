@@ -1,3 +1,5 @@
+> **Note:** Docker Compose handover checklist. Production currently uses **pm2**, see [../deployment.md](../deployment.md). Commands below that use `docker compose` apply only to a container-based setup.
+
 # Orderflow - DevOps & Deployment Handover Guide
 > **Note for the System Administrator / Deployer:**  
 > This document contains all technical instructions, environment variables, Nginx configurations, and operational steps required to deploy **Orderflow** on a VPS or cloud server.

@@ -1,3 +1,5 @@
+> **Note:** Restore procedure for the production Postgres database. The helper script is at `scripts/restore-vps-db.sh`. A PDF copy of an earlier version is `database-restore.pdf`.
+
 # 🚀 OrderFlow Database Restoration & VPS Handover Guide
 
 This guide provides the exact step-by-step commands for the DevOps / VPS team to restore the complete production database (**23,371 records, 48 tables, full schema & data**) on the VPS.

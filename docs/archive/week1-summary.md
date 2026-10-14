@@ -1,3 +1,5 @@
+> **Archived:** a snapshot of the first week of the project. Kept for history only; it does not describe the current system.
+
 # Week 1 Summary: Foundation Complete ✅
 
 ## What Was Accomplished

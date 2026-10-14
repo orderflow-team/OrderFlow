@@ -1,3 +1,5 @@
+> **Note:** Sections 1-3 are the REST API reference and testing guide. Section 4 (VPS deployment) describes a Docker/Nginx setup that is **not** how production runs today. For the current process see [deployment.md](deployment.md). Module descriptions are in [architecture.md](architecture.md).
+
 # Orderflow - Complete System Documentation & VPS Deployment Guide
 
 Welcome to the official documentation for **Orderflow** — a multi-tenant POS, Inventory Management, Billing, Restaurant KOT, Pharmacy Schedule H1, and Business Management Platform.
