@@ -20,11 +20,17 @@ export class BusinessScopeGuard implements CanActivate {
       (id: unknown): id is string => typeof id === 'string' && id.length > 0,
     );
 
-    if (suppliedIds.length === 0) {
-      return true;
-    }
-    if (!tokenBusinessId || suppliedIds.some((id) => id !== tokenBusinessId)) {
+    if (suppliedIds.length > 0 && (!tokenBusinessId || suppliedIds.some((id) => id !== tokenBusinessId))) {
       throw new ForbiddenException('Business mismatch');
+    }
+
+    // Default any missing businessId to the token's tenant so handlers never
+    // see an unscoped request.
+    if (tokenBusinessId) {
+      if (request.query && !request.query.businessId) request.query.businessId = tokenBusinessId;
+      if (request.body && typeof request.body === 'object' && !request.body.businessId) {
+        request.body.businessId = tokenBusinessId;
+      }
     }
     return true;
   }

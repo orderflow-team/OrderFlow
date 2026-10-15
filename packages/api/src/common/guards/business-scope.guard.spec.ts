@@ -24,6 +24,14 @@ describe('BusinessScopeGuard', () => {
     expect(guard.canActivate(context)).toBe(true);
   });
 
+  it('injects the token businessId into query and body when none is supplied', () => {
+    const request = { user: { businessId: 'biz-1' }, query: {}, body: {} } as any;
+
+    expect(guard.canActivate(buildContext(request))).toBe(true);
+    expect(request.query.businessId).toBe('biz-1');
+    expect(request.body.businessId).toBe('biz-1');
+  });
+
   it('allows the request when the supplied query businessId matches the token', () => {
     const context = buildContext({
       user: { businessId: 'biz-1' },
