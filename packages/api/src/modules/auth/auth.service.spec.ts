@@ -367,6 +367,21 @@ describe("AuthService", () => {
       expect(result.access_token).toBe("signed-token");
     });
 
+    it("issues a short-lived access token and a longer-lived refresh token", async () => {
+      usersRepo.findOne.mockResolvedValue({ ...baseUser });
+
+      await service.reissueTokensForUser("user-1");
+
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenType: "access" }),
+        { expiresIn: "1h" },
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenType: "refresh" }),
+        { expiresIn: "7d" },
+      );
+    });
+
     it("throws NotFoundException when the user does not exist", async () => {
       usersRepo.findOne.mockResolvedValue(null);
 

@@ -4,7 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthService, ACCESS_TOKEN_TTL } from './auth.service';
 import { MailService } from './mail.service';
 import { JwtStrategy } from './jwt.strategy';
 import { AppGoogleHandoffService } from './app-google-handoff.service';
@@ -20,7 +20,7 @@ import { PlatformSetting } from '../../database/entities/platform-setting.entity
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '24h' },
+        signOptions: { expiresIn: ACCESS_TOKEN_TTL },
       }),
     }),
   ],

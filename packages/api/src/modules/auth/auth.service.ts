@@ -31,6 +31,11 @@ import { UserRole } from "../../common/enums/user-role.enum";
 import { randomInt } from "crypto";
 import { LoginAttempts } from "./login-attempts";
 
+// Access tokens live in the browser's localStorage, so a stolen one is usable
+// until it expires. Kept short: the web client refreshes silently on a 401
+// (apps/web/lib/api-client.ts), and every request re-checks that the account
+// is still active, so users never notice. The refresh token carries the session.
+export const ACCESS_TOKEN_TTL = "1h";
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
 
@@ -659,7 +664,7 @@ export class AuthService {
   /**
    * Marks every login issued before now as expired for this user. Called
    * whenever the password changes: without it an attacker who had signed in
-   * kept a working session for 24h (access token) and indefinitely (the
+   * kept a working session for the access token's lifetime and indefinitely (the
    * refresh token renews itself weekly) even after the real owner reset the
    * password. Tokens minted from here on carry a later `iat` and stay valid.
    */
@@ -678,7 +683,7 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(
         { ...payload, tokenType: "access" },
-        { expiresIn: "24h" },
+        { expiresIn: ACCESS_TOKEN_TTL },
       ),
       refresh_token: this.jwtService.sign(
         { ...payload, tokenType: "refresh" },

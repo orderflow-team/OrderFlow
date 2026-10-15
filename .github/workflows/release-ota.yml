@@ -6,7 +6,8 @@ name: Release OTA Bundle
 #
 # Required GitHub secrets:
 #   NEXT_PUBLIC_API_URL  — production API base URL (e.g. https://orderflow-1.onrender.com)
-#   ADMIN_TOKEN          — JWT for a super_admin or admin user on that API
+#   ADMIN_TOKEN          — access JWT for a super_admin or admin user on that API.
+#                          Access tokens last 1 hour: update this secret right before dispatching.
 
 on:
   workflow_dispatch:
