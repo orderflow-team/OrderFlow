@@ -52,7 +52,8 @@ Important:
 2. The API log shows no startup or migration errors.
 3. Log in on the site.
 4. Check a route added in this release. A "Cannot GET ..." 404 from the API means the old build is still running.
-5. For SEO or content changes, open the live page and `/sitemap.xml`.
+5. `curl https://obix360.com/api/health` returns `{"status":"ok", ...}`. The scheduled "API health check" workflow calls the same address, so it should stay green.
+6. For SEO or content changes, open the live page and `/sitemap.xml`.
 
 ## Roll back
 

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { AppController } from './app.controller';
 
 describe('AppController', () => {
@@ -18,6 +19,12 @@ describe('AppController', () => {
   });
 
   describe('health', () => {
+    it('is served at /health and at /api/health (the only path the proxy forwards)', () => {
+      const paths = Reflect.getMetadata(PATH_METADATA, AppController.prototype.health);
+
+      expect(paths).toEqual(['health', 'api/health']);
+    });
+
     it('pings the database and reports latency', async () => {
       const result = await controller.health();
 
