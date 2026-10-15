@@ -146,20 +146,23 @@ nano .env
 
 Paste the following variables (update passwords, domain names, and keys):
 
+> Replace `<DB_PASSWORD>` and `<JWT_SECRET>` with values you generate yourself (`openssl rand -hex 24` for each; hex is URL-safe, which matters because the password is embedded in `DATABASE_URL`). Never reuse a value from this document.
+
+
 ```env
 # Node Environment
 NODE_ENV=production
 
 # Database Credentials
 POSTGRES_USER=orderflow_admin
-POSTGRES_PASSWORD=SuperSecurePassword123!_ChangeMe
+POSTGRES_PASSWORD=<DB_PASSWORD>
 POSTGRES_DB=orderflow_prod
 
 # Internal Docker Database Connection URL
-DATABASE_URL=postgres://orderflow_admin:SuperSecurePassword123!_ChangeMe@postgres:5432/orderflow_prod?sslmode=disable
+DATABASE_URL=postgres://orderflow_admin:<DB_PASSWORD>@postgres:5432/orderflow_prod?sslmode=disable
 
 # JWT Secret (Generate random 32+ character string)
-JWT_SECRET=e7f9a8b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9
+JWT_SECRET=<JWT_SECRET>
 
 # Public Domain URLs
 FRONTEND_URL=https://yourdomain.com

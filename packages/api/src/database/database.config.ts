@@ -10,6 +10,19 @@ dotenv.config();
 
 const isManagedPostgres = !!process.env.DATABASE_URL;
 
+// The local-development fallback below ships a well-known password. Outside
+// development, refuse to start with it rather than quietly connecting (or
+// failing open) with a credential that is public in the repository.
+if (
+  !isManagedPostgres &&
+  process.env.NODE_ENV === "production" &&
+  !process.env.DB_PASSWORD
+) {
+  throw new Error(
+    "DATABASE_URL (or DB_PASSWORD) must be set in production; the built-in development database password is not allowed.",
+  );
+}
+
 export function getConnectionOptions() {
   return isManagedPostgres
     ? {

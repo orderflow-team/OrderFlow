@@ -41,18 +41,20 @@
    ```
 
 3. Fill in the following mandatory production values in `.env`:
+
+   > Replace `<DB_PASSWORD>` and `<JWT_SECRET>` with values you generate yourself (`openssl rand -hex 24` for each; hex is URL-safe, which matters because the password is embedded in `DATABASE_URL`). Never reuse a value from this document.
    ```env
    NODE_ENV=production
    PORT=3001
    
    # Database Credentials
    POSTGRES_USER=orderflow_admin
-   POSTGRES_PASSWORD=SetAStrongPasswordHere!123
+   POSTGRES_PASSWORD=<DB_PASSWORD>
    POSTGRES_DB=orderflow_prod
-   DATABASE_URL=postgres://orderflow_admin:SetAStrongPasswordHere!123@postgres:5432/orderflow_prod?sslmode=disable
+   DATABASE_URL=postgres://orderflow_admin:<DB_PASSWORD>@postgres:5432/orderflow_prod?sslmode=disable
 
    # Security & Auth Secrets
-   JWT_SECRET=SetRandom32CharacterLongSecretKeyString!
+   JWT_SECRET=<JWT_SECRET>
 
    # Domain URLs
    FRONTEND_URL=https://yourdomain.com
