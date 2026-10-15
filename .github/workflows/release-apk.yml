@@ -35,12 +35,17 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Build & publish signed APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -72,17 +77,31 @@ jobs:
 
       - name: Write keystore file
         working-directory: apps/web/android
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release.jks
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is missing in GitHub Repository Secrets!"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > release.jks
 
       - name: Write keystore.properties
         working-directory: apps/web/android
+        # Secrets go through the environment, not into the script text: they are
+        # substituted before the shell parses it, and an unquoted heredoc would
+        # expand a "$" or backtick inside a password.
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          cat > keystore.properties <<EOF
-          storeFile=release.jks
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          EOF
+          {
+            printf 'storeFile=release.jks\n'
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > keystore.properties
 
       - name: Build release APK (direct flavor)
         working-directory: apps/web/android
