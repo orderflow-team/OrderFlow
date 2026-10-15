@@ -4,6 +4,9 @@ import { BusinessesController } from './businesses.controller';
 import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 
+const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const HTML_BYTES = Buffer.from('<html><script>alert(1)</script></html>');
+
 const sendMock = jest.fn().mockResolvedValue({});
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: sendMock })),
@@ -105,7 +108,7 @@ describe('BusinessesController', () => {
   });
 
   describe('uploadLogo', () => {
-    const file = { originalname: 'logo.png', mimetype: 'image/png', buffer: Buffer.from('data') };
+    const file = { originalname: 'logo.png', mimetype: 'image/png', buffer: PNG_BYTES };
 
     it('uploads to S3 and updates the business logo url', async () => {
       (service.updateLogo as jest.Mock).mockResolvedValue({ id: 'biz-1', logo_url: 'https://x/logos/foo.png' });
@@ -121,6 +124,11 @@ describe('BusinessesController', () => {
       expect(result).toEqual({ id: 'biz-1', logo_url: 'https://x/logos/foo.png' });
     });
 
+    it('rejects content that is not an image even when labelled image/png', async () => {
+      await expect(controller.uploadLogo(req, 'biz-1', { ...file, buffer: HTML_BYTES })).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
+    });
+
     it('throws BadRequestException when no file is provided', async () => {
       await expect(controller.uploadLogo(req, 'biz-1', undefined as any)).rejects.toThrow(BadRequestException);
       expect(sendMock).not.toHaveBeenCalled();
@@ -128,7 +136,7 @@ describe('BusinessesController', () => {
   });
 
   describe('uploadUpiQr', () => {
-    const file = { originalname: 'qr.png', mimetype: 'image/png', buffer: Buffer.from('data') };
+    const file = { originalname: 'qr.png', mimetype: 'image/png', buffer: PNG_BYTES };
 
     it('uploads to S3 and updates the business UPI QR url', async () => {
       (service.updateUpiQr as jest.Mock).mockResolvedValue({ id: 'biz-1', upi_qr_url: 'https://x/upi-qr/foo.png' });
@@ -142,6 +150,11 @@ describe('BusinessesController', () => {
         'user-1',
       );
       expect(result).toEqual({ id: 'biz-1', upi_qr_url: 'https://x/upi-qr/foo.png' });
+    });
+
+    it('rejects content that is not an image even when labelled image/png', async () => {
+      await expect(controller.uploadUpiQr(req, 'biz-1', { ...file, buffer: HTML_BYTES })).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when no file is provided', async () => {

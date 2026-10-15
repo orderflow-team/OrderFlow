@@ -13,7 +13,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { extname } from 'path';
+import { randomUUID } from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -23,6 +23,8 @@ import { BusinessesService } from './businesses.service';
 import { AuthService } from '../auth/auth.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+
+import { requireFileType, IMAGE_TYPES } from '../../common/utils/detect-file-type.util';
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const BUSINESS_BRANDING_BUCKET = 'business-branding';
@@ -97,13 +99,14 @@ export class BusinessesController {
     if (!file) {
       throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
     }
-    const key = `logos/${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    const type = requireFileType(file, IMAGE_TYPES, 'The file is not a valid PNG, JPG, WEBP or GIF image');
+    const key = `logos/${Date.now()}-${randomUUID()}${type.ext}`;
     await this.s3.send(
       new PutObjectCommand({
         Bucket: BUSINESS_BRANDING_BUCKET,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: type.mime,
       }),
     );
     return this.businessesService.updateLogo(id, `${process.env.AWS_ENDPOINT_URL_S3}/${BUSINESS_BRANDING_BUCKET}/${key}`, req.user.userId);
@@ -129,13 +132,14 @@ export class BusinessesController {
     if (!file) {
       throw new BadRequestException('No file uploaded, or file type/size not allowed (PNG, JPG, WEBP, GIF up to 5MB)');
     }
-    const key = `upi-qr/${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    const type = requireFileType(file, IMAGE_TYPES, 'The file is not a valid PNG, JPG, WEBP or GIF image');
+    const key = `upi-qr/${Date.now()}-${randomUUID()}${type.ext}`;
     await this.s3.send(
       new PutObjectCommand({
         Bucket: BUSINESS_BRANDING_BUCKET,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: type.mime,
       }),
     );
     return this.businessesService.updateUpiQr(id, `${process.env.AWS_ENDPOINT_URL_S3}/${BUSINESS_BRANDING_BUCKET}/${key}`, req.user.userId);

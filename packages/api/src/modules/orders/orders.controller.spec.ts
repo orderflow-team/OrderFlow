@@ -3,6 +3,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
+const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const HTML_BYTES = Buffer.from('<html><script>alert(1)</script></html>');
+
 const sendMock = jest.fn().mockResolvedValue({});
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: sendMock })),
@@ -49,12 +52,19 @@ describe('OrdersController', () => {
 
   describe('uploadPrescription', () => {
     it('uploads to S3 and returns the object key', async () => {
-      const file = { originalname: 'rx.png', mimetype: 'image/png', buffer: Buffer.from('x') };
+      const file = { originalname: 'rx.png', mimetype: 'image/png', buffer: PNG_BYTES };
 
       const result = await controller.uploadPrescription(file);
 
       expect(sendMock).toHaveBeenCalled();
       expect(result.key).toBeDefined();
+    });
+
+    it('rejects content that is not an image even when labelled image/png', async () => {
+      const file = { originalname: 'rx.png', mimetype: 'image/png', buffer: HTML_BYTES };
+
+      await expect(controller.uploadPrescription(file)).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when no file is provided', async () => {

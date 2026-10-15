@@ -18,6 +18,7 @@ import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { randomUUID } from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { requireFileType, IMAGE_TYPES } from '../../common/utils/detect-file-type.util';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -65,13 +66,14 @@ export class ProductsController {
     if (!file) {
       throw new BadRequestException('Upload a PNG, JPEG, WebP or GIF image up to 5 MB.');
     }
-    const key = `${Date.now()}-${randomUUID()}${PRODUCT_IMAGE_EXTENSIONS[file.mimetype]}`;
+    const type = requireFileType(file, IMAGE_TYPES, 'The file is not a valid PNG, JPEG, WebP or GIF image.');
+    const key = `${Date.now()}-${randomUUID()}${type.ext}`;
     await this.s3.send(
       new PutObjectCommand({
         Bucket: PRODUCT_IMAGES_BUCKET,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: type.mime,
       }),
     );
     return {
