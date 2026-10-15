@@ -11,6 +11,7 @@ import { json } from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { resolveListenPort } from "./common/utils/listen-port.util";
+import { isOriginAllowed, parseAllowedOrigins } from "./common/utils/cors-origin.util";
 import { assertCredentialKeyConfigured } from "./common/utils/credential-crypto.util";
 
 async function bootstrap() {
@@ -53,65 +54,20 @@ async function bootstrap() {
 
   // origin: true (reflect ANY origin back) + credentials: true is exactly
   // the pattern that lets any website make authenticated requests using a
-  // visitor's own stored session — the browser attaches cookies/auth based
-  // on credentials mode, not on whether the reflected origin looks
-  // legitimate. In production this needs to be a real allowlist instead.
-  //
-  // Vercel gives this project no fixed custom domain — every deploy gets a
-  // new random per-deployment URL, PLUS a few STABLE aliases that always
-  // point at the current production deployment (`vercel alias ls`); those
-  // stable ones are what real traffic uses. The Capacitor Android app's
-  // WebView always presents as "https://localhost" (capacitor.config.ts
-  // doesn't override server.hostname/androidScheme, so this is Capacitor's
-  // documented default, not something specific to this app). ALLOWED_ORIGINS
-  // lets this list grow later (e.g. a real custom domain) via an env var
-  // alone, without a code change/redeploy, while defaulting to exactly
-  // what's actually in use today.
-  const DEFAULT_ALLOWED_ORIGINS = [
-    "https://obix360.com",
-    "https://www.obix360.com",
-    "http://localhost:3000",
-    "http://localhost:4000",
-    "http://localhost:5173",
-    "https://orderflow-web-git-main-clever-minds1.vercel.app",
-    "https://orderflow-web-clever-minds1.vercel.app",
-    "https://orderflow-web-iota.vercel.app",
-    "https://localhost",
-    "http://localhost",
-    "capacitor://localhost",
-  ];
-
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-    : DEFAULT_ALLOWED_ORIGINS;
+  // visitor's own stored session, so this is a real allowlist
+  // (common/utils/cors-origin.util.ts). The Capacitor Android app's WebView
+  // always presents as https://localhost (capacitor.config.ts doesn't override
+  // server.hostname/androidScheme), so exactly those WebView origins are always
+  // allowed; local dev servers are allowed only outside production.
+  // ALLOWED_ORIGINS replaces the built-in list without a code change.
+  const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+  const production = process.env.NODE_ENV === "production";
 
   app.enableCors({
     origin: (
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
-    ) => {
-      // Server-to-server, mobile native calls without Origin header: allow
-      if (!origin) return callback(null, true);
-
-      // Mobile APK / Capacitor WebView origins: ALWAYS allow
-      if (
-        origin === "https://localhost" ||
-        origin === "http://localhost" ||
-        origin === "capacitor://localhost" ||
-        origin.startsWith("http://localhost:") ||
-        origin.startsWith("https://localhost:") ||
-        origin.startsWith("capacitor://")
-      ) {
-        return callback(null, true);
-      }
-
-      // Check configured origins or default list
-      if (allowedOrigins.includes(origin) || DEFAULT_ALLOWED_ORIGINS.includes(origin)) {
-        return callback(null, true);
-      }
-
-      callback(null, false);
-    },
+    ) => callback(null, isOriginAllowed(origin, { allowedOrigins, production })),
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: "Content-Type,Accept,Authorization,X-Requested-With",
