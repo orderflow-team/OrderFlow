@@ -185,6 +185,8 @@ The repository includes `docker-compose.prod.yml` which defines 3 production con
 2. `orderflow-api-prod`: NestJS Backend API (Port 3001)
 3. `orderflow-web-prod`: Next.js Web Frontend (Port 3000)
 
+Both ports are published on `127.0.0.1` only, so they are reachable by the reverse proxy on the same server but not from the internet. After starting, check from another machine that `http://<server-ip>:3000` and `:3001` do not answer. (`BIND_ADDRESS` in `.env` changes this; leave it unset unless the proxy runs elsewhere.)
+
 ### 1. Build and Start Stack
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build

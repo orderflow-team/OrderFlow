@@ -52,8 +52,13 @@ services:
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Google sign-in rejects tokens not issued to this client (auth.service.ts googleAuth).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com}
+    # Published on the loopback interface only: the Apache/Nginx reverse proxy on this
+    # host is the single public entry point. Docker publishes ports straight through
+    # the host firewall (ufw/iptables rules do not apply), so a bare "3001:3001" would
+    # expose the API, unproxied and without TLS, to the internet. Set BIND_ADDRESS only
+    # if the proxy runs on another machine.
     ports:
-      - "3001:3001"
+      - "${BIND_ADDRESS:-127.0.0.1}:3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,7 +80,7 @@ services:
       PORT: 3000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://your-domain.com/api}
     ports:
-      - "3000:3000"
+      - "${BIND_ADDRESS:-127.0.0.1}:3000:3000"
     depends_on:
       - api
     networks:
