@@ -11,8 +11,10 @@ import { json } from "express";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { resolveListenPort } from "./common/utils/listen-port.util";
+import { assertCredentialKeyConfigured } from "./common/utils/credential-crypto.util";
 
 async function bootstrap() {
+  assertCredentialKeyConfigured();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   // Evolution API posts whole WhatsApp events (media thumbnails, contact cards,
   // long forwarded messages) to this route; Express's 100kb default rejects

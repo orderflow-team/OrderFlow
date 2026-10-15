@@ -86,5 +86,7 @@ A website release on the VPS does **not** update the installed apps. Run an OTA 
 
 - **Reverse proxy and client IPs:** set `TRUST_PROXY_HOPS` to the number of proxies in front of the API (1 for Apache alone). Wrong values break rate limiting.
 - **Time zone:** the server and database should run in UTC. Report day boundaries assume it.
-- **Rotating secrets:** set `CREDENTIAL_ENCRYPTION_KEY` to the current `JWT_SECRET` before changing `JWT_SECRET`, or stored staff passwords become unreadable.
+- **Credential key (required in production):** `CREDENTIAL_ENCRYPTION_KEY` encrypts stored staff passwords. It must be 24+ characters and different from `JWT_SECRET`, or the API refuses to start. `JWT_SECRET` can now be rotated freely.
+  - *First rollout:* set the new key and deploy. Rows written earlier with `JWT_SECRET` still decrypt. Then run `npm run rotate:credential-key --workspace=api` (dry run), then again with `-- --apply`, so every row uses the new key. Until that finishes, do not change `JWT_SECRET`.
+  - *Rotating the credential key later:* move the old value into `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`, set the new one, redeploy, run the rotate script with `--apply`, then drop the previous key.
 - **Emergency switch:** `PAYWALL_ENFORCED=false` turns off subscription enforcement without a deploy.
