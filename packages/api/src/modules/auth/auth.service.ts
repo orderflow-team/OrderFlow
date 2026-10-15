@@ -15,6 +15,8 @@ import {Repository, DataSource} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
+import { Table } from "../../database/entities/table.entity";
+import { Business } from "../../database/entities/business.entity";
 import { OtpCode } from "../../database/entities/otp-code.entity";
 import { PlatformSetting } from "../../database/entities/platform-setting.entity";
 import { SignupDto } from "./dto/signup.dto";
@@ -36,6 +38,15 @@ import { LoginAttempts } from "./login-attempts";
 // (apps/web/lib/api-client.ts), and every request re-checks that the account
 // is still active, so users never notice. The refresh token carries the session.
 export const ACCESS_TOKEN_TTL = "1h";
+
+/**
+ * What issueTokens needs from whoever it signs in: a real `users` row, or the
+ * synthetic identity of a table/takeaway guest, which has no row at all.
+ */
+type TokenSubject = Pick<User, "id" | "email" | "business_id"> & {
+  role: string;
+  full_name?: string | null;
+};
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
 
@@ -412,7 +423,7 @@ export class AuthService {
         email: payload.email,
         business_id: payload.businessId,
         role: payload.role,
-      } as any);
+      });
     }
 
     const user = await this.usersRepository.findOne({
@@ -672,7 +683,7 @@ export class AuthService {
     user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
   }
 
-  private issueTokens(user: User) {
+  private issueTokens(user: TokenSubject) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -700,40 +711,37 @@ export class AuthService {
   }
 
   async tableGuestLogin(tableId: string) {
-    const TableEntity = require("../../database/entities/table.entity").Table;
     const table = await this.dataSource
-      .getRepository(TableEntity)
+      .getRepository(Table)
       .findOne({ where: { id: tableId } });
     if (!table) {
       throw new NotFoundException("Table not found");
     }
 
-    const guestUser = {
+    const guestUser: TokenSubject = {
       id: `guest-${table.id}`,
       email: `guest-${table.name.toLowerCase()}@orderflow.guest`,
       business_id: table.business_id,
       role: UserRole.GUEST,
-    } as any;
+    };
 
     return this.issueTokens(guestUser);
   }
 
   async takeawayGuestLogin(businessId: string) {
-    const BusinessEntity =
-      require("../../database/entities/business.entity").Business;
     const business = await this.dataSource
-      .getRepository(BusinessEntity)
+      .getRepository(Business)
       .findOne({ where: { id: businessId } });
     if (!business) {
       throw new NotFoundException("Business not found");
     }
 
-    const guestUser = {
+    const guestUser: TokenSubject = {
       id: `guest-takeaway-${business.id}`,
       email: `guest-takeaway@orderflow.guest`,
       business_id: business.id,
       role: UserRole.GUEST,
-    } as any;
+    };
 
     return this.issueTokens(guestUser);
   }
