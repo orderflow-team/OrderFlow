@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Typecheck
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Build (includes typecheck)
@@ -53,13 +53,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       # Blocking, scoped to the api workspace: this is the actual deployed
-      # runtime, so a Critical finding here is real exposure.
-      - name: API audit (blocking on Critical)
-        run: npm audit --workspace=api --audit-level=critical
+      # runtime, so a High or Critical finding in production dependencies is
+      # real exposure. Moderates (currently only transitive test tooling and a
+      # nested multipart parser in firebase-admin) are reported, not blocking.
+      - name: API audit (blocking on High)
+        run: npm audit --workspace=api --omit=dev --audit-level=high
       # Informational only, not blocking: web's Critical/High findings are all
       # in build-time tooling (Capacitor CLI, Next.js build pipeline via
       # postcss/sharp) — apps/web ships as a static export, so none of these

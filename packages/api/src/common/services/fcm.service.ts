@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as admin from 'firebase-admin';
+import { App, cert, initializeApp } from 'firebase-admin/app';
+import { BatchResponse, getMessaging } from 'firebase-admin/messaging';
 
 /**
  * Wraps Firebase Cloud Messaging for the native Android app's push
@@ -19,7 +20,7 @@ import * as admin from 'firebase-admin';
 @Injectable()
 export class FcmService {
   private readonly logger = new Logger(FcmService.name);
-  private app: admin.app.App | null = null;
+  private app: App | null = null;
 
   constructor(private configService: ConfigService) {
     const raw = this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT');
@@ -27,7 +28,7 @@ export class FcmService {
 
     try {
       const serviceAccount = JSON.parse(raw);
-      this.app = admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      this.app = initializeApp({ credential: cert(serviceAccount) });
     } catch (error: any) {
       this.logger.error(`Invalid FIREBASE_SERVICE_ACCOUNT — push notifications disabled: ${error.message}`);
     }
@@ -56,9 +57,9 @@ export class FcmService {
     for (let i = 0; i < tokens.length; i += FcmService.FCM_BATCH_SIZE) {
       const batch = tokens.slice(i, i + FcmService.FCM_BATCH_SIZE);
 
-      let response: admin.messaging.BatchResponse;
+      let response: BatchResponse;
       try {
-        response = await admin.messaging(this.app).sendEachForMulticast({ tokens: batch, notification: { title, body }, data });
+        response = await getMessaging(this.app).sendEachForMulticast({ tokens: batch, notification: { title, body }, data });
       } catch (error: any) {
         this.logger.error(`FCM send failed for a batch of ${batch.length}: ${error.message}`);
         continue;
