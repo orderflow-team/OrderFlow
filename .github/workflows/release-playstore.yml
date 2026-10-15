@@ -62,11 +62,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Require the OTA public key
+        env:
+          OTA_PUBLIC_KEY: ${{ vars.OTA_PUBLIC_KEY }}
+        run: |
+          if [ -z "$OTA_PUBLIC_KEY" ]; then
+            echo "::error::Repository variable OTA_PUBLIC_KEY is not set. Without it this build would accept unsigned OTA updates. Generate a key with apps/web/scripts/ota-keygen.mjs."
+            exit 1
+          fi
+
       - name: Build Capacitor web export
         working-directory: apps/web
         env:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_OTA_PUBLIC_KEY: ${{ vars.OTA_PUBLIC_KEY }}
           NEXT_PUBLIC_DISTRIBUTION_CHANNEL: playstore
           # Public OAuth client ID (not a secret). Without it Google sign-in
           # falls back to an invalid client, as Play Store 1.18 shipped.

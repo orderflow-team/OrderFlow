@@ -36,7 +36,7 @@ export class AppUpdatesController {
   @UseInterceptors(FileInterceptor('file'))
   create(
     @UploadedFile() file: any,
-    @Body() body: { platform?: string; version?: string; minNativeVersion?: string; notes?: string },
+    @Body() body: { platform?: string; version?: string; minNativeVersion?: string; notes?: string; signature?: string },
   ) {
     if (!file) {
       throw new BadRequestException('No bundle file uploaded');
@@ -46,6 +46,7 @@ export class AppUpdatesController {
       version: body.version,
       minNativeVersion: body.minNativeVersion,
       notes: body.notes,
+      signature: body.signature,
     });
   }
 

@@ -33,6 +33,8 @@ services:
       # Encrypts stored staff passwords. Must differ from JWT_SECRET (the API refuses to start otherwise).
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?CREDENTIAL_ENCRYPTION_KEY must be set to a long random value, different from JWT_SECRET}
       CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
+      # Public key that OTA update uploads must be signed with (see docs/deployment.md, "Signed OTA updates").
+      OTA_PUBLIC_KEY: ${OTA_PUBLIC_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

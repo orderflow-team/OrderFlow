@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import { extname } from 'path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { AppRelease } from '../../database/entities/app-release.entity';
+import { verifyOtaSignature } from '../../common/utils/ota-signature.util';
 
 const OTA_BUNDLES_BUCKET = 'ota-bundles';
 
@@ -48,9 +49,13 @@ export class AppUpdatesService {
 
   private toLatestDto(release: AppRelease) {
     return {
+      // The platform the release was published under: part of what is signed, and the
+      // app checks it is the channel it asked for (or that channel's base platform).
+      platform: release.platform,
       version: release.version,
       url: release.bundle_url,
       checksum: release.checksum,
+      signature: release.signature,
       minNativeVersion: release.min_native_version,
       notes: release.notes,
     };
@@ -63,7 +68,10 @@ export class AppUpdatesService {
     });
   }
 
-  async create(file: any, dto: { platform: string; version?: string; minNativeVersion?: string; notes?: string }) {
+  async create(
+    file: any,
+    dto: { platform: string; version?: string; minNativeVersion?: string; notes?: string; signature?: string },
+  ) {
     if (!file) {
       throw new BadRequestException('No bundle file uploaded');
     }
@@ -71,6 +79,22 @@ export class AppUpdatesService {
       throw new BadRequestException('version is required');
     }
     const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const platform = dto.platform || 'android';
+
+    // With OTA_PUBLIC_KEY set (the public half of the offline signing key), a release must carry a
+    // signature that verifies against it. The key is not secret; what matters is that the private
+    // half never touches this server, so a stolen admin token or a compromised host cannot
+    // publish code that installed apps will run. The apps re-check it themselves.
+    const publicKey = process.env.OTA_PUBLIC_KEY;
+    const signature = dto.signature?.trim() || null;
+    if (publicKey) {
+      if (!signature) {
+        throw new BadRequestException('A signature is required: sign the release with the offline OTA key');
+      }
+      if (!verifyOtaSignature({ platform, version: dto.version, checksum, signature }, publicKey)) {
+        throw new BadRequestException('The signature does not match this bundle, platform and version');
+      }
+    }
     const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
     await this.s3.send(
       new PutObjectCommand({
@@ -82,10 +106,11 @@ export class AppUpdatesService {
     );
 
     const release = this.appReleasesRepository.create({
-      platform: dto.platform || 'android',
+      platform,
       version: dto.version,
       bundle_url: `${process.env.AWS_ENDPOINT_URL_S3}/${OTA_BUNDLES_BUCKET}/${key}`,
       checksum,
+      signature,
       min_native_version: dto.minNativeVersion || null,
       notes: dto.notes || null,
       is_active: true,

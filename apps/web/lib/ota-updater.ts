@@ -2,10 +2,17 @@ import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { API_BASE_URL } from './api-client';
 import { compareVersions } from './version-compare';
+import { acceptablePlatforms, verifyOtaRelease } from './ota-signature';
 
 const LOG_PREFIX = '[OTA]';
 
+// Public half of the offline OTA signing key (scripts/ota-keygen.mjs), compiled into the build.
+// When present, only bundles signed by the matching private key are applied.
+const OTA_PUBLIC_KEY = process.env.NEXT_PUBLIC_OTA_PUBLIC_KEY;
+
 interface LatestRelease {
+  platform?: string;
+  signature?: string | null;
   version: string;
   url: string;
   checksum: string;
@@ -66,14 +73,34 @@ export async function checkForOtaUpdate() {
       return;
     }
 
+    // The URL and checksum come from our own API, so on their own they prove nothing about who
+    // published the bundle. The signature was made offline; a bundle that does not verify against
+    // the key built into this app is never downloaded, whatever the API says.
+    if (OTA_PUBLIC_KEY) {
+      const trusted =
+        !!latest.platform &&
+        acceptablePlatforms(channelPlatform).includes(latest.platform) &&
+        (await verifyOtaRelease(
+          { platform: latest.platform, version: latest.version, checksum: latest.checksum, signature: latest.signature },
+          OTA_PUBLIC_KEY,
+        ));
+      if (!trusted) {
+        console.warn(`${LOG_PREFIX} refused ${latest.version} — missing or invalid release signature`);
+        return;
+      }
+    } else {
+      console.warn(`${LOG_PREFIX} no NEXT_PUBLIC_OTA_PUBLIC_KEY in this build — applying ${latest.version} WITHOUT signature verification`);
+    }
+
     console.log(`${LOG_PREFIX} downloading ${latest.version} from ${latest.url}`);
     // The backend computes this as a plain sha256 hex digest of the uploaded
     // zip (app-updates.service.ts) — no encryption/sessionKey involved, since
     // this app self-hosts releases rather than using Capgo's own signing
-    // flow. The native plugin still verifies a bare checksum like this
-    // against the downloaded file (CapgoUpdater.java's finishDownload) and
-    // throws on mismatch, so this is enough to catch a corrupted download or
-    // a tampered/MITM'd bundle URL without needing the full encryption setup.
+    // flow. The native plugin verifies a bare checksum like this against the
+    // downloaded file (CapgoUpdater.java's finishDownload) and throws on
+    // mismatch. Together with the signature checked above (which covers this
+    // very checksum), that ties the bytes that get applied to what the offline
+    // key signed.
     const downloaded = await CapacitorUpdater.download({ url: latest.url, version: latest.version, checksum: latest.checksum });
     await CapacitorUpdater.set({ id: downloaded.id });
     console.log(`${LOG_PREFIX} applied ${latest.version} — reloading webview...`);

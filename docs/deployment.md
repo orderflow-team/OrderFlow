@@ -82,6 +82,22 @@ A website release on the VPS does **not** update the installed apps. Run an OTA 
 - [Restore procedure](deployment/database-restore.md) and the helper `scripts/restore-vps-db.sh`
 - [Moving to a new VPS](deployment/vps-migration.md)
 
+## Signed OTA updates
+
+Installed apps download new web bundles from `/api/app-updates/latest` and run them. The URL and checksum come from the same server, so on their own they prove nothing about who published the bundle. Releases are therefore signed with an offline key, and each app only applies a bundle that verifies against the public key built into it. A stolen super-admin token, a compromised API host or a compromised storage bucket can no longer publish code to the apps.
+
+- **Algorithm:** ECDSA P-256 / SHA-256 over `obix-ota-v1\n<platform>\n<version>\n<checksum>`. The signature ties the bundle to its platform and version, so it cannot be re-labelled as another release.
+- **One-time setup:** run `node apps/web/scripts/ota-keygen.mjs` on a trusted machine. Store the private key in a password manager and as the GitHub secret `OTA_SIGNING_PRIVATE_KEY`. Set the public key as the GitHub **variable** `OTA_PUBLIC_KEY` (the release workflows refuse to build without it) and as `OTA_PUBLIC_KEY` on the API.
+- **Releasing:** the `Release OTA Bundle` workflow signs automatically. From a machine, set `OTA_SIGNING_PRIVATE_KEY` and run `scripts/release-ota.mjs` as before.
+- **Rollout order:**
+  1. Set the variable and secret, then publish one signed OTA release. Apps installed before this change do not verify, so they apply it, and from then on they do.
+  2. Check an updated device logs `[OTA]` lines without `WITHOUT signature verification`.
+  3. Set `OTA_PUBLIC_KEY` on the API. From then on it rejects unsigned uploads.
+  Until step 1 reaches a device, that device still accepts unsigned bundles. New APK builds carry the key from the start.
+- **Rolling back** a bad release still works: deactivating it makes the previous (also signed) release the latest again.
+- **Losing the private key** means installed apps cannot be moved to a new key by OTA, because they trust only the key they were built with. Ship a new APK with the new public key. Keep a backup.
+- **Not covered:** the direct-download APK. Android already refuses an update signed with a different key, but a person installing the APK for the first time trusts whatever `/api/app-apk-releases/download` serves. Publish the APK's SHA-256 next to the download link if that matters to you.
+
 ## Operations notes
 
 - **Reverse proxy and client IPs:** set `TRUST_PROXY_HOPS` to the number of proxies in front of the API (1 for Apache alone). Wrong values break rate limiting.
