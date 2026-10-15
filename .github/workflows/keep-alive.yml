@@ -1,9 +1,18 @@
-name: Keep API warm
+name: API health check
 
-# Pings the production health endpoint every 10 minutes so the Render
-# free-tier instance (15-min idle spin-down) and Neon's free-tier compute
-# (5-min autosuspend) never go cold. /health does a real `SELECT 1` against
-# the DB, so this keeps both warm, not just the API process.
+# Calls the production health endpoint every 10 minutes. `/api/health` runs a
+# real `SELECT 1` against the database, so a failure means the API process or
+# the database is down or unreachable, and the run goes red (GitHub notifies
+# the people watching this repository). It also keeps a serverless database
+# (for example Neon's free tier, which autosuspends after ~5 minutes idle)
+# from going cold.
+#
+# The path is `/api/health`, not `/health`: the Apache reverse proxy only
+# forwards `/api/*` and `/auth/*` to the API, so a bare `/health` would land
+# on the web app and 404.
+#
+# (File name kept as keep-alive.yml so existing links to this workflow still
+# work. It used to ping an old Render deployment that no longer exists.)
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -13,11 +22,18 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping health endpoint
+      - name: Check API and database health
         run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://orderflow-1.onrender.com/health)
+          url="https://obix360.com/api/health"
+          # --retry covers a one-off network blip so it does not page anyone.
+          status=$(curl -s -o body.json -w "%{http_code}" --max-time 30 --retry 2 --retry-delay 10 "$url")
           echo "Health check returned: $status"
+          cat body.json; echo
           if [ "$status" != "200" ]; then
-            echo "::error::Health check failed with status $status"
+            echo "::error::Health check failed with status $status ($url)"
+            exit 1
+          fi
+          if ! grep -q '"status":"ok"' body.json; then
+            echo "::error::Health endpoint answered 200 but not status ok"
             exit 1
           fi

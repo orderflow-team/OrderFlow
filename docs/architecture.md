@@ -139,5 +139,5 @@ Three release paths, each a GitHub Actions workflow in `.github/workflows/`:
 ## Quality gates
 
 - **CI** (`.github/workflows/ci.yml`) runs on every pull request: API typecheck and build, web typecheck and build (the Capacitor export), and a dependency audit. **CI does not run the unit tests.** Run them locally, see [development.md](development.md).
-- `keep-alive.yml` pings the API on a schedule.
+- `keep-alive.yml` ("API health check") calls `https://obix360.com/api/health` every 10 minutes. The endpoint runs `SELECT 1`, so a red run means the API or the database is down. It must be `/api/health`: the reverse proxy only forwards `/api/*` and `/auth/*` to the API.
 - A Vercel preview check also runs on pull requests. Production is not served from Vercel, and that check has been failing for a long time, so it does not block merging.
