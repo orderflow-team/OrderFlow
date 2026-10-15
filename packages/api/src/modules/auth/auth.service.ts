@@ -32,6 +32,8 @@ import { MailService } from "./mail.service";
 import { UserRole } from "../../common/enums/user-role.enum";
 import { randomInt } from "crypto";
 import { LoginAttempts } from "./login-attempts";
+import { MfaService } from "./mfa.service";
+import { VerifyMfaLoginDto } from "./dto/mfa.dto";
 
 // Access tokens live in the browser's localStorage, so a stolen one is usable
 // until it expires. Kept short: the web client refreshes silently on a 401
@@ -74,6 +76,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private dataSource: DataSource,
+    private mfaService: MfaService,
   ) {}
 
   /**
@@ -231,7 +234,7 @@ export class AuthService {
       email: user.email,
     });
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   async googleAuth(dto: GoogleAuthDto) {
@@ -348,9 +351,9 @@ export class AuthService {
       },
     );
 
-    const tokens = this.issueTokens(user);
+    const result = await this.firstFactorResult(user);
     return {
-      ...tokens,
+      ...result,
       isNewUser,
     };
   }
@@ -539,7 +542,7 @@ export class AuthService {
 
     await this.assertNotInMaintenance(user.role);
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   /**
@@ -635,7 +638,7 @@ export class AuthService {
     this.invalidateExistingSessions(user);
     await this.usersRepository.save(user);
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   /**
@@ -681,6 +684,51 @@ export class AuthService {
    */
   private invalidateExistingSessions(user: User) {
     user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
+  }
+
+  /**
+   * What a successful first factor (password, emailed code, Google, password reset)
+   * returns. Accounts with two-factor authentication get a short-lived challenge
+   * instead of tokens; the challenge is useless as a session (JwtStrategy and
+   * refresh() both reject its token type) and is exchanged for tokens by
+   * verifyMfaLogin once the second factor checks out.
+   */
+  private async firstFactorResult(user: User) {
+    if (!user.mfa_enabled) return this.issueTokens(user);
+    return {
+      mfaRequired: true as const,
+      mfaToken: this.jwtService.sign({ sub: user.id, tokenType: "mfa" }, { expiresIn: "5m" }),
+    };
+  }
+
+  /** Second step of sign-in for accounts with two-factor authentication. */
+  async verifyMfaLogin(dto: VerifyMfaLoginDto) {
+    let payload: { sub: string; tokenType?: string };
+    try {
+      payload = this.jwtService.verify(dto.mfaToken);
+    } catch {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+    if (payload.tokenType !== "mfa") {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: payload.sub } });
+    if (!user || !user.is_active || !user.mfa_enabled) {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+    await this.assertNotInMaintenance(user.role);
+
+    const ok = await this.mfaService.verifyProof(user.id, { code: dto.code, recoveryCode: dto.recoveryCode });
+    if (!ok) {
+      throw new UnauthorizedException("That code is not right.");
+    }
+
+    await this.logActivity(user.id, user.business_id, "USER_LOGIN_MFA", "Auth", {
+      email: user.email,
+      method: dto.code ? "totp" : "recovery_code",
+    });
+    return this.issueTokens(user);
   }
 
   private issueTokens(user: TokenSubject) {

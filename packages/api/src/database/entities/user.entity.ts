@@ -46,6 +46,22 @@ export class User {
   @Column({ type: 'text', nullable: true })
   avatar_url: string | null;
 
+  // Two-factor authentication (TOTP). The secret is encrypted with the credential key
+  // (common/utils/credential-crypto.util.ts); recovery codes are stored as a JSON array of
+  // bcrypt hashes. Both are excluded from default selects.
+  @Column({ type: 'boolean', default: false })
+  mfa_enabled: boolean;
+
+  @Column({ type: 'text', nullable: true, select: false })
+  mfa_secret: string | null;
+
+  @Column({ type: 'text', nullable: true, select: false })
+  mfa_recovery_codes: string | null;
+
+  // Time step (30s counter) of the last accepted code, so one code cannot be used twice. bigint -> string.
+  @Column({ type: 'bigint', nullable: true, select: false })
+  mfa_last_step: string | null;
+
   // Touched (throttled, at most once/minute) by JwtStrategy on every
   // authenticated request — powers the admin "live users" view. Null means
   // never logged in / hasn't made an authenticated request since restart.

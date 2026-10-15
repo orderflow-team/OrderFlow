@@ -8,6 +8,7 @@ import { AuthService, ACCESS_TOKEN_TTL } from './auth.service';
 import { MailService } from './mail.service';
 import { JwtStrategy } from './jwt.strategy';
 import { AppGoogleHandoffService } from './app-google-handoff.service';
+import { MfaService } from './mfa.service';
 import { User } from '../../database/entities/user.entity';
 import { OtpCode } from '../../database/entities/otp-code.entity';
 import { PlatformSetting } from '../../database/entities/platform-setting.entity';
@@ -25,7 +26,7 @@ import { PlatformSetting } from '../../database/entities/platform-setting.entity
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService, JwtStrategy, AppGoogleHandoffService],
+  providers: [AuthService, MailService, JwtStrategy, AppGoogleHandoffService, MfaService],
   exports: [AuthService],
 })
 export class AuthModule {}

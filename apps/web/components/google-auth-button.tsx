@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath, setCurrentUser } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
+import { isMfaChallenge, type MfaChallenge } from '@/lib/mfa';
+import { MfaChallengeForm } from '@/components/mfa-challenge';
 import {
   browserGoogleSignIn,
   nativeGoogleSignIn,
@@ -36,6 +38,7 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
   const [waitingForBrowser, setWaitingForBrowser] = useState(false);
   const [handoffCode, setHandoffCode] = useState('');
   const router = useRouter();
+  const [mfaToken, setMfaToken] = useState('');
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   // Google Identity Services' popup can't run inside the Capacitor WebView:
@@ -47,7 +50,12 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
 
   useEffect(() => () => handoffAbortRef.current?.abort(), []);
 
-  const finishLogin = (data: GoogleLoginResult) => {
+  const finishLogin = (data: GoogleLoginResult | MfaChallenge) => {
+    // An account with two-factor authentication gets a challenge, not tokens: ask for the code first.
+    if (isMfaChallenge(data)) {
+      setMfaToken(data.mfaToken);
+      return;
+    }
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('refresh_token', data.refresh_token);
     setCurrentUser(data.user);
@@ -229,6 +237,14 @@ export function GoogleAuthButton({ mode = 'signin', className = '', onError, onC
       window.google.accounts.id.prompt();
     }
   };
+
+  if (mfaToken) {
+    return (
+      <div className={`w-full ${className}`}>
+        <MfaChallengeForm mfaToken={mfaToken} onVerified={finishLogin} onCancel={() => setMfaToken('')} />
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full ${className}`}>

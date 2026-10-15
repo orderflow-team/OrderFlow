@@ -16,6 +16,7 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "rotate:credential-key": "ts-node scripts/rotate-credential-key.ts",
+    "reset:mfa": "ts-node scripts/reset-mfa.ts",
     "bootstrap:admin": "ts-node scripts/bootstrap-admin.ts",
     "maintenance:migrate-legacy-invoice-scans": "ts-node scripts/migrate-legacy-invoice-scans.ts"
   },
@@ -72,6 +73,7 @@
     "dotenv": "^17.4.2",
     "firebase-admin": "^14.5.0",
     "nodemailer": "^10.0.13",
+    "otpauth": "^9.5.2",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",

@@ -2,16 +2,28 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AppGoogleHandoffService } from './app-google-handoff.service';
+import { MfaService } from './mfa.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let service: jest.Mocked<AuthService>;
+  let mfa: jest.Mocked<MfaService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AppGoogleHandoffService, useValue: {} },
+        {
+          provide: MfaService,
+          useValue: {
+            status: jest.fn(),
+            beginSetup: jest.fn(),
+            enable: jest.fn(),
+            disable: jest.fn(),
+            regenerateRecoveryCodes: jest.fn(),
+          },
+        },
         {
           provide: AuthService,
           useValue: {
@@ -26,6 +38,7 @@ describe('AuthController', () => {
             changePassword: jest.fn(),
             tableGuestLogin: jest.fn(),
             takeawayGuestLogin: jest.fn(),
+            verifyMfaLogin: jest.fn(),
           },
         },
       ],
@@ -33,6 +46,7 @@ describe('AuthController', () => {
 
     controller = module.get(AuthController);
     service = module.get(AuthService);
+    mfa = module.get(MfaService);
   });
 
   it('is defined', () => {
@@ -146,5 +160,39 @@ describe('AuthController', () => {
 
     expect(service.takeawayGuestLogin).toHaveBeenCalledWith('biz-1');
     expect(result).toEqual({ access_token: 'guest2' });
+  });
+  describe('two-factor authentication', () => {
+    const req = { user: { userId: 'user-1' } };
+
+    it('verifyMfaLogin delegates to AuthService.verifyMfaLogin', async () => {
+      const dto = { mfaToken: 't', code: '123456' } as any;
+      (service.verifyMfaLogin as jest.Mock).mockResolvedValue({ access_token: 'a' });
+
+      expect(await controller.verifyMfaLogin(dto)).toEqual({ access_token: 'a' });
+      expect(service.verifyMfaLogin).toHaveBeenCalledWith(dto);
+    });
+
+    it('status, setup, enable, disable and recovery-codes act on the signed-in user only', async () => {
+      await controller.mfaStatus(req);
+      await controller.mfaSetup(req);
+      await controller.mfaEnable(req, { code: '123456' });
+      await controller.mfaDisable(req, { code: '654321' });
+      await controller.mfaRecoveryCodes(req, { recoveryCode: 'abcde-12345' });
+
+      expect(mfa.status).toHaveBeenCalledWith('user-1');
+      expect(mfa.beginSetup).toHaveBeenCalledWith('user-1');
+      expect(mfa.enable).toHaveBeenCalledWith('user-1', '123456');
+      expect(mfa.disable).toHaveBeenCalledWith('user-1', { code: '654321' });
+      expect(mfa.regenerateRecoveryCodes).toHaveBeenCalledWith('user-1', { recoveryCode: 'abcde-12345' });
+    });
+
+    it('lets a super admin who still has to enroll reach status, setup, enable and recovery-codes only', () => {
+      const allowed = (name: keyof AuthController) =>
+        Reflect.getMetadata('allowMfaSetup', AuthController.prototype[name] as any) === true;
+
+      expect(['mfaStatus', 'mfaSetup', 'mfaEnable', 'mfaRecoveryCodes'].every((n) => allowed(n as any))).toBe(true);
+      expect(allowed('mfaDisable')).toBe(false);
+      expect(allowed('changePassword')).toBe(false);
+    });
   });
 });

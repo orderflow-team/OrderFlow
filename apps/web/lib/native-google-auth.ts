@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { SocialLogin } from '@capgo/capacitor-social-login';
+import type { MfaChallenge } from './mfa';
 import apiClient, { API_BASE_URL } from './api-client';
 
 let initializedFor: string | null = null;
@@ -51,7 +52,7 @@ export async function browserGoogleSignIn(opts: {
   /** Receives the 6-digit code to show, so the user can match it on the browser page. */
   onStarted?: (code: string) => void;
   signal: AbortSignal;
-}): Promise<GoogleLoginResult | null> {
+}): Promise<GoogleLoginResult | MfaChallenge | null> {
   const secretBytes = crypto.getRandomValues(new Uint8Array(32));
   const secret = Array.from(secretBytes, (b) => b.toString(16).padStart(2, '0')).join('');
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
@@ -93,7 +94,7 @@ export async function browserGoogleSignIn(opts: {
       const res = await apiClient.post(`/auth/google/app-session/${sessionId}/claim`, { secret });
       if (res.data?.status === 'complete') {
         const { status: _status, ...login } = res.data;
-        return login as GoogleLoginResult;
+        return login as GoogleLoginResult | MfaChallenge;
       }
     } catch (err: any) {
       // 404 = expired/unknown session; anything else (offline while the user

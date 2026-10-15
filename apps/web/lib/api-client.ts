@@ -234,6 +234,7 @@ apiClient.interceptors.response.use(
     const isAuthRoute =
       originalRequest?.url?.includes('/auth/login') ||
       originalRequest?.url?.includes('/auth/google') ||
+      originalRequest?.url?.includes('/auth/mfa/verify') ||
       originalRequest?.url?.includes('/auth/otp') ||
       originalRequest?.url?.includes('/auth/signup');
 
@@ -279,6 +280,18 @@ apiClient.interceptors.response.use(
         // (mounted in the root layout) does the actual router.push('/login').
         window.dispatchEvent(new CustomEvent('auth:unauthorized'));
       }
+    }
+
+    // A super admin who must have two-factor authentication but has not set it up can only reach the
+    // setup page; send them there instead of leaving every screen showing an error.
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.message === 'MFA_SETUP_REQUIRED' &&
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/security')
+    ) {
+      window.location.assign('/security');
+      return new Promise(() => {});
     }
 
     if (error.response?.status === 402) {

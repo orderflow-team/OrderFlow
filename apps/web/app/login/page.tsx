@@ -12,6 +12,8 @@ import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
 import { GoogleAuthButton } from '@/components/google-auth-button';
 import { forwardAppSignInResponse } from '@/lib/google-app-signin';
+import { isMfaChallenge } from '@/lib/mfa';
+import { MfaChallengeForm } from '@/components/mfa-challenge';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -145,6 +147,19 @@ function PasswordLoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const [mfaToken, setMfaToken] = useState('');
+
+  const finishSignIn = (data: any) => {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    setCurrentUser(data.user);
+
+    if (!data.user?.businessId && data.user.role !== 'super_admin') {
+      router.push('/select-business');
+    } else {
+      router.push(getPostLoginPath(data.user.role, data.user.email));
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,15 +168,11 @@ function PasswordLoginForm() {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
 
-      localStorage.setItem('access_token', response.data.access_token);
-      localStorage.setItem('refresh_token', response.data.refresh_token);
-      setCurrentUser(response.data.user);
-
-      if (!response.data.user?.businessId && response.data.user.role !== 'super_admin') {
-        router.push('/select-business');
-      } else {
-        router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      if (isMfaChallenge(response.data)) {
+        setMfaToken(response.data.mfaToken);
+        return;
       }
+      finishSignIn(response.data);
     } catch (err: any) {
       if (err.response?.data?.message) {
         setError(err.response.data.message);
@@ -174,6 +185,10 @@ function PasswordLoginForm() {
       setLoading(false);
     }
   };
+
+  if (mfaToken) {
+    return <MfaChallengeForm mfaToken={mfaToken} onVerified={finishSignIn} onCancel={() => setMfaToken('')} />;
+  }
 
   return (
     <form onSubmit={handleLogin} className="space-y-4">
@@ -261,27 +276,41 @@ function OtpLoginForm() {
     }
   };
 
+  const [mfaToken, setMfaToken] = useState('');
+
+  const finishSignIn = (data: any) => {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    setCurrentUser(data.user);
+
+    if (!data.user?.businessId && data.user.role !== 'super_admin') {
+      router.push('/select-business');
+    } else {
+      router.push(getPostLoginPath(data.user.role, data.user.email));
+    }
+  };
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
       const response = await apiClient.post('/auth/otp/verify', { email, code });
-      localStorage.setItem('access_token', response.data.access_token);
-      localStorage.setItem('refresh_token', response.data.refresh_token);
-      setCurrentUser(response.data.user);
-
-      if (!response.data.user?.businessId && response.data.user.role !== 'super_admin') {
-        router.push('/select-business');
-      } else {
-        router.push(getPostLoginPath(response.data.user.role, response.data.user.email));
+      if (isMfaChallenge(response.data)) {
+        setMfaToken(response.data.mfaToken);
+        return;
       }
+      finishSignIn(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Invalid or expired code');
     } finally {
       setLoading(false);
     }
   };
+
+  if (mfaToken) {
+    return <MfaChallengeForm mfaToken={mfaToken} onVerified={finishSignIn} onCancel={() => setMfaToken('')} />;
+  }
 
   if (step === 'request') {
     return (

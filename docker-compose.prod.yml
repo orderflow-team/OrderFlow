@@ -35,6 +35,8 @@ services:
       CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
       # Public key that OTA update uploads must be signed with (see docs/deployment.md, "Signed OTA updates").
       OTA_PUBLIC_KEY: ${OTA_PUBLIC_KEY:-}
+      # "true" requires super admins to set up two-factor authentication (see docs/deployment.md).
+      MFA_REQUIRED_FOR_SUPER_ADMIN: ${MFA_REQUIRED_FOR_SUPER_ADMIN:-false}
       FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

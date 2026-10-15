@@ -98,11 +98,23 @@ Installed apps download new web bundles from `/api/app-updates/latest` and run t
 - **Losing the private key** means installed apps cannot be moved to a new key by OTA, because they trust only the key they were built with. Ship a new APK with the new public key. Keep a backup.
 - **Not covered:** the direct-download APK. Android already refuses an update signed with a different key, but a person installing the APK for the first time trusts whatever `/api/app-apk-releases/download` serves. Publish the APK's SHA-256 next to the download link if that matters to you.
 
+## Two-factor authentication
+
+Every account can turn on two-factor authentication at `/security` (also linked from Settings and the admin menu). It uses an authenticator app (any TOTP app: Google Authenticator, Microsoft Authenticator, Authy, 1Password) and 10 single-use recovery codes.
+
+- **Where it applies:** every way of signing in: password, emailed code, Google, and the sign-in that follows a password reset. The first step returns a five-minute challenge instead of tokens; the app asks for the code and exchanges the challenge for a session. A challenge cannot be used as an access or refresh token.
+- **Protection against guessing and replay:** a code works once (its 30-second step is recorded), and 10 wrong codes lock the account's second-factor attempts for 15 minutes (recovery codes still work). Enrollment secrets are stored encrypted with the credential key (`CREDENTIAL_ENCRYPTION_KEY`), recovery codes as hashes.
+- **Requiring it for super admins:** set `MFA_REQUIRED_FOR_SUPER_ADMIN=true` on the API. A super admin who has not enrolled can then reach only the setup routes (the web app sends them to `/security`), and cannot turn it off. Enroll your own super admin account first, with the flag still off, and save the recovery codes. Then turn the flag on.
+- **Rollout:** deploy (the migration adds four columns to `users`), enroll your own super admin, confirm a fresh sign-in asks for the code, then set the flag. Existing sessions keep working; MFA is asked for at the next sign-in.
+- **Lost phone and lost recovery codes:** an operator runs `npm run reset:mfa --workspace=api -- someone@example.com` (a dry run), then again with `--apply`. It turns MFA off and signs the account out everywhere. Confirm the person's identity by another route first. A super admin is asked to enroll again at next sign-in when the flag is on.
+- **Clock:** codes depend on the phone's clock. The server accepts one 30-second step either side.
+- **Accounts that sign in with Google only:** they still get the code step after Google accepts them, so Google's own security is not the only barrier.
+
 ## Operations notes
 
 - **Reverse proxy and client IPs:** set `TRUST_PROXY_HOPS` to the number of proxies in front of the API (1 for Apache alone). Wrong values break rate limiting.
 - **Time zone:** the server and database should run in UTC. Report day boundaries assume it.
 - **Credential key (required in production):** `CREDENTIAL_ENCRYPTION_KEY` encrypts stored staff passwords. It must be 24+ characters and different from `JWT_SECRET`, or the API refuses to start. `JWT_SECRET` can now be rotated freely.
-  - *First rollout:* set the new key and deploy. Rows written earlier with `JWT_SECRET` still decrypt. Then run `npm run rotate:credential-key --workspace=api` (dry run), then again with `-- --apply`, so every row uses the new key. Until that finishes, do not change `JWT_SECRET`.
-  - *Rotating the credential key later:* move the old value into `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`, set the new one, redeploy, run the rotate script with `--apply`, then drop the previous key.
+  - *First rollout:* set the new key and deploy. Rows written earlier with `JWT_SECRET` still decrypt. Then run `npm run rotate:credential-key --workspace=api` (dry run), then again with `-- --apply`, so every row uses the new key (this covers staff passwords and two-factor secrets). Until that finishes, do not change `JWT_SECRET`.
+  - *Rotating the credential key later:* move the old value into `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`, set the new one, redeploy, run the rotate script with `--apply`, then drop the previous key. Keep the previous key until the script reports nothing left: a two-factor secret it can no longer open locks that user out.
 - **Emergency switch:** `PAYWALL_ENFORCED=false` turns off subscription enforcement without a deploy.

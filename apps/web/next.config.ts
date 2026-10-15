@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
             // crawling; this header is what keeps a discovered URL out of results.
             {
               source:
-                '/(admin|dashboard|billing|customers|inventory|orders|products|reports|restaurant|salesman|select-business|settings|staff|forgot-password|google-app-signin)/:path*',
+                '/(admin|dashboard|billing|customers|inventory|orders|products|reports|restaurant|salesman|select-business|settings|security|staff|forgot-password|google-app-signin)/:path*',
               headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
             },
           ];
