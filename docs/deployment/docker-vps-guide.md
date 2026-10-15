@@ -187,6 +187,8 @@ The repository includes `docker-compose.prod.yml` which defines 3 production con
 
 Both ports are published on `127.0.0.1` only, so they are reachable by the reverse proxy on the same server but not from the internet. After starting, check from another machine that `http://<server-ip>:3000` and `:3001` do not answer. (`BIND_ADDRESS` in `.env` changes this; leave it unset unless the proxy runs elsewhere.)
 
+The images are built from `.dockerignore` (web) and `Dockerfile.dockerignore` (API), which keep `.env*` files, keys, keystores, `packages/api/uploads/*` (except the bundled `seed` demo images) and `storage/` out of the build context and so out of the image layers. Per-Dockerfile ignore files need BuildKit, the default builder since Docker 23. After upgrading from an older version of this repo, rebuild with `docker compose -f docker-compose.prod.yml build --no-cache` and, if the old images were ever pushed to a registry, treat anything that was in the build directory at the time as exposed.
+
 ### 1. Build and Start Stack
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
