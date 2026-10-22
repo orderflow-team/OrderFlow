@@ -54,7 +54,7 @@ export function MfaChallengeForm({ mfaToken, onVerified, onCancel }: MfaChalleng
         inputMode={useRecovery ? 'text' : 'numeric'}
         autoComplete="one-time-code"
         maxLength={useRecovery ? 16 : 7}
-        placeholder={useRecovery ? 'xxxxx-xxxxx' : '123 456'}
+        placeholder={useRecovery ? 'xxxxx-xxxxx' : '6-digit code'}
         aria-label={useRecovery ? 'Recovery code' : 'Authentication code'}
         className="h-14 rounded-full px-5 text-center text-lg tracking-widest"
       />

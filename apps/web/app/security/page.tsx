@@ -200,7 +200,7 @@ export default function SecurityPage() {
                   maxLength={7}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="123 456"
+                  placeholder="6-digit code"
                   aria-label="Authentication code"
                 />
                 <div className="flex gap-2">
@@ -221,7 +221,7 @@ export default function SecurityPage() {
                 <Input
                   value={proof}
                   onChange={(e) => setProof(e.target.value)}
-                  placeholder="123 456 or xxxxx-xxxxx"
+                  placeholder="6-digit code or recovery code"
                   autoComplete="one-time-code"
                   aria-label="Authentication or recovery code"
                 />

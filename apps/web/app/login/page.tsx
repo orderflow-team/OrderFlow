@@ -350,7 +350,7 @@ function OtpLoginForm() {
         </p>
       )}
       <Input
-        placeholder="123456"
+        placeholder="6-digit code"
         value={code}
         onChange={(e) => setCode(e.target.value)}
         required
