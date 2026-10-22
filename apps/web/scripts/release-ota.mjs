@@ -4,7 +4,12 @@
 //
 // Usage:
 //   npm run build:capacitor
-//   ADMIN_TOKEN=<jwt for a super_admin/admin user> node scripts/release-ota.mjs <version> [minNativeVersion] [platform]
+//   ADMIN_TOKEN=<jwt for a super_admin/admin user> OTA_SIGNING_PRIVATE_KEY=<offline key> \
+//     node scripts/release-ota.mjs <version> [minNativeVersion] [platform]
+//
+// OTA_SIGNING_PRIVATE_KEY signs the release (see scripts/ota-keygen.mjs and
+// ota-signing.mjs). Installed apps only apply bundles whose signature verifies
+// against the public key built into them.
 //
 // ADMIN_TOKEN comes from the environment and is required. NEXT_PUBLIC_API_URL
 // is optional — defaults to the production API, so it only needs setting to
@@ -23,6 +28,7 @@ import { ZipArchive } from 'archiver';
 import { createWriteStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { sha256Hex, signRelease } from './ota-signing.mjs';
 
 const [, , version, minNativeVersion, platform] = process.argv;
 // Defaults to the real production API, not localhost — an OTA release always
@@ -107,9 +113,13 @@ await new Promise((resolve, reject) => {
 });
 
 const zipBuffer = readFileSync(zipPath);
+const releasePlatform = platform || 'android';
+// Same digest the API computes from the uploaded bytes; the signature binds it to platform + version.
+const signature = signRelease({ platform: releasePlatform, version, checksum: sha256Hex(zipBuffer) });
 const form = new FormData();
-form.append('platform', platform || 'android');
+form.append('platform', releasePlatform);
 form.append('version', version);
+if (signature) form.append('signature', signature);
 if (minNativeVersion) form.append('minNativeVersion', minNativeVersion);
 form.append('file', new Blob([zipBuffer], { type: 'application/zip' }), `${version}.zip`);
 

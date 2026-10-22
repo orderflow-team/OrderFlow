@@ -146,20 +146,23 @@ nano .env
 
 Paste the following variables (update passwords, domain names, and keys):
 
+> Replace `<DB_PASSWORD>` and `<JWT_SECRET>` with values you generate yourself (`openssl rand -hex 24` for each; hex is URL-safe, which matters because the password is embedded in `DATABASE_URL`). Never reuse a value from this document.
+
+
 ```env
 # Node Environment
 NODE_ENV=production
 
 # Database Credentials
 POSTGRES_USER=orderflow_admin
-POSTGRES_PASSWORD=SuperSecurePassword123!_ChangeMe
+POSTGRES_PASSWORD=<DB_PASSWORD>
 POSTGRES_DB=orderflow_prod
 
 # Internal Docker Database Connection URL
-DATABASE_URL=postgres://orderflow_admin:SuperSecurePassword123!_ChangeMe@postgres:5432/orderflow_prod?sslmode=disable
+DATABASE_URL=postgres://orderflow_admin:<DB_PASSWORD>@postgres:5432/orderflow_prod?sslmode=disable
 
 # JWT Secret (Generate random 32+ character string)
-JWT_SECRET=e7f9a8b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9
+JWT_SECRET=<JWT_SECRET>
 
 # Public Domain URLs
 FRONTEND_URL=https://yourdomain.com
@@ -181,6 +184,10 @@ The repository includes `docker-compose.prod.yml` which defines 3 production con
 1. `orderflow-postgres-prod`: PostgreSQL 16 Alpine
 2. `orderflow-api-prod`: NestJS Backend API (Port 3001)
 3. `orderflow-web-prod`: Next.js Web Frontend (Port 3000)
+
+Both ports are published on `127.0.0.1` only, so they are reachable by the reverse proxy on the same server but not from the internet. After starting, check from another machine that `http://<server-ip>:3000` and `:3001` do not answer. (`BIND_ADDRESS` in `.env` changes this; leave it unset unless the proxy runs elsewhere.)
+
+The images are built from `.dockerignore` (web) and `Dockerfile.dockerignore` (API), which keep `.env*` files, keys, keystores, `packages/api/uploads/*` (except the bundled `seed` demo images) and `storage/` out of the build context and so out of the image layers. Per-Dockerfile ignore files need BuildKit, the default builder since Docker 23. After upgrading from an older version of this repo, rebuild with `docker compose -f docker-compose.prod.yml build --no-cache` and, if the old images were ever pushed to a registry, treat anything that was in the build directory at the time as exposed.
 
 ### 1. Build and Start Stack
 ```bash

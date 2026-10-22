@@ -848,6 +848,18 @@ export default function SettingsPage() {
 
         {!loading && (
           <Card className="ring-white/50 glass-sheen-sm">
+            <CardContent className="p-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Two-factor authentication</p>
+                <p className="text-xs text-slate-500">Ask for a code from your phone when signing in.</p>
+              </div>
+              <a href="/security" className="text-sm font-semibold text-sky-700 hover:text-sky-800">Manage</a>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && (
+          <Card className="ring-white/50 glass-sheen-sm">
             <CardHeader>
               <CardTitle className="text-base">Change Password</CardTitle>
             </CardHeader>

@@ -18,7 +18,8 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { extname } from 'path';
+import { randomUUID } from 'crypto';
+import { requireFileType, IMAGE_TYPES } from '../../common/utils/detect-file-type.util';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -80,13 +81,14 @@ export class OrdersController {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+    const type = requireFileType(file, IMAGE_TYPES, 'The prescription must be a valid PNG, JPEG, WebP or GIF image');
+    const key = `${Date.now()}-${randomUUID()}${type.ext}`;
     await this.s3.send(
       new PutObjectCommand({
         Bucket: PRESCRIPTIONS_BUCKET,
         Key: key,
         Body: file.buffer,
-        ContentType: file.mimetype,
+        ContentType: type.mime,
       }),
     );
     return { key };

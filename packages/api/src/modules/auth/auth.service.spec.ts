@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
 import { AuthService } from "./auth.service";
+import { MfaService } from "./mfa.service";
 import { MailService } from "./mail.service";
 import { User } from "../../database/entities/user.entity";
 import { OtpCode } from "../../database/entities/otp-code.entity";
@@ -51,6 +52,7 @@ describe("AuthService", () => {
   let jwtService: jest.Mocked<JwtService>;
   let mailService: jest.Mocked<MailService>;
   let dataSource: { query: jest.Mock; getRepository: jest.Mock };
+  let mfaService: { verifyProof: jest.Mock };
 
   const baseUser: Partial<User> = {
     id: "user-1",
@@ -70,6 +72,7 @@ describe("AuthService", () => {
       query: jest.fn().mockResolvedValue(undefined),
       getRepository: jest.fn(),
     };
+    mfaService = { verifyProof: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -96,6 +99,7 @@ describe("AuthService", () => {
           },
         },
         { provide: require("typeorm").DataSource, useValue: dataSource },
+        { provide: MfaService, useValue: mfaService },
       ],
     }).compile();
 
@@ -277,8 +281,8 @@ describe("AuthService", () => {
 
       expect(bcrypt.compare).toHaveBeenCalledWith("correct", "hashed-password");
       expect(dataSource.query).toHaveBeenCalled();
-      expect(result.access_token).toBe("signed-token");
-      expect(result.user.id).toBe("user-1");
+      expect((result as any).access_token).toBe("signed-token");
+      expect((result as any).user.id).toBe("user-1");
     });
 
     it("throws UnauthorizedException when the user does not exist", async () => {
@@ -341,7 +345,7 @@ describe("AuthService", () => {
         email: "user@example.com",
         password: "correct",
       });
-      expect(result.access_token).toBe("signed-token");
+      expect((result as any).access_token).toBe("signed-token");
     });
 
     it("normalizes email casing and trims whitespace before lookup", async () => {
@@ -365,6 +369,21 @@ describe("AuthService", () => {
       const result = await service.reissueTokensForUser("user-1");
 
       expect(result.access_token).toBe("signed-token");
+    });
+
+    it("issues a short-lived access token and a longer-lived refresh token", async () => {
+      usersRepo.findOne.mockResolvedValue({ ...baseUser });
+
+      await service.reissueTokensForUser("user-1");
+
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenType: "access" }),
+        { expiresIn: "1h" },
+      );
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ tokenType: "refresh" }),
+        { expiresIn: "7d" },
+      );
     });
 
     it("throws NotFoundException when the user does not exist", async () => {
@@ -505,7 +524,7 @@ describe("AuthService", () => {
       expect(otpRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ consumed: true }),
       );
-      expect(result.access_token).toBe("signed-token");
+      expect((result as any).access_token).toBe("signed-token");
     });
 
     it("creates a new passwordless user when none exists yet", async () => {
@@ -523,7 +542,7 @@ describe("AuthService", () => {
           role: UserRole.ADMIN,
         }),
       );
-      expect(result.access_token).toBe("signed-token");
+      expect((result as any).access_token).toBe("signed-token");
     });
 
     it("throws BadRequestException when there is no outstanding OTP", async () => {
@@ -657,7 +676,7 @@ describe("AuthService", () => {
 
       expect(bcrypt.hash).toHaveBeenCalledWith("newpass123", 10);
       expect(usersRepo.save).toHaveBeenCalled();
-      expect(result.access_token).toBe("signed-token");
+      expect((result as any).access_token).toBe("signed-token");
     });
 
     it("throws BadRequestException when the code is missing/expired", async () => {
@@ -909,6 +928,122 @@ describe("AuthService", () => {
       jwtService.sign.mockReturnValue("new");
 
       await expect(service.refresh({ refreshToken: "ok-refresh" } as any)).resolves.toHaveProperty("access_token");
+    });
+  });
+  describe("two-factor authentication", () => {
+    const mfaUser = () => ({ ...baseUser, mfa_enabled: true });
+    const signMock = () => (service as any).jwtService.sign as jest.Mock;
+
+    it("password login returns a short-lived challenge instead of tokens", async () => {
+      usersRepo.findOne.mockResolvedValue(mfaUser());
+
+      const result: any = await service.login({ email: "user@example.com", password: "correct" });
+
+      expect(result).toEqual({ mfaRequired: true, mfaToken: "signed-token" });
+      expect(result.access_token).toBeUndefined();
+      expect(result.refresh_token).toBeUndefined();
+      expect(signMock()).toHaveBeenCalledTimes(1);
+      expect(signMock()).toHaveBeenCalledWith({ sub: "user-1", tokenType: "mfa" }, { expiresIn: "5m" });
+    });
+
+    it("email-code login is challenged too", async () => {
+      otpRepo.findOne.mockResolvedValue({
+        id: "otp-1", email: "user@example.com", code: "123456", purpose: "login", consumed: false, attempts: 0,
+        expires_at: new Date(Date.now() + 60_000),
+      });
+      usersRepo.findOne.mockResolvedValue(mfaUser());
+
+      const result: any = await service.verifyOtp({ email: "user@example.com", code: "123456" });
+
+      expect(result.mfaRequired).toBe(true);
+      expect(result.access_token).toBeUndefined();
+    });
+
+    it("password reset by emailed code does not bypass the second factor", async () => {
+      otpRepo.findOne.mockResolvedValue({
+        id: "otp-1", email: "user@example.com", code: "123456", purpose: "password_reset", consumed: false, attempts: 0,
+        expires_at: new Date(Date.now() + 60_000),
+      });
+      usersRepo.findOne.mockResolvedValue(mfaUser());
+
+      const result: any = await service.resetPassword({ email: "user@example.com", code: "123456", newPassword: "N3wPassword!" });
+
+      expect(result.mfaRequired).toBe(true);
+      expect(result.access_token).toBeUndefined();
+    });
+
+    it("accounts without MFA still get tokens straight away", async () => {
+      usersRepo.findOne.mockResolvedValue({ ...baseUser, mfa_enabled: false });
+
+      const result: any = await service.login({ email: "user@example.com", password: "correct" });
+
+      expect(result.access_token).toBe("signed-token");
+      expect(result.mfaRequired).toBeUndefined();
+    });
+
+    describe("verifyMfaLogin", () => {
+      const dto = { mfaToken: "challenge", code: "123456" };
+
+      beforeEach(() => {
+        ((service as any).jwtService.verify as jest.Mock).mockReturnValue({ sub: "user-1", tokenType: "mfa" });
+        usersRepo.findOne.mockResolvedValue(mfaUser());
+      });
+
+      it("issues tokens once the code checks out", async () => {
+        mfaService.verifyProof.mockResolvedValue(true);
+
+        const result: any = await service.verifyMfaLogin(dto);
+
+        expect(mfaService.verifyProof).toHaveBeenCalledWith("user-1", { code: "123456", recoveryCode: undefined });
+        expect(result.access_token).toBe("signed-token");
+        expect(result.user.id).toBe("user-1");
+      });
+
+      it("accepts a recovery code in place of a code", async () => {
+        mfaService.verifyProof.mockResolvedValue(true);
+
+        await service.verifyMfaLogin({ mfaToken: "challenge", recoveryCode: "abcde-12345" });
+
+        expect(mfaService.verifyProof).toHaveBeenCalledWith("user-1", { code: undefined, recoveryCode: "abcde-12345" });
+      });
+
+      it("rejects a wrong code without issuing tokens", async () => {
+        mfaService.verifyProof.mockResolvedValue(false);
+
+        await expect(service.verifyMfaLogin(dto)).rejects.toThrow(UnauthorizedException);
+        expect(signMock()).not.toHaveBeenCalled();
+      });
+
+      it("rejects an expired or forged challenge", async () => {
+        ((service as any).jwtService.verify as jest.Mock).mockImplementation(() => {
+          throw new Error("jwt expired");
+        });
+
+        await expect(service.verifyMfaLogin(dto)).rejects.toThrow(UnauthorizedException);
+        expect(mfaService.verifyProof).not.toHaveBeenCalled();
+      });
+
+      it.each(["access", "refresh", undefined])("rejects a %s token presented as the challenge", async (tokenType) => {
+        ((service as any).jwtService.verify as jest.Mock).mockReturnValue({ sub: "user-1", tokenType });
+
+        await expect(service.verifyMfaLogin(dto)).rejects.toThrow(UnauthorizedException);
+        expect(mfaService.verifyProof).not.toHaveBeenCalled();
+      });
+
+      it("rejects a disabled account or one whose MFA was switched off meanwhile", async () => {
+        usersRepo.findOne.mockResolvedValue({ ...mfaUser(), is_active: false });
+        await expect(service.verifyMfaLogin(dto)).rejects.toThrow(UnauthorizedException);
+
+        usersRepo.findOne.mockResolvedValue({ ...baseUser, mfa_enabled: false });
+        await expect(service.verifyMfaLogin(dto)).rejects.toThrow(UnauthorizedException);
+        expect(mfaService.verifyProof).not.toHaveBeenCalled();
+      });
+    });
+
+    it("refresh() refuses a challenge token as a refresh token", async () => {
+      ((service as any).jwtService.verify as jest.Mock).mockReturnValue({ sub: "user-1", tokenType: "mfa" });
+
+      await expect(service.refresh({ refreshToken: "challenge" } as any)).rejects.toThrow(UnauthorizedException);
     });
   });
 });

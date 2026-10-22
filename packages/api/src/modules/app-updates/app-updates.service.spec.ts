@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AppUpdatesService } from './app-updates.service';
 import { AppRelease } from '../../database/entities/app-release.entity';
+import * as crypto from 'crypto';
+import { otaSigningMessage } from '../../common/utils/ota-signature.util';
 
 const sendMock = jest.fn().mockResolvedValue({});
 jest.mock('@aws-sdk/client-s3', () => ({
@@ -32,11 +34,11 @@ describe('AppUpdatesService', () => {
 
   describe('getLatest', () => {
     it('returns the active release for an exact platform match', async () => {
-      repo.findOne.mockResolvedValue({ version: '1.2.0', bundle_url: 'https://x/bundle.zip', checksum: 'abc', min_native_version: '1.0.0', notes: 'fix' });
+      repo.findOne.mockResolvedValue({ platform: 'android-playstore', version: '1.2.0', bundle_url: 'https://x/bundle.zip', checksum: 'abc', signature: 'sig', min_native_version: '1.0.0', notes: 'fix' });
 
       const result = await service.getLatest('android-playstore');
 
-      expect(result).toEqual({ version: '1.2.0', url: 'https://x/bundle.zip', checksum: 'abc', minNativeVersion: '1.0.0', notes: 'fix' });
+      expect(result).toEqual({ platform: 'android-playstore', version: '1.2.0', url: 'https://x/bundle.zip', checksum: 'abc', signature: 'sig', minNativeVersion: '1.0.0', notes: 'fix' });
     });
 
     it('falls back to the base OS platform when no flavor-specific release exists', async () => {
@@ -108,6 +110,66 @@ describe('AppUpdatesService', () => {
       await service.create(file, { platform: '' as any, version: '2.0.0' });
 
       expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ platform: 'android' }));
+    });
+  });
+
+  describe('create (signed releases)', () => {
+    const file = { buffer: Buffer.from('bundle-bytes'), originalname: 'b.zip', mimetype: 'application/zip' };
+    const checksum = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const publicB64 = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+    const signFor = (platform: string, version: string, sum = checksum) =>
+      crypto.sign('sha256', Buffer.from(otaSigningMessage(platform, version, sum)), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64');
+    const original = process.env.OTA_PUBLIC_KEY;
+
+    afterEach(() => {
+      if (original === undefined) delete process.env.OTA_PUBLIC_KEY;
+      else process.env.OTA_PUBLIC_KEY = original;
+    });
+
+    it('stores the signature it is given when no public key is configured (not enforced)', async () => {
+      delete process.env.OTA_PUBLIC_KEY;
+
+      await service.create(file, { platform: 'android', version: '1.0.0', signature: 'whatever' });
+
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ signature: 'whatever' }));
+    });
+
+    it('stores null when unsigned and signing is not enforced', async () => {
+      delete process.env.OTA_PUBLIC_KEY;
+
+      await service.create(file, { platform: 'android', version: '1.0.0' });
+
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ signature: null }));
+    });
+
+    it('accepts a release signed by the offline key when OTA_PUBLIC_KEY is set', async () => {
+      process.env.OTA_PUBLIC_KEY = publicB64;
+
+      await service.create(file, { platform: 'android', version: '1.0.0', signature: signFor('android', '1.0.0') });
+
+      expect(repo.save).toHaveBeenCalled();
+      expect(sendMock).toHaveBeenCalled();
+    });
+
+    it('rejects an unsigned release when OTA_PUBLIC_KEY is set, without uploading anything', async () => {
+      process.env.OTA_PUBLIC_KEY = publicB64;
+
+      await expect(service.create(file, { platform: 'android', version: '1.0.0' })).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a different bundle', () => signFor('android', '1.0.0', 'f'.repeat(64)), '1.0.0', 'android'],
+      ['a different version', () => signFor('android', '9.9.9'), '1.0.0', 'android'],
+      ['a different platform', () => signFor('android-playstore', '1.0.0'), '1.0.0', 'android'],
+      ['no valid signature', () => 'AAAA', '1.0.0', 'android'],
+    ])('rejects a signature made for %s', async (_name, makeSig, version, platform) => {
+      process.env.OTA_PUBLIC_KEY = publicB64;
+
+      await expect(service.create(file, { platform, version, signature: makeSig() })).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
     });
   });
 

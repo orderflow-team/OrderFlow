@@ -62,4 +62,38 @@ describe('JwtStrategy.validate', () => {
   it('rejects refresh tokens used as access tokens', async () => {
     await expect(strategy.validate({ ...payload, tokenType: 'refresh' })).rejects.toThrow(UnauthorizedException);
   });
+
+  describe('two-factor authentication', () => {
+    const original = process.env.MFA_REQUIRED_FOR_SUPER_ADMIN;
+    afterEach(() => {
+      if (original === undefined) delete process.env.MFA_REQUIRED_FOR_SUPER_ADMIN;
+      else process.env.MFA_REQUIRED_FOR_SUPER_ADMIN = original;
+    });
+    const superAdmin = { ...payload, role: UserRole.SUPER_ADMIN };
+
+    it('rejects a sign-in challenge token used as an access token', async () => {
+      await expect(strategy.validate({ ...payload, tokenType: 'mfa' })).rejects.toThrow(UnauthorizedException);
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('flags a super admin without MFA when it is required', async () => {
+      process.env.MFA_REQUIRED_FOR_SUPER_ADMIN = 'true';
+      query.mockResolvedValueOnce([{ is_active: true, mfa_enabled: false }]).mockResolvedValue([]);
+
+      await expect(strategy.validate(superAdmin)).resolves.toMatchObject({ mfaSetupRequired: true });
+    });
+
+    it('does not flag a super admin who has MFA, nor one when MFA is not required, nor other roles', async () => {
+      process.env.MFA_REQUIRED_FOR_SUPER_ADMIN = 'true';
+      query.mockResolvedValueOnce([{ is_active: true, mfa_enabled: true }]).mockResolvedValue([]);
+      await expect(strategy.validate(superAdmin)).resolves.toMatchObject({ mfaSetupRequired: false });
+
+      query.mockResolvedValueOnce([{ is_active: true, mfa_enabled: false }]).mockResolvedValue([]);
+      await expect(strategy.validate(payload)).resolves.toMatchObject({ mfaSetupRequired: false });
+
+      delete process.env.MFA_REQUIRED_FOR_SUPER_ADMIN;
+      query.mockResolvedValueOnce([{ is_active: true, mfa_enabled: false }]).mockResolvedValue([]);
+      await expect(strategy.validate(superAdmin)).resolves.toMatchObject({ mfaSetupRequired: false });
+    });
+  });
 });

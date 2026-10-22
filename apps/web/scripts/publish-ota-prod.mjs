@@ -2,6 +2,7 @@ import { ZipArchive } from 'archiver';
 import { createWriteStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { sha256Hex, signRelease } from './ota-signing.mjs';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://obix360.com';
 const version = process.argv[2] || '1.29.0';
@@ -109,9 +110,12 @@ async function run() {
   });
 
   const zipBuffer = readFileSync(zipPath);
+  // Signed offline (OTA_SIGNING_PRIVATE_KEY): the apps refuse bundles without a valid signature.
+  const signature = signRelease({ platform: 'android', version, checksum: sha256Hex(zipBuffer) });
   const form = new FormData();
   form.append('platform', 'android');
   form.append('version', version);
+  if (signature) form.append('signature', signature);
   const releaseNotes = process.argv[3] || 'Elevated Quick Order button in floating dock with perfect circular cradle and icon uniformity';
   form.append('notes', releaseNotes);
   form.append('file', new Blob([zipBuffer], { type: 'application/zip' }), `${version}.zip`);

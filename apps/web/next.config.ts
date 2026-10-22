@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { buildCsp } from "./lib/csp";
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -19,7 +20,8 @@ const nextConfig: NextConfig = {
   },
   // The session token lives in localStorage, so anything that can run script on
   // the page can read it. These headers close the cheap routes in (framing,
-  // content sniffing, referrer leaks, unused powerful features). The static
+  // content sniffing, referrer leaks, unused powerful features) and the CSP
+  // (lib/csp.ts) stops injected script from sending it anywhere. The static
   // Capacitor export can't serve custom headers, so it's skipped there.
   ...(process.env.CAPACITOR_BUILD === '1'
     ? {}
@@ -31,6 +33,18 @@ const nextConfig: NextConfig = {
               headers: [
                 { key: 'X-Content-Type-Options', value: 'nosniff' },
                 { key: 'X-Frame-Options', value: 'DENY' },
+                {
+                  key: 'Content-Security-Policy',
+                  value: buildCsp({
+                    isDev,
+                    connectOrigins: [
+                      process.env.NEXT_PUBLIC_API_URL,
+                      process.env.NEXT_PUBLIC_MAILER_URL,
+                      // The app falls back to this API when no URL is configured (see app/api-proxy).
+                      'https://obix360.com',
+                    ],
+                  }),
+                },
                 { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
                 // Voice orders use the microphone; nothing uses camera, location or payments.
                 { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), microphone=(self)' },
@@ -45,7 +59,7 @@ const nextConfig: NextConfig = {
             // crawling; this header is what keeps a discovered URL out of results.
             {
               source:
-                '/(admin|dashboard|billing|customers|inventory|orders|products|reports|restaurant|salesman|select-business|settings|staff|forgot-password|google-app-signin)/:path*',
+                '/(admin|dashboard|billing|customers|inventory|orders|products|reports|restaurant|salesman|select-business|settings|security|staff|forgot-password|google-app-signin)/:path*',
               headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
             },
           ];

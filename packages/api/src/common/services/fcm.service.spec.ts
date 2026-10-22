@@ -6,10 +6,12 @@ const certMock = jest.fn((sa) => sa);
 const sendEachForMulticastMock = jest.fn();
 const messagingMock = jest.fn((_app: any) => ({ sendEachForMulticast: sendEachForMulticastMock }));
 
-jest.mock('firebase-admin', () => ({
+jest.mock('firebase-admin/app', () => ({
   initializeApp: (arg: any) => initializeAppMock(arg),
-  credential: { cert: (arg: any) => certMock(arg) },
-  messaging: (arg: any) => messagingMock(arg),
+  cert: (arg: any) => certMock(arg),
+}));
+jest.mock('firebase-admin/messaging', () => ({
+  getMessaging: (arg: any) => messagingMock(arg),
 }));
 
 import { FcmService } from './fcm.service';

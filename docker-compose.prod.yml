@@ -30,6 +30,13 @@ services:
       PORT: 3001
       DATABASE_URL: postgres://${POSTGRES_USER:-orderflow_admin}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-orderflow_prod}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set to a long random value}
+      # Encrypts stored staff passwords. Must differ from JWT_SECRET (the API refuses to start otherwise).
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?CREDENTIAL_ENCRYPTION_KEY must be set to a long random value, different from JWT_SECRET}
+      CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
+      # Public key that OTA update uploads must be signed with (see docs/deployment.md, "Signed OTA updates").
+      OTA_PUBLIC_KEY: ${OTA_PUBLIC_KEY:-}
+      # "true" requires super admins to set up two-factor authentication (see docs/deployment.md).
+      MFA_REQUIRED_FOR_SUPER_ADMIN: ${MFA_REQUIRED_FOR_SUPER_ADMIN:-false}
       FRONTEND_URL: ${FRONTEND_URL:-https://your-domain.com}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}
@@ -49,8 +56,13 @@ services:
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       # Google sign-in rejects tokens not issued to this client (auth.service.ts googleAuth).
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-17124156249-tmi744b2qhi0leamcjjj8in2ti3ktd0d.apps.googleusercontent.com}
+    # Published on the loopback interface only: the Apache/Nginx reverse proxy on this
+    # host is the single public entry point. Docker publishes ports straight through
+    # the host firewall (ufw/iptables rules do not apply), so a bare "3001:3001" would
+    # expose the API, unproxied and without TLS, to the internet. Set BIND_ADDRESS only
+    # if the proxy runs on another machine.
     ports:
-      - "3001:3001"
+      - "${BIND_ADDRESS:-127.0.0.1}:3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,7 +84,7 @@ services:
       PORT: 3000
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://your-domain.com/api}
     ports:
-      - "3000:3000"
+      - "${BIND_ADDRESS:-127.0.0.1}:3000:3000"
     depends_on:
       - api
     networks:

@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ALLOW_GUEST_KEY } from '../decorators/allow-guest.decorator';
 import { UserRole } from '../enums/user-role.enum';
+import { ALLOW_MFA_SETUP_KEY } from '../decorators/allow-mfa-setup.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -25,6 +26,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       ]);
       if (!allowed) {
         throw new ForbiddenException('You do not have permission to perform this action');
+      }
+    }
+    // MFA_REQUIRED_FOR_SUPER_ADMIN: until they enroll, a super admin can reach only @AllowMfaSetup() routes.
+    if (user?.mfaSetupRequired) {
+      const allowed = this.reflector.getAllAndOverride<boolean>(ALLOW_MFA_SETUP_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!allowed) {
+        throw new ForbiddenException('MFA_SETUP_REQUIRED');
       }
     }
     return true;

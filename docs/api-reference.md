@@ -391,6 +391,9 @@ sudo ufw enable
 ```
 
 ### 3. Deploy Code & Start Docker Containers
+
+> Replace `<DB_PASSWORD>` and `<JWT_SECRET>` with values you generate yourself (`openssl rand -hex 24` for each; hex is URL-safe, which matters because the password is embedded in `DATABASE_URL`). Never reuse a value from this document.
+
 ```bash
 sudo mkdir -p /var/www
 cd /var/www
@@ -401,10 +404,10 @@ cd orderflow
 cat << 'EOF' > .env
 NODE_ENV=production
 POSTGRES_USER=orderflow_admin
-POSTGRES_PASSWORD=YourSuperPassword123!
+POSTGRES_PASSWORD=<DB_PASSWORD>
 POSTGRES_DB=orderflow_prod
-DATABASE_URL=postgres://orderflow_admin:YourSuperPassword123!@postgres:5432/orderflow_prod?sslmode=disable
-JWT_SECRET=super_secret_jwt_key_32_chars_long_12345
+DATABASE_URL=postgres://orderflow_admin:<DB_PASSWORD>@postgres:5432/orderflow_prod?sslmode=disable
+JWT_SECRET=<JWT_SECRET>
 FRONTEND_URL=https://yourdomain.com
 NEXT_PUBLIC_API_URL=https://yourdomain.com/api
 EOF

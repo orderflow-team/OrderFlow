@@ -3,6 +3,9 @@ import { BadRequestException } from '@nestjs/common';
 import { InvoiceScanController } from './invoice-scan.controller';
 import { InvoiceScanService } from './invoice-scan.service';
 
+const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const HTML_BYTES = Buffer.from('<html><script>alert(1)</script></html>');
+
 const sendMock = jest.fn().mockResolvedValue({});
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: sendMock })),
@@ -31,7 +34,12 @@ describe('InvoiceScanController', () => {
   });
 
   describe('upload', () => {
-    const file = (mimetype = 'image/png') => ({ originalname: 'invoice.png', mimetype, buffer: Buffer.from('x') });
+    const PDF_BYTES = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(32)]);
+    const file = (mimetype = 'image/png', buffer?: Buffer) => ({
+      originalname: 'invoice.png',
+      mimetype,
+      buffer: buffer ?? (mimetype === 'application/pdf' ? PDF_BYTES : mimetype === 'image/png' ? PNG_BYTES : HTML_BYTES),
+    });
 
     it('uploads each page to S3 and hands off to the service', async () => {
       (service.uploadAndParse as jest.Mock).mockResolvedValue({ id: 'scan-1' });
@@ -66,6 +74,11 @@ describe('InvoiceScanController', () => {
 
     it('throws BadRequestException for a disallowed mime type', async () => {
       await expect(controller.upload([file('text/plain')], 'biz-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects content that is not an image or PDF even when labelled image/png', async () => {
+      await expect(controller.upload([file('image/png', HTML_BYTES)], 'biz-1')).rejects.toThrow(BadRequestException);
+      expect(sendMock).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when businessId is missing', async () => {

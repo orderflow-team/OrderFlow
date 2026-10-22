@@ -31,7 +31,7 @@ export async function signUp(page: Page, email: string, password: string, fullNa
     const match = text.match(/\b\d{6}\b/);
     if (match) otpCode = match[0];
   }
-  await page.getByPlaceholder('123456').fill(otpCode);
+  await page.getByPlaceholder('6-digit code').fill(otpCode);
   await page.getByRole('button', { name: 'Verify & Create Account' }).click();
 }
 

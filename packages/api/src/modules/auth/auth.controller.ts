@@ -13,12 +13,16 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import { ClaimAppGoogleHandoffDto, CreateAppGoogleHandoffDto } from './dto/app-google-handoff.dto';
 import { AppGoogleHandoffService } from './app-google-handoff.service';
+import { MfaService } from './mfa.service';
+import { EnableMfaDto, MfaProofDto, VerifyMfaLoginDto } from './dto/mfa.dto';
+import { AllowMfaSetup } from '../../common/decorators/allow-mfa-setup.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
     private appGoogleHandoff: AppGoogleHandoffService,
+    private mfaService: MfaService,
   ) {}
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -109,6 +113,52 @@ export class AuthController {
   @Post('password/reset')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  // Second step of sign-in for accounts with two-factor authentication. The wrong-code count is
+  // per account (MfaService), on top of this per-IP limit.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/verify')
+  async verifyMfaLogin(@Body() dto: VerifyMfaLoginDto) {
+    return this.authService.verifyMfaLogin(dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
+  @Get('mfa/status')
+  mfaStatus(@Req() req: any) {
+    return this.mfaService.status(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/setup')
+  mfaSetup(@Req() req: any) {
+    return this.mfaService.beginSetup(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/enable')
+  mfaEnable(@Req() req: any, @Body() dto: EnableMfaDto) {
+    return this.mfaService.enable(req.user.userId, dto.code);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/disable')
+  mfaDisable(@Req() req: any, @Body() dto: MfaProofDto) {
+    return this.mfaService.disable(req.user.userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @AllowMfaSetup()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('mfa/recovery-codes')
+  mfaRecoveryCodes(@Req() req: any, @Body() dto: MfaProofDto) {
+    return this.mfaService.regenerateRecoveryCodes(req.user.userId, dto);
   }
 
   @UseGuards(JwtAuthGuard)

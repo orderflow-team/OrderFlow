@@ -15,6 +15,8 @@ import {Repository, DataSource} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { User } from "../../database/entities/user.entity";
+import { Table } from "../../database/entities/table.entity";
+import { Business } from "../../database/entities/business.entity";
 import { OtpCode } from "../../database/entities/otp-code.entity";
 import { PlatformSetting } from "../../database/entities/platform-setting.entity";
 import { SignupDto } from "./dto/signup.dto";
@@ -30,7 +32,23 @@ import { MailService } from "./mail.service";
 import { UserRole } from "../../common/enums/user-role.enum";
 import { randomInt } from "crypto";
 import { LoginAttempts } from "./login-attempts";
+import { MfaService } from "./mfa.service";
+import { VerifyMfaLoginDto } from "./dto/mfa.dto";
 
+// Access tokens live in the browser's localStorage, so a stolen one is usable
+// until it expires. Kept short: the web client refreshes silently on a 401
+// (apps/web/lib/api-client.ts), and every request re-checks that the account
+// is still active, so users never notice. The refresh token carries the session.
+export const ACCESS_TOKEN_TTL = "1h";
+
+/**
+ * What issueTokens needs from whoever it signs in: a real `users` row, or the
+ * synthetic identity of a table/takeaway guest, which has no row at all.
+ */
+type TokenSubject = Pick<User, "id" | "email" | "business_id"> & {
+  role: string;
+  full_name?: string | null;
+};
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_REQUEST_COOLDOWN_SECONDS = 60;
 
@@ -58,6 +76,7 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private dataSource: DataSource,
+    private mfaService: MfaService,
   ) {}
 
   /**
@@ -215,7 +234,7 @@ export class AuthService {
       email: user.email,
     });
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   async googleAuth(dto: GoogleAuthDto) {
@@ -332,9 +351,9 @@ export class AuthService {
       },
     );
 
-    const tokens = this.issueTokens(user);
+    const result = await this.firstFactorResult(user);
     return {
-      ...tokens,
+      ...result,
       isNewUser,
     };
   }
@@ -407,7 +426,7 @@ export class AuthService {
         email: payload.email,
         business_id: payload.businessId,
         role: payload.role,
-      } as any);
+      });
     }
 
     const user = await this.usersRepository.findOne({
@@ -523,7 +542,7 @@ export class AuthService {
 
     await this.assertNotInMaintenance(user.role);
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   /**
@@ -619,7 +638,7 @@ export class AuthService {
     this.invalidateExistingSessions(user);
     await this.usersRepository.save(user);
 
-    return this.issueTokens(user);
+    return this.firstFactorResult(user);
   }
 
   /**
@@ -659,7 +678,7 @@ export class AuthService {
   /**
    * Marks every login issued before now as expired for this user. Called
    * whenever the password changes: without it an attacker who had signed in
-   * kept a working session for 24h (access token) and indefinitely (the
+   * kept a working session for the access token's lifetime and indefinitely (the
    * refresh token renews itself weekly) even after the real owner reset the
    * password. Tokens minted from here on carry a later `iat` and stay valid.
    */
@@ -667,7 +686,52 @@ export class AuthService {
     user.sessions_valid_after = String(Math.floor(Date.now() / 1000));
   }
 
-  private issueTokens(user: User) {
+  /**
+   * What a successful first factor (password, emailed code, Google, password reset)
+   * returns. Accounts with two-factor authentication get a short-lived challenge
+   * instead of tokens; the challenge is useless as a session (JwtStrategy and
+   * refresh() both reject its token type) and is exchanged for tokens by
+   * verifyMfaLogin once the second factor checks out.
+   */
+  private async firstFactorResult(user: User) {
+    if (!user.mfa_enabled) return this.issueTokens(user);
+    return {
+      mfaRequired: true as const,
+      mfaToken: this.jwtService.sign({ sub: user.id, tokenType: "mfa" }, { expiresIn: "5m" }),
+    };
+  }
+
+  /** Second step of sign-in for accounts with two-factor authentication. */
+  async verifyMfaLogin(dto: VerifyMfaLoginDto) {
+    let payload: { sub: string; tokenType?: string };
+    try {
+      payload = this.jwtService.verify(dto.mfaToken);
+    } catch {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+    if (payload.tokenType !== "mfa") {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+
+    const user = await this.usersRepository.findOne({ where: { id: payload.sub } });
+    if (!user || !user.is_active || !user.mfa_enabled) {
+      throw new UnauthorizedException("This sign-in has expired. Please sign in again.");
+    }
+    await this.assertNotInMaintenance(user.role);
+
+    const ok = await this.mfaService.verifyProof(user.id, { code: dto.code, recoveryCode: dto.recoveryCode });
+    if (!ok) {
+      throw new UnauthorizedException("That code is not right.");
+    }
+
+    await this.logActivity(user.id, user.business_id, "USER_LOGIN_MFA", "Auth", {
+      email: user.email,
+      method: dto.code ? "totp" : "recovery_code",
+    });
+    return this.issueTokens(user);
+  }
+
+  private issueTokens(user: TokenSubject) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -678,7 +742,7 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(
         { ...payload, tokenType: "access" },
-        { expiresIn: "24h" },
+        { expiresIn: ACCESS_TOKEN_TTL },
       ),
       refresh_token: this.jwtService.sign(
         { ...payload, tokenType: "refresh" },
@@ -695,40 +759,37 @@ export class AuthService {
   }
 
   async tableGuestLogin(tableId: string) {
-    const TableEntity = require("../../database/entities/table.entity").Table;
     const table = await this.dataSource
-      .getRepository(TableEntity)
+      .getRepository(Table)
       .findOne({ where: { id: tableId } });
     if (!table) {
       throw new NotFoundException("Table not found");
     }
 
-    const guestUser = {
+    const guestUser: TokenSubject = {
       id: `guest-${table.id}`,
       email: `guest-${table.name.toLowerCase()}@orderflow.guest`,
       business_id: table.business_id,
       role: UserRole.GUEST,
-    } as any;
+    };
 
     return this.issueTokens(guestUser);
   }
 
   async takeawayGuestLogin(businessId: string) {
-    const BusinessEntity =
-      require("../../database/entities/business.entity").Business;
     const business = await this.dataSource
-      .getRepository(BusinessEntity)
+      .getRepository(Business)
       .findOne({ where: { id: businessId } });
     if (!business) {
       throw new NotFoundException("Business not found");
     }
 
-    const guestUser = {
+    const guestUser: TokenSubject = {
       id: `guest-takeaway-${business.id}`,
       email: `guest-takeaway@orderflow.guest`,
       business_id: business.id,
       role: UserRole.GUEST,
-    } as any;
+    };
 
     return this.issueTokens(guestUser);
   }

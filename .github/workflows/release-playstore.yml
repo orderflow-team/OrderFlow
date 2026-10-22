@@ -37,12 +37,17 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Build signed AAB for Play Store
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -57,11 +62,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Require the OTA public key
+        env:
+          OTA_PUBLIC_KEY: ${{ vars.OTA_PUBLIC_KEY }}
+        run: |
+          if [ -z "$OTA_PUBLIC_KEY" ]; then
+            echo "::error::Repository variable OTA_PUBLIC_KEY is not set. Without it this build would accept unsigned OTA updates. Generate a key with apps/web/scripts/ota-keygen.mjs."
+            exit 1
+          fi
+
       - name: Build Capacitor web export
         working-directory: apps/web
         env:
           CAPACITOR_BUILD: '1'
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_OTA_PUBLIC_KEY: ${{ vars.OTA_PUBLIC_KEY }}
           NEXT_PUBLIC_DISTRIBUTION_CHANNEL: playstore
           # Public OAuth client ID (not a secret). Without it Google sign-in
           # falls back to an invalid client, as Play Store 1.18 shipped.
@@ -85,13 +100,20 @@ jobs:
 
       - name: Write keystore.properties
         working-directory: apps/web/android
+        # Secrets go through the environment, not into the script text: they are
+        # substituted before the shell parses it, and an unquoted heredoc would
+        # expand a "$" or backtick inside a password.
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          cat > keystore.properties <<EOF
-          storeFile=release.jks
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          EOF
+          {
+            printf 'storeFile=release.jks\n'
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > keystore.properties
 
       - name: Build release AAB (playstore flavor)
         working-directory: apps/web/android

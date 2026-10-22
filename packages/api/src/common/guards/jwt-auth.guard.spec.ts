@@ -37,4 +37,26 @@ describe('JwtAuthGuard', () => {
     reflector.getAllAndOverride.mockReturnValue(true);
     await expect(guard.canActivate(makeContext({ role: 'guest' }))).resolves.toBe(true);
   });
+
+  describe('super admin who still has to set up two-factor authentication', () => {
+    const pending = { role: 'super_admin', mfaSetupRequired: true };
+
+    it('is blocked from ordinary routes', async () => {
+      reflector.getAllAndOverride.mockReturnValue(undefined);
+
+      await expect(guard.canActivate(makeContext(pending))).rejects.toThrow('MFA_SETUP_REQUIRED');
+    });
+
+    it('can reach @AllowMfaSetup() routes', async () => {
+      reflector.getAllAndOverride.mockReturnValue(true);
+
+      await expect(guard.canActivate(makeContext(pending))).resolves.toBe(true);
+    });
+
+    it('is not affected once enrolled (or when MFA is not required)', async () => {
+      reflector.getAllAndOverride.mockReturnValue(undefined);
+
+      await expect(guard.canActivate(makeContext({ role: 'super_admin', mfaSetupRequired: false }))).resolves.toBe(true);
+    });
+  });
 });

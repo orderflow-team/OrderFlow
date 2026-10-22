@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
 import { DataSource } from "typeorm";
 import { UserRole } from "../../common/enums/user-role.enum";
+import { MfaService } from "./mfa.service";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -29,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (payload.tokenType && payload.tokenType !== "access") {
       throw new UnauthorizedException("Invalid access token");
     }
+    let mfaSetupRequired = false;
     // Guest sessions (table/takeaway QR logins) are synthetic ids like
     // "guest-<tableId>" — never a real row in `users`, so skip both queries
     // below entirely rather than let them fail against a non-UUID id.
@@ -40,7 +42,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       // re-checks is_active, so a token minted before the disable stops
       // working on its very next use.
       const rows = await this.dataSource.query(
-        `SELECT is_active, sessions_valid_after FROM users WHERE id = $1`,
+        `SELECT is_active, sessions_valid_after, mfa_enabled FROM users WHERE id = $1`,
         [payload.sub],
       );
       // A deleted user has no row at all — treat that like a disabled one,
@@ -54,6 +56,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (validAfter && (payload.iat ?? 0) < validAfter) {
         throw new UnauthorizedException("Session expired. Please sign in again.");
       }
+
+      // A super admin who must have two-factor authentication but has not set it up yet may only
+      // reach the enrollment routes (JwtAuthGuard enforces this from the flag below).
+      mfaSetupRequired = MfaService.isRequiredFor(payload.role) && rows[0].mfa_enabled !== true;
 
       // Fire-and-forget, throttled to once/minute per user via the WHERE
       // clause (an UPDATE matching 0 rows costs a lookup but no write) —
@@ -72,6 +78,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       businessId: payload.businessId,
       role: payload.role,
+      mfaSetupRequired,
     };
   }
 }

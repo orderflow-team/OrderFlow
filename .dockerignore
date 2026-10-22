@@ -1,14 +1,59 @@
+# Build-context rules shared by the Docker images (used by apps/web/Dockerfile).
+# The API image has its own Dockerfile.dockerignore (same rules plus `apps`); when
+# you change a rule here, change it there too.
+#
+# The context is what `COPY . .` copies, and every copied file ends up in an image
+# layer for good. Nothing below belongs in an image: secrets, customer documents,
+# keys and local build output. Patterns use `**/` so they apply at any depth
+# (a bare `.env` only matches the repository root, which let packages/api/.env.local
+# and apps/web/.env.local into the image).
+
+# VCS and tooling
 .git
+.claude
+.agents
 .turbo
+**/.turbo
 .vercel
-node_modules
-apps
-packages/*/node_modules
-packages/*/dist
-dist
-build
-npm-debug.log
-yarn-error.log
-.env
-.env.*
-!.env.example
+**/.vercel
+**/.next
+**/node_modules
+patches
+
+# Build output and caches
+**/dist
+**/build
+**/coverage
+**/app-export
+**/*.tsbuildinfo
+**/npm-debug.log*
+**/yarn-error.log*
+**/*.log
+
+# Secrets (the example file stays: it holds no values)
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/*.keystore
+**/keystore.properties
+**/keystore_base64.txt
+
+# Customer data and release artifacts that may exist on a server checkout.
+# Only the bundled demo images under uploads/seed ship with the API.
+packages/api/uploads/*
+!packages/api/uploads/seed
+**/storage
+**/*.sql
+**/*.apk
+**/*.aab
+**/*.zip
+
+# Not needed to build or run either image
+docs
+tools
+apps/web/android
+apps/web/e2e

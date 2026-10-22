@@ -26,6 +26,7 @@ import {
   Radio,
   Crown,
   BarChart3,
+  ShieldCheck,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
 import { PostLoginUpdateAlert } from '@/components/post-login-update-alert';
@@ -140,6 +141,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       name: 'App Releases',
       href: '/admin/releases',
       icon: Rocket,
+    },
+    {
+      name: 'Security (2FA)',
+      href: '/security',
+      icon: ShieldCheck,
     },
   ];
 

@@ -20,7 +20,11 @@ ENV PORT=3000
 
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/web ./apps/web
+COPY --from=builder --chown=node:node /app/apps/web ./apps/web
+
+# Don't run as root: `next start` serves requests from the internet. The app directory
+# is owned by `node` so Next can still write its cache under .next.
+USER node
 
 EXPOSE 3000
 CMD ["npm", "--prefix", "apps/web", "run", "start"]

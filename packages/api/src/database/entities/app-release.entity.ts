@@ -18,6 +18,11 @@ export class AppRelease {
   @Column({ type: 'varchar', length: 64 })
   checksum: string;
 
+  // Base64 ECDSA signature over platform|version|checksum, made offline (common/utils/ota-signature.util.ts).
+  // Null on releases published before signing existed.
+  @Column({ type: 'text', nullable: true })
+  signature: string | null;
+
   // Guards against pushing a bundle that assumes a native capability an older installed APK doesn't have —
   // the update check skips this release for shells below this versionName until they reinstall the APK.
   @Column({ type: 'varchar', length: 20, nullable: true })

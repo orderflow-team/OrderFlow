@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api-client';
 import { getPostLoginPath } from '@/lib/auth';
 import { ObixMark } from '@/components/obix-logo';
+import { isMfaChallenge } from '@/lib/mfa';
+import { MfaChallengeForm } from '@/components/mfa-challenge';
 
 const BRAND_TILES = [
   { icon: Users, fg: 'text-tile-peach-fg' },
@@ -32,6 +34,14 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const [mfaToken, setMfaToken] = useState('');
+
+  const finishSignIn = (data: any) => {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    router.push(getPostLoginPath(data.user.role));
+  };
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,16 +64,22 @@ export default function ForgotPasswordPage() {
     setError('');
     try {
       const response = await apiClient.post('/auth/password/reset', { email, code, newPassword });
-      localStorage.setItem('access_token', response.data.access_token);
-      localStorage.setItem('refresh_token', response.data.refresh_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      router.push(getPostLoginPath(response.data.user.role));
+      // The password is changed either way; an account with two-factor authentication still has to prove the second factor to sign in.
+      if (isMfaChallenge(response.data)) {
+        setMfaToken(response.data.mfaToken);
+        return;
+      }
+      finishSignIn(response.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid or expired code');
     } finally {
       setLoading(false);
     }
   };
+
+  if (mfaToken) {
+    return <MfaChallengeForm mfaToken={mfaToken} onVerified={finishSignIn} onCancel={() => router.push('/login')} />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4 selection:bg-sky-500/30 relative overflow-hidden">
@@ -131,7 +147,7 @@ export default function ForgotPasswordPage() {
                 </p>
               )}
               <Input
-                placeholder="123456"
+                placeholder="6-digit code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 required

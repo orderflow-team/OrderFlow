@@ -11,9 +11,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { extname } from 'path';
 import { randomUUID } from 'node:crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { requireFileType } from '../../common/utils/detect-file-type.util';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
@@ -48,31 +48,31 @@ export class InvoiceScanController {
     if (!files || files.length === 0) {
       throw new BadRequestException('No file uploaded');
     }
-    for (const file of files) {
-      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-        throw new BadRequestException('Only JPEG/PNG/WEBP images or PDFs are supported');
-      }
-    }
+    // Checked by content, not by the client's declared type or file name.
+    const types = files.map((file) =>
+      requireFileType(file, ALLOWED_MIME_TYPES, 'Only JPEG/PNG/WEBP images or PDFs are supported'),
+    );
     if (!businessId) {
       throw new BadRequestException('businessId is required');
     }
 
     const pages = await Promise.all(
-      files.map(async (file) => {
-        const key = `${randomUUID()}${extname(file.originalname)}`;
+      files.map(async (file, i) => {
+        const type = types[i];
+        const key = `${randomUUID()}${type.ext}`;
         await this.s3.send(
           new PutObjectCommand({
             Bucket: INVOICE_SCANS_BUCKET,
             Key: key,
             Body: file.buffer,
-            ContentType: file.mimetype,
+            ContentType: type.mime,
           }),
         );
         return {
           fileUrl: `${process.env.AWS_ENDPOINT_URL_S3}/${INVOICE_SCANS_BUCKET}/${key}`,
           fileBuffer: file.buffer,
-          fileType: file.mimetype === 'application/pdf' ? 'pdf' : 'image',
-          mimeType: file.mimetype,
+          fileType: type.mime === 'application/pdf' ? 'pdf' : 'image',
+          mimeType: type.mime,
         };
       }),
     );
