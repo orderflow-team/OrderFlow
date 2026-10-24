@@ -140,7 +140,7 @@ export default function SignupPage() {
         <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-orange-300/60 blur-3xl" />
         <div className="absolute -top-1/4 -right-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-violet-300/60 blur-3xl" />
       </div>
-      <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
+      <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-300 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
           <Link href="/" aria-label="OBIX 360 home">
             <ObixMark priority className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
