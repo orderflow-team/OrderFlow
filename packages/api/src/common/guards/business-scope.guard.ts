@@ -41,8 +41,16 @@ export class BusinessScopeGuard implements CanActivate {
       throw new ForbiddenException('Business mismatch');
     }
 
-    if (request.query && !isUsable(request.query.businessId)) {
-      request.query.businessId = tokenBusinessId;
+    if (!isUsable(request.query?.businessId)) {
+      // Express 5 made `req.query` a getter that re-parses the URL on every read, so assigning to a
+      // property of it is silently lost. Define an own property on the request instead, which
+      // shadows the getter for everything that reads it afterwards (including @Query()).
+      Object.defineProperty(request, 'query', {
+        value: { ...(request.query ?? {}), businessId: tokenBusinessId },
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
     }
     if (
       request.body &&
