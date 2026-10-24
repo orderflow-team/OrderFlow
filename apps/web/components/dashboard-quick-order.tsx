@@ -723,6 +723,8 @@ export function DashboardQuickOrder({
               {upiQrUrl && (
                 <div className="p-3 bg-white rounded-2xl border border-slate-200 inline-block mx-auto shadow-md">
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={upiQrUrl}
                     alt="Store UPI QR Code"
                     className="w-44 h-44 object-contain mx-auto"

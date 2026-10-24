@@ -1,5 +1,16 @@
-export function ObixMark({ className = 'w-9 h-9' }: { className?: string }) {
-  return <img src="/obix-mark.png" alt="OBIX" width={256} height={256} decoding="async" className={`${className} object-contain`} />;
+/** `priority` is for the one mark that is the page's Largest Contentful Paint element (e.g. the sign-up card). */
+export function ObixMark({ className = 'w-9 h-9', priority = false }: { className?: string; priority?: boolean }) {
+  return (
+    <img
+      src="/obix-mark.png"
+      alt="OBIX"
+      width={256}
+      height={256}
+      decoding="async"
+      {...(priority ? { fetchPriority: 'high' as const } : {})}
+      className={`${className} object-contain`}
+    />
+  );
 }
 
 export function ObixWordmark({

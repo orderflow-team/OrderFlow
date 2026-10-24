@@ -544,7 +544,7 @@ export default function SettingsPage() {
                     {form.logoUrl ? (
                       <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/35 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Business logo" className="w-full h-full object-contain" />
+                        <img loading="lazy" decoding="async" src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Business logo" className="w-full h-full object-contain" />
                         <button
                           type="button"
                           onClick={handleLogoRemove}
@@ -580,7 +580,7 @@ export default function SettingsPage() {
                     {form.upiQrUrl ? (
                       <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-white/35 backdrop-blur-md ring-1 ring-white/50 flex items-center justify-center">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={toAbsoluteFileUrl(form.upiQrUrl) ?? undefined} alt="UPI QR code" className="w-full h-full object-contain" />
+                        <img loading="lazy" decoding="async" src={toAbsoluteFileUrl(form.upiQrUrl) ?? undefined} alt="UPI QR code" className="w-full h-full object-contain" />
                         <button
                           type="button"
                           onClick={handleUpiQrRemove}
@@ -1066,7 +1066,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3">
               {form.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-slate-50 ring-1 ring-slate-100" />
+                <img loading="lazy" decoding="async" src={toAbsoluteFileUrl(form.logoUrl) ?? undefined} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-slate-50 ring-1 ring-slate-100" />
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300 shrink-0">
                   <ImageUp className="w-5 h-5" />
