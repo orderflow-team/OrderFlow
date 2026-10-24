@@ -174,15 +174,17 @@ function carriedCredentials(request: any): boolean {
   return !!(headers?.Authorization ?? headers?.authorization ?? headers?.get?.('Authorization'));
 }
 
+export type RefreshOutcome = 'refreshed' | 'rejected' | 'unavailable';
+
 // De-duplicates concurrent refreshes: if several requests 401 around the same
 // moment (e.g. a handful of components fetching right after the app resumes
 // from background), they all await this same in-flight call instead of each
 // triggering their own POST /auth/refresh.
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<RefreshOutcome> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+async function doRefresh(): Promise<RefreshOutcome> {
   const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) return null;
+  if (!refreshToken) return 'rejected';
   try {
     // Bare axios, not apiClient — a call through apiClient would re-enter
     // this same response interceptor if the refresh itself ever 401s.
@@ -204,10 +206,29 @@ async function refreshAccessToken(): Promise<string | null> {
     if (res.data.user) {
       localStorage.setItem('user', JSON.stringify(res.data.user));
     }
-    return res.data.access_token;
-  } catch {
-    return null;
+    return 'refreshed';
+  } catch (err: any) {
+    // Only the server saying "this refresh token is no good" ends the session.
+    // No network (the app was just reopened and the radio isn't up yet), a
+    // timeout or a 5xx says nothing about the token — treating those as a
+    // logout is what made users sign in again every time they reopened the app.
+    const status = err?.response?.status;
+    return status === 400 || status === 401 || status === 403 ? 'rejected' : 'unavailable';
   }
+}
+
+/** Exchanges the stored refresh token for a new pair. Concurrent callers share one request. */
+export function refreshSession(): Promise<RefreshOutcome> {
+  if (!refreshPromise) {
+    refreshPromise = doRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  return (await refreshSession()) === 'refreshed' ? localStorage.getItem('access_token') : null;
 }
 
 // Handle response and dispatch events for dashboard/billing updates
@@ -260,14 +281,13 @@ apiClient.interceptors.response.use(
     // Never attempt token refresh on initial authentication/login routes.
     if (error.response?.status === 401 && !isAuthRoute && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
-      if (!refreshPromise) {
-        refreshPromise = refreshAccessToken().finally(() => {
-          refreshPromise = null;
-        });
-      }
-      const newToken = await refreshPromise;
-      if (newToken) {
+      const outcome = await refreshSession();
+      if (outcome === 'refreshed') {
         return apiClient(originalRequest);
+      }
+      if (outcome === 'unavailable') {
+        // Keep the session: the caller sees a failed request and can retry once the network is back.
+        return Promise.reject(error);
       }
     }
 
@@ -317,12 +337,7 @@ apiClient.interceptors.response.use(
       !sessionStorage.getItem('business_mismatch_recovery_attempted')
     ) {
       sessionStorage.setItem('business_mismatch_recovery_attempted', '1');
-      if (!refreshPromise) {
-        refreshPromise = refreshAccessToken().finally(() => {
-          refreshPromise = null;
-        });
-      }
-      const newToken = await refreshPromise;
+      const newToken = await refreshAccessToken();
       if (newToken) {
         window.location.reload();
         // The reload is already in flight — never resolve/reject further so

@@ -143,11 +143,11 @@ describe('api-client', () => {
       expect(axiosPostMock).not.toHaveBeenCalled();
     });
 
-    it('clears stored credentials and dispatches auth:unauthorized when refresh fails', async () => {
+    it('clears stored credentials and dispatches auth:unauthorized when the server rejects the refresh token', async () => {
       localStorage.setItem('access_token', 'stale');
       localStorage.setItem('refresh_token', 'stale-refresh');
       localStorage.setItem('user', JSON.stringify({ id: 'u1' }));
-      axiosPostMock.mockRejectedValue(new Error('refresh token expired'));
+      axiosPostMock.mockRejectedValue({ response: { status: 401 } });
       const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
       const originalRequest: any = { url: '/api/orders', _retry: false };
       const error = { response: { status: 401 }, config: originalRequest };
@@ -158,6 +158,30 @@ describe('api-client', () => {
       expect(localStorage.getItem('refresh_token')).toBeNull();
       expect(localStorage.getItem('user')).toBeNull();
       expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
+    });
+
+    it.each([
+      ['no network', new Error('Network Error')],
+      ['a server error', { response: { status: 503 } }],
+    ])('keeps the session when the refresh fails because of %s', async (_label, failure) => {
+      localStorage.setItem('access_token', 'stale');
+      localStorage.setItem('refresh_token', 'still-good');
+      localStorage.setItem('user', JSON.stringify({ id: 'u1' }));
+      axiosPostMock.mockRejectedValue(failure);
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+      const error = { response: { status: 401 }, config: { url: '/api/orders', _retry: false } };
+
+      await expect(responseInterceptors[0].onRejected(error)).rejects.toBe(error);
+
+      expect(localStorage.getItem('refresh_token')).toBe('still-good');
+      expect(localStorage.getItem('user')).not.toBeNull();
+      expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'auth:unauthorized' }));
+    });
+
+    it('refreshSession reports rejected without a stored refresh token', async () => {
+      const { refreshSession } = await import('./api-client');
+      expect(await refreshSession()).toBe('rejected');
+      expect(axiosPostMock).not.toHaveBeenCalled();
     });
 
     // A customer scanning a table/takeaway QR code gets a guest login on page load, but
