@@ -382,7 +382,7 @@ describe("AuthService", () => {
       );
       expect(jwtService.sign).toHaveBeenCalledWith(
         expect.objectContaining({ tokenType: "refresh" }),
-        { expiresIn: "7d" },
+        { expiresIn: "30d" },
       );
     });
 
