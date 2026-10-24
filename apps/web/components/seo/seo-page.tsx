@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
+import { JsonLd } from '@/components/seo/json-ld';
+import { buildMetadata } from '@/lib/seo';
 
 const SITE = 'https://obix360.com';
 
@@ -52,20 +54,7 @@ export type SeoPageConfig = {
 };
 
 export function seoMetadata(c: SeoPageConfig): Metadata {
-  return {
-    title: { absolute: c.title },
-    description: c.description,
-    alternates: { canonical: c.path },
-    openGraph: {
-      type: 'website',
-      url: `${SITE}${c.path}`,
-      siteName: 'OBIX 360',
-      title: c.title,
-      description: c.description,
-      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: c.h1 }],
-    },
-    twitter: { card: 'summary_large_image', title: c.title, description: c.description, images: ['/og-image.png'] },
-  };
+  return buildMetadata({ path: c.path, title: c.title, description: c.description, absoluteTitle: true, imageAlt: c.h1 });
 }
 
 function jsonLdFor(c: SeoPageConfig) {
@@ -115,11 +104,7 @@ export function SeoPage({ config: c }: { config: SeoPageConfig }) {
         details > summary::-webkit-details-marker { display: none; }
       `}</style>
 
-      <script
-        type="application/ld+json"
-        // Static, server-built JSON; escape "<" so it can't close the tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFor(c)).replace(/</g, '<') }}
-      />
+      <JsonLd data={jsonLdFor(c)} />
 
       <a
         href="#main"

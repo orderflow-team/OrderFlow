@@ -13,20 +13,6 @@ export const metadata: Metadata = {
   },
   description:
     "OBIX 360 (Order Billing Inventory eXperience) — modern order management, automated billing, inventory tracking, WhatsApp notifications & POS for businesses.",
-  keywords: [
-    "OBIX",
-    "OBIX 360",
-    "obix360",
-    "Orderflow",
-    "Order Management",
-    "All-in-One Billing Software",
-    "Billing Software",
-    "GST Billing Software",
-    "Inventory Management",
-    "WhatsApp Invoicing",
-    "POS Billing",
-    "Business Management Software",
-  ],
   authors: [{ name: "OBIX 360 Team", url: "https://obix360.com" }],
   creator: "OBIX 360",
   publisher: "OBIX 360",
@@ -87,6 +73,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en-IN" className="h-full antialiased selection:bg-emerald-500/30">
+      <head>
+        {/* Linked here (not @import-ed in the CSS) so the font stylesheet downloads in parallel with the app CSS. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap"
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <DismissNativeSplash />
         <SwRegister />

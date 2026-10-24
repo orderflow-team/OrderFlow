@@ -134,7 +134,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4 selection:bg-orange-500/30 relative overflow-hidden">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4 selection:bg-orange-500/30 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[75vh] max-w-[70rem] max-h-[45rem] min-w-[36rem] min-h-[28rem] rounded-full bg-sky-300/55 blur-3xl" />
         <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-orange-300/60 blur-3xl" />
@@ -145,7 +145,7 @@ export default function SignupPage() {
           <Link href="/" aria-label="OBIX 360 home">
             <ObixMark className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
           </Link>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">Create your free OBIX 360 account</h1>
           <p className="text-[10px] tracking-[0.2em] text-slate-500 font-semibold uppercase">Order Billing Inventory eXperience</p>
           <p className="text-slate-600 text-sm font-medium">Create your account to get started</p>
           <div className="flex items-center justify-center gap-3 pt-2">
@@ -312,6 +312,6 @@ export default function SignupPage() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,3 +1,4 @@
+import { JsonLd } from '@/components/seo/json-ld';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -318,11 +319,7 @@ export default function PharmacyBillingSoftwarePage() {
         details > summary::-webkit-details-marker { display: none; }
       `}</style>
 
-      <script
-        type="application/ld+json"
-        // Static, server-built JSON; escape "<" so it can't close the tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '<') }}
-      />
+      <JsonLd data={jsonLd} />
 
       <a
         href="#main"
