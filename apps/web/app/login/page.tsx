@@ -49,7 +49,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
           <Link href="/" aria-label="OBIX 360 home">
-            <ObixMark className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
+            <ObixMark priority className="w-16 h-16 drop-shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:scale-105" />
           </Link>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
           <p className="text-[10px] tracking-[0.2em] text-slate-500 font-semibold uppercase">Order Billing Inventory eXperience</p>

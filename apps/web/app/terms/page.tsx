@@ -1,13 +1,14 @@
+import { buildMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
 
-export const metadata = {
+export const metadata = buildMetadata({
+  path: '/terms',
   title: 'Terms of Service',
-  description:
-    'Terms of Service for OBIX 360, the all-in-one billing, inventory and order management app.',
-  alternates: { canonical: '/terms' },
-};
+  keywords: ['OBIX 360 terms of service', 'billing software terms'],
+  description: 'Terms of Service for OBIX 360, the all-in-one billing, inventory and order management app.',
+});
 
 const SECTIONS: { title: string; body: string[] }[] = [
   {

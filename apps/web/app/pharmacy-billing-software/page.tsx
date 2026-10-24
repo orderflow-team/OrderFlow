@@ -1,3 +1,4 @@
+import { JsonLd } from '@/components/seo/json-ld';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -13,6 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
+import { buildMetadata } from '@/lib/seo';
 
 const SITE = 'https://obix360.com';
 const PATH = '/pharmacy-billing-software';
@@ -20,20 +22,14 @@ const TITLE = 'Pharmacy Billing Software for Medical Stores in India | OBIX 360'
 const DESCRIPTION =
   'GST billing software for medical stores and chemists: batch and expiry tracking, MRP control, Schedule H1 register and WhatsApp bills. Start free.';
 
-export const metadata: Metadata = {
-  title: { absolute: TITLE },
+export const metadata: Metadata = buildMetadata({
+  path: PATH,
+  title: TITLE,
+  absoluteTitle: true,
   description: DESCRIPTION,
-  alternates: { canonical: PATH },
-  openGraph: {
-    type: 'website',
-    url: `${SITE}${PATH}`,
-    siteName: 'OBIX 360',
-    title: TITLE,
-    description: DESCRIPTION,
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'OBIX 360 pharmacy billing software' }],
-  },
-  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION, images: ['/og-image.png'] },
-};
+  imageAlt: 'OBIX 360 pharmacy billing software',
+  keywords: ['pharmacy billing software', 'medical store billing', 'chemist billing software', 'batch and expiry tracking', 'Schedule H1 register'],
+});
 
 /* ---------- Content ---------- */
 
@@ -318,11 +314,7 @@ export default function PharmacyBillingSoftwarePage() {
         details > summary::-webkit-details-marker { display: none; }
       `}</style>
 
-      <script
-        type="application/ld+json"
-        // Static, server-built JSON; escape "<" so it can't close the tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '<') }}
-      />
+      <JsonLd data={jsonLd} />
 
       <a
         href="#main"

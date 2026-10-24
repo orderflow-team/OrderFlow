@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import { HomeClient } from '@/components/home-client';
+import { buildMetadata } from '@/lib/seo';
 import { FAQS } from '@/components/landing/faq-data';
 
 const SITE = 'https://obix360.com';
 
-export const metadata: Metadata = {
-  title: {
-    absolute: 'Billing Software for India: GST, Inventory & POS | OBIX 360',
-  },
+export const metadata: Metadata = buildMetadata({
+  path: '/',
+  title: 'Billing Software for India: GST, Inventory & POS | OBIX 360',
+  absoluteTitle: true,
   description:
     'All-in-one billing software for shops, medical stores, wholesalers and restaurants: GST invoices, inventory, POS and WhatsApp bills. Start free.',
-  alternates: { canonical: SITE },
-};
+  keywords: ['billing software India', 'GST invoice software', 'shop billing app', 'restaurant billing software'],
+});
 
 const jsonLd = {
   '@context': 'https://schema.org',

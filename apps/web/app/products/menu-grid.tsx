@@ -504,6 +504,8 @@ export function MenuGrid({ businessId }: { businessId: string }) {
                     <div className="relative w-full h-32 rounded-xl overflow-hidden border bg-slate-50 group/preview">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={toAbsoluteFileUrl(form.imageUrl) ?? undefined}
                         alt="Preview"
                         className="w-full h-full object-cover"
@@ -580,6 +582,8 @@ export function MenuGrid({ businessId }: { businessId: string }) {
               {p.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={toAbsoluteFileUrl(p.image_url) ?? undefined}
                   alt={p.name}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"

@@ -446,7 +446,7 @@ export default function WhatsappSettingsPage() {
             {qrCodeData ? (
               <div className="space-y-3">
                 <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-md inline-block">
-                  <img src={qrCodeData} alt="WhatsApp QR" className="w-60 h-60 rounded-xl" />
+                  <img loading="lazy" decoding="async" src={qrCodeData} alt="WhatsApp QR" className="w-60 h-60 rounded-xl" />
                 </div>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-700 font-semibold bg-emerald-50 py-1.5 px-3 rounded-full border border-emerald-200/60">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
