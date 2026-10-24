@@ -309,7 +309,14 @@ function OtpLoginForm() {
   };
 
   if (mfaToken) {
-    return <MfaChallengeForm mfaToken={mfaToken} onVerified={finishSignIn} onCancel={() => setMfaToken('')} />;
+    // The emailed code was used up by the first step: start that flow over instead of showing it again.
+    const startOver = () => {
+      setMfaToken('');
+      setCode('');
+      setDevCode('');
+      setStep('request');
+    };
+    return <MfaChallengeForm mfaToken={mfaToken} onVerified={finishSignIn} onCancel={startOver} />;
   }
 
   if (step === 'request') {
