@@ -5,6 +5,7 @@ const config: SeoPageConfig = {
   title: 'Pharmacy Management Software for India | OBIX 360',
   description:
     'Pharmacy management software for India: stock with batch and expiry, suppliers, customer dues, staff roles and daily reports in one app. Start free.',
+  keywords: ['pharmacy management software', 'pharmacy inventory software', 'pharmacy stock and supplier management'],
   eyebrow: 'Beyond the billing counter',
   h1: 'Pharmacy management software for India',
   intro:

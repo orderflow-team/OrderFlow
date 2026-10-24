@@ -6,6 +6,7 @@ import { buildMetadata } from '@/lib/seo';
 export const metadata = buildMetadata({
   path: '/privacy-policy',
   title: 'Privacy Policy',
+  keywords: ['OBIX 360 privacy policy', 'billing software data privacy'],
   description: 'Privacy Policy and data safety commitments for OBIX 360, the all-in-one billing, inventory and order management app.',
 });
 

@@ -5,6 +5,7 @@ const config: SeoPageConfig = {
   title: 'Medical Store Software with GST, Expiry and MRP | OBIX 360',
   description:
     'Medical store software for India: bill with GST, track expiry, keep prices within MRP and keep your Schedule H1 register. Android and web. Start free.',
+  keywords: ['medical store software', 'medical shop billing software', 'chemist shop software India'],
   eyebrow: 'For small and growing medical stores',
   h1: 'Medical store software for India',
   intro:

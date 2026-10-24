@@ -44,6 +44,7 @@ export type SeoPageConfig = {
   path: string;
   title: string;
   description: string;
+  keywords: string[];
   eyebrow: string;
   h1: string;
   intro: string;
@@ -54,7 +55,7 @@ export type SeoPageConfig = {
 };
 
 export function seoMetadata(c: SeoPageConfig): Metadata {
-  return buildMetadata({ path: c.path, title: c.title, description: c.description, absoluteTitle: true, imageAlt: c.h1 });
+  return buildMetadata({ path: c.path, title: c.title, description: c.description, absoluteTitle: true, imageAlt: c.h1, keywords: c.keywords });
 }
 
 function jsonLdFor(c: SeoPageConfig) {

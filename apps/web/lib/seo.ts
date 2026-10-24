@@ -4,6 +4,16 @@ export const SITE_URL = 'https://obix360.com';
 export const SITE_NAME = 'OBIX 360';
 const OG_IMAGE = { url: '/og-image.png', width: 1200, height: 630 };
 
+/** Fallbacks used by the root layout and by any route that doesn't define its own metadata. */
+export const DEFAULT_TITLE = 'OBIX 360 - All-in-One Billing Software | Orders, Inventory & POS';
+export const DEFAULT_OG_TITLE = 'OBIX 360 – GST Billing, Inventory & Orders in One App';
+export const DEFAULT_DESCRIPTION =
+  'All-in-one billing software for India: GST invoicing, inventory, orders, POS and WhatsApp invoices for shops, pharmacies, wholesalers and restaurants.';
+export const DEFAULT_IMAGE = { ...OG_IMAGE, alt: 'OBIX 360 – all-in-one GST billing, inventory and WhatsApp invoicing software' };
+export const DEFAULT_KEYWORDS = [
+  'OBIX 360', 'GST billing software', 'inventory management', 'POS billing', 'WhatsApp invoicing', 'order management',
+];
+
 /**
  * Next.js shallow-merges metadata, so a page that sets only title/description would inherit the
  * homepage's og:url, og:title and og:description. Every public page goes through this helper so
@@ -16,12 +26,18 @@ export function buildMetadata(opts: {
   /** Use the title exactly as given instead of "<title> | OBIX 360". */
   absoluteTitle?: boolean;
   imageAlt?: string;
+  /** Page-specific keywords; the site-wide ones are appended. */
+  keywords?: string[];
+  /** Keep the page out of search results (it still gets canonical + social tags). */
+  noindex?: boolean;
 }): Metadata {
   const fullTitle = opts.absoluteTitle ? opts.title : `${opts.title} | ${SITE_NAME}`;
   const alt = opts.imageAlt ?? `${SITE_NAME} – GST billing, inventory and orders`;
   return {
     title: opts.absoluteTitle ? { absolute: opts.title } : opts.title,
     description: opts.description,
+    keywords: [...new Set([...(opts.keywords ?? []), ...DEFAULT_KEYWORDS])],
+    ...(opts.noindex ? NOINDEX : {}),
     alternates: { canonical: opts.path },
     openGraph: {
       type: 'website',
