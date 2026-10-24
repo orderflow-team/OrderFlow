@@ -188,7 +188,7 @@ export default function SecurityPage() {
               <form onSubmit={confirmSetup} className="space-y-3">
                 <p>1. Scan this code with your authenticator app.</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={setup.qr} alt="QR code to add this account to your authenticator app" width={220} height={220} className="rounded-xl bg-white" />
+                <img loading="lazy" decoding="async" src={setup.qr} alt="QR code to add this account to your authenticator app" width={220} height={220} className="rounded-xl bg-white" />
                 <p>
                   Cannot scan it? Enter this key by hand: <code className="break-all font-mono font-semibold">{setup.secret}</code>
                 </p>

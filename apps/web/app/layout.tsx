@@ -1,32 +1,20 @@
 import type { Metadata, Viewport } from "next";
 import { SwRegister } from "@/components/sw-register";
 import { AuthRedirectListener } from "@/components/auth-redirect-listener";
+import { SessionBoundary } from "@/components/session-boundary";
 import { OtaUpdater } from "@/components/ota-updater";
 import { DismissNativeSplash } from "@/components/splash-gif";
+import { DEFAULT_DESCRIPTION, DEFAULT_IMAGE, DEFAULT_KEYWORDS, DEFAULT_OG_TITLE, DEFAULT_TITLE } from "@/lib/seo";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://obix360.com"),
   title: {
-    default: "OBIX 360 - All-in-One Billing Software | Orders, Inventory & POS",
+    default: DEFAULT_TITLE,
     template: "%s | OBIX 360",
   },
-  description:
-    "OBIX 360 (Order Billing Inventory eXperience) — modern order management, automated billing, inventory tracking, WhatsApp notifications & POS for businesses.",
-  keywords: [
-    "OBIX",
-    "OBIX 360",
-    "obix360",
-    "Orderflow",
-    "Order Management",
-    "All-in-One Billing Software",
-    "Billing Software",
-    "GST Billing Software",
-    "Inventory Management",
-    "WhatsApp Invoicing",
-    "POS Billing",
-    "Business Management Software",
-  ],
+  description: DEFAULT_DESCRIPTION,
+  keywords: DEFAULT_KEYWORDS,
   authors: [{ name: "OBIX 360 Team", url: "https://obix360.com" }],
   creator: "OBIX 360",
   publisher: "OBIX 360",
@@ -46,23 +34,14 @@ export const metadata: Metadata = {
     locale: "en_IN",
     url: "https://obix360.com",
     siteName: "OBIX 360",
-    title: "OBIX 360 – GST Billing, Inventory & Orders in One App",
-    description:
-      "All-in-one billing software for India: GST invoicing, inventory, orders, POS and WhatsApp invoices for shops, pharmacies, wholesalers and restaurants.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "OBIX 360 – all-in-one GST billing, inventory and WhatsApp invoicing software",
-      },
-    ],
+    title: DEFAULT_OG_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [DEFAULT_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "OBIX 360 – GST Billing, Inventory & Orders in One App",
-    description:
-      "All-in-one billing software for India: GST invoicing, inventory, orders, POS and WhatsApp invoices for shops, pharmacies, wholesalers and restaurants.",
+    title: DEFAULT_OG_TITLE,
+    description: DEFAULT_DESCRIPTION,
     images: ["/og-image.png"],
   },
   manifest: "/manifest.json",
@@ -87,12 +66,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en-IN" className="h-full antialiased selection:bg-emerald-500/30">
+      <head>
+        {/* Linked here (not @import-ed in the CSS) so the font stylesheet downloads in parallel with the app CSS. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400..800&display=swap"
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         <DismissNativeSplash />
         <SwRegister />
         <AuthRedirectListener />
         <OtaUpdater />
-        {children}
+        <SessionBoundary>{children}</SessionBoundary>
       </body>
     </html>
   );

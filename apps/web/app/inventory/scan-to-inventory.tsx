@@ -253,7 +253,7 @@ export function ScanToInventoryDialog({
                       return page.file_type === 'pdf' ? (
                         <embed src={toAbsoluteFileUrl(page.file_url) ?? undefined} type="application/pdf" className="w-full h-full min-h-[300px]" />
                       ) : (
-                        <img src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Invoice page ${activePage + 1}`} className="w-full h-full object-contain max-h-[60vh]" />
+                        <img loading="lazy" decoding="async" src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Invoice page ${activePage + 1}`} className="w-full h-full object-contain max-h-[60vh]" />
                       );
                     })()}
                   </div>
@@ -271,7 +271,7 @@ export function ScanToInventoryDialog({
                           {page.file_type === 'pdf' ? (
                             <span className="text-slate-500">PDF {idx + 1}</span>
                           ) : (
-                            <img src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={toAbsoluteFileUrl(page.file_url) ?? undefined} alt={`Page ${idx + 1}`} className="w-full h-full object-cover" />
                           )}
                         </button>
                       ))}

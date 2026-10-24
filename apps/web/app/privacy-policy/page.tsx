@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { ShieldCheck, Lock, Eye, Database, Trash2, Mail, ArrowLeft } from 'lucide-react';
 import { ObixMark } from '@/components/obix-logo';
+import { buildMetadata } from '@/lib/seo';
 
-export const metadata = {
+export const metadata = buildMetadata({
+  path: '/privacy-policy',
   title: 'Privacy Policy',
+  keywords: ['OBIX 360 privacy policy', 'billing software data privacy'],
   description: 'Privacy Policy and data safety commitments for OBIX 360, the all-in-one billing, inventory and order management app.',
-  alternates: { canonical: '/privacy-policy' },
-};
+});
 
 export default function PrivacyPolicyPage() {
   const lastUpdated = 'September 3, 2026';

@@ -5,6 +5,7 @@ const config: SeoPageConfig = {
   title: 'GST Billing Software for Chemists in India | OBIX 360',
   description:
     'GST billing software for chemists and medical shops: CGST, SGST and IGST by HSN code, GSTIN checks, financial-year invoice numbers and GST-ready reports.',
+  keywords: ['GST billing software for chemists', 'GST invoice medical store', 'HSN code billing pharmacy'],
   eyebrow: 'GST made routine',
   h1: 'GST billing software for chemists and medical shops',
   intro:

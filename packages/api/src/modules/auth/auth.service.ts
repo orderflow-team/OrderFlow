@@ -40,6 +40,11 @@ import { VerifyMfaLoginDto } from "./dto/mfa.dto";
 // (apps/web/lib/api-client.ts), and every request re-checks that the account
 // is still active, so users never notice. The refresh token carries the session.
 export const ACCESS_TOKEN_TTL = "1h";
+// A billing app on a shop counter is opened daily but can sit unused over a
+// holiday week; 7 days signed people out of an installed app far too often. The
+// window slides forward on every refresh, and a refresh still re-checks that the
+// account is active and that no password change has invalidated older sessions.
+export const REFRESH_TOKEN_TTL = "30d";
 
 /**
  * What issueTokens needs from whoever it signs in: a real `users` row, or the
@@ -393,7 +398,7 @@ export class AuthService {
    * Redeems a still-valid refresh token for a fresh access_token +
    * refresh_token pair, so a client never needs to force a full re-login
    * just because the short-lived access_token expired — only once the
-   * refresh_token itself lapses (7d, and every refresh slides that window
+   * refresh_token itself lapses (30d, and every refresh slides that window
    * forward) does the user actually need to sign in again. Real users get
    * re-checked against is_active so a since-disabled account can't stay
    * logged in via a refresh alone. Guest sessions (table/takeaway QR-code
@@ -746,7 +751,7 @@ export class AuthService {
       ),
       refresh_token: this.jwtService.sign(
         { ...payload, tokenType: "refresh" },
-        { expiresIn: "7d" },
+        { expiresIn: REFRESH_TOKEN_TTL },
       ),
       user: {
         id: user.id,

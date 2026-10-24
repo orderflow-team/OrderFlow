@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { AppDataSource } from '../src/database/data-source';
 
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env.local') });

@@ -40,5 +40,5 @@ export function QrImage({
   }, [value, size]);
 
   if (!src) return <div className={className} aria-label={alt} />;
-  return <img src={src} alt={alt} className={className} />;
+  return <img loading="lazy" decoding="async" src={src} alt={alt} className={className} />;
 }
