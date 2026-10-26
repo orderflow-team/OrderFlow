@@ -28,12 +28,15 @@ import { vibrateScanSuccess } from '@/lib/haptics';
 import { useOfflineStore } from '@/lib/offline-store';
 import { type ParsedVoiceItem } from '@/lib/use-voice-order';
 import { getCached } from '@/lib/offline-db';
+import { useReturnables } from '@/lib/use-returnables';
+import { cartUnitPrice, type Fulfillment } from '@/lib/fulfillment-pricing';
 import { instantPrintReceipt, buildReceiptHtml } from '@/lib/receipt-template';
 
 interface Product {
   id: string;
   name: string;
   selling_price: string | number;
+  pickup_price?: string | number | null;
   tax_percentage?: string | number | null;
   category?: string | null;
   is_available?: boolean;
@@ -69,6 +72,11 @@ export function DashboardQuickOrder({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<Record<string, CartItem>>({});
+  const returnablesEnabled = useReturnables();
+  // A counter sale is usually the customer collecting it, so Quick Order starts on pickup.
+  const [fulfillment, setFulfillment] = useState<Fulfillment>('pickup');
+  // Dual-priced products (delivery price + pickup price) sell at the price for the chosen fulfillment.
+  const unitPrice = (p: Product) => (returnablesEnabled ? cartUnitPrice(p, fulfillment) : null) ?? Number(p.selling_price);
   const [customerName, setCustomerName] = useState('Walk-in');
   const [customerId, setCustomerId] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
@@ -169,7 +177,7 @@ export function DashboardQuickOrder({
   const cartTotal =
     Math.round(
       cartItems.reduce((sum, item) => {
-        const subtotal = Number(item.product.selling_price) * item.quantity;
+        const subtotal = unitPrice(item.product) * item.quantity;
         return sum + subtotal * (1 + Number(item.product.tax_percentage || 0) / 100);
       }, 0) * 100,
     ) / 100;
@@ -199,11 +207,12 @@ export function DashboardQuickOrder({
       customerName: customerName.trim() || 'Walk-in',
       phone: customerPhone ? customerPhone.replace(/\D/g, '').slice(-10) : undefined,
       orderType: 'regular',
+      ...(returnablesEnabled ? { fulfillment } : {}),
       items: cartItems.map((item) => ({
         productId: item.product.id,
         quantity: item.quantity,
         unit: item.product.unit || 'pcs',
-        unitPrice: Number(item.product.selling_price),
+        unitPrice: unitPrice(item.product),
       })),
     };
 
@@ -312,8 +321,8 @@ export function DashboardQuickOrder({
             name: it.product.name,
             quantity: it.quantity,
             unit: it.product.unit || 'pcs',
-            unitPrice: Number(it.product.selling_price),
-            subtotal: Number(it.product.selling_price) * it.quantity,
+            unitPrice: unitPrice(it.product),
+            subtotal: unitPrice(it.product) * it.quantity,
           })),
           totalAmount: successOrder.total,
         });
@@ -447,6 +456,24 @@ export function DashboardQuickOrder({
             />
           </div>
 
+          {returnablesEnabled && (
+            <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1" role="group" aria-label="Fulfillment">
+              {(['pickup', 'delivery'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFulfillment(f)}
+                  aria-pressed={fulfillment === f}
+                  className={`flex-1 rounded-full py-1.5 text-xs font-bold transition-colors ${
+                    fulfillment === f ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  {f === 'pickup' ? 'Pickup' : 'Delivery'}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Fast-Picks Product Grid */}
           <div>
             <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
@@ -479,7 +506,7 @@ export function DashboardQuickOrder({
                           {p.name}
                         </h4>
                         <p className="text-[11px] font-semibold text-slate-400">
-                          ₹{Number(p.selling_price).toFixed(2)} {p.unit ? `/${p.unit}` : ''}
+                          ₹{unitPrice(p).toFixed(2)} {p.unit ? `/${p.unit}` : ''}
                         </p>
                       </div>
 
@@ -512,7 +539,7 @@ export function DashboardQuickOrder({
                           </span>
                         )}
                         <span className="font-extrabold text-xs text-slate-800">
-                          ₹{(Number(p.selling_price) * (qty || 1)).toFixed(0)}
+                          ₹{(unitPrice(p) * (qty || 1)).toFixed(0)}
                         </span>
                       </div>
                     </div>

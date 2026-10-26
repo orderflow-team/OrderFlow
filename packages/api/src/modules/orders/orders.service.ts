@@ -39,6 +39,8 @@ import { Supplier } from "../../database/entities/supplier.entity";
 import { PurchaseOrder } from "../../database/entities/purchase-order.entity";
 import { PurchaseItem } from "../../database/entities/purchase-item.entity";
 import { Notification } from "../../database/entities/notification.entity";
+import { ContainersService } from "../containers/containers.service";
+import { fulfillmentPrice, normalizeFulfillment, Fulfillment } from "../products/utils/fulfillment-price.util";
 import {
   CreateOrderDto,
   CreateOrderItemDto,
@@ -75,6 +77,7 @@ export class OrdersService {
     private invoicesService: InvoicesService,
     private evolutionApiService: EvolutionApiService,
     @Optional() private pdfService?: PdfService,
+    @Optional() private containersService?: ContainersService,
   ) {}
 
   /**
@@ -186,6 +189,7 @@ export class OrdersService {
     businessId: string,
     customerId: string | undefined,
     item: CreateOrderItemDto,
+    fulfillment: Fulfillment = "delivery",
   ) {
     let product: Product | null = null;
     if (item.productId) {
@@ -205,6 +209,14 @@ export class OrdersService {
         ? enforceMrpCeiling(item.unitPrice, product.mrp)
         : item.unitPrice;
       return { unitPrice, taxPercentage: Number(product?.tax_percentage ?? 0) };
+    }
+
+    // A dual-priced product (delivery price = selling_price, plus pickup_price) is sold at the price
+    // for this order's fulfillment. Checked before price history: a past order's price may belong to
+    // the other fulfillment and must not leak into this one.
+    const dualPrice = fulfillmentPrice(product, fulfillment);
+    if (dualPrice !== null) {
+      return { unitPrice: dualPrice, taxPercentage: Number(product!.tax_percentage ?? 0) };
     }
 
     // A stated unit that doesn't match the product's own base unit means any
@@ -378,6 +390,7 @@ export class OrdersService {
             dto.businessId,
             dto.customerId,
             item,
+            normalizeFulfillment(dto.fulfillment),
           );
           const subtotal = Number(unitPrice) * Number(item.quantity);
           const taxAmount = subtotal * (taxPercentage / 100);
@@ -462,6 +475,7 @@ export class OrdersService {
           order_number: orderNumber,
           token_number: tokenNumber,
           order_type: dto.orderType ?? "regular",
+          fulfillment: normalizeFulfillment(dto.fulfillment),
           status: "draft",
           total_amount: totalAmount,
           tax_amount: totalTax,
@@ -524,6 +538,7 @@ export class OrdersService {
         );
         await manager.save(OrderItem, orderItems);
         await this.saveBatchAllocations(manager, orderItems, resolvedItems);
+        await this.recordReturnables(manager, dto.businessId, resolvedCustomerId, savedOrder.id, dto.items);
 
         if (resolvedCustomerId) {
           const customer = await manager.findOne(Customer, {
@@ -581,6 +596,44 @@ export class OrdersService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Books the returnable containers on an order into the customer's container ledger: every unit of
+   * a returnable product is "delivered", and any returnedQuantity on the line is "returned" (empties
+   * handed back at the same visit). No-op for walk-ins (no customer to hold the empties) and when
+   * the order has no returnable products.
+   */
+  private async recordReturnables(
+    manager: EntityManager,
+    businessId: string,
+    customerId: string | null | undefined,
+    orderId: string,
+    items: CreateOrderItemDto[],
+  ) {
+    if (!customerId || !this.containersService) return;
+    const productIds = [...new Set(items.map((i) => i.productId).filter((v): v is string => !!v))];
+    if (productIds.length === 0) return;
+    const returnable = await manager.find(Product, {
+      where: { id: In(productIds), business_id: businessId, is_returnable: true },
+      select: { id: true },
+    });
+    if (returnable.length === 0) return;
+    const ids = new Set(returnable.map((p) => p.id));
+    const byProduct = new Map<string, { productId: string; delivered: number; returned: number }>();
+    for (const i of items) {
+      if (!i.productId || !ids.has(i.productId)) continue;
+      const line = byProduct.get(i.productId) ?? { productId: i.productId, delivered: 0, returned: 0 };
+      line.delivered += Number(i.quantity);
+      line.returned += Number(i.returnedQuantity ?? 0);
+      byProduct.set(i.productId, line);
+    }
+    await this.containersService.recordOrderMovements(manager, {
+      businessId,
+      customerId,
+      orderId,
+      lines: [...byProduct.values()],
+    });
   }
 
   /**
@@ -1277,6 +1330,8 @@ export class OrdersService {
           );
         }
       }
+
+      await this.containersService?.removeOrderMovements(manager, id);
 
       for (const item of order.items) {
         if (item.product_id) {
@@ -1996,6 +2051,7 @@ export class OrdersService {
           businessId,
           order.customer_id,
           item,
+          normalizeFulfillment(order.fulfillment),
         );
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
@@ -2068,6 +2124,7 @@ export class OrdersService {
       );
       await manager.save(OrderItem, orderItems);
       await this.saveBatchAllocations(manager, orderItems, resolvedItems);
+      await this.recordReturnables(manager, businessId, order.customer_id, order.id, dto.items);
 
       order.total_amount = Number(order.total_amount) + additionalAmount;
       order.tax_amount = Number(order.tax_amount) + additionalTax;
@@ -2221,6 +2278,7 @@ export class OrdersService {
           businessId,
           order.customer_id,
           item,
+          normalizeFulfillment(dto.fulfillment ?? order.fulfillment),
         );
         const subtotal = Number(unitPrice) * Number(item.quantity);
         const taxAmount = subtotal * (taxPercentage / 100);
@@ -2300,6 +2358,9 @@ export class OrdersService {
           }),
       );
       await manager.save(OrderItem, orderItems);
+      await this.containersService?.removeOrderMovements(manager, order.id);
+      await this.recordReturnables(manager, businessId, order.customer_id, order.id, dto.items);
+      if (dto.fulfillment) order.fulfillment = dto.fulfillment;
 
       // Record updated prices in price_history so next order reflects edited prices
       if (order.customer_id) {

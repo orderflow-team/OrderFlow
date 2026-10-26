@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsUUID, Min, IsDateString, IsBoolean, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID, Min, IsDateString, IsBoolean, IsObject, Max } from 'class-validator';
 
 export class CreateProductDto {
   @IsUUID()
@@ -109,6 +109,17 @@ export class CreateProductDto {
   @IsNumber()
   @Min(1)
   moq?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isReturnable?: boolean;
+
+  // Price when the customer picks the order up; sellingPrice is then the delivery price.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(10_000_000)
+  pickupPrice?: number | null;
 
   @IsOptional()
   volumeTiers?: { minQty: number; price: number }[];

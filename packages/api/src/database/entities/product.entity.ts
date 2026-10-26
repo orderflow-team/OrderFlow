@@ -117,6 +117,16 @@ export class Product {
   @Column({ type: 'jsonb', nullable: true })
   unit_prices: Record<string, number> | null;
 
+  // Returnable container (water jar, refill capsule…): each sale adds to the customer's pending
+  // empties in container_ledger until they hand the empties back.
+  @Column({ type: 'boolean', default: false })
+  is_returnable: boolean;
+
+  // Price when the customer collects the order themselves; selling_price is then the delivery
+  // price. Null = the product has a single price whatever the fulfillment.
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  pickup_price: number | null;
+
   @Column({ type: 'jsonb', nullable: true })
   custom_fields: Record<string, any> | null;
 

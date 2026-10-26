@@ -25,6 +25,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { DevToolsModule } from './modules/dev-tools/dev-tools.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { ContainersModule } from './modules/containers/containers.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { AppUpdatesModule } from './modules/app-updates/app-updates.module';
 import { AppApkReleasesModule } from './modules/app-apk-releases/app-apk-releases.module';
@@ -60,6 +61,7 @@ import { SubscriptionPaywallInterceptor } from './modules/subscriptions/subscrip
     DevToolsModule,
     CategoriesModule,
     ExpensesModule,
+    ContainersModule,
     PlatformAdminModule,
     AppUpdatesModule,
     AppApkReleasesModule,

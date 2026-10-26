@@ -10,6 +10,9 @@ import { ClearModuleButton } from '@/components/clear-module-button';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
 import { useBusinessTerminology } from '@/lib/use-business-terminology';
+import { useReturnables } from '@/lib/use-returnables';
+import { CustomerEmptiesSection, EmptiesBadge, type EmptiesHolder } from '@/components/customer-empties';
+import Link from 'next/link';
 import { getCachedBusinessCategory, getCurrentUser } from '@/lib/auth';
 import { Plus, Trash2, Users, Search, ChevronRight, UserPlus, AlertTriangle, Pencil, RefreshCw, History as HistoryIcon, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,11 +33,12 @@ interface Customer {
   gst_number?: string | null;
   payment_terms?: string | null;
   trade_discount_percentage?: string | number | null;
+  default_fulfillment?: 'delivery' | 'pickup' | null;
   custom_fields?: Record<string, any> | null;
   linked_business_id?: string | null;
 }
 
-const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', creditLimit: '', paymentTerms: 'due_on_receipt', tradeDiscountPercentage: '0' };
+const emptyForm = { name: '', phone: '', email: '', address: '', gstNumber: '', creditLimit: '', paymentTerms: 'due_on_receipt', tradeDiscountPercentage: '0', defaultFulfillment: '' };
 
 // A business's client list grows unbounded over time — fetching and
 // rendering all of it up front doesn't scale. Load a page at a time
@@ -60,6 +64,8 @@ function CustomersPageContent() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [stats, setStats] = useState<CustomerStats | null>(null);
+  const returnablesEnabled = useReturnables();
+  const [emptiesByCustomer, setEmptiesByCustomer] = useState<Record<string, EmptiesHolder['items']>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -273,6 +279,16 @@ function CustomersPageContent() {
     return () => window.removeEventListener('open-new-form', handleOpen);
   }, []);
 
+  const loadEmpties = (bizId: string) =>
+    apiClient
+      .get<EmptiesHolder[]>('/api/containers/report', { params: { businessId: bizId } })
+      .then((res) => setEmptiesByCustomer(Object.fromEntries(res.data.map((h) => [h.customerId, h.items]))))
+      .catch(() => {});
+
+  useEffect(() => {
+    if (returnablesEnabled && businessId) loadEmpties(businessId);
+  }, [returnablesEnabled, businessId]);
+
   const load = async (bizId: string, q?: string, silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -401,6 +417,7 @@ function CustomersPageContent() {
       creditLimit: String(c.credit_limit ?? ''),
       paymentTerms: c.payment_terms || 'due_on_receipt',
       tradeDiscountPercentage: String(c.trade_discount_percentage ?? '0'),
+      defaultFulfillment: c.default_fulfillment ?? '',
     });
     setCustomFieldValues(c.custom_fields || {});
     setShowForm(true);
@@ -427,6 +444,7 @@ function CustomersPageContent() {
       creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
       paymentTerms: form.paymentTerms || undefined,
       tradeDiscountPercentage: form.tradeDiscountPercentage ? Number(form.tradeDiscountPercentage) : 0,
+      ...(returnablesEnabled && form.defaultFulfillment ? { defaultFulfillment: form.defaultFulfillment } : {}),
       customFields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
     };
     try {
@@ -479,6 +497,11 @@ function CustomersPageContent() {
       <div className="lg:flex-1 lg:min-w-0 space-y-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">{terms?.customersLabel ?? 'Clients'}</h1>
+          {returnablesEnabled && !showForm && (
+            <Link href="/empties" className="text-sm font-semibold text-sky-700 mr-auto ml-4">
+              Empties report
+            </Link>
+          )}
           {!showForm && (
             <Button onClick={openCreateForm} className="gap-1.5 bg-tile-sky-fg hover:brightness-95 text-white">
               <Plus className="w-4 h-4" /> Add Customer
@@ -600,6 +623,18 @@ function CustomersPageContent() {
                   value={form.tradeDiscountPercentage}
                   onChange={(e) => setForm({ ...form, tradeDiscountPercentage: e.target.value })}
                 />
+                {returnablesEnabled && (
+                  <select
+                    aria-label="Usual fulfillment"
+                    value={form.defaultFulfillment}
+                    onChange={(e) => setForm({ ...form, defaultFulfillment: e.target.value })}
+                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                  >
+                    <option value="">Usual order: not set (delivery)</option>
+                    <option value="delivery">Usual order: delivery</option>
+                    <option value="pickup">Usual order: pickup (collects it themselves)</option>
+                  </select>
+                )}
                 <Input
                   placeholder="Store / Delivery Address (e.g. Shop 12, Main Market)"
                   className="sm:col-span-2"
@@ -702,6 +737,7 @@ function CustomersPageContent() {
                       </p>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate mt-0.5 flex-wrap">
                         {c.phone && <span>{c.phone}</span>}
+                        {returnablesEnabled && <EmptiesBadge items={emptiesByCustomer[c.id]} />}
                         {c.gst_number && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px]">GST: {c.gst_number}</span>}
                         {c.payment_terms && c.payment_terms !== 'due_on_receipt' && (
                           <span className="px-1.5 py-0.5 rounded bg-amber-100/80 text-amber-800 text-[10px] font-semibold uppercase">{c.payment_terms.replace('_', ' ')}</span>
@@ -1055,6 +1091,14 @@ function CustomersPageContent() {
 
                   return (
                     <>
+                      {returnablesEnabled && businessId && historyCustomer && (
+                        <CustomerEmptiesSection
+                          businessId={businessId}
+                          customerId={historyCustomer.id}
+                          onChanged={() => loadEmpties(businessId)}
+                        />
+                      )}
+
                       {/* Overall Summary Card */}
                       <div className={`grid gap-2 sm:gap-3 ${advanceBalance > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                         <div className="min-w-0 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-2.5 sm:p-4 text-center">

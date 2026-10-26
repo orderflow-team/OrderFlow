@@ -41,7 +41,7 @@ interface CustomBusinessWizardProps {
 }
 
 const STEPS = ['Your business', 'Features', 'Make it yours'];
-const MODULE_ORDER: ModuleKey[] = ['inventory', 'staff', 'expenses', 'restaurant', 'salesman', 'ai_assistant'];
+const MODULE_ORDER: ModuleKey[] = ['inventory', 'staff', 'expenses', 'restaurant', 'salesman', 'returnables', 'ai_assistant'];
 const FIELD_TYPES: { id: FieldType; label: string }[] = [
   { id: 'text', label: 'Text' },
   { id: 'number', label: 'Number' },
@@ -54,6 +54,7 @@ function initialModules(s?: CustomBusinessSettings | null): Record<ModuleKey, bo
   if (!s?.modules) return null;
   return {
     inventory: s.modules.inventory !== false,
+    returnables: s.modules.returnables === true,
     staff: s.modules.staff === true,
     expenses: s.modules.expenses === true,
     restaurant: s.modules.restaurant === true,
@@ -193,6 +194,7 @@ export function CustomBusinessWizard({
         restaurant: modules.restaurant,
         salesman: modules.salesman,
         ai_assistant: modules.ai_assistant,
+        returnables: modules.returnables,
       },
       moduleConfig: {
         ...(base.moduleConfig ?? {}),

@@ -50,6 +50,10 @@ export class Customer {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   advance_balance: number;
 
+  // Pre-selected fulfillment on this customer's new orders (e.g. someone who always collects).
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  default_fulfillment: string | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

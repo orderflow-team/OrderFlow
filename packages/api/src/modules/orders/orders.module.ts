@@ -7,6 +7,7 @@ import { PriceHistory } from '../../database/entities/price-history.entity';
 import { Customer } from '../../database/entities/customer.entity';
 import { Ledger } from '../../database/entities/ledger.entity';
 import { BillingModule } from '../billing/billing.module';
+import { ContainersModule } from '../containers/containers.module';
 import { EvolutionApiService } from '../whatsapp/evolution-api.service';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
@@ -15,6 +16,7 @@ import { OrdersService } from './orders.service';
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem, Product, PriceHistory, Customer, Ledger]),
     BillingModule,
+    ContainersModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, EvolutionApiService],

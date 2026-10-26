@@ -41,7 +41,20 @@ export interface OutboxPaymentItem {
   error?: string;
 }
 
-export type OutboxItem = OutboxOrderItem | OutboxPaymentItem;
+/** Empties handed back outside an order (a delivery person's phone entry), replayed against /api/containers/returns. */
+export interface OutboxContainerReturnItem {
+  id: string;
+  type: 'container_return';
+  status: OutboxStatus;
+  businessId: string;
+  clientRequestId: string;
+  payload: Record<string, unknown>;
+  createdAt: number;
+  serverId?: string;
+  error?: string;
+}
+
+export type OutboxItem = OutboxOrderItem | OutboxPaymentItem | OutboxContainerReturnItem;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -95,7 +108,8 @@ function makeId(): string {
 export async function enqueueOutboxItem(
   item:
     | Omit<OutboxOrderItem, 'id' | 'status' | 'createdAt' | 'clientRequestId'>
-    | Omit<OutboxPaymentItem, 'id' | 'status' | 'createdAt' | 'clientRequestId'>,
+    | Omit<OutboxPaymentItem, 'id' | 'status' | 'createdAt' | 'clientRequestId'>
+    | Omit<OutboxContainerReturnItem, 'id' | 'status' | 'createdAt' | 'clientRequestId'>,
 ): Promise<OutboxItem> {
   const id = makeId();
   const full = {

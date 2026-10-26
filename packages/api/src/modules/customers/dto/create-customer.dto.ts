@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsUUID, Min, Matches } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsUUID, IsIn, Min, Matches } from 'class-validator';
 import { IsGstin } from '../../../common/validators/is-gstin.validator';
 
 export class CreateCustomerDto {
@@ -30,6 +30,11 @@ export class CreateCustomerDto {
   @IsNumber()
   @Min(0)
   creditLimit?: number;
+
+  // Pre-selected fulfillment on this customer's new orders (e.g. someone who always collects).
+  @IsOptional()
+  @IsIn(['delivery', 'pickup'])
+  defaultFulfillment?: 'delivery' | 'pickup';
 
   @IsOptional()
   @IsString()

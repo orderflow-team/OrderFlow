@@ -75,6 +75,10 @@ export class Order {
   @Column({ type: 'varchar', length: 50, default: 'regular' })
   order_type: string;
 
+  // 'delivery' or 'pickup' — decides which price a dual-priced product (pickup_price) is sold at.
+  @Column({ type: 'varchar', length: 20, default: 'delivery' })
+  fulfillment: string;
+
   @Column({ type: 'varchar', length: 50, default: 'draft' })
   status: string;
 

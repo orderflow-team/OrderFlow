@@ -8,6 +8,7 @@ import {
   ValidateNested,
   ArrayMinSize,
   IsArray,
+  IsIn,
   Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -37,6 +38,13 @@ export class CreateOrderItemDto {
   @Min(0)
   @Max(10_000_000)
   unitPrice?: number;
+
+  // Empties the customer hands back with this delivery (returnable products only).
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1_000_000)
+  returnedQuantity?: number;
 }
 
 export class CreateOrderDto {
@@ -61,6 +69,11 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   orderType?: string;
+
+  // 'delivery' (default) or 'pickup' — pickup sells dual-priced products at their pickup price.
+  @IsOptional()
+  @IsIn(['delivery', 'pickup'])
+  fulfillment?: 'delivery' | 'pickup';
 
   @IsOptional()
   @IsString()
@@ -110,6 +123,10 @@ export class AddOrderItemsDto {
   @IsOptional()
   @IsUUID()
   customerId?: string;
+
+  @IsOptional()
+  @IsIn(['delivery', 'pickup'])
+  fulfillment?: 'delivery' | 'pickup';
 
   @IsOptional()
   @IsString()
