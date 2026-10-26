@@ -380,6 +380,7 @@ function CustomersPageContent() {
   const sendReminder = async (c: Customer) => {
     const target = buildWhatsappTarget(c.phone);
     if (!target || sendingReminderId) return;
+    setReminderNotice('');
     setSendingReminderId(c.id);
     try {
       await apiClient.post(`/api/customers/${c.id}/send-due-reminder`, null, { params: { businessId } });

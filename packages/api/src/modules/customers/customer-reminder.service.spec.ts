@@ -18,12 +18,12 @@ describe('CustomerReminderService', () => {
   });
 
   it('sends the reminder with the due amount to the 91-prefixed number', async () => {
-    await expect(service.sendDueReminder('c1', 'b1', 'Neel')).resolves.toEqual({ sent: true });
+    await expect(service.sendDueReminder('c1', 'b1')).resolves.toEqual({ sent: true });
     const [instance, number, text] = evolution.sendTextMessage.mock.calls[0];
     expect(instance).toBe('inst');
     expect(number).toBe('919876543210');
     expect(text).toContain('₹250.50');
-    expect(text).toContain('Demo Store(Neel)');
+    expect(text).toContain('Demo Store');
   });
 
   it('scopes the customer lookup to the business', async () => {
@@ -53,6 +53,11 @@ describe('CustomerReminderService', () => {
     evolution.sendTextMessage.mockResolvedValueOnce(null);
     await expect(service.sendDueReminder('c1', 'b1')).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.sendDueReminder('c1', 'b1')).resolves.toEqual({ sent: true });
+  });
+
+  it('treats a gateway that throws (e.g. missing API key) as a send failure', async () => {
+    evolution.sendTextMessage.mockRejectedValueOnce(new Error('EVOLUTION_API_KEY is not set'));
+    await expect(service.sendDueReminder('c1', 'b1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('blocks a second reminder to the same customer within the cooldown', async () => {

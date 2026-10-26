@@ -86,9 +86,9 @@ export class CustomersController {
   sendDueReminder(
     @Param('id') id: string,
     @Query('businessId') businessId: string,
-    @Req() req: Request & { user?: { businessId?: string; fullName?: string } },
+    @Req() req: Request & { user?: { businessId?: string } },
   ) {
-    return this.reminderService.sendDueReminder(id, businessId || req.user?.businessId || '', req.user?.fullName);
+    return this.reminderService.sendDueReminder(id, businessId || req.user?.businessId || '');
   }
 
   @Patch(':id')

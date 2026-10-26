@@ -20,7 +20,7 @@ export class CustomerReminderService {
   ) {}
 
   /** Sends the due-payment reminder straight from the business's connected WhatsApp number. */
-  async sendDueReminder(customerId: string, businessId: string, senderName?: string) {
+  async sendDueReminder(customerId: string, businessId: string) {
     const customer = await this.customers.findOne({ where: { id: customerId, business_id: businessId } });
     if (!customer) throw new NotFoundException('Customer not found');
 
@@ -42,11 +42,13 @@ export class CustomerReminderService {
     }
 
     const storeName = business.name || 'Us';
-    const signOff = senderName ? `${storeName}(${senderName})` : storeName;
     const digits = customer.phone.replace(/\D/g, '').slice(-10);
-    const text = `Hi ${customer.name},\nIt's a friendly reminder to pay the pending amount of ₹${due.toFixed(2)}.\n\nThank you,\n${signOff}`;
+    const text = `Hi ${customer.name},\nIt's a friendly reminder to pay the pending amount of ₹${due.toFixed(2)}.\n\nThank you,\n${storeName}`;
 
-    const res = await this.evolution.sendTextMessage(business.whatsapp_instance_name, `91${digits}`, text);
+    // sendTextMessage returns null on a gateway failure but throws if the gateway isn't configured.
+    const res = await this.evolution
+      .sendTextMessage(business.whatsapp_instance_name, `91${digits}`, text)
+      .catch(() => null);
     if (!res) throw new BadRequestException('Could not send the WhatsApp message. Check your WhatsApp connection and try again.');
 
     this.lastSent.set(key, Date.now());
