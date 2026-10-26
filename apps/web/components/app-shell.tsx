@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSubscription } from '@/lib/use-subscription';
@@ -148,6 +150,9 @@ function BusinessAvatar({ logoUrl, size, active }: { logoUrl?: string | null; si
 }
 
 export function AppShell({ children, hideNavigation = false }: { children: React.ReactNode; hideNavigation?: boolean }) {
+  const { t } = useTranslation();
+  // Built-in labels are translated; a business's own custom wording has no key and passes through.
+  const tNav = (label: string) => t(`nav.${label}`, { defaultValue: label });
   const pathname = usePathname();
   const router = useRouter();
   const { sub } = useSubscription();
@@ -708,7 +713,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-2xl text-left text-sky-700 hover:bg-sky-50 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5 shrink-0" />
-                      <span className="text-sm font-bold">Add new business</span>
+                      <span className="text-sm font-bold">{t('shell.addNewBusiness')}</span>
                     </button>
                   </div>
                 </>
@@ -719,7 +724,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
             <button
               type="button"
               onClick={() => setOutboxOpen((v) => !v)}
-              title="View queued sales and payments"
+              title={t('shell.viewQueued')}
               className={`w-full flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-bold ring-1 transition-colors cursor-pointer ${
                 !isOnline
                   ? 'bg-slate-500/10 text-slate-600 ring-slate-400/30'
@@ -740,7 +745,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           {businessId && outboxOpen && (isOnline === false || pendingCount > 0 || outboxItems.some((i) => i.status !== 'synced')) && (
             <div className="mx-1 mt-1.5 bg-white shadow-lg ring-1 ring-slate-200/50 rounded-2xl p-2 max-h-72 overflow-y-auto space-y-1.5">
               {outboxItems.filter((i) => i.status !== 'synced').length === 0 ? (
-                <p className="text-xs text-slate-400 px-2 py-1">Nothing queued.</p>
+                <p className="text-xs text-slate-400 px-2 py-1">{t('shell.nothingQueued')}</p>
               ) : (
                 outboxItems
                   .filter((i) => i.status !== 'synced')
@@ -795,7 +800,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         </div>
         {notifOpen && (
           <div className="mx-3 mb-2 bg-white shadow-lg ring-1 ring-slate-200/50 rounded-2xl p-3 max-h-64 overflow-y-auto space-y-2">
-            {notifications.length === 0 && <p className="text-xs text-slate-400">No new notifications</p>}
+            {notifications.length === 0 && <p className="text-xs text-slate-400">{t('shell.noNotifications')}</p>}
             {notifications.map((n) => (
               <button
                 key={n.id}
@@ -827,7 +832,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 >
                   <Icon className="w-4 h-4" strokeWidth={2.25} />
                 </div>
-                {item.label}
+                {tNav(item.label)}
               </Link>
             );
           })}
@@ -839,14 +844,15 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400 shrink-0" />
             <span className="text-xs font-extrabold text-white truncate">
-              {sub?.status === 'active' ? sub.planName : 'Free Trial'}
+              {sub?.status === 'active' ? sub.planName : t('shell.freeTrial')}
             </span>
             <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30 shrink-0">
-              {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`}
+              {sub?.status === 'active' ? t('shell.active') : sub?.status === 'expired' ? t('shell.expired') : t('shell.daysLeft', { count: sub?.trialDaysLeft ?? 30 })}
             </span>
           </div>
           <ChevronDown className="w-3.5 h-3.5 text-indigo-300 -rotate-90 group-hover:translate-x-0.5 transition-transform shrink-0" />
         </Link>
+        <LanguageSwitcher className="mx-3" />
         <button
           onClick={logout}
           className="flex items-center gap-3 m-3 px-3 py-2.5 rounded-full text-sm font-bold text-slate-600 hover:bg-rose-500/10 hover:text-rose-600 text-left transition-colors"
@@ -854,7 +860,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="bg-rose-500/15 text-rose-500 w-9 h-9 rounded-full flex items-center justify-center shrink-0 glass-sheen-sm">
             <LogOut className="w-4 h-4" strokeWidth={2.25} />
           </div>
-          Log out
+          {t('shell.logOut')}
         </button>
       </aside>
       )}
@@ -869,16 +875,16 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/settings/subscription"
-              aria-label="View subscription"
+              aria-label={t('shell.viewSubscription')}
               className="inline-flex items-center gap-1.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white font-extrabold px-2.5 py-1 rounded-full text-[10px] shadow-sm border border-amber-400/40 active:scale-95 transition-transform"
             >
               <Sparkles className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
-              <span>{sub?.status === 'active' ? sub.planName : 'Free Trial'}</span>
+              <span>{sub?.status === 'active' ? sub.planName : t('shell.freeTrial')}</span>
               <span className="text-amber-300 font-bold">
-                {sub?.status === 'active' ? 'Active' : sub?.status === 'expired' ? 'Expired' : `${sub?.trialDaysLeft ?? 30}d left`}
+                {sub?.status === 'active' ? t('shell.active') : sub?.status === 'expired' ? t('shell.expired') : t('shell.daysLeft', { count: sub?.trialDaysLeft ?? 30 })}
               </span>
             </Link>
-            <button onClick={logout} aria-label="Log out" className="text-slate-400 hover:text-rose-600 transition-colors p-1">
+            <button onClick={logout} aria-label={t('shell.logOut')} className="text-slate-400 hover:text-rose-600 transition-colors p-1">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
@@ -930,7 +936,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
               href="/settings/subscription"
               className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-extrabold text-xs shadow-md shrink-0 flex items-center gap-1 transition"
             >
-              <span>Upgrade Now 👑</span>
+              <span>{t('shell.upgradeNow')} 👑</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -1058,7 +1064,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                       setQuickOrderOpen(true);
                     }}
                     className="absolute -top-[42px] left-1/2 -translate-x-1/2 z-30 w-[46px] h-[46px] rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-amber-600 text-white shadow-[0_8px_25px_-2px_rgba(249,115,22,0.5),0_2px_8px_rgba(249,115,22,0.25)] flex flex-col items-center justify-center active:scale-92 active:brightness-95 hover:scale-105 transition-all duration-150 cursor-pointer select-none group touch-manipulation pointer-events-auto before:absolute before:-inset-2 before:rounded-full before:content-['']"
-                    aria-label="Quick Order POS"
+                    aria-label={t('shell.quickOrderPos')}
                   >
                     <Zap className="w-5 h-5 fill-white text-white drop-shadow-sm group-hover:scale-110 transition-transform relative z-10" strokeWidth={2.25} />
                     <span className="text-[7.5px] font-black uppercase tracking-wider text-white leading-none drop-shadow-sm mt-0.5 relative z-10">
@@ -1086,7 +1092,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                   <Icon className="w-5 h-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
                 </div>
                 <span className={`text-[10px] leading-tight truncate max-w-full px-0.5 mt-0.5 ${active ? `${tint.fg} font-bold` : 'text-slate-400 font-medium'}`}>
-                  {label}
+                  {tNav(label)}
                 </span>
               </Link>
             </div>
@@ -1134,7 +1140,8 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="absolute inset-0 bg-black/30" onClick={() => setMoreOpen(false)} />
           <div className="absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-3xl backdrop-saturate-150 ring-1 ring-white/50 glass-sheen-sm rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-base font-bold text-slate-800">More</span>
+              <span className="text-base font-bold text-slate-800">{t('shell.more')}</span>
+              <LanguageSwitcher className="ml-auto mr-3" />
               <button onClick={() => setMoreOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
@@ -1150,7 +1157,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                     className="flex flex-col items-center justify-center gap-2 py-4 rounded-3xl bg-white/40 backdrop-blur-xl ring-1 ring-white/50 glass-sheen-sm text-slate-800 hover:bg-white/60 transition-all"
                   >
                     <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{item.label}</span>
+                    <span className="text-xs font-medium">{tNav(item.label)}</span>
                   </Link>
                 );
               })}
@@ -1165,7 +1172,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileBusinessMenuOpen(false)} />
           <div className="absolute bottom-0 inset-x-0 bg-white shadow-2xl border-t border-slate-100 rounded-t-[2.5rem] p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-4 duration-200 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-base font-bold text-slate-800">Switch Business</span>
+              <span className="text-base font-bold text-slate-800">{t('shell.switchBusiness')}</span>
               <button onClick={() => setMobileBusinessMenuOpen(false)} className="text-slate-500 hover:text-slate-700 bg-white/50 ring-1 ring-white/50 p-1.5 rounded-full">
                 <X className="w-5 h-5" />
               </button>
@@ -1214,7 +1221,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
                 className="w-full flex items-center gap-3 p-3 rounded-2xl text-left bg-sky-50 hover:bg-sky-100 transition-all text-sky-700"
               >
                 <Plus className="w-5 h-5 shrink-0" />
-                <span className="text-sm font-bold">Add new business</span>
+                <span className="text-sm font-bold">{t('shell.addNewBusiness')}</span>
               </button>
             </div>
           </div>
@@ -1227,7 +1234,7 @@ export function AppShell({ children, hideNavigation = false }: { children: React
         NEW_FORM_PAGES.includes(pathname) && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-new-form'))}
-            aria-label="Add New"
+            aria-label={t('shell.addNew')}
             className="fixed z-50 w-14 h-14 rounded-full bg-emerald-500/85 backdrop-blur-md ring-1 ring-white/30 glass-sheen-sm hover:bg-emerald-500/95 text-white shadow-lg shadow-emerald-900/30 flex items-center justify-center transition-all duration-200 bottom-20 right-4 md:bottom-6 md:right-6 scale-100 opacity-100"
           >
             <Plus className="w-6 h-6 animate-in zoom-in duration-200" />

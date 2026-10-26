@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { Users, Package, ShoppingCart, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,7 @@ const GLASS_SHEEN =
   'shadow-[inset_0_1px_1px_rgba(255,255,255,0.7),inset_0_-1px_1px_rgba(255,255,255,0.15),0_20px_45px_-15px_rgba(15,23,42,0.25)]';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'password' | 'otp'>('password');
   const [oauthError, setOauthError] = useState('');
   const router = useRouter();
@@ -46,6 +49,7 @@ export default function LoginPage() {
         <div className="absolute -top-1/4 -left-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-orange-300/60 blur-3xl" />
         <div className="absolute -top-1/4 -right-1/4 w-[55vw] h-[55vw] max-w-[42rem] max-h-[42rem] min-w-[26rem] min-h-[26rem] rounded-full bg-violet-300/60 blur-3xl" />
       </div>
+      <LanguageSwitcher className="absolute top-4 right-4 z-20" />
       <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-700 relative z-10">
         <div className="flex flex-col items-center mb-8 space-y-2">
           <Link href="/" aria-label="OBIX 360 home">
@@ -53,7 +57,7 @@ export default function LoginPage() {
           </Link>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 mt-4">OBIX</h1>
           <p className="text-[10px] tracking-[0.2em] text-slate-500 font-semibold uppercase">Order Billing Inventory eXperience</p>
-          <p className="text-slate-600 text-sm font-medium">Sign in to manage your business</p>
+          <p className="text-slate-600 text-sm font-medium">{t('login.tagline')}</p>
           <div className="flex items-center justify-center gap-3 pt-2">
             {BRAND_TILES.map(({ icon: Icon, fg }, i) => (
               <div
@@ -67,9 +71,9 @@ export default function LoginPage() {
         </div>
 
         <div className={`rounded-[2.5rem] bg-white/25 backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/50 p-7 ${GLASS_SHEEN}`}>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-800">Welcome back</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800">{t('login.welcomeBack')}</h2>
           <p className="text-slate-600 font-medium text-sm mt-1 mb-6">
-            {mode === 'password' ? 'Enter your credentials to access your account' : "We'll email you a one-time code"}
+            {mode === 'password' ? t('login.credentialsHint') : t('login.otpHint')}
           </p>
 
           <div className="flex gap-1 bg-white/25 rounded-full p-1 mb-6 relative z-20 ring-1 ring-white/40 shadow-[inset_0_1px_3px_rgba(148,163,184,0.25)]">
@@ -85,7 +89,7 @@ export default function LoginPage() {
                   : 'text-slate-600 hover:text-slate-800'
               }`}
             >
-              Password
+              {t('login.password')}
             </button>
             <button
               type="button"
@@ -99,7 +103,7 @@ export default function LoginPage() {
                   : 'text-slate-600 hover:text-slate-800'
               }`}
             >
-              Email OTP
+              {t('login.emailOtp')}
             </button>
           </div>
 
@@ -117,7 +121,7 @@ export default function LoginPage() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-white/50 backdrop-blur-md px-3 py-0.5 rounded-full text-slate-500 font-semibold tracking-wider">
-                Or continue with
+                {t('login.orContinueWith')}
               </span>
             </div>
           </div>
@@ -125,9 +129,9 @@ export default function LoginPage() {
           <GoogleAuthButton mode="signin" onError={(err) => setOauthError(err)} />
 
           <p className="text-center text-sm text-slate-600 mt-6">
-            Don't have an account?{' '}
+            {t('login.noAccount')}{' '}
             <button type="button" onClick={() => router.push('/signup')} className="font-semibold text-orange-600 hover:text-orange-700">
-              Sign up
+              {t('login.signUp')}
             </button>
           </p>
         </div>
@@ -141,6 +145,7 @@ const GLASS_INPUT =
   'bg-white/35 backdrop-blur-md border-transparent text-slate-800 font-medium placeholder:text-slate-500 h-14 rounded-full px-5 transition-all shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),inset_0_-1px_3px_rgba(148,163,184,0.2)]';
 
 function PasswordLoginForm() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -179,7 +184,7 @@ function PasswordLoginForm() {
       } else if (err.message && !err.message.includes('status code')) {
         setError(err.message);
       } else {
-        setError('Network error: Unable to connect to server. Please check your internet connection.');
+        setError(t('login.networkError'));
       }
     } finally {
       setLoading(false);
@@ -213,7 +218,7 @@ function PasswordLoginForm() {
           type="button"
           onClick={() => setShowPassword(!showPassword)}
           className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 hover:text-sky-600 transition-colors focus:outline-none"
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
+          aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
         >
           {showPassword ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -231,7 +236,7 @@ function PasswordLoginForm() {
 
       <div className="flex justify-end -mt-1">
         <button type="button" onClick={() => router.push('/forgot-password')} className="text-sm font-semibold text-sky-700 hover:text-sky-800">
-          Forgot password?
+          {t('login.forgotPassword')}
         </button>
       </div>
 
@@ -246,13 +251,14 @@ function PasswordLoginForm() {
         className={`w-full h-14 mt-2 rounded-full bg-sky-500/85 hover:bg-sky-500/95 backdrop-blur-md text-white font-semibold text-base ring-1 ring-white/40 transition-all active:scale-[0.98] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-1px_1px_rgba(0,0,0,0.08),0_14px_28px_-8px_rgba(14,165,233,0.6)]`}
         disabled={loading}
       >
-        {loading ? 'Signing in...' : 'Sign In'}
+        {loading ? t('login.signingIn') : t('login.signIn')}
       </Button>
     </form>
   );
 }
 
 function OtpLoginForm() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<'request' | 'verify'>('request');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -270,7 +276,7 @@ function OtpLoginForm() {
       setDevCode(response.data.devCode || '');
       setStep('verify');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Could not send code');
+      setError(err.response?.data?.message || err.message || t('login.couldNotSendCode'));
     } finally {
       setLoading(false);
     }
@@ -302,7 +308,7 @@ function OtpLoginForm() {
       }
       finishSignIn(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Invalid or expired code');
+      setError(err.response?.data?.message || err.message || t('login.invalidCode'));
     } finally {
       setLoading(false);
     }
@@ -340,7 +346,7 @@ function OtpLoginForm() {
           className="w-full h-14 mt-2 rounded-full bg-violet-500/85 hover:bg-violet-500/95 backdrop-blur-md text-white font-semibold text-base ring-1 ring-white/40 transition-all active:scale-[0.98] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-1px_1px_rgba(0,0,0,0.08),0_14px_28px_-8px_rgba(139,92,246,0.6)]"
           disabled={loading}
         >
-          {loading ? 'Sending...' : 'Send Code'}
+          {loading ? t('login.sending') : t('login.sendCode')}
         </Button>
       </form>
     );
@@ -349,7 +355,7 @@ function OtpLoginForm() {
   return (
     <form onSubmit={handleVerify} className="space-y-4">
       <p className="text-sm text-slate-600">
-        Enter the 6-digit code we sent to <span className="font-semibold text-slate-800">{email}</span>.
+        {t('login.codeSentTo')} <span className="font-semibold text-slate-800">{email}</span>.
       </p>
       {devCode && (
         <p className="text-xs text-amber-800 bg-amber-500/15 backdrop-blur-sm ring-1 ring-amber-400/30 rounded-2xl p-3">
@@ -357,7 +363,7 @@ function OtpLoginForm() {
         </p>
       )}
       <Input
-        placeholder="6-digit code"
+        placeholder={t('login.codePlaceholder')}
         value={code}
         onChange={(e) => setCode(e.target.value)}
         required
@@ -374,14 +380,14 @@ function OtpLoginForm() {
         className="w-full h-14 mt-2 rounded-full bg-violet-500/85 hover:bg-violet-500/95 backdrop-blur-md text-white font-semibold text-base ring-1 ring-white/40 transition-all active:scale-[0.98] shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.6),inset_0_-1px_1px_rgba(0,0,0,0.08),0_14px_28px_-8px_rgba(139,92,246,0.6)]"
         disabled={loading}
       >
-        {loading ? 'Verifying...' : 'Verify & Sign In'}
+        {loading ? t('login.verifying') : t('login.verifyAndSignIn')}
       </Button>
       <button
         type="button"
         onClick={() => setStep('request')}
         className="w-full text-sm text-slate-600 hover:text-slate-800"
       >
-        Use a different email
+        {t('login.useDifferentEmail')}
       </button>
     </form>
   );

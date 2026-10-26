@@ -20,6 +20,7 @@ import { Capacitor } from '@capacitor/core';
 import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
 import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
+import { normalizePhone } from '@/lib/normalize-phone';
 
 interface Customer {
   id: string;
@@ -382,9 +383,38 @@ function CustomersPageContent() {
     return digits.length === 10 ? `91${digits}` : digits;
   };
 
-  const sendReminder = (c: Customer) => {
+  const [reminderNotice, setReminderNotice] = useState('');
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+
+  const showReminderNotice = (message: string) => {
+    setReminderNotice(message);
+    setTimeout(() => setReminderNotice(''), 4000);
+  };
+
+  // One tap: the server sends it from the business's connected WhatsApp number.
+  // If that isn't possible (WhatsApp not connected, offline, no permission) fall
+  // back to opening WhatsApp with the message prefilled, as before.
+  const sendReminder = async (c: Customer) => {
     const target = buildWhatsappTarget(c.phone);
-    if (!target) return;
+    if (!target || sendingReminderId) return;
+    setReminderNotice('');
+    setSendingReminderId(c.id);
+    try {
+      await apiClient.post(`/api/customers/${c.id}/send-due-reminder`, null, { params: { businessId } });
+      showReminderNotice(`Reminder sent to ${c.name} on WhatsApp`);
+      return;
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        showReminderNotice(err.response.data?.message || 'A reminder was already sent recently.');
+        return;
+      }
+    } finally {
+      setSendingReminderId(null);
+    }
+    openWhatsappReminder(c, target);
+  };
+
+  const openWhatsappReminder = (c: Customer, target: string) => {
     const ownerName = getCurrentUser()?.fullName;
     const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
     const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
@@ -509,6 +539,12 @@ function CustomersPageContent() {
           )}
         </div>
 
+        {reminderNotice && (
+          <p role="status" className="text-xs font-semibold text-emerald-700 bg-emerald-500/10 ring-1 ring-emerald-500/20 rounded-xl px-3 py-2">
+            {reminderNotice}
+          </p>
+        )}
+
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -565,13 +601,20 @@ function CustomersPageContent() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
+                  autoFocus
+                  autoComplete="off"
                 />
                 <div>
                   <Input
                     placeholder="10-Digit Mobile # (e.g. 9876543210)"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    required
                     value={form.phone}
                     onChange={(e) => {
-                      setForm({ ...form, phone: e.target.value });
+                      // Pasted contact numbers carry +91 / spaces / dashes — keep the last 10 digits.
+                      setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(-10) });
                       if (error) setError('');
                       if (phoneMatch.match) phoneMatch.dismiss();
                     }}
@@ -590,6 +633,11 @@ function CustomersPageContent() {
                     onDismiss={phoneMatch.dismiss}
                   />
                 </div>
+                <details className="sm:col-span-2 group">
+                  <summary className="cursor-pointer select-none text-xs font-medium text-slate-500 hover:text-slate-700">
+                    More details (optional) — email, GSTIN, credit limit, address…
+                  </summary>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                 <Input
                   placeholder="Email (e.g. client@domain.com)"
                   value={form.email}
@@ -687,6 +735,8 @@ function CustomersPageContent() {
                     </div>
                   </div>
                 )}
+                  </div>
+                </details>
 
                 {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
                 <div className="sm:col-span-2 flex gap-2">

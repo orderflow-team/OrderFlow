@@ -30,6 +30,7 @@ import { type ParsedVoiceItem } from '@/lib/use-voice-order';
 import { getCached } from '@/lib/offline-db';
 import { useReturnables } from '@/lib/use-returnables';
 import { cartUnitPrice, type Fulfillment } from '@/lib/fulfillment-pricing';
+import { normalizePhone } from '@/lib/normalize-phone';
 import { instantPrintReceipt, buildReceiptHtml } from '@/lib/receipt-template';
 
 interface Product {
@@ -81,6 +82,32 @@ export function DashboardQuickOrder({
   const [customerId, setCustomerId] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+
+  // A named customer with a 10-digit number that isn't picked from the list yet
+  // gets saved to the customer book (like saving a contact) and selected.
+  const confirmCustomer = async () => {
+    const name = customerName.trim();
+    if (!customerId && name && name !== 'Walk-in' && customerPhone.length === 10) {
+      setSavingCustomer(true);
+      try {
+        const existing = customers.find((c) => c.phone === customerPhone);
+        if (existing) {
+          setCustomerName(existing.name);
+          setCustomerId(existing.id);
+        } else {
+          const res = await apiClient.post<Customer>('/api/customers', { businessId, name, phone: customerPhone });
+          setCustomers((prev) => [res.data, ...prev]);
+          setCustomerId(res.data.id);
+        }
+      } catch (err) {
+        console.error('Failed to save customer', err);
+      } finally {
+        setSavingCustomer(false);
+      }
+    }
+    setShowCustomerModal(false);
+  };
   const [submitting, setSubmitting] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [successOrder, setSuccessOrder] = useState<{ 
@@ -666,7 +693,9 @@ export function DashboardQuickOrder({
                     setCustomerName(e.target.value);
                     setCustomerId('');
                   }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirmCustomer(); }}
                   placeholder="Walk-in, Raj Kumar, etc."
+                  autoFocus
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
@@ -675,7 +704,10 @@ export function DashboardQuickOrder({
                 <label className="text-[11px] font-bold text-slate-500 uppercase">Mobile Number (Optional)</label>
                 <Input
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  type="tel"
+                  inputMode="tel"
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirmCustomer(); }}
+                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(-10))}
                   placeholder="10-digit mobile number"
                   className="h-10 rounded-xl text-xs"
                 />
@@ -721,10 +753,11 @@ export function DashboardQuickOrder({
 
               <Button
                 type="button"
-                onClick={() => setShowCustomerModal(false)}
+                disabled={savingCustomer}
+                onClick={confirmCustomer}
                 className="w-full h-10 rounded-xl bg-slate-900 text-white font-bold text-xs"
               >
-                Confirm Customer
+                {savingCustomer ? 'Saving…' : customerId || !customerName.trim() || customerName === 'Walk-in' || customerPhone.length !== 10 ? 'Confirm Customer' : 'Save & Select Customer'}
               </Button>
             </div>
           </div>

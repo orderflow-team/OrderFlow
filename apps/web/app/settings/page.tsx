@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +52,7 @@ interface BusinessProfile {
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { businessId, ready } = useBusiness();
   const [loading, setLoading] = useState(true);
@@ -429,7 +432,15 @@ export default function SettingsPage() {
       <div className="p-6 md:p-10 pb-28 md:pb-24 max-w-2xl lg:max-w-5xl mx-auto">
       <div className="lg:flex lg:gap-6 lg:items-start">
       <div className="lg:flex-1 lg:min-w-0 space-y-8">
-        <PageHeader title="Settings" description="Manage your business profile, subscription plans, and modules." />
+        <PageHeader title={t('nav.Settings')} description={t('settings.subtitle')} />
+
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-white/60 ring-1 ring-white/50 px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-slate-800">{t('common.language')}</p>
+            <p className="text-xs text-slate-500">{t('settings.languageHint')}</p>
+          </div>
+          <LanguageSwitcher />
+        </div>
 
         {/* Subscription & Billing Quick Banner */}
         <div 
