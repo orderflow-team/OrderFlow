@@ -21,6 +21,8 @@ import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts';
 import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
 import { VoiceOrderMicButton } from '@/components/voice-order-mic-button';
 import { type ParsedVoiceItem } from '@/lib/use-voice-order';
+import { useReturnables } from '@/lib/use-returnables';
+import { cartUnitPrice, type Fulfillment } from '@/lib/fulfillment-pricing';
 
 interface Product {
   id: string;
@@ -36,6 +38,8 @@ interface Product {
   barcode?: string | null;
   sku?: string | null;
   stock_quantity?: number;
+  is_returnable?: boolean;
+  pickup_price?: string | number | null;
 }
 
 interface Category {
@@ -54,6 +58,13 @@ export interface Customer {
   id: string;
   name: string;
   phone?: string;
+  default_fulfillment?: Fulfillment | null;
+}
+
+/** Delivery/pickup choice and empties handed back per product, for businesses that track returnable containers. */
+export interface OrderExtras {
+  fulfillment: Fulfillment;
+  returned: Record<string, number>;
 }
 
 interface GenericOrderModalProps {
@@ -62,7 +73,7 @@ interface GenericOrderModalProps {
   autoStartVoice?: boolean;
   customers: Customer[];
   onClose: () => void;
-  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string) => Promise<void>;
+  onSubmit: (items: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string, extras?: OrderExtras) => Promise<void>;
   onCustomerCreated?: (customer: Customer) => void;
 }
 
@@ -110,6 +121,9 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<Record<string, CartItem>>({});
+  const returnablesEnabled = useReturnables();
+  const [fulfillment, setFulfillment] = useState<Fulfillment>('delivery');
+  const [returned, setReturned] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
   // customer-specific price overrides: productId → price
   const [customerPrices, setCustomerPrices] = useState<Record<string, { price: number, unit?: string }>>({});
@@ -239,6 +253,8 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
       setCustomerTotalOrders(0);
       priceLoadRef.current = '';
       setCart({});
+      setFulfillment('delivery');
+      setReturned({});
       setSearch('');
       setSelectedCategory(null);
       setCreatingCustomer(false);
@@ -294,6 +310,21 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     setPhone(c.phone || '');
     setJustCreatedCustomer(false);
     loadCustomerPrices(c.id);
+    if (c.default_fulfillment) changeFulfillment(c.default_fulfillment);
+  };
+
+  // Switching delivery/pickup re-prices every dual-priced line already in the cart.
+  const changeFulfillment = (next: Fulfillment) => {
+    setFulfillment(next);
+    setCart((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([id, item]) => {
+          const base = baseProducts.find((b) => b.id === id) ?? item.product;
+          const price = returnablesEnabled ? cartUnitPrice(base, next) : null;
+          return [id, price === null ? item : { ...item, product: { ...item.product, selling_price: price }, original_price: price }];
+        }),
+      ),
+    );
   };
 
   // Registers a walk-in as a real customer the moment their phone + name are both
@@ -384,6 +415,10 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
 
   // Merge base products with customer price overrides
   const products: Product[] = baseProducts.map(p => {
+    // A dual-priced product (delivery price + pickup price) always sells at the price for this
+    // order's fulfillment; the customer's last-paid price may belong to the other one.
+    const dual = returnablesEnabled ? cartUnitPrice(p, fulfillment) : null;
+    if (dual !== null) return { ...p, selling_price: dual };
     const override = customerPrices[p.id];
     return {
       ...p,
@@ -618,7 +653,7 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
     setPhoneError('');
     setSubmitError('');
     try {
-      await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined, isPharmacy ? doctorRegistrationNumber : undefined, isPharmacy ? prescriptionImageKey || undefined : undefined);
+      await onSubmit(items, customerId, customerName, phone, isPharmacy ? patientName : undefined, isPharmacy ? doctorName : undefined, isPharmacy ? doctorRegistrationNumber : undefined, isPharmacy ? prescriptionImageKey || undefined : undefined, returnablesEnabled ? { fulfillment, returned } : undefined);
       onClose();
     } catch (err: any) {
       // onSubmit throws on a real save failure (offline queuing handles its
@@ -874,6 +909,24 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
               )}
             </div>
           </div>
+
+          {returnablesEnabled && (
+            <div className="mt-2 flex items-center gap-1 rounded-full bg-white/40 p-1 ring-1 ring-white/50" role="group" aria-label="Fulfillment">
+              {(['delivery', 'pickup'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => changeFulfillment(f)}
+                  aria-pressed={fulfillment === f}
+                  className={`flex-1 rounded-full py-1.5 text-xs font-semibold transition-colors ${
+                    fulfillment === f ? 'bg-sky-500/85 text-white' : 'text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  {f === 'delivery' ? 'Delivery' : 'Pickup'}
+                </button>
+              ))}
+            </div>
+          )}
 
           {(submitError || phoneError || validationError || creatingCustomer || (!creatingCustomer && customerId)) && (
             <div className="mt-2 space-y-1">
@@ -1219,6 +1272,22 @@ export function GenericOrderModal({ businessId, isOpen, autoStartVoice = false, 
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  {returnablesEnabled && item.product.is_returnable && (
+                    <label className="flex items-center gap-1 text-[11px] font-medium text-slate-500" title="Empties handed back with this delivery">
+                      Empties back
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        aria-label={`Empties returned for ${item.product.name}`}
+                        className="w-12 h-6 rounded-lg border border-white/60 bg-white/50 px-1 text-right text-sm text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500"
+                        value={returned[item.product.id] ?? ''}
+                        onChange={(e) => setReturned((prev) => ({ ...prev, [item.product.id]: Math.max(0, Number(e.target.value) || 0) }))}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    </label>
+                  )}
                   <div className="flex items-center gap-1.5 flex-shrink-0 justify-end flex-1">
                     <div
                       className="flex items-center gap-0.5 border border-white/60 rounded-lg px-2 py-0.5 bg-white/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] transition-all focus-within:ring-1 focus-within:ring-emerald-500"

@@ -11,6 +11,7 @@ export * from './invoice-scan-file.entity';
 export * from './invoice-scan.entity';
 export * from './kot.entity';
 export * from './ledger.entity';
+export * from './container-ledger.entity';
 export * from './notification.entity';
 export * from './otp-code.entity';
 export * from './order-item.entity';

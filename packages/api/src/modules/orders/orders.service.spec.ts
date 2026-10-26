@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
+import { ContainersService } from '../containers/containers.service';
 import { Order } from '../../database/entities/order.entity';
 import { OrderItem } from '../../database/entities/order-item.entity';
 import { Product } from '../../database/entities/product.entity';
@@ -30,6 +31,7 @@ describe('OrdersService', () => {
   let ledgerRepo: Record<string, jest.Mock>;
   let dataSource: { transaction: jest.Mock; getRepository: jest.Mock };
   let invoicesService: Record<string, jest.Mock>;
+  let containersService: Record<string, jest.Mock>;
 
   const buildQb = (overrides: Record<string, any> = {}) => ({
     where: jest.fn().mockReturnThis(),
@@ -77,6 +79,7 @@ describe('OrdersService', () => {
     ledgerRepo = {};
     dataSource = { transaction: jest.fn(), getRepository: jest.fn(() => ({ findOne: jest.fn().mockResolvedValue(null), find: jest.fn().mockResolvedValue([]) })) };
     invoicesService = { generateCreditNoteForReturn: jest.fn(), syncFromOrder: jest.fn() };
+    containersService = { recordOrderMovements: jest.fn(), removeOrderMovements: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -89,6 +92,7 @@ describe('OrdersService', () => {
         { provide: getRepositoryToken(Ledger), useValue: ledgerRepo },
         { provide: DataSource, useValue: dataSource },
         { provide: InvoicesService, useValue: invoicesService },
+        { provide: ContainersService, useValue: containersService },
         { provide: EvolutionApiService, useValue: { sendTextMessage: jest.fn().mockResolvedValue({}) } },
       ],
     }).compile();
@@ -406,6 +410,80 @@ describe('OrdersService', () => {
 
       expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 60 }));
       expectProductUntouched(manager);
+    });
+  });
+
+  describe('returnable containers and pickup pricing', () => {
+    const jar = {
+      id: 'jar-1',
+      name: 'Water Jar 20L',
+      mrp: null,
+      tax_percentage: 0,
+      selling_price: 30,
+      pickup_price: 25,
+      is_returnable: true,
+      unit: 'jar',
+    };
+
+    const setup = () => {
+      ordersRepo.findOne.mockResolvedValue(null);
+      productsRepo.findOne.mockResolvedValue(jar);
+      priceHistoryRepo.findOne.mockResolvedValue({ price: '99' });
+      const manager = buildManager({
+        Business: { id: 'biz-1', inventory_enabled: false },
+        ProductList: [jar],
+      });
+      dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
+      jest.spyOn(service as any, 'resolveCustomer').mockResolvedValue('cust-1');
+      return manager;
+    };
+
+    const dto = (extra: Record<string, any> = {}) => ({
+      businessId: 'biz-1',
+      customerId: 'cust-1',
+      customerName: 'Ramesh',
+      items: [{ productId: 'jar-1', quantity: 5, returnedQuantity: 3 }],
+      ...extra,
+    });
+
+    it('sells a dual-priced product at the delivery price by default, ignoring price history', async () => {
+      const manager = setup();
+      await service.create(dto() as any);
+      expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 30, subtotal: 150 }));
+      expect(manager.create).toHaveBeenCalledWith(Order, expect.objectContaining({ fulfillment: 'delivery' }));
+    });
+
+    it('sells it at pickup_price when the order is a pickup', async () => {
+      const manager = setup();
+      await service.create(dto({ fulfillment: 'pickup' }) as any);
+      expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 25, subtotal: 125 }));
+      expect(manager.create).toHaveBeenCalledWith(Order, expect.objectContaining({ fulfillment: 'pickup' }));
+    });
+
+    it('lets an explicit unitPrice override the fulfillment price', async () => {
+      const manager = setup();
+      await service.create(dto({ fulfillment: 'pickup', items: [{ productId: 'jar-1', quantity: 2, unitPrice: 20 }] }) as any);
+      expect(manager.create).toHaveBeenCalledWith(OrderItem, expect.objectContaining({ unit_price: 20 }));
+    });
+
+    it('books delivered and returned containers against the customer', async () => {
+      setup();
+      await service.create(dto() as any);
+      expect(containersService.recordOrderMovements).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          businessId: 'biz-1',
+          customerId: 'cust-1',
+          lines: [{ productId: 'jar-1', delivered: 5, returned: 3 }],
+        }),
+      );
+    });
+
+    it('books nothing for products that are not returnable', async () => {
+      const manager = setup();
+      manager.find.mockImplementation(() => Promise.resolve([]));
+      await service.create(dto() as any);
+      expect(containersService.recordOrderMovements).not.toHaveBeenCalled();
     });
   });
 

@@ -13,6 +13,7 @@ import { getCachedBusinessCategory, getCachedInventoryEnabled, setCachedInventor
 import { getOptionalModulesForCategory, getDefaultItemCategories } from '@/lib/business-modules';
 import { useBusiness } from '@/lib/use-business';
 import { singularLabel, useBusinessTerminology } from '@/lib/use-business-terminology';
+import { useReturnables } from '@/lib/use-returnables';
 import { canonicalUnitKey } from '@/lib/parse-quantity-unit';
 import { ManualOrScanToggle } from '@/components/manual-or-scan-toggle';
 import { CameraScannerView } from '@/components/camera-scanner-view';
@@ -40,6 +41,8 @@ interface Product {
   is_available: boolean;
   category: string | null;
   unit_prices?: Record<string, number> | null;
+  is_returnable?: boolean;
+  pickup_price?: string | number | null;
 }
 
 interface Category {
@@ -47,7 +50,7 @@ interface Category {
   name: string;
 }
 
-const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', reorderPoint: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[] };
+const emptyForm = { name: '', sku: '', unit: '', sellingPrice: '', purchasePrice: '', taxPercentage: '', stockQuantity: '', reorderPoint: '', description: '', isAvailable: true, category: '', unitPrices: [] as { unit: string; price: string }[], isReturnable: false, pickupPrice: '' };
 
 // A business's catalog grows unbounded over time — fetching and rendering
 // all of it up front doesn't scale. Load a page at a time instead, same
@@ -131,6 +134,7 @@ function ProductsPageContent() {
 
   // An Others-wizard business names its items itself ("Ornaments", "Services").
   const terms = useBusinessTerminology();
+  const returnablesEnabled = useReturnables();
   const entityNamePlural = terms?.productsLabel ?? 'Products';
   const entityName = terms ? singularLabel(terms.productsLabel) : 'Product';
 
@@ -328,6 +332,8 @@ function ProductsPageContent() {
       unitPrices: p.unit_prices
         ? Object.entries(p.unit_prices).map(([unit, price]) => ({ unit, price: String(price) }))
         : [],
+      isReturnable: p.is_returnable ?? false,
+      pickupPrice: p.pickup_price != null ? String(p.pickup_price) : '',
     });
     setCustomFieldValues(p.custom_fields || {});
     setShowForm(true);
@@ -380,6 +386,9 @@ function ProductsPageContent() {
       category: form.category || undefined,
       unitPrices: Object.keys(unitPrices).length > 0 ? unitPrices : undefined,
       customFields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
+      ...(returnablesEnabled
+        ? { isReturnable: form.isReturnable, pickupPrice: form.pickupPrice === '' ? null : Number(form.pickupPrice) }
+        : {}),
     };
     try {
       if (editingId) {
@@ -577,6 +586,25 @@ function ProductsPageContent() {
                   onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
                   required
                 />
+                {returnablesEnabled && (
+                  <>
+                    <Input
+                      placeholder="Pickup price (if different from the price above)"
+                      type="number"
+                      min="0"
+                      value={form.pickupPrice}
+                      onChange={(e) => setForm({ ...form, pickupPrice: e.target.value })}
+                    />
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={form.isReturnable}
+                        onChange={(e) => setForm({ ...form, isReturnable: e.target.checked })}
+                      />
+                      Returnable container (track empties per customer)
+                    </label>
+                  </>
+                )}
                 {inventoryEnabled && (
                   <Input
                     placeholder="Purchase price"

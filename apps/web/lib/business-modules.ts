@@ -33,6 +33,8 @@ export interface CustomBusinessSettings {
     loyalty?: boolean;
     attendance?: boolean;
     commissions?: boolean;
+    // Returnable containers (water jars…): track empties per customer + pickup/delivery pricing.
+    returnables?: boolean;
   };
   moduleConfig?: {
     inventorySettings?: {
@@ -192,6 +194,18 @@ export function getOptionalModulesForCategory(
     return [...modules, 'inventory'];
   }
   return modules;
+}
+
+/**
+ * Whether returnable-container tracking (pending empties, pickup vs delivery price) is on. Like the
+ * other custom module switches it comes from the Others wizard, so it only counts for Others (or a
+ * not-yet-known category); leftover settings on a business moved to a standard category are ignored.
+ */
+export function isReturnablesEnabled(
+  category: string | null | undefined,
+  customSettings?: CustomBusinessSettings | null,
+): boolean {
+  return (!category || category === 'others') && customSettings?.modules?.returnables === true;
 }
 
 /** Smart default for the onboarding checkbox: pre-checked only for categories that normally ship with inventory. */

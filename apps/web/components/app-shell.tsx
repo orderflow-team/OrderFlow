@@ -90,6 +90,9 @@ function describeOutboxItem(item: { type: string; payload: Record<string, unknow
     const customerName = (item.payload.customerName as string | undefined) || 'Walk-in';
     return `Order — ${customerName}, ${items.length} item${items.length === 1 ? '' : 's'}`;
   }
+  if (item.type === 'container_return') {
+    return `Empties returned — ${item.payload.quantity ?? ''}`;
+  }
   const amount = item.payload.amount as number | string | undefined;
   const method = (item.payload.paymentMethod as string | undefined) || 'payment';
   return `Payment — ${method}${amount !== undefined ? ` ₹${amount}` : ''}`;

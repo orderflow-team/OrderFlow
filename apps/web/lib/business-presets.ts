@@ -10,7 +10,7 @@ import type { CustomBusinessSettings } from './business-modules';
 export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'options' | 'file';
 export type CustomField = { name: string; type: FieldType; options?: string[] };
 
-export type ModuleKey = 'inventory' | 'staff' | 'expenses' | 'restaurant' | 'salesman' | 'ai_assistant';
+export type ModuleKey = 'inventory' | 'staff' | 'expenses' | 'restaurant' | 'salesman' | 'ai_assistant' | 'returnables';
 
 export type BusinessPreset = {
   id: string;
@@ -25,6 +25,7 @@ export type BusinessPreset = {
 };
 
 const M = (on: ModuleKey[]): Record<ModuleKey, boolean> => ({
+  returnables: on.includes('returnables'),
   inventory: on.includes('inventory'),
   staff: on.includes('staff'),
   expenses: on.includes('expenses'),
@@ -187,6 +188,14 @@ export const BUSINESS_PRESETS: BusinessPreset[] = [
     customerFields: [],
   },
   {
+    id: 'water', label: 'Water Supplier', emoji: '💧',
+    terminology: { productsLabel: 'Products', skuLabel: 'Code', priceLabel: 'Delivery price', ordersLabel: 'Orders', customersLabel: 'Customers', staffLabel: 'Delivery team' },
+    modules: M(['returnables', 'staff']),
+    categories: ['Water Jars', 'Refill Capsules', 'Bottles'],
+    productFields: [],
+    customerFields: [{ name: 'Delivery area', type: 'text' }],
+  },
+  {
     id: 'general', label: 'Something else', emoji: '✨',
     terminology: { productsLabel: 'Products', skuLabel: 'SKU / Code', priceLabel: 'Price', ordersLabel: 'Orders', customersLabel: 'Customers', staffLabel: 'Staff' },
     modules: M(['inventory']),
@@ -211,5 +220,6 @@ export const MODULE_INFO: Record<ModuleKey, { title: string; desc: string }> = {
   expenses: { title: 'Purchases & expenses', desc: 'Record what you buy and spend' },
   restaurant: { title: 'Tables & kitchen', desc: 'Dine-in tables and kitchen tickets' },
   salesman: { title: 'Field sales', desc: 'Salesmen taking orders on the go' },
+  returnables: { title: 'Returnable containers', desc: 'Track empty jars and bottles each customer still holds, with separate pickup and delivery prices' },
   ai_assistant: { title: 'AI assistant', desc: 'Ask for reports or create orders by chat' },
 };

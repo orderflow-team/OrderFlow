@@ -49,6 +49,7 @@ interface OfflineState {
     payload: Record<string, unknown> & { orderId?: string },
     localOrderId?: string,
   ) => Promise<OutboxItem>;
+  enqueueContainerReturn: (businessId: string, payload: Record<string, unknown>) => Promise<OutboxItem>;
   syncNow: (businessId: string) => Promise<void>;
   /** Removes a queued/failed item permanently — e.g. a sale the user has given up on retrying. Also drops any queued payment that depended on a discarded order, since it can never resolve. */
   discardItem: (businessId: string, id: string) => Promise<void>;
@@ -72,6 +73,12 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
 
   enqueueOrder: async (businessId, payload) => {
     const item = await enqueueOutboxItem({ type: 'order', businessId, payload });
+    await get().refresh(businessId);
+    return item;
+  },
+
+  enqueueContainerReturn: async (businessId, payload) => {
+    const item = await enqueueOutboxItem({ type: 'container_return', businessId, payload });
     await get().refresh(businessId);
     return item;
   },
@@ -119,6 +126,13 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
               serverOrderNumber: res.data.order_number,
             });
             localToServerOrderId.set(item.id, res.data.id);
+          } else if (item.type === 'container_return') {
+            await apiClient.post('/api/containers/returns', {
+              ...item.payload,
+              businessId,
+              clientRequestId: item.clientRequestId,
+            });
+            await updateOutboxItem(item.id, { status: 'synced' });
           } else {
             const resolvedOrderId =
               (item.payload.orderId as string | undefined) ||

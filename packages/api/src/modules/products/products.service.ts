@@ -63,6 +63,8 @@ export class ProductsService {
       custom_fields: dto.customFields ?? null,
       moq: dto.moq ?? 1,
       volume_tiers: dto.volumeTiers ?? null,
+      is_returnable: dto.isReturnable ?? false,
+      pickup_price: dto.pickupPrice ?? null,
     });
     const saved = await this.productsRepository.save(product);
     if (saved.barcode) {
@@ -297,6 +299,8 @@ export class ProductsService {
       custom_fields: dto.customFields !== undefined ? dto.customFields : product.custom_fields,
       moq: dto.moq !== undefined ? dto.moq : product.moq,
       volume_tiers: dto.volumeTiers !== undefined ? dto.volumeTiers : product.volume_tiers,
+      is_returnable: dto.isReturnable !== undefined ? dto.isReturnable : product.is_returnable,
+      pickup_price: dto.pickupPrice !== undefined ? dto.pickupPrice : product.pickup_price,
     });
     const saved = await this.productsRepository.save(product);
 

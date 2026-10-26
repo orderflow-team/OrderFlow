@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/app-shell';
 import { ClearModuleButton } from '@/components/clear-module-button';
-import { GenericOrderModal, CartItem } from '@/components/generic-order-modal';
+import { GenericOrderModal, CartItem, OrderExtras } from '@/components/generic-order-modal';
 import { Capacitor } from '@capacitor/core';
 import apiClient from '@/lib/api-client';
 import { useBusiness } from '@/lib/use-business';
@@ -804,7 +804,7 @@ export function GenericOrders() {
     }
   };
 
-  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string) => {
+  const handleCreate = async (cartItems: CartItem[], customerId: string, customerName: string, phone?: string, patientName?: string, doctorName?: string, doctorRegistrationNumber?: string, prescriptionImageKey?: string, extras?: OrderExtras) => {
     if (!businessId) return;
     setSaving(true);
     setError('');
@@ -820,6 +820,7 @@ export function GenericOrders() {
       doctorRegistrationNumber: doctorRegistrationNumber || undefined,
       prescriptionImageKey: prescriptionImageKey || undefined,
       orderType: 'regular',
+      ...(extras ? { fulfillment: extras.fulfillment } : {}),
       items: cartItems.map((it) => ({
         productId: it.product.id.startsWith('draft-') ? undefined : it.product.id,
         customProductName: it.product.id.startsWith('draft-') ? it.product.name : undefined,
@@ -829,6 +830,7 @@ export function GenericOrders() {
         unit: it.product.unit,
         quantity: Number(it.quantity),
         unitPrice: Number(it.product.selling_price),
+        ...(extras?.returned[it.product.id] ? { returnedQuantity: extras.returned[it.product.id] } : {}),
       })),
     };
     try {
