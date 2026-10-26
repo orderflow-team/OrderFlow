@@ -22,7 +22,7 @@ import { CustomerReminderService } from './customer-reminder.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-@UseGuards(JwtAuthGuard, BusinessScopeGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/customers')
 export class CustomersController {
   constructor(
@@ -100,6 +100,7 @@ export class CustomersController {
     return this.customersService.update(id, businessId, dto);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Delete(':id')
   remove(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.customersService.remove(id, businessId);

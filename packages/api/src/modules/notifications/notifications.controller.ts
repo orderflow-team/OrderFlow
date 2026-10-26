@@ -1,9 +1,12 @@
 import { Body, Controller, Delete, Get, Patch, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { NotificationsService } from './notifications.service';
 
-@UseGuards(JwtAuthGuard, BusinessScopeGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/notifications')
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
@@ -36,6 +39,7 @@ export class NotificationsController {
     return this.notificationsService.unregisterDeviceToken(body.businessId, body.token);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('test-push')
   sendTestPush(@Body() body: { businessId: string }) {
     return this.notificationsService.sendTestPush(body.businessId);

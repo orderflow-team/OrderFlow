@@ -161,6 +161,17 @@ export class PdfService implements OnModuleDestroy {
 
     const page = await browser.newPage();
     try {
+      // The HTML embeds tenant-supplied text (business, customer and product names), so the renderer
+      // must never act on it: no scripts, and no request except inline data: images (the logo and
+      // UPI QR are inlined) — otherwise injected markup could fetch internal URLs or local files
+      // into the PDF.
+      await page.setJavaScriptEnabled(false);
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const url = request.url();
+        if (url.startsWith('data:') || url === 'about:blank') void request.continue();
+        else void request.abort();
+      });
       await page.setContent(html, { waitUntil: 'load', timeout: 20_000 });
       const pdfBuffer = await page.pdf({ format: 'a4', printBackground: true, timeout: 20_000 });
       fs.writeFileSync(filePath, pdfBuffer);

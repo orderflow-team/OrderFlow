@@ -122,8 +122,9 @@ export class ProductsController {
     @Req() req?: { user?: { role?: string; userId?: string } },
   ) {
     if (getGuestScope(req?.user)) {
-      // Guests only need the menu — never cost price or who it's bought from.
-      const products = await this.productsService.findAll(businessId, search, isDraft);
+      // Guests only need the menu — never cost price or who it's bought from, and never draft
+      // (unpublished) products, whatever isDraft they ask for.
+      const products = await this.productsService.findAll(businessId, search, undefined);
       return products.map(({ purchase_price, last_supplier_id, last_supplier, ...menuFields }: any) => menuFields);
     }
     if (limit === undefined && offset === undefined) {

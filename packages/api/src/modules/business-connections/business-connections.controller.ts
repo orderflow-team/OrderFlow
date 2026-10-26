@@ -2,15 +2,19 @@ import { Throttle } from '@nestjs/throttler';
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { BusinessConnectionsService } from './business-connections.service';
 import { RequestConnectionDto } from './dto/request-connection.dto';
 import { ConnectionBusinessScopeDto } from './dto/connection-business-scope.dto';
 
-@UseGuards(JwtAuthGuard, BusinessScopeGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/business-connections')
 export class BusinessConnectionsController {
   constructor(private connectionsService: BusinessConnectionsService) {}
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post('request')
   request(@Body() dto: RequestConnectionDto) {
     return this.connectionsService.request(dto);
@@ -29,21 +33,25 @@ export class BusinessConnectionsController {
     return this.connectionsService.checkPhone(businessId, phone);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post(':id/accept')
   accept(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
     return this.connectionsService.accept(id, dto.businessId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post(':id/resync')
   resync(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
     return this.connectionsService.resync(id, dto.businessId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Post(':id/reject')
   reject(@Param('id') id: string, @Body() dto: ConnectionBusinessScopeDto) {
     return this.connectionsService.reject(id, dto.businessId);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Delete(':id')
   remove(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.connectionsService.remove(id, businessId);

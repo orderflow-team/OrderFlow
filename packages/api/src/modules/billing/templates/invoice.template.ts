@@ -48,7 +48,14 @@ const shown = (v: boolean | undefined) => v !== false;
  */
 function escapeHtml(value: string | null | undefined): string {
   if (!value) return '';
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Quotes too: names are interpolated into attribute values (alt="...") as well as text, and an
+  // unescaped " lets a business name add its own attributes (onload=...) to the tag.
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /** Classic Indian ledger convention: rupees and paise as two separate table columns. */
@@ -660,7 +667,7 @@ export function renderThermalReceiptHtml(
   const line = '-'.repeat(32);
   const rows = items
     .map((item) => {
-      const name = escapeHtml(item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20);
+      const name = escapeHtml((item.product?.name ?? item.custom_product_name ?? '-').slice(0, 20));
       const row = `${name.padEnd(20)}${String(money(item.quantity)).padStart(4)} ${`₹${money(item.subtotal)}`.padStart(8)}`;
       const details = itemDetails(item, timeZone);
       return details.length ? `${row}\n  ${details.join('  ')}` : row;
