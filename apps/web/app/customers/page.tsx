@@ -17,6 +17,7 @@ import { Capacitor } from '@capacitor/core';
 import { BusinessConnectionsPanel } from '@/components/business-connections-panel';
 import { useObixPhoneMatch } from '@/lib/use-obix-phone-match';
 import { ObixPhoneMatchBanner } from '@/components/obix-phone-match-banner';
+import { normalizePhone } from '@/lib/normalize-phone';
 
 interface Customer {
   id: string;
@@ -542,13 +543,20 @@ function CustomersPageContent() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
+                  autoFocus
+                  autoComplete="off"
                 />
                 <div>
                   <Input
                     placeholder="10-Digit Mobile # (e.g. 9876543210)"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    required
                     value={form.phone}
                     onChange={(e) => {
-                      setForm({ ...form, phone: e.target.value });
+                      // Pasted contact numbers carry +91 / spaces / dashes — keep the last 10 digits.
+                      setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(-10) });
                       if (error) setError('');
                       if (phoneMatch.match) phoneMatch.dismiss();
                     }}
@@ -567,6 +575,11 @@ function CustomersPageContent() {
                     onDismiss={phoneMatch.dismiss}
                   />
                 </div>
+                <details className="sm:col-span-2 group">
+                  <summary className="cursor-pointer select-none text-xs font-medium text-slate-500 hover:text-slate-700">
+                    More details (optional) — email, GSTIN, credit limit, address…
+                  </summary>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                 <Input
                   placeholder="Email (e.g. client@domain.com)"
                   value={form.email}
@@ -652,6 +665,8 @@ function CustomersPageContent() {
                     </div>
                   </div>
                 )}
+                  </div>
+                </details>
 
                 {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
                 <div className="sm:col-span-2 flex gap-2">
