@@ -366,9 +366,37 @@ function CustomersPageContent() {
     return digits.length === 10 ? `91${digits}` : digits;
   };
 
-  const sendReminder = (c: Customer) => {
+  const [reminderNotice, setReminderNotice] = useState('');
+  const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+
+  const showReminderNotice = (message: string) => {
+    setReminderNotice(message);
+    setTimeout(() => setReminderNotice(''), 4000);
+  };
+
+  // One tap: the server sends it from the business's connected WhatsApp number.
+  // If that isn't possible (WhatsApp not connected, offline, no permission) fall
+  // back to opening WhatsApp with the message prefilled, as before.
+  const sendReminder = async (c: Customer) => {
     const target = buildWhatsappTarget(c.phone);
-    if (!target) return;
+    if (!target || sendingReminderId) return;
+    setSendingReminderId(c.id);
+    try {
+      await apiClient.post(`/api/customers/${c.id}/send-due-reminder`, null, { params: { businessId } });
+      showReminderNotice(`Reminder sent to ${c.name} on WhatsApp`);
+      return;
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        showReminderNotice(err.response.data?.message || 'A reminder was already sent recently.');
+        return;
+      }
+    } finally {
+      setSendingReminderId(null);
+    }
+    openWhatsappReminder(c, target);
+  };
+
+  const openWhatsappReminder = (c: Customer, target: string) => {
     const ownerName = getCurrentUser()?.fullName;
     const signOff = ownerName ? `${businessName || 'Us'}(${ownerName})` : businessName || 'Us';
     const text = `Hi,\nIt's a friendly reminder to you for paying ${Number(c.outstanding_amount).toFixed(2)} to me.\n\nThank you,\n${signOff}`;
@@ -485,6 +513,12 @@ function CustomersPageContent() {
             </Button>
           )}
         </div>
+
+        {reminderNotice && (
+          <p role="status" className="text-xs font-semibold text-emerald-700 bg-emerald-500/10 ring-1 ring-emerald-500/20 rounded-xl px-3 py-2">
+            {reminderNotice}
+          </p>
+        )}
 
         <div className="flex gap-2">
           <div className="relative flex-1">

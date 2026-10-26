@@ -13,15 +13,22 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from '../../common/enums/user-role.enum';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
 import { CustomersService } from './customers.service';
+import { CustomerReminderService } from './customer-reminder.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @UseGuards(JwtAuthGuard, BusinessScopeGuard)
 @Controller('api/customers')
 export class CustomersController {
-  constructor(private customersService: CustomersService) {}
+  constructor(
+    private customersService: CustomersService,
+    private reminderService: CustomerReminderService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateCustomerDto) {
@@ -70,6 +77,18 @@ export class CustomersController {
   @Get(':id')
   findOne(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.customersService.findOne(id, businessId);
+  }
+
+  // Sends from the business's own WhatsApp number, so staff-level roles are excluded.
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Post(':id/send-due-reminder')
+  sendDueReminder(
+    @Param('id') id: string,
+    @Query('businessId') businessId: string,
+    @Req() req: Request & { user?: { businessId?: string; fullName?: string } },
+  ) {
+    return this.reminderService.sendDueReminder(id, businessId || req.user?.businessId || '', req.user?.fullName);
   }
 
   @Patch(':id')
