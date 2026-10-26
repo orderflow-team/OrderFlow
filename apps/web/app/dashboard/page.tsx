@@ -20,6 +20,7 @@ import { AppTour } from '@/components/app-tour';
 import { SimpleBarChart } from '../reports/simple-bar-chart';
 import { ProductPurchasersModal } from '../reports/product-purchasers-modal';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import { useSubscription } from '@/lib/use-subscription';
 import { vibrateScanSuccess } from '@/lib/haptics';
 import {
@@ -67,6 +68,7 @@ function getHomeTiles(isPharmacy: boolean, isSalesman: boolean, terms?: Terms | 
 }
 
 function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: ReturnType<typeof getHomeTiles>[number]) {
+  const { t } = useTranslation();
   return (
     <Link
       href={href}
@@ -75,7 +77,7 @@ function HomeTile({ href, label, icon: Icon, bg, iconBg, fg }: ReturnType<typeof
       <div className={`${iconBg} ${fg} w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm`}>
         <Icon className="w-7 h-7" strokeWidth={2.25} />
       </div>
-      <span className="font-bold tracking-wide text-slate-800 uppercase text-sm">{label}</span>
+      <span className="font-bold tracking-wide text-slate-800 uppercase text-sm">{t(`nav.${label}`, { defaultValue: label })}</span>
     </Link>
   );
 }
@@ -191,6 +193,7 @@ function StatCard({
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { sub } = useSubscription();
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -343,7 +346,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <p className="text-slate-500">Loading dashboard...</p>
+        <p className="text-slate-500">{t('dashboard.loading')}</p>
       </div>
     );
   }
@@ -364,13 +367,13 @@ export default function DashboardPage() {
           <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-500/10 ring-1 ring-amber-500/20 rounded-xl px-3 py-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             {staleOffline
-              ? "You're offline — showing the last data loaded. Numbers may be out of date."
-              : "Couldn't refresh from the server — showing the last saved data. Numbers may be out of date."}
+              ? t('dashboard.staleOffline')
+              : t('dashboard.staleServer')}
           </p>
         )}
         <PageHeader
-          title="Dashboard"
-          description="Here's what's happening with your business today."
+          title={t('nav.Dashboard')}
+          description={t('dashboard.subtitle')}
           action={
             <div className="flex items-center gap-2 flex-wrap">
               <Button
@@ -380,7 +383,7 @@ export default function DashboardPage() {
                 className="gap-1.5"
               >
                 <HelpCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Take a tour</span>
+                <span className="hidden sm:inline">{t('dashboard.takeTour')}</span>
               </Button>
               {!isSalesman && (
                 <Button
@@ -390,8 +393,8 @@ export default function DashboardPage() {
                   className="gap-1.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white shadow-[0_4px_14px_-2px_rgba(251,146,60,0.5)] ring-1 ring-white/30"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span className="sm:hidden">{seeding ? 'Loading...' : 'Load Data'}</span>
-                  <span className="hidden sm:inline">{seeding ? 'Loading demo data...' : 'Load Demo Data'}</span>
+                  <span className="sm:hidden">{seeding ? t('common.loading') : t('dashboard.loadData')}</span>
+                  <span className="hidden sm:inline">{seeding ? t('dashboard.loadingDemo') : t('dashboard.loadDemo')}</span>
                 </Button>
               )}
             </div>
@@ -416,21 +419,21 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-sm font-extrabold text-white truncate">{displaySub.planName || 'Free Trial'}</span>
+                  <span className="text-sm font-extrabold text-white truncate">{displaySub.planName || t('shell.freeTrial')}</span>
                   {displaySub.status === 'trialing' && (
-                    <span className="text-[11px] font-bold text-amber-300 shrink-0">{displaySub.trialDaysLeft}d left</span>
+                    <span className="text-[11px] font-bold text-amber-300 shrink-0">{t('shell.daysLeft', { count: displaySub.trialDaysLeft })}</span>
                   )}
                   {displaySub.status === 'active' && (
-                    <span className="text-[11px] font-bold text-emerald-300 shrink-0">Active</span>
+                    <span className="text-[11px] font-bold text-emerald-300 shrink-0">{t('shell.active')}</span>
                   )}
                   {(displaySub.status === 'expired' || displaySub.status === 'past_due') && (
-                    <span className="text-[11px] font-bold text-rose-300 shrink-0">Expired</span>
+                    <span className="text-[11px] font-bold text-rose-300 shrink-0">{t('shell.expired')}</span>
                   )}
                 </div>
                 <p className="text-[11px] text-indigo-200 truncate">
-                  {displaySub.status === 'trialing' && '30-day trial'}
-                  {displaySub.status === 'active' && 'Billing and features unlocked'}
-                  {(displaySub.status === 'expired' || displaySub.status === 'past_due') && 'Select a plan to continue'}
+                  {displaySub.status === 'trialing' && t('dashboard.trial30')}
+                  {displaySub.status === 'active' && t('dashboard.unlocked')}
+                  {(displaySub.status === 'expired' || displaySub.status === 'past_due') && t('dashboard.selectPlan')}
                 </p>
               </div>
 
@@ -438,7 +441,7 @@ export default function DashboardPage() {
                 href="/settings/subscription"
                 className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-indigo-950 font-extrabold text-[11px] hover:brightness-105 active:scale-95 transition shadow-sm shrink-0 text-center"
               >
-                {displaySub.status === 'active' ? 'Manage' : 'Upgrade'}
+                {displaySub.status === 'active' ? t('dashboard.manage') : t('dashboard.upgrade')}
               </Link>
             </div>
           );
@@ -483,8 +486,8 @@ export default function DashboardPage() {
                       <Zap className="w-7 h-7 fill-white text-white" strokeWidth={2.25} />
                     </div>
                     <div className="text-center">
-                      <span className="font-bold tracking-wide uppercase text-sm block">Quick Order</span>
-                      <span className="text-[11px] font-medium text-amber-100 block mt-0.5">Instant POS</span>
+                      <span className="font-bold tracking-wide uppercase text-sm block">{t('dashboard.quickOrder')}</span>
+                      <span className="text-[11px] font-medium text-amber-100 block mt-0.5">{t('dashboard.instantPos')}</span>
                     </div>
                   </button>
 
@@ -503,10 +506,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
-          <StatCard icon={ShoppingCart} label="Today's Orders" value={String(data.todaysOrders)} tint="bg-tile-sky-icon text-tile-sky-fg" href="/orders" />
-          <StatCard icon={IndianRupee} label="Today's Sales" value={formatCurrency(data.todaysSales)} tint="bg-tile-mint-icon text-tile-mint-fg" />
-          <StatCard icon={Clock} label="Pending Orders" value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" href="/billing" />
-          <StatCard icon={AlertTriangle} label="Pending Payments" value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" href="/billing" />
+          <StatCard icon={ShoppingCart} label={t('dashboard.todaysOrders')} value={String(data.todaysOrders)} tint="bg-tile-sky-icon text-tile-sky-fg" href="/orders" />
+          <StatCard icon={IndianRupee} label={t('dashboard.todaysSales')} value={formatCurrency(data.todaysSales)} tint="bg-tile-mint-icon text-tile-mint-fg" />
+          <StatCard icon={Clock} label={t('dashboard.pendingOrders')} value={String(data.pendingOrders)} tint="bg-tile-peach-icon text-tile-peach-fg" href="/billing" />
+          <StatCard icon={AlertTriangle} label={t('dashboard.pendingPayments')} value={formatCurrency(data.pendingPaymentsAmount)} tint="bg-tile-lavender-icon text-tile-lavender-fg" href="/billing" />
         </div>
 
         {!isSalesman && (
@@ -514,9 +517,9 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
-                <CardTitle>Sales — Last 7 Days</CardTitle>
+                <CardTitle>{t('dashboard.salesLast7')}</CardTitle>
               </div>
-              <CardDescription>Daily revenue trend</CardDescription>
+              <CardDescription>{t('dashboard.dailyTrend')}</CardDescription>
             </CardHeader>
             <CardContent>
               <SimpleBarChart data={data.salesTrend} />
@@ -530,13 +533,13 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <CardTitle>{isPharmacy ? 'Low Inventory Medicines' : 'Low Inventory'}</CardTitle>
+                  <CardTitle>{isPharmacy ? t('dashboard.lowInventoryMedicines') : t('dashboard.lowInventory')}</CardTitle>
                 </div>
-                <CardDescription>{isPharmacy ? 'Medicines at or below their reorder point' : 'Products at or below their reorder point'}</CardDescription>
+                <CardDescription>{isPharmacy ? t('dashboard.lowInventoryMedicinesDesc') : t('dashboard.lowInventoryDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.lowStockProducts.length === 0 ? (
-                  <p className="text-sm text-slate-400">Nothing low on inventory.</p>
+                  <p className="text-sm text-slate-400">{t('dashboard.nothingLow')}</p>
                 ) : (
                   <CollapsibleList
                     items={data.lowStockProducts}
@@ -562,13 +565,13 @@ export default function DashboardPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <CalendarClock className="w-4 h-4 text-amber-600" />
-                  <CardTitle>{isPharmacy ? 'Medicines Expiring Soon' : 'Expiring Soon'}</CardTitle>
+                  <CardTitle>{isPharmacy ? t('dashboard.expiringMedicines') : t('dashboard.expiring')}</CardTitle>
                 </div>
-                <CardDescription>{isPharmacy ? 'Batches expiring within 30 days' : 'Products expiring within 30 days'}</CardDescription>
+                <CardDescription>{isPharmacy ? t('dashboard.expiringMedicinesDesc') : t('dashboard.expiringDesc')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.expiringProducts.length === 0 ? (
-                  <p className="text-sm text-slate-400">Nothing expiring soon.</p>
+                  <p className="text-sm text-slate-400">{t('dashboard.nothingExpiring')}</p>
                 ) : (
                   <CollapsibleList
                     items={data.expiringProducts}
@@ -594,13 +597,13 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
-                <CardTitle>Top Customers</CardTitle>
+                <CardTitle>{t('dashboard.topCustomers')}</CardTitle>
               </div>
-              <CardDescription>Highest spend in this business</CardDescription>
+              <CardDescription>{t('dashboard.topCustomersDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               {data.topCustomers.length === 0 ? (
-                <p className="text-sm text-slate-400">No orders yet.</p>
+                <p className="text-sm text-slate-400">{t('dashboard.noOrders')}</p>
               ) : (
                 <div className="space-y-3">
                   {data.topCustomers.map((c) => (
@@ -627,7 +630,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               {data.topProducts.length === 0 ? (
-                <p className="text-sm text-slate-400">No orders yet.</p>
+                <p className="text-sm text-slate-400">{t('dashboard.noOrders')}</p>
               ) : (
                 <div className="space-y-1">
                   {data.topProducts.map((p) => (
@@ -643,7 +646,7 @@ export default function DashboardPage() {
                         </p>
                         <div className="flex items-center gap-1 text-[11px] text-slate-400 group-hover:text-emerald-600/70 transition-colors">
                           <Users className="w-3 h-3" />
-                          <span>View buyers</span>
+                          <span>{t('dashboard.viewBuyers')}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { SwRegister } from "@/components/sw-register";
 import { AuthRedirectListener } from "@/components/auth-redirect-listener";
 import { SessionBoundary } from "@/components/session-boundary";
+import { I18nProvider } from "@/components/i18n-provider";
 import { OtaUpdater } from "@/components/ota-updater";
 import { DismissNativeSplash } from "@/components/splash-gif";
 import { DEFAULT_DESCRIPTION, DEFAULT_IMAGE, DEFAULT_KEYWORDS, DEFAULT_OG_TITLE, DEFAULT_TITLE } from "@/lib/seo";
@@ -80,7 +81,9 @@ export default function RootLayout({
         <SwRegister />
         <AuthRedirectListener />
         <OtaUpdater />
-        <SessionBoundary>{children}</SessionBoundary>
+        <I18nProvider>
+          <SessionBoundary>{children}</SessionBoundary>
+        </I18nProvider>
       </body>
     </html>
   );
