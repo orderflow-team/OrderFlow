@@ -48,6 +48,7 @@ export class BusinessesController {
    * Onboarding: attaches a new business workspace to the authenticated user
    * and reissues tokens carrying the new businessId.
    */
+  @Roles(UserRole.ADMIN)
   @Post('onboard')
   async onboard(@Req() req: any, @Body() dto: CreateBusinessDto) {
     const business = await this.businessesService.onboard(req.user.userId, dto);
@@ -62,6 +63,7 @@ export class BusinessesController {
   }
 
   /** Switches the signed-in user's active workspace and reissues tokens carrying it. */
+  @Roles(UserRole.ADMIN)
   @Post(':id/select')
   async select(@Req() req: any, @Param('id') id: string) {
     const business = await this.businessesService.selectActive(req.user.userId, id);
@@ -69,6 +71,9 @@ export class BusinessesController {
     return { business, ...tokens };
   }
 
+  // Platform staff only: onboard() enforces the plan's store limit, this raw create does not, so
+  // exposing it to owners would let anyone mint unlimited businesses.
+  @Roles(UserRole.SUPER_ADMIN)
   @Post()
   create(@Req() req: any, @Body() dto: CreateBusinessDto) {
     return this.businessesService.create(dto, req.user.userId);

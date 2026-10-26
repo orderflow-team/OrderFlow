@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 
 describe('SubscriptionsService upgrade requests', () => {
@@ -91,6 +91,28 @@ describe('SubscriptionsService upgrade requests', () => {
       await expect(service.rejectUpgradeRequest('req-1', 'admin-1')).resolves.toEqual({ status: 'rejected' });
       expect(query).toHaveBeenCalledTimes(1);
       expect(query.mock.calls[0][1]).toEqual(['req-1', 'rejected', 'admin-1']);
+    });
+  });
+
+  describe('applyReferralCode', () => {
+    it('refuses to reward a referral between two stores owned by the same user', async () => {
+      query
+        .mockResolvedValueOnce([{ id: 'biz-a' }])
+        .mockResolvedValueOnce([{ owner_user_id: 'owner-1' }, { owner_user_id: 'owner-1' }]);
+
+      await expect(service.applyReferralCode('biz-b', 'abc123')).rejects.toThrow(BadRequestException);
+      expect(sqlCalls().some((sql) => sql.includes('INSERT INTO business_referrals'))).toBe(false);
+    });
+
+    it('rewards a referral between different owners', async () => {
+      query
+        .mockResolvedValueOnce([{ id: 'biz-a' }])
+        .mockResolvedValueOnce([{ owner_user_id: 'owner-1' }, { owner_user_id: 'owner-2' }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([]);
+
+      await expect(service.applyReferralCode('biz-b', 'abc123')).resolves.toMatchObject({ bonusDays: 30 });
+      expect(sqlCalls().some((sql) => sql.includes('INSERT INTO business_referrals'))).toBe(true);
     });
   });
 });

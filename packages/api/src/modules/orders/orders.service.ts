@@ -1372,11 +1372,13 @@ export class OrdersService {
     });
   }
 
-  // created_by is a full User relation — never leak the password hash to the client.
+  // created_by is a full User relation. Allow-list what the client may see (who placed the order):
+  // stripping only the password hash still leaked the staff member's email, Google id and
+  // session-invalidation timestamp to anyone who can read the order, table guests included.
   private sanitizeCreatedBy<T extends { created_by?: any }>(order: T): T {
     if (order.created_by) {
-      const { password_hash, ...safe } = order.created_by;
-      order.created_by = safe;
+      const { id, full_name, role } = order.created_by;
+      order.created_by = { id, full_name, role };
     }
     return order;
   }

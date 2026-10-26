@@ -9,6 +9,9 @@ dotenv.config({ path: path.resolve(process.cwd(), "../../.env.local") });
 dotenv.config();
 
 const isManagedPostgres = !!process.env.DATABASE_URL;
+// A self-hosted Postgres (DB_HOST/DB_PASSWORD, no DATABASE_URL) in production must behave like a managed one:
+// no schema auto-sync and no query logging (which prints OTP codes and password hashes).
+const isDevelopmentDatabase = !isManagedPostgres && process.env.NODE_ENV !== "production";
 
 // The local-development fallback below ships a well-known password. Outside
 // development, refuse to start with it rather than quietly connecting (or
@@ -46,7 +49,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
   // Every environment uses the same versioned migration history. Automatic
   // synchronization can silently alter a developer database differently from
   // production and leaves raw SQL tables (such as subscriptions) unmanaged.
-  synchronize: !isManagedPostgres,
+  synchronize: isDevelopmentDatabase,
   // No deploy step runs `npm run migration:run` — the single API container
   // applies pending migrations itself on boot. If the API is ever scaled to
   // several replicas, move this into a one-off deploy job and set it to
@@ -55,6 +58,6 @@ export const databaseConfig: TypeOrmModuleOptions = {
   // Full query logging prints every parameter — OTP codes, password hashes,
   // staff passwords, customer phone numbers — into the server logs. Keep it
   // for local development only; DB_LOG_QUERIES=true turns it on elsewhere.
-  logging: !isManagedPostgres || process.env.DB_LOG_QUERIES === "true" ? true : ["error", "warn", "migration"],
+  logging: isDevelopmentDatabase || process.env.DB_LOG_QUERIES === "true" ? true : ["error", "warn", "migration"],
   dropSchema: false, // Prevents DB from wiping on every file save
 };

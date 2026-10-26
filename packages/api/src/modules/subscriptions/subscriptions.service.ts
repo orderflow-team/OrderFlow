@@ -473,6 +473,9 @@ export class SubscriptionsService {
   }
 
   async applyReferralCode(refereeBusinessId: string, referralCode: string) {
+    if (typeof referralCode !== 'string') {
+      throw new BadRequestException('referralCode is required');
+    }
     const cleanCode = referralCode.trim().toUpperCase();
     const referrerRes = await this.dataSource.query(`SELECT id FROM businesses WHERE UPPER(referral_code) = $1`, [cleanCode]);
     if (!referrerRes || referrerRes.length === 0) {
@@ -481,6 +484,16 @@ export class SubscriptionsService {
 
     const referrerBusinessId = referrerRes[0].id;
     if (referrerBusinessId === refereeBusinessId) {
+      throw new BadRequestException('You cannot refer your own store!');
+    }
+
+    // Two stores of the same owner are one customer: without this, an owner could refer their own
+    // second store for 30 free days each time.
+    const owners = await this.dataSource.query(
+      `SELECT owner_user_id FROM businesses WHERE id IN ($1, $2) AND owner_user_id IS NOT NULL`,
+      [referrerBusinessId, refereeBusinessId],
+    );
+    if (owners?.length === 2 && owners[0].owner_user_id === owners[1].owner_user_id) {
       throw new BadRequestException('You cannot refer your own store!');
     }
 

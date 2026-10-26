@@ -110,7 +110,8 @@ export class SubscriptionsController {
     return this.subscriptionsService.getReferralInfo(businessId, userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @Post('apply-referral')
   async applyReferral(@Req() req: any, @Body() body: { referralCode: string }) {
     let businessId = req.user?.businessId || req.user?.business_id;

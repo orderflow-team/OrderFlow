@@ -688,10 +688,11 @@ export class PlatformAdminService {
         values.push(dto.billing_cycle);
       }
       if (dto.extend_days && dto.extend_days > 0) {
+        const extendDays = Math.min(Math.trunc(Number(dto.extend_days)) || 30, 3650);
         if (dto.status === 'trialing') {
-          updateFields.push(`trial_ends_at = NOW() + INTERVAL '${dto.extend_days} days'`);
+          updateFields.push(`trial_ends_at = NOW() + INTERVAL '${extendDays} days'`);
         } else {
-          updateFields.push(`current_period_end = NOW() + INTERVAL '${dto.extend_days} days'`);
+          updateFields.push(`current_period_end = NOW() + INTERVAL '${extendDays} days'`);
         }
       }
 

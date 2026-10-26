@@ -31,6 +31,7 @@ import { GoogleAuthDto } from "./dto/google-auth.dto";
 import { MailService } from "./mail.service";
 import { UserRole } from "../../common/enums/user-role.enum";
 import { randomInt } from "crypto";
+import { serialByKey } from "./serial-by-key";
 import { LoginAttempts } from "./login-attempts";
 import { MfaService } from "./mfa.service";
 import { VerifyMfaLoginDto } from "./dto/mfa.dto";
@@ -147,7 +148,11 @@ export class AuthService {
     };
   }
 
-  async signup(dto: SignupDto) {
+  signup(dto: SignupDto) {
+    return serialByKey(`signup:${(dto.email || '').toLowerCase().trim()}`, () => this.signupUnlocked(dto));
+  }
+
+  private async signupUnlocked(dto: SignupDto) {
     const email = dto.email.toLowerCase().trim();
     const existing = await this.usersRepository.findOne({
       where: { email: emailMatches(email) },
@@ -503,7 +508,11 @@ export class AuthService {
   }
 
   /** Verifying an OTP logs in an existing user or creates a new passwordless one. */
-  async verifyOtp(dto: VerifyOtpDto) {
+  verifyOtp(dto: VerifyOtpDto) {
+    return serialByKey(`login:${(dto.email || '').toLowerCase()}`, () => this.verifyOtpUnlocked(dto));
+  }
+
+  private async verifyOtpUnlocked(dto: VerifyOtpDto) {
     const email = dto.email.toLowerCase();
 
     // Attempts are tracked against the latest outstanding code for this email
@@ -603,7 +612,11 @@ export class AuthService {
   }
 
   /** Verifies a password-reset code and, if valid, updates the password and logs the user in. */
-  async resetPassword(dto: ResetPasswordDto) {
+  resetPassword(dto: ResetPasswordDto) {
+    return serialByKey(`reset:${(dto.email || '').toLowerCase()}`, () => this.resetPasswordUnlocked(dto));
+  }
+
+  private async resetPasswordUnlocked(dto: ResetPasswordDto) {
     const email = dto.email.toLowerCase();
 
     const latest = await this.otpCodesRepository.findOne({

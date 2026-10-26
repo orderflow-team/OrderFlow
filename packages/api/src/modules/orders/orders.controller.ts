@@ -24,6 +24,8 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BusinessScopeGuard } from '../../common/guards/business-scope.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AllowGuest } from '../../common/decorators/allow-guest.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { getGuestScope, GuestScope } from '../../common/utils/guest-scope';
@@ -57,7 +59,7 @@ type AuthedRequest = Request & { user?: { userId?: string; businessId?: string; 
 // except the four @AllowGuest() ones the self-service order pages call
 // (list/view/create/add items), and each of those is scoped to the guest's
 // own table / takeaway orders below.
-@UseGuards(JwtAuthGuard, BusinessScopeGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, BusinessScopeGuard)
 @Controller('api/orders')
 export class OrdersController {
   private readonly s3 = new S3Client({ forcePathStyle: true });
@@ -272,6 +274,7 @@ export class OrdersController {
     return this.ordersService.replaceItems(id, businessId, dto);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @Delete(':id')
   remove(@Param('id') id: string, @Query('businessId') businessId: string) {
     return this.ordersService.remove(id, businessId);

@@ -208,7 +208,7 @@ describe('PdfService (full DI)', () => {
       invoiceItemsRepo.find.mockResolvedValue([]);
       businessesRepo.findOne.mockResolvedValue({ id: 'biz-1', category: 'pharmacy' });
 
-      const fakePage = { setContent: jest.fn().mockResolvedValue(undefined), pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')), close: jest.fn() };
+      const fakePage = { setJavaScriptEnabled: jest.fn().mockResolvedValue(undefined), setRequestInterception: jest.fn().mockResolvedValue(undefined), on: jest.fn(), setContent: jest.fn().mockResolvedValue(undefined), pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')), close: jest.fn() };
       const fakeBrowser = { newPage: jest.fn().mockResolvedValue(fakePage), on: jest.fn() };
       jest.spyOn(service as any, 'getBrowser').mockResolvedValue(fakeBrowser);
 
@@ -216,6 +216,19 @@ describe('PdfService (full DI)', () => {
 
       expect(renderPharmacyCashMemoHtml).toHaveBeenCalled();
       expect(renderInvoiceHtml).not.toHaveBeenCalled();
+      // The page renders tenant-supplied text, so it must not run scripts or fetch anything but data: URLs.
+      expect(fakePage.setJavaScriptEnabled).toHaveBeenCalledWith(false);
+      expect(fakePage.setRequestInterception).toHaveBeenCalledWith(true);
+      const onRequest = fakePage.on.mock.calls.find(([event]: [string]) => event === 'request')![1];
+      const allowed = { url: () => 'data:image/png;base64,AAAA', continue: jest.fn(), abort: jest.fn() };
+      const blocked = { url: () => 'http://127.0.0.1:3001/api/health', continue: jest.fn(), abort: jest.fn() };
+      const file = { url: () => 'file:///etc/passwd', continue: jest.fn(), abort: jest.fn() };
+      onRequest(allowed);
+      onRequest(blocked);
+      onRequest(file);
+      expect(allowed.continue).toHaveBeenCalled();
+      expect(blocked.abort).toHaveBeenCalled();
+      expect(file.abort).toHaveBeenCalled();
       expect(fs.writeFileSync).toHaveBeenCalled();
       expect(invoicesRepo.save).toHaveBeenCalledWith(expect.objectContaining({ pdf_url: '/api/billing/invoices/inv-1/pdf' }));
       expect(result).toBe(path.join(process.cwd(), 'storage', 'invoices', 'inv-1.pdf'));
@@ -227,7 +240,7 @@ describe('PdfService (full DI)', () => {
       invoiceItemsRepo.find.mockResolvedValue([]);
       businessesRepo.findOne.mockResolvedValue({ id: 'biz-1', category: 'retail' });
 
-      const fakePage = { setContent: jest.fn().mockResolvedValue(undefined), pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')), close: jest.fn() };
+      const fakePage = { setJavaScriptEnabled: jest.fn().mockResolvedValue(undefined), setRequestInterception: jest.fn().mockResolvedValue(undefined), on: jest.fn(), setContent: jest.fn().mockResolvedValue(undefined), pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')), close: jest.fn() };
       const fakeBrowser = { newPage: jest.fn().mockResolvedValue(fakePage), on: jest.fn() };
       jest.spyOn(service as any, 'getBrowser').mockResolvedValue(fakeBrowser);
 
@@ -253,7 +266,7 @@ describe('PdfService (full DI)', () => {
       invoiceItemsRepo.find.mockResolvedValue([]);
       businessesRepo.findOne.mockResolvedValue({ id: 'biz-1', category: 'retail' });
 
-      const fakePage = { setContent: jest.fn().mockRejectedValue(new Error('render failed')), pdf: jest.fn(), close: jest.fn() };
+      const fakePage = { setJavaScriptEnabled: jest.fn().mockResolvedValue(undefined), setRequestInterception: jest.fn().mockResolvedValue(undefined), on: jest.fn(), setContent: jest.fn().mockRejectedValue(new Error('render failed')), pdf: jest.fn(), close: jest.fn() };
       const fakeBrowser = { newPage: jest.fn().mockResolvedValue(fakePage), on: jest.fn() };
       jest.spyOn(service as any, 'getBrowser').mockResolvedValue(fakeBrowser);
 

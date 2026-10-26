@@ -27,11 +27,12 @@ sudo -u postgres createdb orderflow_prod 2>/dev/null || true
 # Step B: Restore the complete database schema, types, indexes, and data
 sudo -u postgres psql -d orderflow_prod -f /tmp/neon_db_backup_complete_with_schema.sql
 
-# Step C: Ensure pgcrypto extension is active & set Super Admin password to admin123
-sudo -u postgres psql -d orderflow_prod -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'admin.cleverminds@gmail.com';"
+# Step C: Enable pgcrypto (needed only if you must reset an account password)
+sudo -u postgres psql -d orderflow_prod -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 
-# Step D: Ensure Owner Admin account is active & reset password to admin123
-sudo -u postgres psql -d orderflow_prod -c "UPDATE users SET password_hash = crypt('admin123', gen_salt('bf', 10)), is_active = true WHERE email = 'bhattneel2004@gmail.com';"
+# Step D (only if an account is locked out): reset ONE account to a NEW strong password you choose.
+# Do not reuse a shared or default password. scripts/restore-vps-db.sh does this for you when
+# RESTORE_ADMIN_EMAIL and RESTORE_ADMIN_PASSWORD are exported (the password is sent on stdin).
 
 # Step E: Ensure Maintenance mode is turned OFF
 sudo -u postgres psql -d orderflow_prod -c "UPDATE platform_settings SET maintenance_mode = false, maintenance_message = NULL;"
@@ -81,9 +82,9 @@ SELECT
 
 ## 🌐 5. Test Live Login Endpoint
 
+Sign in through the web app with an account you know the password for, or check that the API answers:
+
 ```bash
-curl -X POST https://obix360.com/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin.cleverminds@gmail.com","password":"admin123"}'
+curl -s https://obix360.com/api/health
 ```
-Expected output: `{"access_token":"...","user":{...}}` with HTTP 200/201.
+Expected output: `{"status":"ok",...}` with HTTP 200.

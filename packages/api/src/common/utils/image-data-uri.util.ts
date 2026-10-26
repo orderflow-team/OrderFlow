@@ -19,8 +19,8 @@ export function loadImageDataUri(url: string | null | undefined): string | null 
   if (!url) return null;
   const mimeType = IMAGE_MIME_TYPES[path.extname(url).toLowerCase()];
   if (!mimeType) return null;
-  const filePath = uploadsFilePathFromUrl(url);
   try {
+    const filePath = uploadsFilePathFromUrl(url);
     const buffer = fs.readFileSync(filePath);
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
   } catch {

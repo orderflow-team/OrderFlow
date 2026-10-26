@@ -13,16 +13,25 @@ import { DevToolsService } from '../dev-tools/dev-tools.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { uploadsFilePathFromUrl } from '../../common/utils/public-url.util';
 
+/** Deletes a file under uploads/ only; a stored value that points anywhere else is ignored. */
+function unlinkUpload(url: string) {
+  try {
+    fs.unlink(uploadsFilePathFromUrl(url), () => {});
+  } catch {
+    // Not a path inside uploads/ (or not a parsable URL): nothing of ours to delete.
+  }
+}
+
 /** Best-effort cleanup of a previously uploaded logo so replacing/removing it doesn't leak files under uploads/logos. */
 function deleteLogoFile(logoUrl: string | null | undefined) {
   if (!logoUrl || !logoUrl.includes('/uploads/logos/')) return;
-  fs.unlink(uploadsFilePathFromUrl(logoUrl), () => {});
+  unlinkUpload(logoUrl);
 }
 
 /** Best-effort cleanup of a previously uploaded UPI QR image so replacing/removing it doesn't leak files under uploads/upi-qr. */
 function deleteUpiQrFile(upiQrUrl: string | null | undefined) {
   if (!upiQrUrl || !upiQrUrl.includes('/uploads/upi-qr/')) return;
-  fs.unlink(uploadsFilePathFromUrl(upiQrUrl), () => {});
+  unlinkUpload(upiQrUrl);
 }
 
 @Injectable()
@@ -47,7 +56,6 @@ export class BusinessesService {
       address: dto.address,
       currency: dto.currency ?? 'INR',
       timezone: dto.timezone ?? 'Asia/Kolkata',
-      logo_url: dto.logoUrl,
       inventory_enabled: dto.inventoryEnabled ?? true,
       ai_chat_enabled: dto.aiChatEnabled ?? true,
       allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? true,
@@ -145,7 +153,6 @@ export class BusinessesService {
       address: dto.address ?? business.address,
       currency: dto.currency ?? business.currency,
       timezone: dto.timezone ?? business.timezone,
-      logo_url: dto.logoUrl ?? business.logo_url,
       inventory_enabled: dto.inventoryEnabled ?? business.inventory_enabled,
       ai_chat_enabled: dto.aiChatEnabled ?? business.ai_chat_enabled,
       allow_orders_beyond_stock: dto.allowOrdersBeyondStock ?? business.allow_orders_beyond_stock,
@@ -238,6 +245,7 @@ export class BusinessesService {
 
       // 2. Orders, billing, KOT, and commissions
       await manager.query(`DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE business_id = $1)`, [id]);
+      await manager.query(`DELETE FROM container_ledger WHERE business_id = $1`, [id]);
       await manager.query(`DELETE FROM payments WHERE business_id = $1`, [id]);
       await manager.query(`UPDATE invoices SET reference_invoice_id = NULL WHERE business_id = $1`, [id]);
       await manager.query(`DELETE FROM invoice_items WHERE invoice_id IN (SELECT id FROM invoices WHERE business_id = $1)`, [id]);
